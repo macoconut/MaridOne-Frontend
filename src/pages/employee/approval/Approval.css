@@ -1,0 +1,132 @@
+.appr{
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+
+.appr__head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+
+.appr__title{
+  font-size:32px;
+  font-weight:800;
+  color:#2b2036;
+  margin:2px 0 4px;
+}
+
+.appr__stats{
+  display:flex;
+  gap:18px;
+  align-items:center;
+}
+
+.apprCard{
+  width: 160px;
+  background:#fff;
+  border:1.5px solid rgba(0,0,0,0.14);
+  border-radius:12px;
+  box-shadow: 0 6px 14px rgba(0,0,0,0.12);
+  padding:12px 12px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.apprCard__ring{
+  width:34px;
+  height:34px;
+  border-radius:50%;
+  border:6px solid #7b4a8f;
+  border-right-color: transparent;
+  border-bottom-color: transparent;
+  transform: rotate(-40deg);
+}
+
+.apprCard__ring--approved{ border-color:#7b4a8f; border-right-color:transparent; border-bottom-color:transparent; }
+.apprCard__ring--denied{ border-color:#b24c4c; border-right-color:transparent; border-bottom-color:transparent; }
+.apprCard__ring--pending{ border-color:#8a6bb0; border-right-color:transparent; border-bottom-color:transparent; }
+
+.apprCard__label{
+  font-weight:800;
+  font-size:12px;
+  color:#2b2036;
+}
+
+.apprCard__value{
+  font-size:11px;
+  color:rgba(0,0,0,0.6);
+}
+
+.apprTable{
+  background:#fff;
+  border-radius:12px;
+  border:1.6px solid rgba(0,0,0,0.18);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.12);
+  overflow:hidden;
+}
+
+.apprTable__head{
+  background:#3b2257;
+  color:#fff;
+  font-weight:800;
+  font-size:12px;
+  display:grid;
+  grid-template-columns: 1.2fr 1fr 1fr 1.2fr 0.8fr 0.8fr 0.8fr;
+  gap:0;
+  padding:10px 16px;
+}
+
+.apprTable__body{
+  display:flex;
+  flex-direction:column;
+}
+
+.apprRow{
+  display:grid;
+  grid-template-columns: 1.2fr 1fr 1fr 1.2fr 0.8fr 0.8fr 0.8fr;
+  padding:12px 16px;
+  font-size:12px;
+  border-bottom:1px solid rgba(0,0,0,0.08);
+  background:#fff;
+}
+
+.apprRow:nth-child(odd){
+  background:#f2f2f2;
+}
+
+.apprStatus{
+  font-weight:700;
+}
+
+.apprStatus--pending{
+  color:#5b3b79;
+}
+.apprStatus--approved{
+  color:#2f7a4f;
+}
+.apprStatus--denied{
+  color:#b24c4c;
+}
+
+@media (max-width: 1200px){
+  .appr__stats{ flex-wrap:wrap; }
+  .apprTable__head,
+  .apprRow{
+    grid-template-columns: 1.1fr 1fr 1fr 1.1fr 0.8fr 0.8fr 0.8fr;
+  }
+}
+
+@media (max-width: 980px){
+  .apprTable__head,
+  .apprRow{
+    grid-template-columns: 1.3fr 1fr 1fr 1.1fr;
+  }
+
+  .apprTable__head div:nth-child(n+5),
+  .apprRow div:nth-child(n+5){
+    display:none;
+  }
+}

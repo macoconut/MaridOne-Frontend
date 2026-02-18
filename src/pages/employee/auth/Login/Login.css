@@ -1,0 +1,176 @@
+/* Split layout */
+.elogin {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+/* LEFT SIDE */
+.elogin__left {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 28px;
+}
+
+.eloginCard {
+  width: min(520px, 100%);
+  background: #fbf6f1;
+  border-radius: 14px;
+  padding: 26px 30px;
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.12),
+    0 2px 6px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+/* FORM */
+.eloginForm {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #2a202f;
+}
+
+.field__input {
+  height: 34px;
+  border: 1.6px solid rgba(0, 0, 0, 0.5);
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 13px;
+  background: #fffdfb;
+  outline: none;
+}
+
+.field__input:focus {
+  border-color: #7b4a8f;
+  box-shadow: 0 0 0 3px rgba(123, 74, 143, 0.15);
+}
+
+/* PASSWORD */
+.passwordWrap {
+  position: relative;
+}
+
+.passwordWrap__input {
+  padding-right: 36px;
+}
+
+.eyeBtn {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  height: 24px;
+  width: 28px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.eloginRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+
+.remember {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #2a202f;
+}
+
+.submitBtn {
+  padding: 8px 24px;
+  border-radius: 12px;
+  border: none;
+  background: #7b4a8f;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow: 0 6px 12px rgba(123, 74, 143, 0.25);
+}
+
+.submitBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* RIGHT SIDE */
+.elogin__right {
+  position: relative;
+  overflow: hidden;
+  border-top-left-radius: 140px;
+  border-bottom-left-radius: 0px;
+}
+
+.eloginHero {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.eloginHero__img {
+  width: 100%;
+  height: 100%;
+  background:
+    linear-gradient(0deg, rgba(52, 24, 77, 0.65), rgba(52, 24, 77, 0.65)),
+    url('/images/login-hero.jpg') center / cover no-repeat;
+}
+
+/* Brand overlay (logo + MaridOne) */
+.eloginHero__brand {
+  position: absolute;
+  left: 50%;
+  top: 54%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.eloginHero__icon {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+}
+
+.eloginHero__name {
+  font-size: 58px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+}
+
+/* RESPONSIVE */
+@media (max-width: 980px) {
+  .elogin {
+    grid-template-columns: 1fr;
+  }
+
+  .elogin__right {
+    min-height: 320px;
+    border-top-left-radius: 80px;
+  }
+
+  .eloginHero__name {
+    font-size: 42px;
+  }
+}
