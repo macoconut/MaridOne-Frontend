@@ -1,6 +1,15 @@
 import './Dashboard.css';
 
 export default function Dashboard() {
+  const now = new Date();
+  const monthLabel = now.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  const year = now.getFullYear();
+  const monthIndex = now.getMonth();
+  const firstDay = new Date(year, monthIndex, 1);
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const mondayBasedStart = (firstDay.getDay() + 6) % 7;
+  const totalCells = Math.ceil((mondayBasedStart + daysInMonth) / 7) * 7;
+
   return (
     <div className="dashPage">
       {/* INFO CARD */}
@@ -15,9 +24,7 @@ export default function Dashboard() {
           <div className="infoCardX__left">
             <div className="infoCardX__photo" aria-hidden="true" />
             <div className="infoCardX__name">
-              Juan Carlos
-              <br />
-              L. Dela Cruz
+              Employee Name
             </div>
           </div>
 
@@ -27,15 +34,15 @@ export default function Dashboard() {
           <div className="infoCardX__mid">
             <div className="infoRow">
               <span className="infoRow__icon">⌂</span>
-              <span>UST, Sampaloc, Manila, Metro Manila, Philippines</span>
+              <span>Address not available</span>
             </div>
             <div className="infoRow">
               <span className="infoRow__icon">✉</span>
-              <span className="infoRow__link">employeenumber67@marid.com</span>
+              <span className="infoRow__link">Email not available</span>
             </div>
             <div className="infoRow">
               <span className="infoRow__icon">☎</span>
-              <span>+63 912 345 6789</span>
+              <span>Phone not available</span>
             </div>
           </div>
 
@@ -45,18 +52,17 @@ export default function Dashboard() {
           <div className="infoCardX__right">
             <div className="statBlock">
               <div className="statBlock__label">Part of Marid since:</div>
-              <div className="statBlock__value">February 28, 2023</div>
+              <div className="statBlock__value">Not available</div>
             </div>
 
             <div className="statBlock">
               <div className="statBlock__label">Last Login:</div>
-              <div className="statBlock__value">January 6, 2024; 12:59 PM</div>
+              <div className="statBlock__value">Not available</div>
             </div>
 
             <div className="statBlock">
               <div className="statBlock__label">Last attendance:</div>
-              <div className="statBlock__value">January 6, 2024; 6:55 AM</div>
-              <div className="statBlock__sub">Time-In</div>
+              <div className="statBlock__value">Not available</div>
             </div>
           </div>
         </div>
@@ -96,8 +102,8 @@ export default function Dashboard() {
                 <div className="miniFolder__body">
                   <div className="miniFolder__name">Updated Training v1.5</div>
                   <ul>
-                    <li>Lorem ipsum dolor sit amet</li>
-                    <li>Lorem ipsum dolor sit amet</li>
+                    <li>Revised workflow and role responsibilities</li>
+                    <li>Latest internal tool usage guidelines</li>
                   </ul>
                   <button className="miniFolder__btn" type="button">View Training Materials</button>
                 </div>
@@ -108,8 +114,8 @@ export default function Dashboard() {
                 <div className="miniFolder__body">
                   <div className="miniFolder__name">Updated Onboarding v1.5</div>
                   <ul>
-                    <li>Lorem ipsum dolor sit amet</li>
-                    <li>Lorem ipsum dolor sit amet</li>
+                    <li>Updated employee account setup process</li>
+                    <li>Current onboarding checkpoints and contacts</li>
                   </ul>
                   <button className="miniFolder__btn" type="button">View Onboarding Materials</button>
                 </div>
@@ -126,8 +132,8 @@ export default function Dashboard() {
               <div className="handbookRow__body">
                 <div className="handbookRow__name">Updated Handbook v2.1</div>
                 <ul>
-                  <li>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</li>
-                  <li>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</li>
+                  <li>Current HR policies and attendance rules.</li>
+                  <li>Code of conduct and reporting procedures.</li>
                 </ul>
 
                 <div className="handbookRow__actions">
@@ -142,10 +148,10 @@ export default function Dashboard() {
         {/* right calendar */}
         <div className="cardX cardX--calendar">
           <div className="cardX__title">Company Events</div>
-          <div className="calendarShell" aria-label="Calendar placeholder">
+          <div className="calendarShell" aria-label="Company events calendar">
             <div className="calendarShell__top">
               <span>‹</span>
-              <strong>April 2024</strong>
+              <strong>{monthLabel}</strong>
               <span>›</span>
             </div>
 
@@ -153,11 +159,16 @@ export default function Dashboard() {
               <div className="calHead">MO</div><div className="calHead">TU</div><div className="calHead">WE</div>
               <div className="calHead">TH</div><div className="calHead">FR</div><div className="calHead">SA</div><div className="calHead">SU</div>
 
-              {Array.from({ length: 35 }).map((_, i) => (
-                <div key={i} className={`calCell ${i === 24 ? 'is-event' : ''}`}>
-                  {i > 2 && i < 33 ? i - 2 : ''}
-                </div>
-              ))}
+              {Array.from({ length: totalCells }).map((_, i) => {
+                const dayNumber = i - mondayBasedStart + 1;
+                const value = dayNumber > 0 && dayNumber <= daysInMonth ? dayNumber : '';
+
+                return (
+                  <div key={i} className="calCell">
+                    {value}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

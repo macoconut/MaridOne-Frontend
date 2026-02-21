@@ -1,15 +1,21 @@
 import './Payslip.css';
 
 export default function Payslip() {
+  const payslipPeriods: string[] = [];
+  const earnings: Array<{ label: string; amount: string }> = [];
+  const deductions: Array<{ label: string; amount: string }> = [];
+
   return (
     <div className="pay">
       <div className="pay__head">
         <h1 className="pay__title">Payslips</h1>
         <div className="pay__selectWrap">
-          <select className="pay__select" defaultValue="March 30, 2024">
-            <option>March 30, 2024</option>
-            <option>February 29, 2024</option>
-            <option>January 31, 2024</option>
+          <select className="pay__select" disabled={payslipPeriods.length === 0}>
+            {payslipPeriods.length > 0 ? (
+              payslipPeriods.map((period) => <option key={period}>{period}</option>)
+            ) : (
+              <option>No payslip periods available</option>
+            )}
           </select>
         </div>
       </div>
@@ -72,25 +78,22 @@ export default function Payslip() {
               <div>Earnings</div>
               <div>Amount</div>
             </div>
-            <div className="payTable__row">
-              <span>Basic Salary</span>
-              <span>PHP 67,000.00</span>
-            </div>
-            <div className="payTable__row">
-              <span>Incentive Pay</span>
-              <span>PHP 6,700.00</span>
-            </div>
-            <div className="payTable__row">
-              <span>Other Allowances</span>
-              <span>PHP 670.00</span>
-            </div>
-            <div className="payTable__row">
-              <span>&lt;insert more if needed&gt;</span>
-              <span />
-            </div>
+            {earnings.length > 0 ? (
+              earnings.map((item) => (
+                <div className="payTable__row" key={item.label}>
+                  <span>{item.label}</span>
+                  <span>{item.amount}</span>
+                </div>
+              ))
+            ) : (
+              <div className="payTable__row">
+                <span>No earnings data available</span>
+                <span>-</span>
+              </div>
+            )}
             <div className="payTable__total">
               <span>Total Earnings</span>
-              <span>PHP 74,370.00</span>
+              <span>-</span>
             </div>
           </div>
 
@@ -99,29 +102,26 @@ export default function Payslip() {
               <div>Deductions</div>
               <div>Amount</div>
             </div>
-            <div className="payTable__row">
-              <span>SSS</span>
-              <span>PHP 670.00</span>
-            </div>
-            <div className="payTable__row">
-              <span>PAGIBIG</span>
-              <span>PHP 670.00</span>
-            </div>
-            <div className="payTable__row">
-              <span>PhilHealth</span>
-              <span>PHP 670.00</span>
-            </div>
-            <div className="payTable__row">
-              <span>Withholding Tax</span>
-              <span>PHP 670.00</span>
-            </div>
+            {deductions.length > 0 ? (
+              deductions.map((item) => (
+                <div className="payTable__row" key={item.label}>
+                  <span>{item.label}</span>
+                  <span>{item.amount}</span>
+                </div>
+              ))
+            ) : (
+              <div className="payTable__row">
+                <span>No deductions data available</span>
+                <span>-</span>
+              </div>
+            )}
             <div className="payTable__total">
               <span>Total Deductions</span>
-              <span>PHP 2,680.00</span>
+              <span>-</span>
             </div>
             <div className="payTable__net">
               <span>Net Pay</span>
-              <span>PHP 71,690.00</span>
+              <span>-</span>
             </div>
           </div>
         </div>

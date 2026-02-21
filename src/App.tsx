@@ -27,7 +27,7 @@ export default function App() {
           <Route path="attendance" element={<Attendance />} />
           <Route path="approvals" element={<Approval />} />
           <Route path="payslip" element={<Payslip />} />
-          <Route path="training" element={<Training />}
+          <Route path="training" element={<Training />} />
         </Route>
       </Routes>
     </BrowserRouter>

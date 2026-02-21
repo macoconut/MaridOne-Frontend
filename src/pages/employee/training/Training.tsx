@@ -17,7 +17,6 @@ const sections: MaterialSection[] = [
       'Filing Leave and OT Requests Manual',
       'Updating Personal Information Manual',
       'Dashboard Walkthrough',
-      '<add more if needed>',
     ],
   },
   {
@@ -28,7 +27,6 @@ const sections: MaterialSection[] = [
       'How to Manage Orders?',
       '5 Methods of Managing Orders',
       '10 Tips from Managers',
-      '<add more if needed>',
     ],
   },
 ];

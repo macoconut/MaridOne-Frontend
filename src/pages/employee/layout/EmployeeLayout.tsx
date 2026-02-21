@@ -20,27 +20,7 @@ type NotificationItem = {
   time: string;
 };
 
-const notifications: NotificationItem[] = [
-  { id: '1', title: 'Your leave request has been approved.', time: '1h ago' },
-  {
-    id: '2',
-    title: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
-    description: 'Nullam blandit turpis vel',
-    time: '2h ago',
-  },
-  {
-    id: '3',
-    title: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
-    description: 'Nullam blandit turpis vel',
-    time: '2h ago',
-  },
-  {
-    id: '4',
-    title: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
-    description: 'Nullam blandit turpis vel',
-    time: '2h ago',
-  },
-];
+const notifications: NotificationItem[] = [];
 
 export default function EmployeeLayout() {
   const [notifOpen, setNotifOpen] = useState(false);
@@ -71,7 +51,11 @@ export default function EmployeeLayout() {
     };
   }, [notifOpen]);
 
-  const unreadCount = 2; // match figma for now
+  const unreadCount = notifications.length;
+  const todayLabel = new Date().toLocaleDateString(undefined, {
+    month: 'long',
+    day: 'numeric',
+  });
 
   return (
     <div className="employeeLayout">
@@ -135,7 +119,7 @@ export default function EmployeeLayout() {
         {/* top bar */}
         <header className="eTop">
           <div className="eTop__left">
-            <div className="eTop__title">Employee#67</div>
+            <div className="eTop__title">Employee</div>
             <span className="eTop__badge">Employee</span>
           </div>
 
@@ -150,7 +134,7 @@ export default function EmployeeLayout() {
               onClick={() => setNotifOpen((v) => !v)}
             >
               <FiBell />
-              <span className="notif__badge">{unreadCount}</span>
+              {unreadCount > 0 && <span className="notif__badge">{unreadCount}</span>}
             </button>
 
             {/* Backdrop */}
@@ -161,24 +145,36 @@ export default function EmployeeLayout() {
               <div ref={panelRef} className="notifPanel" role="dialog" aria-label="Notifications">
                 <div className="notifPanel__header">
                   <div className="notifPanel__title">Notifications ({unreadCount})</div>
-                  <div className="notifPanel__date">Today, November 18</div>
+                  <div className="notifPanel__date">Today, {todayLabel}</div>
                 </div>
 
                 <div className="notifPanel__list">
-                  {notifications.map((n) => (
-                    <div key={n.id} className="notifItem">
+                  {notifications.length > 0 ? (
+                    notifications.map((n) => (
+                      <div key={n.id} className="notifItem">
+                        <div className="notifItem__icon">
+                          <FiCheckCircle />
+                        </div>
+
+                        <div className="notifItem__body">
+                          <div className="notifItem__title">{n.title}</div>
+                          {n.description && <div className="notifItem__msg">{n.description}</div>}
+                        </div>
+
+                        <div className="notifItem__time">{n.time}</div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="notifItem">
                       <div className="notifItem__icon">
                         <FiCheckCircle />
                       </div>
-
                       <div className="notifItem__body">
-                        <div className="notifItem__title">{n.title}</div>
-                        {n.description && <div className="notifItem__msg">{n.description}</div>}
+                        <div className="notifItem__title">No new notifications.</div>
                       </div>
-
-                      <div className="notifItem__time">{n.time}</div>
+                      <div className="notifItem__time">Now</div>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             )}
@@ -203,7 +199,7 @@ export default function EmployeeLayout() {
               </div>
             </div>
 
-            <div className="eFooter__slogan">insert slogan of Marid Industries here</div>
+            <div className="eFooter__slogan">Smart packaging solutions for modern food service.</div>
             <div className="eFooter__copy">© 2026 Marid Industries Corporation</div>
           </div>
 

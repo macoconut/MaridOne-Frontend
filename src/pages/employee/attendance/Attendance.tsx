@@ -10,17 +10,6 @@ type DayCell = {
   variant?: 'approved' | 'pending' | 'holiday';
 };
 
-const MONTH_LABEL = 'April 2024';
-
-// Simple mock highlights like your screenshot (19–23 area)
-const mockTags: Record<number, DayCell> = {
-  19: { day: 19, note: 'Approved LEAVE', variant: 'approved' },
-  20: { day: 20, note: 'Pending application for OT', variant: 'pending' },
-  21: { day: 21, note: 'Pending application for OT', variant: 'pending' },
-  22: { day: 22, note: 'Pending application for OT', variant: 'pending' },
-  23: { day: 23, note: 'Approved HOLIDAY PAY', variant: 'holiday' },
-};
-
 function pad2(n: number) {
   return String(n).padStart(2, '0');
 }
@@ -31,11 +20,15 @@ function toISODate(year: number, monthIndex: number, day: number) {
 }
 
 export default function Attendance() {
-  // April 2024
-  const year = 2024;
-  const monthIndex = 3; // April
+  const today = new Date();
+  const year = today.getFullYear();
+  const monthIndex = today.getMonth();
+  const monthLabel = new Date(year, monthIndex, 1).toLocaleDateString(undefined, {
+    month: 'long',
+    year: 'numeric',
+  });
 
-  const [monthValue, setMonthValue] = useState(MONTH_LABEL);
+  const [monthValue, setMonthValue] = useState(monthLabel);
 
   // Leave modal state
   const [leaveOpen, setLeaveOpen] = useState(false);
@@ -70,16 +63,14 @@ export default function Attendance() {
 
     // actual days
     for (let d = 1; d <= daysInMonth; d++) {
-      const tagged = mockTags[d];
-      if (tagged) cells.push(tagged);
-      else cells.push({ day: d });
+      cells.push({ day: d });
     }
 
     // trailing blanks to fill full weeks
     while (cells.length % 7 !== 0) cells.push({ day: null });
 
     return cells;
-  }, []);
+  }, [monthIndex, year]);
 
   function openLeaveForDay(day: number) {
     setSelectedDay(day);
@@ -97,7 +88,6 @@ export default function Attendance() {
   }
 
   function submitLeave() {
-    // TEMP: later replace with API call
     console.log('LEAVE SUBMIT', {
       leaveType,
       startDate,
@@ -122,9 +112,7 @@ export default function Attendance() {
               value={monthValue}
               onChange={(e) => setMonthValue(e.target.value)}
             >
-              <option>April 2024</option>
-              <option>March 2024</option>
-              <option>May 2024</option>
+              <option>{monthLabel}</option>
             </select>
           </div>
         </div>
@@ -133,7 +121,7 @@ export default function Attendance() {
       {/* Calendar card */}
       <section className="attCard">
         <div className="attCard__monthBar">
-          <div className="attCard__monthLabel">{MONTH_LABEL}</div>
+          <div className="attCard__monthLabel">{monthValue}</div>
         </div>
 
         <div className="cal">
@@ -162,7 +150,7 @@ export default function Attendance() {
                 className={cls}
                 disabled={!clickable}
                 onClick={() => c.day && openLeaveForDay(c.day)}
-                aria-label={c.day ? `Open leave form for ${MONTH_LABEL} ${c.day}` : 'Empty'}
+                aria-label={c.day ? `Open leave form for ${monthValue} ${c.day}` : 'Empty'}
               >
                 {c.day && <div className="cal__day">{c.day}</div>}
                 {c.note && <div className="cal__note">{c.note}</div>}
@@ -184,7 +172,7 @@ export default function Attendance() {
         <button
           className="attBtn"
           type="button"
-          onClick={() => alert('OT modal next (we can copy the leave modal pattern).')}
+          disabled
         >
           <span>Request OT</span>
           <span className="attBtn__icon">
@@ -253,7 +241,7 @@ export default function Attendance() {
                 <label className="label">Reason for Leave:</label>
                 <textarea
                   className="textarea"
-                  placeholder="e.g. Lorem ipsum dolor sit amet..."
+                  placeholder="Enter reason for leave"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
                 />
