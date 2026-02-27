@@ -1,18 +1,55 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { setSession } from '../../../../lib/session';
 import './Login.css';
+
+type MockAccount = {
+  role: 'employee' | 'hr';
+  route: string;
+  aliases: string[];
+  password: string;
+};
+
+const mockAccounts: MockAccount[] = [
+  {
+    role: 'employee',
+    route: '/employee/dashboard',
+    aliases: ['employee', 'employee@marid.com'],
+    password: 'employee123',
+  },
+  {
+    role: 'hr',
+    route: '/hr/dashboard',
+    aliases: ['hr', 'hr@marid.com'],
+    password: 'hr123',
+  },
+];
 
 export default function EmployeeLogin() {
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    navigate('/employee/dashboard'); // TEMP: always redirect
+
+    const normalized = username.trim().toLowerCase();
+    const matchedAccount = mockAccounts.find(
+      (account) => account.aliases.includes(normalized) && account.password === password
+    );
+
+    if (!matchedAccount) {
+      setError('Invalid username/email or password.');
+      return;
+    }
+
+    setError('');
+    setSession(matchedAccount.role, normalized, remember);
+    navigate(matchedAccount.route);
   }
 
   return (
@@ -22,15 +59,15 @@ export default function EmployeeLogin() {
         <div className="eloginCard">
           <form className="eloginForm" onSubmit={handleSubmit}>
             <div className="field">
-              <label className="field__label" htmlFor="email">
-                Email Address
+              <label className="field__label" htmlFor="username">
+                Username or Email
               </label>
               <input
-                id="email"
+                id="username"
                 className="field__input"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
               />
             </div>
 
@@ -58,6 +95,13 @@ export default function EmployeeLogin() {
                 </button>
               </div>
             </div>
+
+            <div className="eloginHint">
+              <div>Employee: `employee` / `employee123`</div>
+              <div>HR: `hr` / `hr123`</div>
+            </div>
+
+            {error && <div className="eloginError">{error}</div>}
 
             <div className="eloginRow">
               <label className="remember">

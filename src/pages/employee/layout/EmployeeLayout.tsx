@@ -1,4 +1,4 @@
-import { Outlet, NavLink } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import {
   FiGrid,
@@ -12,6 +12,8 @@ import {
 } from 'react-icons/fi';
 
 import './EmployeeLayout.css';
+import { clearSession } from '../../../lib/session';
+import { BACKEND_TEST_MODE } from '../../../config/flags';
 
 type NotificationItem = {
   id: string;
@@ -23,7 +25,31 @@ type NotificationItem = {
 const notifications: NotificationItem[] = [];
 
 export default function EmployeeLayout() {
+  const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
+  const [backendAction, setBackendAction] = useState<string>('None');
+  const backendActions = [
+    {
+      label: 'Fetch Profile',
+      request: 'GET /employee/profile',
+      description: 'Loads the current employee profile details from the backend.',
+    },
+    {
+      label: 'Fetch Attendance',
+      request: 'GET /employee/attendance/summary',
+      description: 'Gets attendance summary data for the logged-in employee.',
+    },
+    {
+      label: 'Fetch Latest Payslip',
+      request: 'GET /employee/payslip/latest',
+      description: 'Retrieves the latest available payslip record.',
+    },
+    {
+      label: 'Fetch Approvals',
+      request: 'GET /employee/approvals',
+      description: 'Gets current approval requests relevant to this employee.',
+    },
+  ];
 
   const bellRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -56,6 +82,15 @@ export default function EmployeeLayout() {
     month: 'long',
     day: 'numeric',
   });
+
+  function handleLogout() {
+    clearSession();
+    navigate('/login', { replace: true });
+  }
+
+  function handleBackendTest(action: string) {
+    setBackendAction(action);
+  }
 
   return (
     <div className="employeeLayout">
@@ -108,7 +143,7 @@ export default function EmployeeLayout() {
           </NavLink>
         </nav>
 
-        <button className="eSide__logout" type="button">
+        <button className="eSide__logout" type="button" onClick={handleLogout}>
           <FiLogOut className="eSide__icon" />
           <span>Logout</span>
         </button>
@@ -183,7 +218,28 @@ export default function EmployeeLayout() {
 
         {/* page */}
         <main className="eContent">
-          <Outlet />
+          {BACKEND_TEST_MODE ? (
+            <section className="backendTest" aria-label="Employee backend testing controls">
+              <div className="backendTest__head">
+                <h2>Backend Testing w/ Arturtur</h2>
+                <span>Last action: {backendAction}</span>
+              </div>
+
+              <div className="backendTest__actions">
+                {backendActions.map((action) => (
+                  <article key={action.request} className="backendTest__card">
+                    <button type="button" onClick={() => handleBackendTest(action.request)}>
+                      {action.label}
+                    </button>
+                    <p>{action.description}</p>
+                    <code>{action.request}</code>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : (
+            <Outlet />
+          )}
         </main>
       </div>
 

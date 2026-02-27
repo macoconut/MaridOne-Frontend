@@ -89,6 +89,24 @@
   margin-top: 6px;
 }
 
+.eloginHint {
+  border: 1px dashed rgba(123, 74, 143, 0.45);
+  background: #f8f1fa;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 11px;
+  color: #40254e;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.eloginError {
+  color: #b73045;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .remember {
   display: flex;
   align-items: center;

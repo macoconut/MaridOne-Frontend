@@ -1,0 +1,206 @@
+.hrEmp {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.hrEmp__title {
+  margin: 0;
+  color: #2f2050;
+  font-size: 44px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.hrEmpTable {
+  border: 1px solid rgba(62, 35, 94, 0.35);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.14);
+  background: #fff;
+}
+
+.hrEmpTable__head,
+.hrEmpRow {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr 0.8fr 1.2fr 1fr 1fr;
+  align-items: center;
+}
+
+.hrEmpTable__head {
+  background: #3a205b;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  padding: 9px 14px;
+}
+
+.hrEmpRow {
+  padding: 10px 14px;
+  font-size: 12px;
+  color: #2e2d38;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.hrEmpRow:nth-child(odd) {
+  background: #f6f6f6;
+}
+
+.hrEmpActions {
+  margin-top: auto;
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  padding-top: 24px;
+}
+
+.hrEmpActions button,
+.hrEmpModal__actions button {
+  border: 0;
+  background: #8a4d93;
+  color: #fff;
+  min-width: 128px;
+  height: 38px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 9px rgba(0, 0, 0, 0.2);
+}
+
+.hrEmpModalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.58);
+  z-index: 3000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.hrEmpModal {
+  width: min(880px, 94vw);
+  background: #fff;
+  border-radius: 16px;
+  padding: 16px 16px 12px;
+}
+
+.hrEmpModal h2 {
+  margin: 0;
+  text-align: center;
+  color: #3a205b;
+  font-size: 46px;
+  font-weight: 900;
+}
+
+.hrEmpModal__rule {
+  height: 2px;
+  background: rgba(0, 0, 0, 0.2);
+  margin: 8px 0 12px;
+}
+
+.hrEmpForm,
+.hrEmpDelete {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hrEmpForm__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 18px;
+}
+
+.hrEmpField {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.hrEmpField label {
+  color: #322548;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.hrEmpField input,
+.hrEmpField textarea {
+  border: 1px solid rgba(0, 0, 0, 0.34);
+  border-radius: 2px;
+  background: #f8f7f7;
+  font-size: 12px;
+  color: #21212e;
+  height: 30px;
+  padding: 0 10px;
+}
+
+.hrEmpField input::placeholder,
+.hrEmpField textarea::placeholder {
+  color: #9a9aa1;
+}
+
+.hrEmpField--full {
+  grid-template-columns: auto 1fr;
+}
+
+.hrEmpField--icon {
+  position: relative;
+}
+
+.hrEmpField--icon svg {
+  position: absolute;
+  right: 8px;
+  color: #4d3b6d;
+  pointer-events: none;
+}
+
+.hrEmpField textarea {
+  min-height: 114px;
+  resize: none;
+  padding: 8px 10px;
+}
+
+.hrEmpModal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 10px;
+}
+
+.hrEmpModal.is-delete {
+  width: min(820px, 94vw);
+}
+
+@media (max-width: 1100px) {
+  .hrEmp__title {
+    font-size: 32px;
+  }
+
+  .hrEmpTable__head,
+  .hrEmpRow {
+    grid-template-columns: 1fr 1fr 1fr;
+    row-gap: 6px;
+  }
+
+  .hrEmpTable__head div:nth-child(n + 4),
+  .hrEmpRow div:nth-child(n + 4) {
+    display: none;
+  }
+
+  .hrEmpModal h2 {
+    font-size: 34px;
+  }
+
+  .hrEmpForm__grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .hrEmpField {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+}

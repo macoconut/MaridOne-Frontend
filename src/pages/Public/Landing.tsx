@@ -25,7 +25,7 @@ export default function Landing() {
             <button
               className="nav-btn nav-btn--solid"
               type="button"
-              onClick={() => navigate('employee/login')}
+              onClick={() => navigate('/login')}
             >
               Log in
             </button>
