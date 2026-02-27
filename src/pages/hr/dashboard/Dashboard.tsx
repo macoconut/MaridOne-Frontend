@@ -2,39 +2,39 @@ import { FiChevronLeft, FiChevronRight, FiClock, FiCalendar } from 'react-icons/
 import './Dashboard.css';
 
 const metricCards = [
-  { label: 'Present', value: 67 },
-  { label: 'Absent', value: 67 },
-  { label: 'On Time', value: 34 },
-  { label: 'Late', value: 33 },
+  { label: 'Present', value: 0 },
+  { label: 'Absent', value: 0 },
+  { label: 'On Time', value: 0 },
+  { label: 'Late', value: 0 },
 ];
 
-const departments = ['People Operations', 'Product Manufacturing', 'Product Manufacturing'];
+const departments: string[] = [];
 
-const attendanceFeed = Array.from({ length: 9 }).map((_, idx) => ({
-  id: `feed-${idx}`,
-  name: 'Name',
-  department: 'Department',
-  position: 'Position',
-  time: '30m Ago',
-}));
+const attendanceFeed: Array<{
+  id: string;
+  name: string;
+  department: string;
+  position: string;
+  time: string;
+}> = [];
 
-const lateToday = Array.from({ length: 3 }).map((_, idx) => ({
-  id: `late-${idx}`,
-  name: 'Name',
-  department: 'Department',
-  position: 'Position',
-  timeIn: '8:32 AM',
-  duration: '32m',
-  period: 'This Month - 6 days',
-}));
+const lateToday: Array<{
+  id: string;
+  name: string;
+  department: string;
+  position: string;
+  timeIn: string;
+  duration: string;
+  period: string;
+}> = [];
 
-const onLeave = Array.from({ length: 3 }).map((_, idx) => ({
-  id: `leave-${idx}`,
-  name: 'Name',
-  department: 'Department',
-  position: 'Position',
-  period: 'April 16, 2024 - April 17, 2024',
-}));
+const onLeave: Array<{
+  id: string;
+  name: string;
+  department: string;
+  position: string;
+  period: string;
+}> = [];
 
 export default function HrDashboard() {
   return (
@@ -74,12 +74,16 @@ export default function HrDashboard() {
               </button>
 
               <div className="hrDept__cards">
-                {departments.map((dept, idx) => (
-                  <div key={`${dept}-${idx}`} className="hrDonutCard">
-                    <div className="hrDonut" />
-                    <div className="hrDonutCard__name">{dept}</div>
-                  </div>
-                ))}
+                {departments.length > 0 ? (
+                  departments.map((dept, idx) => (
+                    <div key={`${dept}-${idx}`} className="hrDonutCard">
+                      <div className="hrDonut" />
+                      <div className="hrDonutCard__name">{dept}</div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="hrPerson__meta">No department attendance data yet.</div>
+                )}
               </div>
 
               <button className="hrCircleBtn" type="button" aria-label="Next department page">
@@ -106,48 +110,56 @@ export default function HrDashboard() {
             <section className="hrPanel hrListPanel">
               <div className="hrPanel__header">Late Today</div>
               <div className="hrPeopleList">
-                {lateToday.map((item) => (
-                  <article key={item.id} className="hrPerson">
-                    <div className="hrPerson__avatar" />
-                    <div className="hrPerson__body">
-                      <div className="hrPerson__name">{item.name}</div>
-                      <div className="hrPerson__meta">{item.department}</div>
-                      <div className="hrPerson__meta">{item.position}</div>
-                      <div className="hrPerson__infoRow">
-                        <span>
-                          <FiClock /> {item.timeIn}
-                        </span>
-                        <span>
-                          <FiClock /> {item.duration}
-                        </span>
-                        <span>
-                          <FiCalendar /> {item.period}
-                        </span>
+                {lateToday.length > 0 ? (
+                  lateToday.map((item) => (
+                    <article key={item.id} className="hrPerson">
+                      <div className="hrPerson__avatar" />
+                      <div className="hrPerson__body">
+                        <div className="hrPerson__name">{item.name}</div>
+                        <div className="hrPerson__meta">{item.department}</div>
+                        <div className="hrPerson__meta">{item.position}</div>
+                        <div className="hrPerson__infoRow">
+                          <span>
+                            <FiClock /> {item.timeIn}
+                          </span>
+                          <span>
+                            <FiClock /> {item.duration}
+                          </span>
+                          <span>
+                            <FiCalendar /> {item.period}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  </article>
-                ))}
+                    </article>
+                  ))
+                ) : (
+                  <div className="hrPerson__meta">No late attendance records yet.</div>
+                )}
               </div>
             </section>
 
             <section className="hrPanel hrListPanel">
               <div className="hrPanel__header">On Leave</div>
               <div className="hrPeopleList">
-                {onLeave.map((item) => (
-                  <article key={item.id} className="hrPerson">
-                    <div className="hrPerson__avatar" />
-                    <div className="hrPerson__body">
-                      <div className="hrPerson__name">{item.name}</div>
-                      <div className="hrPerson__meta">{item.department}</div>
-                      <div className="hrPerson__meta">{item.position}</div>
-                      <div className="hrPerson__infoRow">
-                        <span>
-                          <FiCalendar /> {item.period}
-                        </span>
+                {onLeave.length > 0 ? (
+                  onLeave.map((item) => (
+                    <article key={item.id} className="hrPerson">
+                      <div className="hrPerson__avatar" />
+                      <div className="hrPerson__body">
+                        <div className="hrPerson__name">{item.name}</div>
+                        <div className="hrPerson__meta">{item.department}</div>
+                        <div className="hrPerson__meta">{item.position}</div>
+                        <div className="hrPerson__infoRow">
+                          <span>
+                            <FiCalendar /> {item.period}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  </article>
-                ))}
+                    </article>
+                  ))
+                ) : (
+                  <div className="hrPerson__meta">No employees on leave.</div>
+                )}
               </div>
             </section>
           </div>
@@ -156,17 +168,21 @@ export default function HrDashboard() {
         <section className="hrPanel hrFeedPanel">
           <div className="hrPanel__header">Attendance Feed</div>
           <div className="hrPeopleList">
-            {attendanceFeed.map((item) => (
-              <article key={item.id} className="hrPerson">
-                <div className="hrPerson__avatar" />
-                <div className="hrPerson__body">
-                  <div className="hrPerson__name">{item.name}</div>
-                  <div className="hrPerson__meta">{item.department}</div>
-                  <div className="hrPerson__meta">{item.position}</div>
-                </div>
-                <div className="hrPerson__time">{item.time}</div>
-              </article>
-            ))}
+            {attendanceFeed.length > 0 ? (
+              attendanceFeed.map((item) => (
+                <article key={item.id} className="hrPerson">
+                  <div className="hrPerson__avatar" />
+                  <div className="hrPerson__body">
+                    <div className="hrPerson__name">{item.name}</div>
+                    <div className="hrPerson__meta">{item.department}</div>
+                    <div className="hrPerson__meta">{item.position}</div>
+                  </div>
+                  <div className="hrPerson__time">{item.time}</div>
+                </article>
+              ))
+            ) : (
+              <div className="hrPerson__meta">No attendance feed entries yet.</div>
+            )}
           </div>
         </section>
       </div>

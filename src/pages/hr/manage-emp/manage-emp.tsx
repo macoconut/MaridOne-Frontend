@@ -4,14 +4,14 @@ import './manage-emp.css';
 
 type ModalType = 'add' | 'edit' | 'delete' | null;
 
-const employeeRows = Array.from({ length: 5 }).map((_, idx) => ({
-  id: `67676767${idx}`,
-  name: 'Employee#67',
-  status: 'Non-Exempt',
-  email: 'emp6767@gmail.com',
-  phone: '09676767676',
-  position: 'Head of Research',
-}));
+const employeeRows: Array<{
+  id: string;
+  name: string;
+  status: string;
+  email: string;
+  phone: string;
+  position: string;
+}> = [];
 
 export default function HrManageEmp() {
   const [modal, setModal] = useState<ModalType>(null);
@@ -37,16 +37,27 @@ export default function HrManageEmp() {
         </div>
 
         <div className="hrEmpTable__body">
-          {employeeRows.map((row) => (
-            <div key={row.id} className="hrEmpRow">
-              <div>{row.id}</div>
-              <div>{row.name}</div>
-              <div>{row.status}</div>
-              <div>{row.email}</div>
-              <div>{row.phone}</div>
-              <div>{row.position}</div>
+          {employeeRows.length > 0 ? (
+            employeeRows.map((row) => (
+              <div key={row.id} className="hrEmpRow">
+                <div>{row.id}</div>
+                <div>{row.name}</div>
+                <div>{row.status}</div>
+                <div>{row.email}</div>
+                <div>{row.phone}</div>
+                <div>{row.position}</div>
+              </div>
+            ))
+          ) : (
+            <div className="hrEmpRow">
+              <div>No employee records yet.</div>
+              <div />
+              <div />
+              <div />
+              <div />
+              <div />
             </div>
-          ))}
+          )}
         </div>
       </section>
 
@@ -73,66 +84,66 @@ export default function HrManageEmp() {
                 {modal === 'edit' && (
                   <div className="hrEmpField">
                     <label>Employee ID:</label>
-                    <input placeholder="e.g. 67676767" />
+                    <input />
                   </div>
                 )}
 
                 <div className="hrEmpForm__grid">
                   <div className="hrEmpField">
                     <label>First Name:</label>
-                    <input placeholder="e.g. Juan" />
+                    <input />
                   </div>
                   <div className="hrEmpField hrEmpField--icon">
                     <label>Birth Date:</label>
-                    <input placeholder="e.g. January 31, 1999" />
+                    <input />
                     <FiCalendar />
                   </div>
 
                   <div className="hrEmpField">
                     <label>Middle Name:</label>
-                    <input placeholder="e.g. Two" />
+                    <input />
                   </div>
                   <div className="hrEmpField hrEmpField--icon">
                     <label>Employment Date:</label>
-                    <input placeholder="e.g. August 7, 2022" />
+                    <input />
                     <FiCalendar />
                   </div>
 
                   <div className="hrEmpField">
                     <label>Last Name:</label>
-                    <input placeholder="e.g. Tamad" />
+                    <input />
                   </div>
                   <div className="hrEmpField">
                     <label>Employment Status:</label>
-                    <input placeholder="e.g. Exempt" />
+                    <input />
                   </div>
                 </div>
 
                 <div className="hrEmpField hrEmpField--full">
                   <label>Address:</label>
-                  <input placeholder="e.g. Sampaloc, Manila, Metro Manila, Philippines" />
+                  <input />
                 </div>
 
                 <div className="hrEmpForm__grid">
                   <div className="hrEmpField">
                     <label>Email:</label>
-                    <input placeholder="e.g. sample@sample.com" />
+                    <input />
                   </div>
                   <div className="hrEmpField">
                     <label>HRIS Password:</label>
-                    <input placeholder="e.g. password123" />
+                    <input />
                   </div>
 
                   <div className="hrEmpField">
                     <label>Number:</label>
-                    <input placeholder="e.g. 09676767676" />
+                    <input />
                   </div>
                   <div className="hrEmpField" />
                 </div>
 
                 <div className="hrEmpField">
                   <label>Position:</label>
-                  <input placeholder="e.g. Head of Research" />
+                  <input />
                 </div>
               </div>
             ) : (
@@ -140,21 +151,21 @@ export default function HrManageEmp() {
                 <div className="hrEmpForm__grid">
                   <div className="hrEmpField">
                     <label>Employee ID:</label>
-                    <input placeholder="e.g. 67676767" />
+                    <input />
                   </div>
                   <div className="hrEmpField">
                     <label>First Name:</label>
-                    <input placeholder="e.g. Juan" />
+                    <input />
                   </div>
                   <div className="hrEmpField" />
                   <div className="hrEmpField">
                     <label>Middle Name:</label>
-                    <input placeholder="e.g. Two" />
+                    <input />
                   </div>
                   <div className="hrEmpField" />
                   <div className="hrEmpField">
                     <label>Last Name:</label>
-                    <input placeholder="e.g. Tamad" />
+                    <input />
                   </div>
                 </div>
 

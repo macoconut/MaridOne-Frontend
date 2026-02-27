@@ -89,6 +89,13 @@
   margin-top: 6px;
 }
 
+.field__error {
+  margin: -4px 0 0;
+  color: #b42318;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .remember {
   display: flex;
   align-items: center;

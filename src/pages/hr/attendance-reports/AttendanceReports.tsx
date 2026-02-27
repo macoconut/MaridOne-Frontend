@@ -1,15 +1,10 @@
 import { FiSearch, FiFilter } from 'react-icons/fi';
 import './AttendanceReports.css';
 
-const monthLabel = 'April 2024';
+const monthLabel = 'Select Month';
 const days = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
 
-const timeNotes: Record<number, string[]> = {
-  3: ['Time In: 6:55 AM', 'Time Out: 5:10 PM'],
-  4: ['Time In: 6:55 AM', 'Time Out: 5:10 PM'],
-  5: ['Time In: 6:55 AM', 'Time Out: 5:10 PM'],
-  6: ['Time In: 6:55 AM', 'Time Out: N/A'],
-};
+const timeNotes: Record<number, string[]> = {};
 
 function buildApril2024Cells() {
   const year = 2024;
@@ -46,7 +41,7 @@ export default function HrAttendanceReports() {
       </div>
 
       <section className="hrAtt__card">
-        <div className="hrAtt__monthTitle">April2024</div>
+        <div className="hrAtt__monthTitle">No month selected</div>
 
         <div className="hrAtt__grid">
           {days.map((day) => (
