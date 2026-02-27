@@ -1,0 +1,258 @@
+.hrAppr {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hrAppr__title {
+  margin: 0;
+  color: #2f2050;
+  font-size: 24px;
+  font-weight: 900;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hrAppr__tools {
+  display: inline-flex;
+  gap: 6px;
+  color: #3f315e;
+  font-size: 18px;
+}
+
+.hrAppr__cards {
+  display: flex;
+  gap: 12px;
+}
+
+.hrApprCard {
+  border: 1.5px solid rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  background: #fff;
+  min-width: 102px;
+  min-height: 54px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 9px rgba(0, 0, 0, 0.1);
+}
+
+.hrApprCard__ring {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: conic-gradient(#b83573 0 280deg, #f3cad7 280deg 360deg);
+}
+
+.hrApprCard__ring::after {
+  content: '';
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin: 6px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.hrApprCard__label {
+  font-size: 12px;
+  font-weight: 800;
+  color: #2f2050;
+}
+
+.hrApprCard__value {
+  font-size: 12px;
+  color: #2f2050;
+}
+
+.hrApprTable {
+  border: 1.5px solid rgba(62, 35, 94, 0.25);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+  padding: 14px 18px;
+}
+
+.hrApprRow {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.2);
+  background: transparent;
+  display: grid;
+  grid-template-columns: 160px 1fr 90px;
+  gap: 10px;
+  align-items: center;
+  text-align: left;
+  padding: 10px 8px;
+  cursor: pointer;
+}
+
+.hrApprRow:last-child {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.hrApprRow:hover {
+  background: rgba(123, 74, 143, 0.05);
+}
+
+.hrApprRow__employee {
+  font-size: 16px;
+  font-weight: 900;
+  color: #1e1c2e;
+}
+
+.hrApprRow__message {
+  font-size: 16px;
+  color: #2f2c39;
+}
+
+.hrApprRow__time {
+  font-size: 14px;
+  color: #2f2c39;
+  text-align: right;
+}
+
+.hrApprModalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.55);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.hrApprModal {
+  width: min(840px, 94vw);
+  border-radius: 18px;
+  background: #fff;
+  padding: 16px 20px 14px;
+  position: relative;
+}
+
+.hrApprModal__close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  border: 0;
+  background: transparent;
+  color: #2f2050;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.hrApprModal__title {
+  margin: 0;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 900;
+  color: #2f2050;
+}
+
+.hrApprModal__rule {
+  height: 2px;
+  background: rgba(0, 0, 0, 0.22);
+  margin: 8px 0;
+}
+
+.hrApprForm__row {
+  margin-bottom: 8px;
+}
+
+.hrApprForm__row--2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.hrApprForm__row label {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+  align-items: center;
+}
+
+.hrApprForm__row span {
+  font-size: 12px;
+  font-weight: 800;
+  color: #241b34;
+}
+
+.hrApprForm__row input,
+.hrApprForm__row textarea {
+  border: 1px solid rgba(0, 0, 0, 0.34);
+  background: #f8f8f8;
+  border-radius: 3px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: #2f2b38;
+}
+
+.hrApprForm__row textarea {
+  min-height: 72px;
+  resize: none;
+}
+
+.hrApprForm__inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hrApprForm__inline > button,
+.hrApprForm__actions button,
+.hrApprModal__footer button {
+  border: 0;
+  background: #8a4d93;
+  color: #fff;
+  border-radius: 9px;
+  min-width: 84px;
+  height: 28px;
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+}
+
+.hrApprForm__signature {
+  width: 160px;
+  height: 30px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+  background: #f1f1f1;
+  color: rgba(0, 0, 0, 0.42);
+  display: grid;
+  place-items: center;
+}
+
+.hrApprForm__actions {
+  display: flex;
+  gap: 10px;
+}
+
+.hrApprModal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+@media (max-width: 980px) {
+  .hrApprRow {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .hrApprRow__time {
+    text-align: left;
+  }
+
+  .hrApprForm__row--2 {
+    grid-template-columns: 1fr;
+  }
+
+  .hrApprForm__row label {
+    grid-template-columns: 1fr;
+  }
+}

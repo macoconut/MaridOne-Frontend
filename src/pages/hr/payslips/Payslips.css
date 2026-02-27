@@ -1,0 +1,280 @@
+.hrPay {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hrPay__title {
+  margin: 0;
+  font-size: 40px;
+  color: #2f2050;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.hrPayBoard {
+  border: 1.5px solid rgba(63, 38, 102, 0.35);
+  border-radius: 10px;
+  background: #f7f8fb;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+  padding: 12px;
+  display: grid;
+  grid-template-columns: 1fr 0.96fr;
+  gap: 12px;
+}
+
+.hrPayBoard__left,
+.hrPayBoard__right {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hrPayCard {
+  border: 1px solid rgba(0, 0, 0, 0.13);
+  border-radius: 2px;
+  background: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  padding: 10px 12px;
+}
+
+.hrPayCard--muted {
+  min-height: 14px;
+  background: #f0f2f6;
+}
+
+.hrPayCard h3 {
+  margin: 0;
+  font-size: 12px;
+  color: #374252;
+  font-weight: 700;
+}
+
+.hrPayCard p {
+  margin: 0;
+}
+
+.hrPayCard__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.hrPayCard__head p {
+  margin-top: 2px;
+  font-size: 10px;
+  color: #8b95a6;
+}
+
+.hrPayCard__head button {
+  border: 0;
+  background: transparent;
+  color: #a3acba;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.hrPayCard__meta {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: 1.1fr 1.1fr auto;
+  align-items: center;
+  font-size: 9px;
+  color: #94a0b3;
+  gap: 6px;
+}
+
+.hrPayCard__meta .is-status {
+  color: #4f8f4c;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hrPayCard__meta .is-status::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #67be5d;
+}
+
+.hrPayCard__meta strong {
+  color: #5f6d80;
+  font-weight: 700;
+}
+
+.hrPayChart {
+  margin-top: 8px;
+}
+
+.hrPayChart--line svg {
+  width: 100%;
+  height: 62px;
+}
+
+.hrPayChart--line polyline {
+  fill: none;
+  stroke: #57ace4;
+  stroke-width: 1.2;
+}
+
+.hrPayChart--line circle {
+  fill: #fff;
+  stroke: #57ace4;
+  stroke-width: 1;
+}
+
+.hrPayChart__axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 8px;
+  color: #99a2b2;
+  margin-top: 4px;
+}
+
+.hrPayPerf {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.hrPayPerf__row {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.hrPayPerf__row span {
+  font-size: 9px;
+  color: #56a6dd;
+}
+
+.hrPayPerf__row strong {
+  font-size: 9px;
+  color: #556377;
+}
+
+.hrPayPerf__spark {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+}
+
+.hrPayPerf__spark i {
+  width: 7px;
+  background: #bde1f5;
+  border-radius: 1px;
+  height: 20%;
+}
+
+.hrPayPerf__spark i:nth-child(4),
+.hrPayPerf__spark i:nth-child(8) {
+  background: #42abe5;
+  height: 100%;
+}
+
+.hrPayPerf__spark i:nth-child(2),
+.hrPayPerf__spark i:nth-child(6),
+.hrPayPerf__spark i:nth-child(9) {
+  height: 62%;
+}
+
+.hrPayTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+
+.hrPayTable th,
+.hrPayTable td {
+  padding: 2px 0;
+  text-align: left;
+}
+
+.hrPayTable th {
+  font-size: 8px;
+  color: #93a0b1;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.hrPayTable td {
+  font-size: 10px;
+  color: #4a5668;
+}
+
+.hrPayInvoiceMeta {
+  margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hrPayInvoiceMeta button {
+  border: 1px solid rgba(98, 176, 223, 0.45);
+  background: #f7fbff;
+  color: #3a9ddd;
+  border-radius: 3px;
+  font-size: 8px;
+  padding: 6px 10px;
+  height: fit-content;
+}
+
+.hrPayInvoiceMeta p {
+  text-align: right;
+  font-size: 9px;
+  color: #8a95a8;
+}
+
+.hrPayInvoiceMeta strong {
+  margin-left: 8px;
+  color: #5b6a80;
+}
+
+.hrPayInvoiceMeta .is-overdue {
+  color: #d06b79;
+}
+
+.hrPayChart--bar {
+  margin-top: 8px;
+  height: 92px;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  align-items: end;
+}
+
+.hrPayChart--bar > div {
+  background: #9dd0eb;
+  border-radius: 2px 2px 0 0;
+}
+
+.hrPayChart--bar > div:nth-child(1) {
+  background: #c3ccd4;
+}
+
+.hrPayChart--bar > div:nth-child(3) {
+  background: #3a9ddd;
+}
+
+.hrPayChart--bar > div:nth-child(6) {
+  background: #8fc3df;
+}
+
+.hrPayChart--bar .hrPayChart__axis {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 1100px) {
+  .hrPay__title {
+    font-size: 30px;
+  }
+
+  .hrPayBoard {
+    grid-template-columns: 1fr;
+  }
+}

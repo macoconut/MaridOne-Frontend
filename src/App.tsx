@@ -9,6 +9,12 @@ import Attendance from './pages/employee/attendance/Attendance';
 import Approval from './pages/employee/approval/Approval';
 import Payslip from './pages/employee/payslip/Payslip';
 import Training from './pages/employee/training/Training';
+import HrLayout from './pages/hr/layout/HrLayout';
+import HrDashboard from './pages/hr/dashboard/Dashboard';
+import HrAttendanceReports from './pages/hr/attendance-reports/AttendanceReports';
+import HrApprovals from './pages/hr/approvals/Approvals';
+import HrPayslips from './pages/hr/payslips/Payslips';
+import HrManageEmp from './pages/hr/manage-emp/manage-emp';
 
 export default function App() {
   return (
@@ -16,7 +22,9 @@ export default function App() {
       <Routes>
         {/* Public */}
         <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<EmployeeLogin />} />
         <Route path="/employee/login" element={<EmployeeLogin />} />
+        <Route path="/hr/login" element={<EmployeeLogin />} />
 
         {/* Employee (FRAME) */}
         <Route path="/employee" element={<EmployeeLayout />}>
@@ -28,6 +36,17 @@ export default function App() {
           <Route path="approvals" element={<Approval />} />
           <Route path="payslip" element={<Payslip />} />
           <Route path="training" element={<Training />} />
+        </Route>
+
+        {/* HR (FRAME) */}
+        <Route path="/hr" element={<HrLayout />}>
+          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route path="dashboard" element={<HrDashboard />} />
+          <Route path="attendance-reports" element={<HrAttendanceReports />} />
+          <Route path="approvals" element={<HrApprovals />} />
+          <Route path="payslips" element={<HrPayslips />} />
+          <Route path="manage-emp" element={<HrManageEmp />} />
+          <Route path="employees" element={<Navigate to="/hr/manage-emp" replace />} />
         </Route>
       </Routes>
     </BrowserRouter>
