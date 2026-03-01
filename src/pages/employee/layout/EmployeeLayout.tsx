@@ -22,34 +22,169 @@ type NotificationItem = {
   time: string;
 };
 
+type BackendTestAction = {
+  label: string;
+  description: string;
+  method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
+  path: string;
+  body?: unknown;
+};
+
 const notifications: NotificationItem[] = [];
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
+const EMP_ID = 1;
+const ITEM_ID = 1;
+
+const backendActions: BackendTestAction[] = [
+  {
+    label: 'Get User Account',
+    description: 'Fetch own user account details by username.',
+    method: 'GET',
+    path: '/api/user/details/employee',
+  },
+  {
+    label: 'Get Employee Details',
+    description: 'Fetch employee profile details for self.',
+    method: 'GET',
+    path: `/api/employees/${EMP_ID}`,
+  },
+  {
+    label: 'Get Notifications',
+    description: 'Fetch logged-in user notifications.',
+    method: 'GET',
+    path: '/api/notifications',
+  },
+  {
+    label: 'Get Calendar Events',
+    description: 'Fetch company events for a month/year.',
+    method: 'GET',
+    path: '/api/calendar/events?month=4&year=2026',
+  },
+  {
+    label: 'Create Overtime Request',
+    description: 'Submit overtime request as employee.',
+    method: 'POST',
+    path: '/api/overtime/create',
+    body: {
+      requestedAt: '2026-02-28T08:00:00',
+      requestedHours: 2.5,
+      reason: 'Backend endpoint testing',
+    },
+  },
+  {
+    label: 'Get My Overtime',
+    description: 'Fetch overtime requests for employee.',
+    method: 'GET',
+    path: `/api/overtime/all/${EMP_ID}?page=0&size=10`,
+  },
+  {
+    label: 'Get Leave Balance',
+    description: 'Fetch leave balances for employee.',
+    method: 'GET',
+    path: `/api/leave/balance/${EMP_ID}`,
+  },
+  {
+    label: 'Create Leave Request',
+    description: 'Submit leave request as employee.',
+    method: 'POST',
+    path: `/api/leave/create?empId=${EMP_ID}`,
+    body: {
+      leaveType: 'SICK',
+      startDate: '2026-03-03',
+      endDate: '2026-03-03',
+      reason: 'Backend test request',
+    },
+  },
+  {
+    label: 'Get Shift Schedule',
+    description: 'Fetch employee shift schedule.',
+    method: 'GET',
+    path: `/api/employee/schedule/${EMP_ID}`,
+  },
+  {
+    label: 'Add Bank Account',
+    description: 'Create bank account details for employee.',
+    method: 'POST',
+    path: `/api/bank/add/${EMP_ID}`,
+    body: {
+      accountName: 'Test Employee',
+      accountNumber: '1234567890',
+      bankName: 'Sample Bank',
+    },
+  },
+  {
+    label: 'Update Bank Account',
+    description: 'Update existing bank account details.',
+    method: 'PATCH',
+    path: `/api/bank/update/${EMP_ID}`,
+    body: {
+      accountId: 1,
+      accountName: 'Test Employee Updated',
+    },
+  },
+  {
+    label: 'Get Bank Accounts',
+    description: 'Fetch employee bank account list.',
+    method: 'GET',
+    path: `/api/bank/${EMP_ID}`,
+  },
+  {
+    label: 'Create Activity Log',
+    description: 'Create activity log event for employee.',
+    method: 'POST',
+    path: '/api/logs/activity',
+    body: {
+      employeeId: EMP_ID,
+      activity: 'LOGIN',
+    },
+  },
+  {
+    label: 'Create Attendance Log',
+    description: 'Create attendance time log entry.',
+    method: 'POST',
+    path: `/api/logs/attendance/${EMP_ID}`,
+  },
+  {
+    label: 'Get Payroll Items',
+    description: 'Fetch payroll items assigned to employee.',
+    method: 'GET',
+    path: `/api/payroll/item/${EMP_ID}`,
+  },
+  {
+    label: 'Get Earnings',
+    description: 'Fetch earnings line items for payroll item.',
+    method: 'GET',
+    path: `/api/payroll/item/earnings/${ITEM_ID}`,
+  },
+  {
+    label: 'Get Deductions',
+    description: 'Fetch deduction line items for payroll item.',
+    method: 'GET',
+    path: `/api/payroll/item/deductions/${ITEM_ID}`,
+  },
+  {
+    label: 'Get My Disputes',
+    description: 'Fetch dispute requests for employee.',
+    method: 'GET',
+    path: `/api/payroll/item/dispute/self?empId=${EMP_ID}`,
+  },
+  {
+    label: 'Create Payroll Dispute',
+    description: 'Create dispute request for payroll item.',
+    method: 'POST',
+    path: `/api/payroll/item/dispute/create/${ITEM_ID}`,
+    body: {
+      reason: 'Testing dispute endpoint communication',
+    },
+  },
+];
 
 export default function EmployeeLayout() {
   const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
   const [backendAction, setBackendAction] = useState<string>('None');
-  const backendActions = [
-    {
-      label: 'Fetch Profile',
-      request: 'GET /employee/profile',
-      description: 'Loads the current employee profile details from the backend.',
-    },
-    {
-      label: 'Fetch Attendance',
-      request: 'GET /employee/attendance/summary',
-      description: 'Gets attendance summary data for the logged-in employee.',
-    },
-    {
-      label: 'Fetch Latest Payslip',
-      request: 'GET /employee/payslip/latest',
-      description: 'Retrieves the latest available payslip record.',
-    },
-    {
-      label: 'Fetch Approvals',
-      request: 'GET /employee/approvals',
-      description: 'Gets current approval requests relevant to this employee.',
-    },
-  ];
+  const [backendResult, setBackendResult] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
 
   const bellRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -88,8 +223,46 @@ export default function EmployeeLayout() {
     navigate('/login', { replace: true });
   }
 
-  function handleBackendTest(action: string) {
-    setBackendAction(action);
+  async function handleBackendTest(action: BackendTestAction) {
+    const requestLabel = `${action.method} ${action.path}`;
+    setBackendAction(requestLabel);
+    setIsLoading(true);
+    setBackendResult(`Sending ${requestLabel} ...`);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}${action.path}`, {
+        method: action.method,
+        headers: action.body ? { 'Content-Type': 'application/json' } : undefined,
+        body: action.body ? JSON.stringify(action.body) : undefined,
+      });
+
+      const raw = await response.text();
+      let formatted = raw;
+      try {
+        formatted = JSON.stringify(JSON.parse(raw), null, 2);
+      } catch {
+        if (raw.trim().length === 0) formatted = '(no response body)';
+      }
+
+      setBackendResult(
+        [
+          `URL: ${API_BASE_URL}${action.path}`,
+          `Status: ${response.status} ${response.statusText}`,
+          '',
+          formatted,
+        ].join('\n')
+      );
+    } catch (error) {
+      setBackendResult(
+        [
+          `URL: ${API_BASE_URL}${action.path}`,
+          'Request failed before reaching backend.',
+          String(error),
+        ].join('\n')
+      );
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -227,15 +400,16 @@ export default function EmployeeLayout() {
 
               <div className="backendTest__actions">
                 {backendActions.map((action) => (
-                  <article key={action.request} className="backendTest__card">
-                    <button type="button" onClick={() => handleBackendTest(action.request)}>
+                  <article key={`${action.method}-${action.path}`} className="backendTest__card">
+                    <button type="button" onClick={() => handleBackendTest(action)} disabled={isLoading}>
                       {action.label}
                     </button>
                     <p>{action.description}</p>
-                    <code>{action.request}</code>
+                    <code>{action.method} {action.path}</code>
                   </article>
                 ))}
               </div>
+              {backendResult && <pre className="backendTest__result">{backendResult}</pre>}
             </section>
           ) : (
             <Outlet />
