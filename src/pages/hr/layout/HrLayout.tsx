@@ -11,7 +11,7 @@ import {
   FiUsers,
 } from 'react-icons/fi';
 import '../../employee/layout/EmployeeLayout.css';
-import { clearSession } from '../../../lib/session';
+import { clearSession, getAuthToken } from '../../../lib/session';
 import { BACKEND_TEST_MODE } from '../../../config/flags';
 
 type NotificationItem = {
@@ -306,9 +306,14 @@ export default function HrLayout() {
     setBackendResult(`Sending ${requestLabel} ...`);
 
     try {
+      const authToken = getAuthToken();
+      const headers: Record<string, string> = {};
+      if (action.body) headers['Content-Type'] = 'application/json';
+      if (authToken) headers.Authorization = authToken;
+
       const response = await fetch(`${API_BASE_URL}${action.path}`, {
         method: action.method,
-        headers: action.body ? { 'Content-Type': 'application/json' } : undefined,
+        headers,
         body: action.body ? JSON.stringify(action.body) : undefined,
       });
 

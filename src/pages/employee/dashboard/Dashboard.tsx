@@ -1,4 +1,59 @@
+import { useEffect, useMemo, useState } from 'react';
+import { apiRequest, asArray } from '../../../lib/api';
 import './Dashboard.css';
+
+type UserDetails = {
+  employeeId?: number | string;
+  id?: number | string;
+  username?: string;
+  email?: string;
+  role?: string;
+};
+
+type EmployeeDetails = {
+  employeeId?: number | string;
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  address?: string;
+  email?: string;
+  contactNumber?: string;
+  position?: string;
+  employmentDate?: string;
+};
+
+type CalendarEvent = {
+  id?: number | string;
+  calendarId?: number | string;
+  day?: number;
+  title?: string;
+  isHoliday?: boolean;
+};
+
+type AttendanceLog = {
+  employeeId?: number | string;
+  timeIn?: string;
+  createdAt?: string;
+  timestamp?: string;
+};
+
+function getStorageValue(key: string): string | null {
+  return localStorage.getItem(key) ?? sessionStorage.getItem(key);
+}
+
+function formatDateLabel(value?: string): string {
+  if (!value) return 'Not available';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'Not available';
+  return parsed.toLocaleString();
+}
+
+function getFullName(employee: EmployeeDetails): string {
+  const parts = [employee.firstName, employee.middleName, employee.lastName]
+    .map((part) => (part ?? '').trim())
+    .filter(Boolean);
+  return parts.length > 0 ? parts.join(' ') : 'Employee name unavailable';
+}
 
 export default function Dashboard() {
   const now = new Date();
@@ -10,9 +65,112 @@ export default function Dashboard() {
   const mondayBasedStart = (firstDay.getDay() + 6) % 7;
   const totalCells = Math.ceil((mondayBasedStart + daysInMonth) / 7) * 7;
 
+  const [employeeDetails, setEmployeeDetails] = useState<EmployeeDetails | null>(null);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [lastAttendance, setLastAttendance] = useState<string>('Not available');
+  const [isLoading, setIsLoading] = useState(true);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadData() {
+      setIsLoading(true);
+      setMessage('');
+
+      const usernameOrEmail = (getStorageValue('maridone.userEmail') ?? '').trim();
+      if (!usernameOrEmail) {
+        if (isMounted) {
+          setMessage('No active session found. Please log in again.');
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      let employeeId: string | number | undefined;
+
+      try {
+        const user = await apiRequest<UserDetails>(`/api/user/details/${encodeURIComponent(usernameOrEmail)}`);
+        employeeId = user.employeeId ?? user.id;
+      } catch {
+        employeeId = undefined;
+      }
+
+      if (!employeeId) {
+        if (isMounted) {
+          setEmployeeDetails(null);
+          setMessage('Unable to resolve employee profile from backend.');
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      const results = await Promise.allSettled([
+        apiRequest<EmployeeDetails>(`/api/employees/${employeeId}`),
+        apiRequest<unknown>(`/api/calendar/events?month=${monthIndex + 1}&year=${year}`),
+        apiRequest<unknown>('/api/logs/attendance?page=0&size=200'),
+      ]);
+
+      if (!isMounted) return;
+
+      const [employeeResult, eventsResult, attendanceResult] = results;
+
+      if (employeeResult.status === 'fulfilled') {
+        setEmployeeDetails(employeeResult.value);
+      } else {
+        setEmployeeDetails(null);
+      }
+
+      if (eventsResult.status === 'fulfilled') {
+        setCalendarEvents(asArray<CalendarEvent>(eventsResult.value));
+      } else {
+        setCalendarEvents([]);
+      }
+
+      if (attendanceResult.status === 'fulfilled') {
+        const logs = asArray<AttendanceLog>(attendanceResult.value).filter(
+          (item) => String(item.employeeId ?? '') === String(employeeId)
+        );
+        const latest = logs.at(0);
+        setLastAttendance(formatDateLabel(latest?.timeIn ?? latest?.createdAt ?? latest?.timestamp));
+      } else {
+        setLastAttendance('Not available');
+      }
+
+      if (employeeResult.status === 'rejected' || eventsResult.status === 'rejected' || attendanceResult.status === 'rejected') {
+        setMessage('Some dashboard data failed to load. Check backend connection.');
+      }
+
+      setIsLoading(false);
+    }
+
+    void loadData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [monthIndex, year]);
+
+  const eventsByDay = useMemo(() => {
+    const map = new Map<number, CalendarEvent[]>();
+    for (const event of calendarEvents) {
+      if (!event.day) continue;
+      const existing = map.get(event.day) ?? [];
+      existing.push(event);
+      map.set(event.day, existing);
+    }
+    return map;
+  }, [calendarEvents]);
+
+  const fullName = employeeDetails ? getFullName(employeeDetails) : 'Employee name unavailable';
+  const address = employeeDetails?.address?.trim() || 'Address not available';
+  const email = employeeDetails?.email?.trim() || 'Email not available';
+  const phone = employeeDetails?.contactNumber?.trim() || 'Phone not available';
+  const employedSince = formatDateLabel(employeeDetails?.employmentDate);
+  const lastLogin = formatDateLabel(new Date().toISOString());
+
   return (
     <div className="dashPage">
-      {/* INFO CARD */}
       <section className="infoCardX">
         <div className="infoCardX__header">
           <div className="infoCardX__title">Your Information</div>
@@ -20,55 +178,49 @@ export default function Dashboard() {
         </div>
 
         <div className="infoCardX__grid">
-          {/* left */}
           <div className="infoCardX__left">
             <div className="infoCardX__photo" aria-hidden="true" />
-            <div className="infoCardX__name">
-              Employee Name
-            </div>
+            <div className="infoCardX__name">{fullName}</div>
           </div>
 
           <div className="infoCardX__divider" />
 
-          {/* middle */}
           <div className="infoCardX__mid">
             <div className="infoRow">
               <span className="infoRow__icon">⌂</span>
-              <span>Address not available</span>
+              <span>{address}</span>
             </div>
             <div className="infoRow">
               <span className="infoRow__icon">✉</span>
-              <span className="infoRow__link">Email not available</span>
+              <span className="infoRow__link">{email}</span>
             </div>
             <div className="infoRow">
               <span className="infoRow__icon">☎</span>
-              <span>Phone not available</span>
+              <span>{phone}</span>
             </div>
           </div>
 
           <div className="infoCardX__divider" />
 
-          {/* right */}
           <div className="infoCardX__right">
             <div className="statBlock">
               <div className="statBlock__label">Part of Marid since:</div>
-              <div className="statBlock__value">Not available</div>
+              <div className="statBlock__value">{employedSince}</div>
             </div>
 
             <div className="statBlock">
               <div className="statBlock__label">Last Login:</div>
-              <div className="statBlock__value">Not available</div>
+              <div className="statBlock__value">{lastLogin}</div>
             </div>
 
             <div className="statBlock">
               <div className="statBlock__label">Last attendance:</div>
-              <div className="statBlock__value">Not available</div>
+              <div className="statBlock__value">{lastAttendance}</div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ACTION BUTTONS */}
       <section className="actionRowX">
         <button className="actionBtnX" type="button">
           <span>View Payslip</span>
@@ -88,11 +240,8 @@ export default function Dashboard() {
         </button>
       </section>
 
-      {/* LOWER */}
       <section className="lowerGridX">
-        {/* left column */}
         <div className="lowerColX">
-          {/* training */}
           <div className="cardX">
             <div className="cardX__title">Training and Onboarding Materials</div>
 
@@ -123,7 +272,6 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* handbook */}
           <div className="cardX">
             <div className="cardX__title">Employee Handbook</div>
 
@@ -145,7 +293,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* right calendar */}
         <div className="cardX cardX--calendar">
           <div className="cardX__title">Company Events</div>
           <div className="calendarShell" aria-label="Company events calendar">
@@ -162,10 +309,12 @@ export default function Dashboard() {
               {Array.from({ length: totalCells }).map((_, i) => {
                 const dayNumber = i - mondayBasedStart + 1;
                 const value = dayNumber > 0 && dayNumber <= daysInMonth ? dayNumber : '';
+                const hasEvent = typeof value === 'number' ? (eventsByDay.get(value)?.length ?? 0) > 0 : false;
 
                 return (
                   <div key={i} className="calCell">
                     {value}
+                    {hasEvent && <div style={{ fontSize: 10, marginTop: 2 }}>• event</div>}
                   </div>
                 );
               })}
@@ -173,6 +322,10 @@ export default function Dashboard() {
           </div>
         </div>
       </section>
+
+      {(isLoading || message) && (
+        <p style={{ marginTop: 12 }}>{isLoading ? 'Loading dashboard...' : message}</p>
+      )}
     </div>
   );
 }

@@ -1,55 +1,103 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { setSession } from '../../../../lib/session';
 import './Login.css';
 
-type MockAccount = {
-  role: 'employee' | 'hr';
-  route: string;
-  aliases: string[];
-  password: string;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
+
+type LoginApiResponse = {
+  token?: string;
+  accessToken?: string;
+  username?: string;
+  userName?: string;
+  role?: string;
+  data?: {
+    token?: string;
+    accessToken?: string;
+    username?: string;
+    userName?: string;
+    role?: string;
+  };
 };
 
-const mockAccounts: MockAccount[] = [
-  {
-    role: 'employee',
-    route: '/employee/dashboard',
-    aliases: ['employee', 'employee@marid.com'],
-    password: 'employee123',
-  },
-  {
-    role: 'hr',
-    route: '/hr/dashboard',
-    aliases: ['hr', 'hr@marid.com'],
-    password: 'hr123',
-  },
-];
+function parseRole(rawRole: string | undefined, fallback: 'employee' | 'hr') {
+  const normalized = (rawRole ?? '').toUpperCase();
+  if (normalized.includes('HR')) return 'hr';
+  if (normalized.includes('EMPLOYEE')) return 'employee';
+  return fallback;
+}
 
 export default function EmployeeLogin() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-
-    const normalized = username.trim().toLowerCase();
-    const matchedAccount = mockAccounts.find(
-      (account) => account.aliases.includes(normalized) && account.password === password
-    );
-
-    if (!matchedAccount) {
-      setError('Invalid username/email or password.');
-      return;
-    }
-
     setError('');
-    setSession(matchedAccount.role, normalized, remember);
-    navigate(matchedAccount.route);
+    setIsSubmitting(true);
+
+    const trimmedUsername = username.trim();
+    const isHrRoute = location.pathname.startsWith('/hr');
+    const fallbackRole = isHrRoute ? 'hr' : 'employee';
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: trimmedUsername,
+          password,
+        }),
+      });
+
+      let payload: LoginApiResponse | null = null;
+      let rawText = '';
+      try {
+        rawText = await response.text();
+        payload = JSON.parse(rawText) as LoginApiResponse;
+      } catch {
+        payload = null;
+      }
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          setError('Login endpoint /api/auth/login is not available on backend yet.');
+          return;
+        }
+        setError(`Login failed (${response.status}). Check backend credentials.`);
+        return;
+      }
+
+      const apiRole = parseRole(payload?.role ?? payload?.data?.role, fallbackRole);
+      const route = apiRole === 'hr' ? '/hr/dashboard' : '/employee/dashboard';
+      const returnedUsername =
+        payload?.username ?? payload?.userName ?? payload?.data?.username ?? payload?.data?.userName ?? trimmedUsername;
+      const tokenFromJson =
+        payload?.token ?? payload?.accessToken ?? payload?.data?.token ?? payload?.data?.accessToken;
+      const tokenFromText = !tokenFromJson ? rawText.trim() : '';
+      const rawToken = tokenFromJson ?? tokenFromText;
+      const returnedToken = rawToken
+        ? rawToken.startsWith('Bearer ')
+          ? rawToken
+          : `Bearer ${rawToken}`
+        : undefined;
+
+      setSession(apiRole, returnedUsername, remember, returnedToken);
+      navigate(route, { replace: true });
+      return;
+    } catch {
+      setError('Cannot reach backend. Make sure API is running.');
+      return;
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -96,10 +144,7 @@ export default function EmployeeLogin() {
               </div>
             </div>
 
-            <div className="eloginHint">
-              <div>Employee: `employee` / `employee123`</div>
-              <div>HR: `hr` / `hr123`</div>
-            </div>
+            <div className="eloginHint">Use backend account credentials for this role route.</div>
 
             {error && <div className="eloginError">{error}</div>}
 
@@ -113,7 +158,7 @@ export default function EmployeeLogin() {
                 <span>Remember Me</span>
               </label>
 
-              <button className="submitBtn" type="submit">
+              <button className="submitBtn" type="submit" disabled={isSubmitting}>
                 Log in
               </button>
             </div>

@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FiSearch, FiFilter, FiXCircle } from 'react-icons/fi';
+import { apiRequest, asArray } from '../../../lib/api';
 import './Approvals.css';
 
-type RequestType = 'Leave' | 'OT';
+type RequestType = 'OT';
 
 type HrRequest = {
   id: string;
@@ -10,79 +11,100 @@ type HrRequest = {
   message: string;
   time: string;
   type: RequestType;
+  overtimeId: number;
+  status: 'APPROVED' | 'DENIED' | 'PENDING';
+  remarks: string;
 };
 
-const requests: HrRequest[] = [
-  {
-    id: '1',
-    employee: 'Employee # 67',
-    message: 'Sick Leave Request - April 7, 2024',
-    time: '11:07 AM',
-    type: 'Leave',
-  },
-  {
-    id: '2',
-    employee: 'Employee # 67',
-    message: 'Holiday OT Request - May 1, 2024',
-    time: '11:07 AM',
-    type: 'OT',
-  },
-  {
-    id: '3',
-    employee: 'Employee # 67',
-    message: 'Sick Leave Request - April 7, 2024',
-    time: '11:07 AM',
-    type: 'Leave',
-  },
-  {
-    id: '4',
-    employee: 'Employee # 67',
-    message: 'Sick Leave Request - April 7, 2024',
-    time: '11:07 AM',
-    type: 'Leave',
-  },
-  {
-    id: '5',
-    employee: 'Employee # 67',
-    message: 'Holiday OT Request - May 1, 2024',
-    time: '11:07 AM',
-    type: 'OT',
-  },
-  {
-    id: '6',
-    employee: 'Employee # 67',
-    message: 'Sick Leave Request - April 7, 2024',
-    time: '11:07 AM',
-    type: 'Leave',
-  },
-  {
-    id: '7',
-    employee: 'Employee # 67',
-    message: 'Sick Leave Request - April 7, 2024',
-    time: '11:07 AM',
-    type: 'Leave',
-  },
-  {
-    id: '8',
-    employee: 'Employee # 67',
-    message: 'Sick Leave Request - April 7, 2024',
-    time: '11:07 AM',
-    type: 'Leave',
-  },
-];
-
-const cards = [
-  { label: 'Approved', value: 67 },
-  { label: 'Denied', value: 67 },
-  { label: 'Pending', value: 67 },
-];
+type OvertimeRecord = {
+  overtimeId?: number;
+  id?: number;
+  employeeId?: number | string;
+  employeeName?: string;
+  reason?: string;
+  requestedAt?: string;
+  createdAt?: string;
+  status?: string;
+  remarks?: string;
+};
 
 export default function HrApprovals() {
+  const [requests, setRequests] = useState<HrRequest[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [actionRemarks, setActionRemarks] = useState('');
+
+  async function loadRequests() {
+    setIsLoading(true);
+    setMessage('');
+    try {
+      const payload = await apiRequest<unknown>('/api/overtime/all?page=0&size=100');
+      const mapped = asArray<OvertimeRecord>(payload).map((item, idx) => {
+        const overtimeId = item.overtimeId ?? item.id ?? idx;
+        const createdAt = item.createdAt ?? item.requestedAt;
+        const time = createdAt ? new Date(createdAt).toLocaleString() : 'N/A';
+        const statusRaw = (item.status ?? 'PENDING').toUpperCase();
+        const status: 'APPROVED' | 'DENIED' | 'PENDING' =
+          statusRaw.includes('APPROV') ? 'APPROVED' : statusRaw.includes('DEN') ? 'DENIED' : 'PENDING';
+        return {
+          id: String(overtimeId),
+          overtimeId: Number(overtimeId),
+          employee: item.employeeName?.trim() || `Employee #${item.employeeId ?? 'N/A'}`,
+          message: item.reason?.trim() || 'Overtime request',
+          time,
+          type: 'OT' as const,
+          status,
+          remarks: item.remarks ?? '',
+        };
+      });
+      setRequests(mapped);
+    } catch (error) {
+      setRequests([]);
+      setMessage(`Failed to load requests: ${String(error)}`);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadRequests();
+  }, []);
+
   const selected = useMemo(
     () => requests.find((request) => request.id === selectedId) ?? null,
-    [selectedId]
+    [requests, selectedId]
   );
+  const cards = useMemo(() => {
+    const approved = requests.filter((request) => request.status === 'APPROVED').length;
+    const denied = requests.filter((request) => request.status === 'DENIED').length;
+    const pending = requests.filter((request) => request.status === 'PENDING').length;
+    return [
+      { label: 'Approved', value: approved },
+      { label: 'Denied', value: denied },
+      { label: 'Pending', value: pending },
+    ];
+  }, [requests]);
+
+  async function updateRequest(status: 'APPROVED' | 'DENIED') {
+    if (!selected) return;
+    try {
+      await apiRequest(`/api/overtime/update`, {
+        method: 'PATCH',
+        body: {
+          overtimeId: selected.overtimeId,
+          status,
+          remarks: actionRemarks.trim() || undefined,
+        },
+      });
+      setMessage(`Request #${selected.overtimeId} updated to ${status}.`);
+      setSelectedId(null);
+      setActionRemarks('');
+      await loadRequests();
+    } catch (error) {
+      setMessage(`Failed to update request: ${String(error)}`);
+    }
+  }
 
   return (
     <div className="hrAppr">
@@ -109,19 +131,28 @@ export default function HrApprovals() {
       </div>
 
       <section className="hrApprTable">
-        {requests.map((request) => (
-          <button
-            key={request.id}
-            type="button"
-            className="hrApprRow"
-            onClick={() => setSelectedId(request.id)}
-          >
-            <span className="hrApprRow__employee">{request.employee}</span>
-            <span className="hrApprRow__message">{request.message}</span>
-            <span className="hrApprRow__time">{request.time}</span>
+        {requests.length > 0 ? (
+          requests.map((request) => (
+            <button
+              key={request.id}
+              type="button"
+              className="hrApprRow"
+              onClick={() => setSelectedId(request.id)}
+            >
+              <span className="hrApprRow__employee">{request.employee}</span>
+              <span className="hrApprRow__message">{request.message}</span>
+              <span className="hrApprRow__time">{request.time}</span>
+            </button>
+          ))
+        ) : (
+          <button type="button" className="hrApprRow" disabled>
+            <span className="hrApprRow__employee">No requests available.</span>
+            <span className="hrApprRow__message">Waiting for backend data</span>
+            <span className="hrApprRow__time">-</span>
           </button>
-        ))}
+        )}
       </section>
+      {(isLoading || message) && <p>{isLoading ? 'Loading requests...' : message}</p>}
 
       {selected && (
         <div className="hrApprModalBackdrop" role="dialog" aria-modal="true">
@@ -136,7 +167,7 @@ export default function HrApprovals() {
             </button>
 
             <h2 className="hrApprModal__title">
-              Employee#67 - {selected.type === 'Leave' ? 'Leave Application Form' : 'OT Application Form'}
+              {selected.employee} - OT Application Form
             </h2>
 
             <div className="hrApprModal__rule" />
@@ -144,38 +175,32 @@ export default function HrApprovals() {
             <div className="hrApprForm__row hrApprForm__row--2">
               <label>
                 <span>Department:</span>
-                <input value="Research and Development" readOnly />
+                <input value="From employee profile endpoint" readOnly />
               </label>
               <label>
                 <span>Position:</span>
-                <input value="Head of Research" readOnly />
+                <input value="From employee profile endpoint" readOnly />
               </label>
             </div>
 
             <div className="hrApprForm__row">
               <label>
-                <span>{selected.type === 'Leave' ? 'Type of Leave Requested:' : 'Type of OT Requested:'}</span>
-                <input value={selected.type === 'Leave' ? 'Sick Leave' : 'Holiday'} readOnly />
+                <span>Type of OT Requested:</span>
+                <input value={selected.type} readOnly />
               </label>
             </div>
 
             <div className="hrApprForm__row">
               <label>
-                <span>{selected.type === 'Leave' ? 'Leave Duration:' : 'Date of OT:'}</span>
-                <input
-                  value={selected.type === 'Leave' ? 'April 7, 2024 - April 7, 2024' : 'May 1, 2024'}
-                  readOnly
-                />
+                <span>Date of OT:</span>
+                <input value={selected.time} readOnly />
               </label>
             </div>
 
             <div className="hrApprForm__row">
               <label>
-                <span>{selected.type === 'Leave' ? 'Reason for Leave:' : 'Reason for OT:'}</span>
-                <textarea
-                  value="e.g. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam blandit turpis vel sapien suscipit, ac rutrum ante iaculis. Nunc id diam sagittis, facilisis sapien ac, efficitur enim. Maecenas sed ipsum rutrum, iaculis quam a, fermentum risus."
-                  readOnly
-                />
+                <span>Reason for OT:</span>
+                <textarea value={selected.message} readOnly />
               </label>
             </div>
 
@@ -196,8 +221,8 @@ export default function HrApprovals() {
               <label className="hrApprForm__inline">
                 <span>Administrative Approval:</span>
                 <div className="hrApprForm__actions">
-                  <button type="button">Approve</button>
-                  <button type="button">Deny</button>
+                  <button type="button" onClick={() => void updateRequest('APPROVED')}>Approve</button>
+                  <button type="button" onClick={() => void updateRequest('DENIED')}>Deny</button>
                 </div>
               </label>
             </div>
@@ -205,10 +230,7 @@ export default function HrApprovals() {
             <div className="hrApprForm__row">
               <label>
                 <span>Remarks:</span>
-                <textarea
-                  value="e.g. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam blandit turpis vel sapien suscipit, ac rutrum ante iaculis. Nunc id diam sagittis, facilisis sapien ac, efficitur enim. Maecenas sed ipsum rutrum, iaculis quam a, fermentum risus."
-                  readOnly
-                />
+                <textarea value={actionRemarks} onChange={(e) => setActionRemarks(e.target.value)} />
               </label>
             </div>
 
@@ -216,7 +238,7 @@ export default function HrApprovals() {
               <button type="button" onClick={() => setSelectedId(null)}>
                 Cancel
               </button>
-              <button type="button">Submit</button>
+              <button type="button" onClick={() => void updateRequest('APPROVED')}>Submit</button>
             </div>
           </div>
         </div>
