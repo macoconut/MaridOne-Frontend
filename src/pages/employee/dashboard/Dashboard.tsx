@@ -1,6 +1,81 @@
+import { useEffect, useMemo, useState } from 'react';
+import { apiFetchJson, toArray } from '../../../lib/api';
+import { getUserEmail } from '../../../lib/session';
 import './Dashboard.css';
 
+type UserDetails = {
+  username?: string;
+  email?: string;
+  employee?: {
+    fullName?: string;
+    firstName?: string;
+    lastName?: string;
+    middleName?: string;
+    contactNumber?: string;
+    address?: string | Record<string, unknown>;
+    dateHired?: string;
+  };
+};
+
+type CalendarEvent = {
+  day?: number;
+};
+
+function formatAddress(value: unknown) {
+  if (typeof value === 'string') return value.trim() || 'Address not available';
+  if (!value || typeof value !== 'object') return 'Address not available';
+
+  const data = value as Record<string, unknown>;
+  const parts = [
+    data.permanentAddress,
+    data.temporaryAddress,
+    data.city,
+    data.state,
+    data.country,
+    data.zipCode,
+  ]
+    .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+    .map((part) => part.trim());
+
+  return parts.length > 0 ? parts.join(', ') : 'Address not available';
+}
+
 export default function Dashboard() {
+  const [profile, setProfile] = useState<UserDetails | null>(null);
+  const [eventDays, setEventDays] = useState<number[]>([]);
+
+  useEffect(() => {
+    const username = getUserEmail();
+    if (!username) return;
+
+    void (async () => {
+      try {
+        const details = await apiFetchJson<UserDetails>(`/api/user/details/${encodeURIComponent(username)}`);
+        setProfile(details);
+      } catch {
+        setProfile(null);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
+
+    void (async () => {
+      try {
+        const events = await apiFetchJson<unknown>(`/api/calendar/events?month=${month}&year=${year}`);
+        const days = toArray<CalendarEvent>(events)
+          .map((item) => item.day)
+          .filter((day): day is number => typeof day === 'number');
+        setEventDays(days);
+      } catch {
+        setEventDays([]);
+      }
+    })();
+  }, []);
+
   const now = new Date();
   const monthLabel = now.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
   const year = now.getFullYear();
@@ -9,6 +84,14 @@ export default function Dashboard() {
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
   const mondayBasedStart = (firstDay.getDay() + 6) % 7;
   const totalCells = Math.ceil((mondayBasedStart + daysInMonth) / 7) * 7;
+
+  const employeeName = useMemo(() => {
+    const emp = profile?.employee;
+    const fromParts = [emp?.firstName, emp?.middleName, emp?.lastName]
+      .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+      .join(' ');
+    return emp?.fullName || fromParts || 'Employee Name';
+  }, [profile]);
 
   return (
     <div className="dashPage">
@@ -24,7 +107,7 @@ export default function Dashboard() {
           <div className="infoCardX__left">
             <div className="infoCardX__photo" aria-hidden="true" />
             <div className="infoCardX__name">
-              Employee Name
+              {employeeName}
             </div>
           </div>
 
@@ -34,15 +117,15 @@ export default function Dashboard() {
           <div className="infoCardX__mid">
             <div className="infoRow">
               <span className="infoRow__icon">⌂</span>
-              <span>Address not available</span>
+              <span>{formatAddress(profile?.employee?.address)}</span>
             </div>
             <div className="infoRow">
               <span className="infoRow__icon">✉</span>
-              <span className="infoRow__link">Email not available</span>
+              <span className="infoRow__link">{profile?.email || 'Email not available'}</span>
             </div>
             <div className="infoRow">
               <span className="infoRow__icon">☎</span>
-              <span>Phone not available</span>
+              <span>{profile?.employee?.contactNumber || 'Phone not available'}</span>
             </div>
           </div>
 
@@ -52,7 +135,7 @@ export default function Dashboard() {
           <div className="infoCardX__right">
             <div className="statBlock">
               <div className="statBlock__label">Part of Marid since:</div>
-              <div className="statBlock__value">Not available</div>
+              <div className="statBlock__value">{profile?.employee?.dateHired || 'Not available'}</div>
             </div>
 
             <div className="statBlock">
@@ -166,6 +249,7 @@ export default function Dashboard() {
                 return (
                   <div key={i} className="calCell">
                     {value}
+                    {typeof value === 'number' && eventDays.includes(value) ? ' *' : ''}
                   </div>
                 );
               })}

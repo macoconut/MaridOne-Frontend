@@ -1,9 +1,69 @@
+import { useEffect, useMemo, useState } from 'react';
+import { apiFetchJson, toArray } from '../../../lib/api';
 import './Payslip.css';
 
 export default function Payslip() {
-  const payslipPeriods: string[] = [];
-  const earnings: Array<{ label: string; amount: string }> = [];
-  const deductions: Array<{ label: string; amount: string }> = [];
+  const [payslipPeriods, setPayslipPeriods] = useState<string[]>([]);
+  const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
+  const [earnings, setEarnings] = useState<Array<{ label: string; amount: string }>>([]);
+  const [deductions, setDeductions] = useState<Array<{ label: string; amount: string }>>([]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const items = await apiFetchJson<unknown>('/api/payroll/item/1');
+        const rows = toArray<Record<string, unknown>>(items);
+        setPayslipPeriods(rows.map((row, idx) => String(row.period ?? `Payslip ${idx + 1}`)));
+        const first = rows[0];
+        setSelectedItemId(typeof first?.id === 'number' ? first.id : typeof first?.itemId === 'number' ? (first.itemId as number) : null);
+      } catch {
+        setPayslipPeriods([]);
+        setSelectedItemId(null);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedItemId) {
+      setEarnings([]);
+      setDeductions([]);
+      return;
+    }
+
+    void (async () => {
+      try {
+        const [earningsResponse, deductionsResponse] = await Promise.all([
+          apiFetchJson<unknown>(`/api/payroll/item/earnings/${selectedItemId}`),
+          apiFetchJson<unknown>(`/api/payroll/item/deductions/${selectedItemId}`),
+        ]);
+
+        setEarnings(
+          toArray<Record<string, unknown>>(earningsResponse).map((row, idx) => ({
+            label: String(row.description ?? row.type ?? `Earning ${idx + 1}`),
+            amount: String(row.amount ?? '0.00'),
+          }))
+        );
+        setDeductions(
+          toArray<Record<string, unknown>>(deductionsResponse).map((row, idx) => ({
+            label: String(row.deductionType ?? row.description ?? `Deduction ${idx + 1}`),
+            amount: String(row.amount ?? '0.00'),
+          }))
+        );
+      } catch {
+        setEarnings([]);
+        setDeductions([]);
+      }
+    })();
+  }, [selectedItemId]);
+
+  const totalEarnings = useMemo(
+    () => earnings.reduce((sum, row) => sum + Number(row.amount || 0), 0),
+    [earnings]
+  );
+  const totalDeductions = useMemo(
+    () => deductions.reduce((sum, row) => sum + Number(row.amount || 0), 0),
+    [deductions]
+  );
 
   return (
     <div className="pay">
@@ -93,7 +153,7 @@ export default function Payslip() {
             )}
             <div className="payTable__total">
               <span>Total Earnings</span>
-              <span>-</span>
+              <span>{totalEarnings.toFixed(2)}</span>
             </div>
           </div>
 
@@ -117,11 +177,11 @@ export default function Payslip() {
             )}
             <div className="payTable__total">
               <span>Total Deductions</span>
-              <span>-</span>
+              <span>{totalDeductions.toFixed(2)}</span>
             </div>
             <div className="payTable__net">
               <span>Net Pay</span>
-              <span>-</span>
+              <span>{(totalEarnings - totalDeductions).toFixed(2)}</span>
             </div>
           </div>
         </div>

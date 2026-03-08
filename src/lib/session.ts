@@ -16,3 +16,19 @@ export function clearSession() {
     sessionStorage.removeItem(key);
   }
 }
+
+export function getSessionValue(key: (typeof AUTH_KEYS)[number]): string | null {
+  return sessionStorage.getItem(key) ?? localStorage.getItem(key);
+}
+
+export function getAuthToken() {
+  return getSessionValue('maridone.authToken');
+}
+
+export function getUserEmail() {
+  return getSessionValue('maridone.userEmail');
+}
+
+export function getUserRole() {
+  return getSessionValue('maridone.role');
+}

@@ -66,6 +66,12 @@ function extractRole(payload: unknown): UserRole | null {
     return extractRole(data.data);
   }
 
+  const token = extractToken(payload);
+  if (token && token !== 'authenticated-session') {
+    const roleFromToken = extractRoleFromJwt(token);
+    if (roleFromToken) return roleFromToken;
+  }
+
   return null;
 }
 
@@ -80,6 +86,30 @@ function extractToken(payload: unknown): string {
 
   if (data.data && typeof data.data === 'object') return extractToken(data.data);
   return 'authenticated-session';
+}
+
+function extractRoleFromJwt(jwt: string): UserRole | null {
+  const parts = jwt.split('.');
+  if (parts.length < 2) return null;
+
+  try {
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+    const decoded = atob(padded);
+    const payload = JSON.parse(decoded) as Record<string, unknown>;
+
+    const roles = payload.roles;
+    if (Array.isArray(roles)) {
+      for (const item of roles) {
+        const normalized = normalizeRole(item);
+        if (normalized) return normalized;
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
 function extractIdentity(payload: unknown, fallback: string): string {
@@ -124,8 +154,8 @@ export default function EmployeeLogin() {
         credentials: 'include',
         body: JSON.stringify({
           username: normalizedUsername,
-          usernameOrEmail: normalizedUsername,
           password,
+          rememberMe: remember,
         }),
       });
 

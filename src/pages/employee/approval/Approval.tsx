@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+import { apiFetchJson, toArray } from '../../../lib/api';
 import './Approval.css';
 
 type ApprovalItem = {
@@ -11,9 +13,46 @@ type ApprovalItem = {
   remarks: string;
 };
 
-const approvals: ApprovalItem[] = [];
+type OvertimeRow = {
+  overtimeId?: number;
+  requestedAt?: string;
+  status?: string;
+  approvedBy?: string;
+  reason?: string;
+};
 
 export default function Approval() {
+  const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const response = await apiFetchJson<unknown>('/api/overtime/all/1?page=0&size=20');
+        const mapped = toArray<OvertimeRow>(response).map((row) => {
+          const status: ApprovalItem['status'] =
+            row.status?.toUpperCase() === 'APPROVED'
+              ? 'Approved'
+              : row.status?.toUpperCase() === 'DENIED'
+                ? 'Denied'
+                : 'Pending';
+          return {
+            id: String(row.overtimeId ?? Math.random()),
+            dateOfRequest: row.requestedAt ?? '-',
+            requestType: 'Overtime',
+            category: 'OT',
+            startOfRequest: row.requestedAt ?? '-',
+            status,
+            approvedBy: row.approvedBy ?? '-',
+            remarks: row.reason ?? '-',
+          };
+        });
+        setApprovals(mapped);
+      } catch {
+        setApprovals([]);
+      }
+    })();
+  }, []);
+
   const approvedCount = approvals.filter((item) => item.status === 'Approved').length;
   const deniedCount = approvals.filter((item) => item.status === 'Denied').length;
   const pendingCount = approvals.filter((item) => item.status === 'Pending').length;

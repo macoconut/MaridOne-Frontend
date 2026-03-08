@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import './Attendance.css';
 import { FiPlusSquare, FiX, FiUpload, FiCalendar } from 'react-icons/fi';
+import { apiFetchJson } from '../../../lib/api';
 
 type LeaveType = 'Sick Leave' | 'Vacation Leave' | 'Emergency Leave' | 'Others';
 
@@ -39,6 +40,7 @@ export default function Attendance() {
   const [endDate, setEndDate] = useState<string>('');
   const [reason, setReason] = useState<string>('');
   const [file, setFile] = useState<File | null>(null);
+  const [submitError, setSubmitError] = useState('');
 
   useEffect(() => {
     if (leaveOpen) document.body.classList.add('modal-open');
@@ -87,16 +89,22 @@ export default function Attendance() {
     setLeaveOpen(false);
   }
 
-  function submitLeave() {
-    console.log('LEAVE SUBMIT', {
-      leaveType,
-      startDate,
-      endDate,
-      reason,
-      fileName: file?.name ?? null,
-      selectedDay,
-    });
-    setLeaveOpen(false);
+  async function submitLeave() {
+    setSubmitError('');
+    try {
+      await apiFetchJson('/api/leave/create?empId=1', {
+        method: 'POST',
+        body: JSON.stringify({
+          leaveType,
+          startDate,
+          endDate,
+          reason,
+        }),
+      });
+      setLeaveOpen(false);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Failed to submit leave request.');
+    }
   }
 
   return (
@@ -270,6 +278,7 @@ export default function Attendance() {
                   Submit
                 </button>
               </div>
+              {submitError && <p className="field__error">{submitError}</p>}
             </div>
           </div>
         </div>
