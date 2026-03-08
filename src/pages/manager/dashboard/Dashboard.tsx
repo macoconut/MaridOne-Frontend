@@ -16,7 +16,7 @@ export default function ManagerDashboard() {
       <section className="mgrInfo">
         <div className="mgrInfo__head">
           <h1>Your Information</h1>
-          <button type="button">Edit Info</button>
+          <button type="button" onClick={() => navigate('/manager/dashboard')}>Edit Info</button>
         </div>
 
         <div className="mgrInfo__grid">

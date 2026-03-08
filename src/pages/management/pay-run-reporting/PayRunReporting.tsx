@@ -25,6 +25,7 @@ const payTypeRows = [
 
 export default function ManagementPayRunReporting() {
   const [view, setView] = useState<ReportView>('employee');
+  const [filterValue, setFilterValue] = useState('All');
   const filterLabel = useMemo(() => (view === 'employee' ? 'Employee:' : 'Pay Type:'), [view]);
 
   return (
@@ -42,8 +43,8 @@ export default function ManagementPayRunReporting() {
           <label>{filterLabel}</label>
           <div className="mRunFilters__search">
             <FiSearch />
-            <input value="All" readOnly />
-            <button type="button" aria-label="Clear filter">
+            <input value={filterValue} onChange={(e) => setFilterValue(e.target.value)} />
+            <button type="button" aria-label="Clear filter" onClick={() => setFilterValue('')}>
               <FiXCircle />
             </button>
           </div>
@@ -63,7 +64,12 @@ export default function ManagementPayRunReporting() {
           </select>
         </div>
 
-        <button type="button" className="mRunFilters__refresh" aria-label="Refresh">
+        <button
+          type="button"
+          className="mRunFilters__refresh"
+          aria-label="Refresh"
+          onClick={() => setFilterValue((prev) => prev)}
+        >
           <FiRefreshCw />
         </button>
       </div>
@@ -98,8 +104,8 @@ export default function ManagementPayRunReporting() {
       </section>
 
       <div className="mRunActions">
-        <button type="button">Download Report</button>
-        <button type="button">Print Report</button>
+        <button type="button" onClick={() => window.print()}>Download Report</button>
+        <button type="button" onClick={() => window.print()}>Print Report</button>
       </div>
     </div>
   );

@@ -49,7 +49,7 @@ export default function ManagementPayrollCosts() {
           </div>
         </div>
 
-        <button className="mPay__exportBtn" type="button">
+        <button className="mPay__exportBtn" type="button" onClick={() => window.print()}>
           Export Payroll
           <br />
           Analytics

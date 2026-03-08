@@ -71,7 +71,7 @@ export default function HrAttendanceReports() {
       </section>
 
       <div className="hrAtt__actions">
-        <button className="hrAtt__exportBtn" type="button">
+        <button className="hrAtt__exportBtn" type="button" onClick={() => window.print()}>
           Export Attendance Report
         </button>
       </div>

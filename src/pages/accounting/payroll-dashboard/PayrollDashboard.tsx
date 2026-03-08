@@ -49,7 +49,7 @@ export default function AccountingPayrollDashboard() {
           </div>
         </div>
 
-        <button className="aDashPay__exportBtn" type="button">
+        <button className="aDashPay__exportBtn" type="button" onClick={() => window.print()}>
           Export Payroll
           <br />
           Analytics

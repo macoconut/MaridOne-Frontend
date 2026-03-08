@@ -45,7 +45,7 @@ export default function HrDashboard() {
           <p className="hrDash__subtitle">Thursday, April 6, 2024</p>
         </div>
 
-        <button className="hrDash__exportBtn" type="button">
+        <button className="hrDash__exportBtn" type="button" onClick={() => window.print()}>
           Export Attendance
           <br />
           Analytics

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getUserEmail } from '../../../lib/session';
 import './Dashboard.css';
@@ -41,6 +42,7 @@ function formatAddress(value: unknown) {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<UserDetails | null>(null);
   const [eventDays, setEventDays] = useState<number[]>([]);
 
@@ -99,7 +101,9 @@ export default function Dashboard() {
       <section className="infoCardX">
         <div className="infoCardX__header">
           <div className="infoCardX__title">Your Information</div>
-          <button className="infoCardX__edit" type="button">Edit Info</button>
+          <button className="infoCardX__edit" type="button" onClick={() => navigate('/employee/dashboard')}>
+            Edit Info
+          </button>
         </div>
 
         <div className="infoCardX__grid">
@@ -153,19 +157,19 @@ export default function Dashboard() {
 
       {/* ACTION BUTTONS */}
       <section className="actionRowX">
-        <button className="actionBtnX" type="button">
+        <button className="actionBtnX" type="button" onClick={() => navigate('/employee/payslip')}>
           <span>View Payslip</span>
           <span className="actionBtnX__arrow">→</span>
         </button>
-        <button className="actionBtnX" type="button">
+        <button className="actionBtnX" type="button" onClick={() => navigate('/employee/attendance')}>
           <span>View Attendance</span>
           <span className="actionBtnX__arrow">→</span>
         </button>
-        <button className="actionBtnX" type="button">
+        <button className="actionBtnX" type="button" onClick={() => navigate('/employee/attendance')}>
           <span>Request OT</span>
           <span className="actionBtnX__arrow">→</span>
         </button>
-        <button className="actionBtnX" type="button">
+        <button className="actionBtnX" type="button" onClick={() => navigate('/employee/attendance')}>
           <span>Request Leave</span>
           <span className="actionBtnX__arrow">→</span>
         </button>
@@ -188,7 +192,9 @@ export default function Dashboard() {
                     <li>Revised workflow and role responsibilities</li>
                     <li>Latest internal tool usage guidelines</li>
                   </ul>
-                  <button className="miniFolder__btn" type="button">View Training Materials</button>
+                  <button className="miniFolder__btn" type="button" onClick={() => navigate('/employee/training')}>
+                    View Training Materials
+                  </button>
                 </div>
               </div>
 
@@ -200,7 +206,9 @@ export default function Dashboard() {
                     <li>Updated employee account setup process</li>
                     <li>Current onboarding checkpoints and contacts</li>
                   </ul>
-                  <button className="miniFolder__btn" type="button">View Onboarding Materials</button>
+                  <button className="miniFolder__btn" type="button" onClick={() => navigate('/employee/training')}>
+                    View Onboarding Materials
+                  </button>
                 </div>
               </div>
             </div>
@@ -220,8 +228,12 @@ export default function Dashboard() {
                 </ul>
 
                 <div className="handbookRow__actions">
-                  <button className="handbookBtn" type="button">View Handbook</button>
-                  <button className="handbookBtn" type="button">Download Handbook</button>
+                  <button className="handbookBtn" type="button" onClick={() => navigate('/employee/training')}>
+                    View Handbook
+                  </button>
+                  <button className="handbookBtn" type="button" onClick={() => navigate('/employee/training')}>
+                    Download Handbook
+                  </button>
                 </div>
               </div>
             </div>

@@ -45,7 +45,7 @@ export default function ManagerAttendanceDashboard() {
           <p>Thursday, April 6, 2024</p>
         </div>
 
-        <button type="button" className="mgrAtt__export">
+        <button type="button" className="mgrAtt__export" onClick={() => window.print()}>
           Export Attendance
           <br />
           Analytics

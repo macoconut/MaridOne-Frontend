@@ -63,7 +63,7 @@ export default function ManagementAttendance() {
           <p>Thursday, April 6, 2024</p>
         </div>
 
-        <button type="button" className="mAtt__exportBtn">
+        <button type="button" className="mAtt__exportBtn" onClick={() => window.print()}>
           Export Attendance Analytics
         </button>
       </div>

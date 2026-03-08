@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { FiRefreshCw, FiSearch, FiXCircle } from 'react-icons/fi';
 import './PayrollReview.css';
 
@@ -11,6 +12,7 @@ const reviewRows = Array.from({ length: 16 }).map((_, idx) => ({
 }));
 
 export default function AccountingPayrollReview() {
+  const [filterValue, setFilterValue] = useState('All');
   return (
     <section className="aReviewPay">
       <h1>Review Employees&apos; Payslips</h1>
@@ -20,8 +22,8 @@ export default function AccountingPayrollReview() {
           <label>Employee:</label>
           <div className="aReviewPay__search">
             <FiSearch />
-            <input value="All" readOnly />
-            <button type="button" aria-label="Clear">
+            <input value={filterValue} onChange={(e) => setFilterValue(e.target.value)} />
+            <button type="button" aria-label="Clear" onClick={() => setFilterValue('')}>
               <FiXCircle />
             </button>
           </div>
@@ -34,7 +36,7 @@ export default function AccountingPayrollReview() {
           </select>
         </div>
 
-        <button type="button" className="aReviewPay__refresh" aria-label="Refresh">
+        <button type="button" className="aReviewPay__refresh" aria-label="Refresh" onClick={() => setFilterValue((v) => v)}>
           <FiRefreshCw />
         </button>
       </div>
@@ -57,7 +59,7 @@ export default function AccountingPayrollReview() {
               <span>{row.taxes}</span>
               <span>{row.deductions}</span>
               <span className="is-net">{row.net}</span>
-              <button type="button">View Payslip</button>
+              <button type="button" onClick={() => window.print()}>View Payslip</button>
             </article>
           ))}
 

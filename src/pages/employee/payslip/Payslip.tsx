@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { apiFetchJson, toArray } from '../../../lib/api';
+import { getUserEmail } from '../../../lib/session';
 import './Payslip.css';
 
 export default function Payslip() {
+  const navigate = useNavigate();
+  const [employeeId, setEmployeeId] = useState<number | null>(null);
   const [payslipPeriods, setPayslipPeriods] = useState<string[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const [earnings, setEarnings] = useState<Array<{ label: string; amount: string }>>([]);
@@ -11,12 +15,31 @@ export default function Payslip() {
   useEffect(() => {
     void (async () => {
       try {
-        const items = await apiFetchJson<unknown>('/api/payroll/item/1');
+        const username = getUserEmail();
+        if (!username) throw new Error('Missing username');
+        const userDetails = await apiFetchJson<Record<string, unknown>>(`/api/user/details/${encodeURIComponent(username)}`);
+        const selfEmployee =
+          userDetails.employee && typeof userDetails.employee === 'object'
+            ? (userDetails.employee as Record<string, unknown>)
+            : null;
+        const resolvedEmpId =
+          typeof userDetails.employeeId === 'number'
+            ? userDetails.employeeId
+            : typeof selfEmployee?.employeeId === 'number'
+              ? selfEmployee.employeeId
+              : typeof selfEmployee?.id === 'number'
+                ? selfEmployee.id
+                : null;
+        if (!resolvedEmpId) throw new Error('Missing employee ID');
+        setEmployeeId(resolvedEmpId);
+
+        const items = await apiFetchJson<unknown>(`/api/payroll/item/${resolvedEmpId}`);
         const rows = toArray<Record<string, unknown>>(items);
         setPayslipPeriods(rows.map((row, idx) => String(row.period ?? `Payslip ${idx + 1}`)));
         const first = rows[0];
         setSelectedItemId(typeof first?.id === 'number' ? first.id : typeof first?.itemId === 'number' ? (first.itemId as number) : null);
       } catch {
+        setEmployeeId(null);
         setPayslipPeriods([]);
         setSelectedItemId(null);
       }
@@ -64,6 +87,23 @@ export default function Payslip() {
     () => deductions.reduce((sum, row) => sum + Number(row.amount || 0), 0),
     [deductions]
   );
+
+  function handleDownload() {
+    const content = [
+      `Employee ID: ${employeeId ?? '-'}`,
+      `Selected Item ID: ${selectedItemId ?? '-'}`,
+      `Total Earnings: ${totalEarnings.toFixed(2)}`,
+      `Total Deductions: ${totalDeductions.toFixed(2)}`,
+      `Net Pay: ${(totalEarnings - totalDeductions).toFixed(2)}`,
+    ].join('\n');
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `payslip-${selectedItemId ?? 'latest'}.txt`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <div className="pay">
@@ -199,9 +239,9 @@ export default function Payslip() {
       </section>
 
       <div className="payActions">
-        <button className="payBtn" type="button">Download Payslip</button>
-        <button className="payBtn" type="button">Print Payslip</button>
-        <button className="payBtn" type="button">File Dispute</button>
+        <button className="payBtn" type="button" onClick={handleDownload}>Download Payslip</button>
+        <button className="payBtn" type="button" onClick={() => window.print()}>Print Payslip</button>
+        <button className="payBtn" type="button" onClick={() => navigate('/employee/approvals')}>File Dispute</button>
       </div>
     </div>
   );

@@ -25,6 +25,7 @@ const payTypeRows = [
 
 export default function HrPayRunReporting() {
   const [view, setView] = useState<ReportView>('employee');
+  const [filterValue, setFilterValue] = useState('All');
 
   const filterLabel = useMemo(() => (view === 'employee' ? 'Employee:' : 'Pay Type:'), [view]);
 
@@ -43,8 +44,8 @@ export default function HrPayRunReporting() {
           <label>{filterLabel}</label>
           <div className="hrRunFilters__searchWrap">
             <FiSearch />
-            <input value="All" readOnly />
-            <button type="button" aria-label="Clear filter">
+            <input value={filterValue} onChange={(e) => setFilterValue(e.target.value)} />
+            <button type="button" aria-label="Clear filter" onClick={() => setFilterValue('')}>
               <FiXCircle />
             </button>
           </div>
@@ -64,7 +65,12 @@ export default function HrPayRunReporting() {
           </select>
         </div>
 
-        <button className="hrRunFilters__refresh" type="button" aria-label="Refresh">
+        <button
+          className="hrRunFilters__refresh"
+          type="button"
+          aria-label="Refresh"
+          onClick={() => setFilterValue((v) => v)}
+        >
           <FiRefreshCw />
         </button>
       </div>
@@ -109,8 +115,8 @@ export default function HrPayRunReporting() {
       )}
 
       <div className="hrRunActions">
-        <button type="button">Download Report</button>
-        <button type="button">Print Report</button>
+        <button type="button" onClick={() => window.print()}>Download Report</button>
+        <button type="button" onClick={() => window.print()}>Print Report</button>
       </div>
     </div>
   );

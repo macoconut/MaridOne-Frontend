@@ -1,18 +1,19 @@
 import { FiHome, FiMail, FiPhone, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { useNavigate } from 'react-router-dom';
 import './Dashboard.css';
 
 const quickActions = [
-  'View Payslip',
-  'View Attendance',
-  'Request OT',
-  'Request Leave',
+  { label: 'View Payslip', route: '/management/pay-run-reporting' },
+  { label: 'View Attendance', route: '/management/attendance' },
+  { label: 'Request OT', route: '/management/pay-run-reporting' },
+  { label: 'Request Leave', route: '/management/pay-run-reporting' },
 ];
 
 const calendarDays = Array.from({ length: 30 }, (_, i) => i + 1);
 
-function ActionCard({ label }: { label: string }) {
+function ActionCard({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button type="button" className="mQuickCard">
+    <button type="button" className="mQuickCard" onClick={onClick}>
       <span>{label}</span>
       <i aria-hidden="true" />
     </button>
@@ -23,10 +24,14 @@ function MaterialSection({
   title,
   actionA,
   actionB,
+  onActionA,
+  onActionB,
 }: {
   title: string;
   actionA: string;
   actionB?: string;
+  onActionA: () => void;
+  onActionB?: () => void;
 }) {
   return (
     <section className="mPanel">
@@ -41,8 +46,8 @@ function MaterialSection({
               <li>Lorem ipsum dolor sit amet</li>
             </ul>
             <div className="mMaterial__actions">
-              <button type="button">{actionA}</button>
-              {actionB && <button type="button">{actionB}</button>}
+              <button type="button" onClick={onActionA}>{actionA}</button>
+              {actionB && <button type="button" onClick={onActionB}>{actionB}</button>}
             </div>
           </div>
         </article>
@@ -56,7 +61,7 @@ function MaterialSection({
                 <li>Lorem ipsum dolor sit amet</li>
               </ul>
               <div className="mMaterial__actions">
-                <button type="button">View Onboarding Materials</button>
+                <button type="button" onClick={onActionA}>View Onboarding Materials</button>
               </div>
             </div>
           </article>
@@ -67,12 +72,13 @@ function MaterialSection({
 }
 
 export default function ManagementDashboard() {
+  const navigate = useNavigate();
   return (
     <section className="mDash">
       <section className="mPanel mInfo">
         <div className="mPanel__head mPanel__head--inline">
           <span>Your Information</span>
-          <button type="button">Edit Info</button>
+          <button type="button" onClick={() => navigate('/management/dashboard')}>Edit Info</button>
         </div>
 
         <div className="mInfo__body">
@@ -118,18 +124,21 @@ export default function ManagementDashboard() {
         <div className="mDash__left">
           <div className="mQuickGrid">
             {quickActions.map((action) => (
-              <ActionCard key={action} label={action} />
+              <ActionCard key={action.label} label={action.label} onClick={() => navigate(action.route)} />
             ))}
           </div>
 
           <MaterialSection
             title="Training and Onboarding Materials"
             actionA="View Training Materials"
+            onActionA={() => navigate('/management/pay-run-reporting')}
           />
           <MaterialSection
             title="Employee Handbook"
             actionA="View Handbook"
             actionB="Download Handbook"
+            onActionA={() => navigate('/management/pay-run-reporting')}
+            onActionB={() => window.print()}
           />
         </div>
 

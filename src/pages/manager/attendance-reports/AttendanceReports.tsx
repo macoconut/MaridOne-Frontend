@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { FiSearch, FiXCircle } from 'react-icons/fi';
 import './AttendanceReports.css';
 
@@ -25,6 +26,7 @@ function buildApril2024Cells() {
 }
 
 export default function ManagerAttendanceReports() {
+  const [searchValue, setSearchValue] = useState('Employee#67');
   const cells = buildApril2024Cells();
 
   return (
@@ -34,8 +36,8 @@ export default function ManagerAttendanceReports() {
       <div className="mgrRpt__filters">
         <div className="mgrRpt__search">
           <FiSearch />
-          <input value="Employee#67" readOnly />
-          <button type="button" aria-label="Clear search">
+          <input value={searchValue} onChange={(e) => setSearchValue(e.target.value)} />
+          <button type="button" aria-label="Clear search" onClick={() => setSearchValue('')}>
             <FiXCircle />
           </button>
         </div>
@@ -71,7 +73,7 @@ export default function ManagerAttendanceReports() {
       </section>
 
       <div className="mgrRpt__actions">
-        <button type="button">Export Attendance Report</button>
+        <button type="button" onClick={() => window.print()}>Export Attendance Report</button>
       </div>
     </div>
   );
