@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { setSession } from '../../../../lib/session';
 import './Login.css';
-import { setSession } from '../../../../lib/session';
 
 type MockAccount = {
   role: 'employee' | 'hr' | 'manager' | 'management' | 'accounting';
@@ -46,7 +45,6 @@ const mockAccounts: MockAccount[] = [
 
 export default function EmployeeLogin() {
   const navigate = useNavigate();
-  const location = useLocation();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
