@@ -1,11 +1,8 @@
 import './Payslips.css';
 
-const linePoints = [
-  72, 71, 72, 71, 73, 74, 78, 81, 79, 79, 76, 78, 80, 78, 78, 76, 75, 75, 74, 69, 65, 67, 70,
-  69, 72, 74, 72, 71, 70, 71, 73, 75, 74, 77, 75, 76, 78, 79, 76, 77, 74, 70,
-];
+const linePoints: number[] = [];
 
-const barGroups = [28, 52, 29, 25, 44, 18];
+const barGroups: number[] = [];
 
 export default function HrPayslips() {
   const polylinePoints = linePoints.map((value, index) => `${index * 6},${100 - value}`).join(' ');
@@ -20,7 +17,7 @@ export default function HrPayslips() {
             <div className="hrPayCard__head">
               <div>
                 <h3>Business Bank Account</h3>
-                <p>306-234-12345678</p>
+                <p>Not connected</p>
               </div>
               <button type="button" aria-label="More">
                 ⋮
@@ -28,9 +25,9 @@ export default function HrPayslips() {
             </div>
 
             <div className="hrPayCard__meta">
-              <span className="is-status">Reconciled</span>
-              <span>Statement balance (Jul 17)</span>
-              <strong>(100.00)</strong>
+              <span className="is-status">No data</span>
+              <span>Statement balance</span>
+              <strong>(0.00)</strong>
             </div>
 
             <div className="hrPayChart hrPayChart--line">
@@ -66,7 +63,7 @@ export default function HrPayslips() {
                   <i />
                   <i />
                 </div>
-                <strong>1.60</strong>
+                <strong>0.00</strong>
               </div>
               <div className="hrPayPerf__row">
                 <span>Accounts Receivable Days</span>
@@ -82,7 +79,7 @@ export default function HrPayslips() {
                   <i />
                   <i />
                 </div>
-                <strong>1.60</strong>
+                <strong>0.00</strong>
               </div>
             </div>
           </article>
@@ -104,18 +101,18 @@ export default function HrPayslips() {
               <tbody>
                 <tr>
                   <td>Accounts payable (800)</td>
-                  <td>2,400.00</td>
-                  <td>234,567.00</td>
+                  <td>0.00</td>
+                  <td>0.00</td>
                 </tr>
                 <tr>
                   <td>Accounts receivable (610)</td>
-                  <td>5,345.00</td>
-                  <td>432,748.00</td>
+                  <td>0.00</td>
+                  <td>0.00</td>
                 </tr>
                 <tr>
                   <td>Advertising (640)</td>
-                  <td>1,300.00</td>
-                  <td>46,324.00</td>
+                  <td>0.00</td>
+                  <td>0.00</td>
                 </tr>
               </tbody>
             </table>
@@ -127,13 +124,13 @@ export default function HrPayslips() {
               <button type="button">New Sales Invoice</button>
               <div>
                 <p>
-                  4 draft invoices <strong>2,058.00</strong>
+                  0 draft invoices <strong>0.00</strong>
                 </p>
                 <p>
-                  10 awaiting payment <strong>18,073.95</strong>
+                  0 awaiting payment <strong>0.00</strong>
                 </p>
                 <p className="is-overdue">
-                  8 overdue <strong>14,653.95</strong>
+                  0 overdue <strong>0.00</strong>
                 </p>
               </div>
             </div>

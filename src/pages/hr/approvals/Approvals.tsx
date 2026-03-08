@@ -12,73 +12,15 @@ type HrRequest = {
   type: RequestType;
 };
 
-const requests: HrRequest[] = [
-  {
-    id: '1',
-    employee: 'Employee # 67',
-    message: 'Sick Leave Request - April 7, 2024',
-    time: '11:07 AM',
-    type: 'Leave',
-  },
-  {
-    id: '2',
-    employee: 'Employee # 67',
-    message: 'Holiday OT Request - May 1, 2024',
-    time: '11:07 AM',
-    type: 'OT',
-  },
-  {
-    id: '3',
-    employee: 'Employee # 67',
-    message: 'Sick Leave Request - April 7, 2024',
-    time: '11:07 AM',
-    type: 'Leave',
-  },
-  {
-    id: '4',
-    employee: 'Employee # 67',
-    message: 'Sick Leave Request - April 7, 2024',
-    time: '11:07 AM',
-    type: 'Leave',
-  },
-  {
-    id: '5',
-    employee: 'Employee # 67',
-    message: 'Holiday OT Request - May 1, 2024',
-    time: '11:07 AM',
-    type: 'OT',
-  },
-  {
-    id: '6',
-    employee: 'Employee # 67',
-    message: 'Sick Leave Request - April 7, 2024',
-    time: '11:07 AM',
-    type: 'Leave',
-  },
-  {
-    id: '7',
-    employee: 'Employee # 67',
-    message: 'Sick Leave Request - April 7, 2024',
-    time: '11:07 AM',
-    type: 'Leave',
-  },
-  {
-    id: '8',
-    employee: 'Employee # 67',
-    message: 'Sick Leave Request - April 7, 2024',
-    time: '11:07 AM',
-    type: 'Leave',
-  },
-];
-
-const cards = [
-  { label: 'Approved', value: 67 },
-  { label: 'Denied', value: 67 },
-  { label: 'Pending', value: 67 },
-];
+const requests: HrRequest[] = [];
 
 export default function HrApprovals() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const cards = [
+    { label: 'Approved', value: 0 },
+    { label: 'Denied', value: 0 },
+    { label: 'Pending', value: requests.length },
+  ];
   const selected = useMemo(
     () => requests.find((request) => request.id === selectedId) ?? null,
     [selectedId]
@@ -109,18 +51,26 @@ export default function HrApprovals() {
       </div>
 
       <section className="hrApprTable">
-        {requests.map((request) => (
-          <button
-            key={request.id}
-            type="button"
-            className="hrApprRow"
-            onClick={() => setSelectedId(request.id)}
-          >
-            <span className="hrApprRow__employee">{request.employee}</span>
-            <span className="hrApprRow__message">{request.message}</span>
-            <span className="hrApprRow__time">{request.time}</span>
-          </button>
-        ))}
+        {requests.length > 0 ? (
+          requests.map((request) => (
+            <button
+              key={request.id}
+              type="button"
+              className="hrApprRow"
+              onClick={() => setSelectedId(request.id)}
+            >
+              <span className="hrApprRow__employee">{request.employee}</span>
+              <span className="hrApprRow__message">{request.message}</span>
+              <span className="hrApprRow__time">{request.time}</span>
+            </button>
+          ))
+        ) : (
+          <div className="hrApprRow">
+            <span className="hrApprRow__employee">No requests yet.</span>
+            <span className="hrApprRow__message">Waiting for backend data.</span>
+            <span className="hrApprRow__time">-</span>
+          </div>
+        )}
       </section>
 
       {selected && (
