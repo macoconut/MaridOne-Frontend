@@ -88,6 +88,16 @@ function extractToken(payload: unknown): string {
   return 'authenticated-session';
 }
 
+function extractRefreshToken(payload: unknown): string {
+  if (!payload || typeof payload !== 'object') return '';
+  const data = payload as Record<string, unknown>;
+  if (typeof data.refreshToken === 'string' && data.refreshToken.trim().length > 0) {
+    return data.refreshToken;
+  }
+  if (data.data && typeof data.data === 'object') return extractRefreshToken(data.data);
+  return '';
+}
+
 function extractRoleFromJwt(jwt: string): UserRole | null {
   const parts = jwt.split('.');
   if (parts.length < 2) return null;
@@ -190,9 +200,10 @@ export default function EmployeeLogin() {
       }
 
       const token = extractToken(payload);
+      const refreshToken = extractRefreshToken(payload);
       const identity = extractIdentity(payload, normalizedUsername.toLowerCase());
 
-      setSession(role, identity, remember, token);
+      setSession(role, identity, remember, token, refreshToken);
       navigate(mapRoleToRoute(role), { replace: true });
     } catch {
       setError('Cannot reach backend. Make sure API is running.');

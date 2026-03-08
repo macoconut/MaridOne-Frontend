@@ -1,4 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import type { ReactElement } from 'react';
+import { getAuthToken, getUserRole, type UserRole } from './lib/session';
 
 import Landing from './pages/Public/Landing';
 import EmployeeLogin from './pages/employee/auth/Login/Login';
@@ -31,21 +33,70 @@ import AccountingPayrollDashboard from './pages/accounting/payroll-dashboard/Pay
 import AccountingPayrollReview from './pages/accounting/payroll-review/PayrollReview';
 import AccountingBookkeeping from './pages/accounting/bookkeeping/Bookkeeping';
 
+function roleHome(role: UserRole) {
+  switch (role) {
+    case 'employee':
+      return '/employee/dashboard';
+    case 'hr':
+      return '/hr/dashboard';
+    case 'manager':
+      return '/manager/dashboard';
+    case 'management':
+      return '/management/attendance';
+    case 'accounting':
+      return '/accounting/payroll-dashboard';
+  }
+}
+
+function RequireRole({
+  role,
+  children,
+}: {
+  role: UserRole;
+  children: ReactElement;
+}) {
+  const token = getAuthToken();
+  const currentRole = getUserRole();
+
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!currentRole) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (currentRole !== role) {
+    return <Navigate to={roleHome(currentRole)} replace />;
+  }
+
+  return children;
+}
+
+function LoginRoute() {
+  const token = getAuthToken();
+  const currentRole = getUserRole();
+  if (token && currentRole) {
+    return <Navigate to={roleHome(currentRole)} replace />;
+  }
+  return <EmployeeLogin />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
         {/* Public */}
         <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<EmployeeLogin />} />
-        <Route path="/employee/login" element={<EmployeeLogin />} />
-        <Route path="/hr/login" element={<EmployeeLogin />} />
-        <Route path="/manager/login" element={<EmployeeLogin />} />
-        <Route path="/management/login" element={<EmployeeLogin />} />
-        <Route path="/accounting/login" element={<EmployeeLogin />} />
+        <Route path="/login" element={<LoginRoute />} />
+        <Route path="/employee/login" element={<LoginRoute />} />
+        <Route path="/hr/login" element={<LoginRoute />} />
+        <Route path="/manager/login" element={<LoginRoute />} />
+        <Route path="/management/login" element={<LoginRoute />} />
+        <Route path="/accounting/login" element={<LoginRoute />} />
 
         {/* Employee (FRAME) */}
-        <Route path="/employee" element={<EmployeeLayout />}>
+        <Route path="/employee" element={<RequireRole role="employee"><EmployeeLayout /></RequireRole>}>
           {/* default */}
           <Route index element={<Navigate to="dashboard" replace />} />
 
@@ -57,7 +108,7 @@ export default function App() {
         </Route>
 
         {/* HR (FRAME) */}
-        <Route path="/hr" element={<HrLayout />}>
+        <Route path="/hr" element={<RequireRole role="hr"><HrLayout /></RequireRole>}>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<HrDashboard />} />
           <Route path="attendance-reports" element={<HrAttendanceReports />} />
@@ -69,7 +120,7 @@ export default function App() {
         </Route>
 
         {/* Management (FRAME) */}
-        <Route path="/management" element={<ManagementLayout />}>
+        <Route path="/management" element={<RequireRole role="management"><ManagementLayout /></RequireRole>}>
           <Route index element={<Navigate to="attendance" replace />} />
           <Route path="dashboard" element={<ManagementDashboard />} />
           <Route path="attendance" element={<ManagementAttendance />} />
@@ -79,7 +130,7 @@ export default function App() {
         </Route>
 
         {/* Manager (FRAME) */}
-        <Route path="/manager" element={<ManagerLayout />}>
+        <Route path="/manager" element={<RequireRole role="manager"><ManagerLayout /></RequireRole>}>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<ManagerDashboard />} />
           <Route path="attendance-dashboard" element={<ManagerAttendanceDashboard />} />
@@ -88,12 +139,14 @@ export default function App() {
         </Route>
 
         {/* Accounting (FRAME) */}
-        <Route path="/accounting" element={<AccountingLayout />}>
+        <Route path="/accounting" element={<RequireRole role="accounting"><AccountingLayout /></RequireRole>}>
           <Route index element={<Navigate to="payroll-dashboard" replace />} />
           <Route path="payroll-dashboard" element={<AccountingPayrollDashboard />} />
           <Route path="payroll-review" element={<AccountingPayrollReview />} />
           <Route path="bookkeeping" element={<AccountingBookkeeping />} />
         </Route>
+
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

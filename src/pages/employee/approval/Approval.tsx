@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { apiFetchJson, toArray } from '../../../lib/api';
+import { getUserEmail } from '../../../lib/session';
 import './Approval.css';
 
 type ApprovalItem = {
@@ -17,8 +18,11 @@ type OvertimeRow = {
   overtimeId?: number;
   requestedAt?: string;
   status?: string;
+  requestStatus?: string;
   approvedBy?: string;
+  approverName?: string;
   reason?: string;
+  approveReason?: string;
 };
 
 export default function Approval() {
@@ -27,12 +31,31 @@ export default function Approval() {
   useEffect(() => {
     void (async () => {
       try {
-        const response = await apiFetchJson<unknown>('/api/overtime/all/1?page=0&size=20');
+        const username = getUserEmail();
+        if (!username) throw new Error('Missing username');
+        const userDetails = await apiFetchJson<Record<string, unknown>>(
+          `/api/user/details/${encodeURIComponent(username)}`
+        );
+        const selfEmployee =
+          userDetails.employee && typeof userDetails.employee === 'object'
+            ? (userDetails.employee as Record<string, unknown>)
+            : null;
+        const empId =
+          typeof userDetails.employeeId === 'number'
+            ? userDetails.employeeId
+            : typeof selfEmployee?.employeeId === 'number'
+              ? selfEmployee.employeeId
+              : typeof selfEmployee?.id === 'number'
+                ? selfEmployee.id
+                : null;
+
+        if (!empId) throw new Error('Missing employee ID');
+        const response = await apiFetchJson<unknown>(`/api/overtime/all/${empId}?page=0&size=20`);
         const mapped = toArray<OvertimeRow>(response).map((row) => {
           const status: ApprovalItem['status'] =
-            row.status?.toUpperCase() === 'APPROVED'
+            (row.status ?? row.requestStatus)?.toUpperCase() === 'APPROVED'
               ? 'Approved'
-              : row.status?.toUpperCase() === 'DENIED'
+              : (row.status ?? row.requestStatus)?.toUpperCase() === 'REJECTED'
                 ? 'Denied'
                 : 'Pending';
           return {
@@ -42,8 +65,8 @@ export default function Approval() {
             category: 'OT',
             startOfRequest: row.requestedAt ?? '-',
             status,
-            approvedBy: row.approvedBy ?? '-',
-            remarks: row.reason ?? '-',
+            approvedBy: row.approvedBy ?? row.approverName ?? '-',
+            remarks: row.approveReason ?? row.reason ?? '-',
           };
         });
         setApprovals(mapped);

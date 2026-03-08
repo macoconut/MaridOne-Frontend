@@ -2,8 +2,9 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { FiBell, FiCalendar, FiDollarSign, FiGrid, FiLogOut } from 'react-icons/fi';
 import { useEffect, useRef, useState } from 'react';
 import '../../employee/layout/EmployeeLayout.css';
-import { clearSession, getAuthToken, getUserEmail } from '../../../lib/session';
+import { clearSession, getUserEmail } from '../../../lib/session';
 import { BACKEND_TEST_MODE } from '../../../config/flags';
+import { apiFetchRaw, getApiBaseUrl } from '../../../lib/api';
 import {
   applyBodyPlaceholders,
   applyPathPlaceholders,
@@ -20,7 +21,7 @@ type NotificationItem = {
 };
 
 const notifications: NotificationItem[] = [];
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
+const API_BASE_URL = getApiBaseUrl();
 
 type BackendTestAction = {
   label: string;
@@ -93,13 +94,8 @@ export default function ManagementLayout() {
     navigate('/login', { replace: true });
   }
 
-  async function fetchJsonWithAuth(path: string, token: string | null) {
-    const headers: Record<string, string> = {};
-    if (token) headers.Authorization = `Bearer ${token}`;
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-      method: 'GET',
-      headers: Object.keys(headers).length > 0 ? headers : undefined,
-    });
+  async function fetchJsonWithAuth(path: string) {
+    const response = await apiFetchRaw(path, { method: 'GET' });
     if (!response.ok) return null;
     try {
       return await response.json();
@@ -108,10 +104,10 @@ export default function ManagementLayout() {
     }
   }
 
-  async function buildContext(token: string | null, username: string | null): Promise<PlaceholderContext> {
+  async function buildContext(username: string | null): Promise<PlaceholderContext> {
     const context: PlaceholderContext = { username: username ?? undefined };
     if (!username) return context;
-    const userDetails = await fetchJsonWithAuth(`/api/user/details/${encodeURIComponent(username)}`, token);
+    const userDetails = await fetchJsonWithAuth(`/api/user/details/${encodeURIComponent(username)}`);
     const empId =
       extractFirstId(userDetails, ['employeeId', 'id']) ??
       extractFirstId(
@@ -122,7 +118,7 @@ export default function ManagementLayout() {
       );
     if (empId) {
       context.empId = empId;
-      const items = await fetchJsonWithAuth(`/api/payroll/item/${empId}`, token);
+      const items = await fetchJsonWithAuth(`/api/payroll/item/${empId}`);
       const firstItem = firstFromCollection(items);
       const payId = extractFirstId(firstItem, ['payId', 'payrollRunId']);
       if (payId) context.payId = payId;
@@ -131,8 +127,7 @@ export default function ManagementLayout() {
   }
 
   async function handleBackendTest(action: BackendTestAction) {
-    const token = getAuthToken();
-    const context = await buildContext(token, getUserEmail());
+    const context = await buildContext(getUserEmail());
 
     let pathResolved = applyPathPlaceholders(action.path, context);
     let bodyResolved = applyBodyPlaceholders(action.body, context);
@@ -158,11 +153,10 @@ export default function ManagementLayout() {
     try {
       const headers: Record<string, string> = {};
       if (bodyResolved.value !== undefined) headers['Content-Type'] = 'application/json';
-      if (token) headers.Authorization = `Bearer ${token}`;
 
-      const response = await fetch(`${API_BASE_URL}${resolvedPath}`, {
+      const response = await apiFetchRaw(resolvedPath, {
         method: action.method,
-        headers: Object.keys(headers).length > 0 ? headers : undefined,
+        headers,
         body: bodyResolved.value !== undefined ? JSON.stringify(bodyResolved.value) : undefined,
       });
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import './Attendance.css';
 import { FiPlusSquare, FiX, FiUpload, FiCalendar } from 'react-icons/fi';
 import { apiFetchJson } from '../../../lib/api';
+import { getUserEmail } from '../../../lib/session';
 
 type LeaveType = 'Sick Leave' | 'Vacation Leave' | 'Emergency Leave' | 'Others';
 
@@ -41,6 +42,36 @@ export default function Attendance() {
   const [reason, setReason] = useState<string>('');
   const [file, setFile] = useState<File | null>(null);
   const [submitError, setSubmitError] = useState('');
+  const [employeeId, setEmployeeId] = useState<number | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const username = getUserEmail();
+        if (!username) return;
+        const userDetails = await apiFetchJson<Record<string, unknown>>(
+          `/api/user/details/${encodeURIComponent(username)}`
+        );
+        const selfEmployee =
+          userDetails.employee && typeof userDetails.employee === 'object'
+            ? (userDetails.employee as Record<string, unknown>)
+            : null;
+
+        const resolvedEmpId =
+          typeof userDetails.employeeId === 'number'
+            ? userDetails.employeeId
+            : typeof selfEmployee?.employeeId === 'number'
+              ? selfEmployee.employeeId
+              : typeof selfEmployee?.id === 'number'
+                ? selfEmployee.id
+                : null;
+
+        setEmployeeId(resolvedEmpId);
+      } catch {
+        setEmployeeId(null);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     if (leaveOpen) document.body.classList.add('modal-open');
@@ -91,13 +122,22 @@ export default function Attendance() {
 
   async function submitLeave() {
     setSubmitError('');
+    if (!employeeId) {
+      setSubmitError('Unable to resolve employee account.');
+      return;
+    }
+
+    if (!startDate) {
+      setSubmitError('Start date is required.');
+      return;
+    }
+
     try {
-      await apiFetchJson('/api/leave/create?empId=1', {
+      await apiFetchJson(`/api/leave/create?empId=${employeeId}`, {
         method: 'POST',
         body: JSON.stringify({
-          leaveType,
-          startDate,
-          endDate,
+          leaveDate: startDate,
+          approver: 'HR',
           reason,
         }),
       });

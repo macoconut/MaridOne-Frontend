@@ -13,8 +13,9 @@ import {
 } from 'react-icons/fi';
 import '../../employee/layout/EmployeeLayout.css';
 import '../shared/hr-theme.css';
-import { clearSession, getAuthToken, getUserEmail } from '../../../lib/session';
+import { clearSession, getUserEmail } from '../../../lib/session';
 import { BACKEND_TEST_MODE } from '../../../config/flags';
+import { apiFetchRaw, getApiBaseUrl } from '../../../lib/api';
 import {
   applyBodyPlaceholders,
   applyPathPlaceholders,
@@ -39,7 +40,7 @@ type BackendTestAction = {
 };
 
 const notifications: NotificationItem[] = [];
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
+const API_BASE_URL = getApiBaseUrl();
 
 const backendActions: BackendTestAction[] = [
   {
@@ -51,10 +52,19 @@ const backendActions: BackendTestAction[] = [
       firstName: 'Test',
       middleName: 'H',
       lastName: 'Employee',
+      birthDate: '1998-01-01',
       email: 'test.employee@example.com',
-      contactNumber: '09171234567',
-      position: 'STAFF',
+      phoneNumber: '09171234567',
+      position: 'EMPLOYEE',
       employmentStatus: 'REGULAR',
+      address: {
+        permanentAddress: 'Sampaloc Manila',
+        temporaryAddress: 'Sampaloc Manila',
+        city: 'Manila',
+        state: 'Metro Manila',
+        country: 'Philippines',
+        zipCode: '1000',
+      },
     },
   },
   {
@@ -79,7 +89,7 @@ const backendActions: BackendTestAction[] = [
     method: 'PATCH',
     path: '/api/employees/status/{empId}',
     body: {
-      accountStatus: 'ACTIVE',
+      employmentStatus: 'REGULAR',
     },
   },
   {
@@ -90,7 +100,6 @@ const backendActions: BackendTestAction[] = [
     body: {
       username: 'test.employee',
       password: 'password123',
-      role: 'EMPLOYEE',
       employeeId: '{empId}',
     },
   },
@@ -100,8 +109,9 @@ const backendActions: BackendTestAction[] = [
     method: 'POST',
     path: '/api/leave/balance/{empId}',
     body: {
+      empId: '{empId}',
       balanceHours: 8,
-      leaveType: 'SICK',
+      leaveType: 'SICK_LEAVE',
     },
   },
   {
@@ -110,8 +120,8 @@ const backendActions: BackendTestAction[] = [
     method: 'PATCH',
     path: '/api/leave/balance/update/{empId}',
     body: {
-      leaveType: 'SICK',
-      type: 'ADD',
+      leaveType: 'SICK_LEAVE',
+      type: 'add',
       balanceHours: 2,
     },
   },
@@ -121,8 +131,11 @@ const backendActions: BackendTestAction[] = [
     method: 'PATCH',
     path: '/api/leave/update/{leaveRequestId}',
     body: {
-      status: 'APPROVED',
-      remarks: 'Approved by HR',
+      leaveDate: '2026-03-03',
+      approver: 'HR',
+      reason: 'Approved request',
+      requestStatus: 'APPROVED',
+      approverReason: 'Approved by HR',
     },
   },
   {
@@ -138,8 +151,8 @@ const backendActions: BackendTestAction[] = [
     path: '/api/overtime/update',
     body: {
       overtimeId: '{overtimeId}',
-      status: 'APPROVED',
-      remarks: 'Approved for payroll',
+      updateStatus: 'APPROVED',
+      approveReason: 'Approved for payroll',
     },
   },
   {
@@ -148,10 +161,10 @@ const backendActions: BackendTestAction[] = [
     method: 'POST',
     path: '/api/employee/schedule/add',
     body: {
-      employeeId: '{empId}',
-      shiftDate: '2026-03-01',
-      startTime: '08:00:00',
-      endTime: '17:00:00',
+      empId: '{empId}',
+      dayOfWeek: 'MONDAY',
+      startTime: '08:00',
+      endTime: '17:00',
     },
   },
   {
@@ -161,8 +174,9 @@ const backendActions: BackendTestAction[] = [
     path: '/api/employee/schedule/update',
     body: {
       shiftId: '{shiftId}',
-      startTime: '09:00:00',
-      endTime: '18:00:00',
+      dayOfWeek: 'MONDAY',
+      startTime: '09:00',
+      endTime: '18:00',
     },
   },
   {
@@ -212,8 +226,10 @@ const backendActions: BackendTestAction[] = [
     method: 'POST',
     path: '/api/payroll/run/create',
     body: {
-      fromDate: '2026-02-01',
-      toDate: '2026-02-15',
+      periodStart: '2026-02-01',
+      periodEnd: '2026-02-15',
+      periodDescription: 'Regular payroll run Feb 1-15',
+      payrollStatus: 'IN_PROGRESS',
       runType: 'REGULAR',
     },
   },
@@ -224,7 +240,7 @@ const backendActions: BackendTestAction[] = [
     path: '/api/payroll/item/create',
     body: {
       payId: '{payId}',
-      employeeId: '{empId}',
+      empId: '{empId}',
     },
   },
   {
@@ -233,7 +249,8 @@ const backendActions: BackendTestAction[] = [
     method: 'PATCH',
     path: '/api/payroll/item/update/{itemId}',
     body: {
-      baseSalary: 20000,
+      grossPay: 20000,
+      netPay: 18000,
     },
   },
   {
@@ -254,8 +271,8 @@ const backendActions: BackendTestAction[] = [
     method: 'PATCH',
     path: '/api/payroll/item/dispute/update/{disputeId}',
     body: {
-      status: 'RESOLVED',
-      remarks: 'Resolved during backend test',
+      status: 'APPROVED',
+      statusReason: 'Resolved during backend test',
     },
   },
   {
@@ -308,13 +325,8 @@ export default function HrLayout() {
     navigate('/login', { replace: true });
   }
 
-  async function fetchJsonWithAuth(path: string, token: string | null) {
-    const headers: Record<string, string> = {};
-    if (token) headers.Authorization = `Bearer ${token}`;
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-      method: 'GET',
-      headers: Object.keys(headers).length > 0 ? headers : undefined,
-    });
+  async function fetchJsonWithAuth(path: string) {
+    const response = await apiFetchRaw(path, { method: 'GET' });
     if (!response.ok) return null;
     try {
       return await response.json();
@@ -323,30 +335,30 @@ export default function HrLayout() {
     }
   }
 
-  async function buildContext(token: string | null, username: string | null): Promise<PlaceholderContext> {
+  async function buildContext(username: string | null): Promise<PlaceholderContext> {
     const context: PlaceholderContext = { username: username ?? undefined };
-    const users = await fetchJsonWithAuth('/api/employees?page=0&size=20', token);
+    const users = await fetchJsonWithAuth('/api/employees?page=0&size=20');
     const firstEmployee = firstFromCollection(users);
     const empId = extractFirstId(firstEmployee, ['employeeId', 'id', 'empId']);
     if (empId) context.empId = empId;
 
-    const overtimes = await fetchJsonWithAuth('/api/overtime/all?page=0&size=20', token);
+    const overtimes = await fetchJsonWithAuth('/api/overtime/all?page=0&size=20');
     const firstOvertime = firstFromCollection(overtimes);
     const overtimeId = extractFirstId(firstOvertime, ['overtimeId', 'id']);
     if (overtimeId) context.overtimeId = overtimeId;
 
-    const events = await fetchJsonWithAuth('/api/calendar/events?month=4&year=2026', token);
+    const events = await fetchJsonWithAuth('/api/calendar/events?month=4&year=2026');
     const firstEvent = firstFromCollection(events);
     const calendarId = extractFirstId(firstEvent, ['calendarId', 'id']);
     if (calendarId) context.calendarId = calendarId;
 
-    const disputes = await fetchJsonWithAuth('/api/payroll/item/dispute/all?page=0&size=20', token);
+    const disputes = await fetchJsonWithAuth('/api/payroll/item/dispute/all?page=0&size=20');
     const firstDispute = firstFromCollection(disputes);
     const disputeId = extractFirstId(firstDispute, ['disputeId', 'id', 'requestId']);
     if (disputeId) context.disputeId = disputeId;
 
     if (username) {
-      const userDetails = await fetchJsonWithAuth(`/api/user/details/${encodeURIComponent(username)}`, token);
+      const userDetails = await fetchJsonWithAuth(`/api/user/details/${encodeURIComponent(username)}`);
       const selfEmpId =
         extractFirstId(userDetails, ['employeeId', 'id']) ??
         extractFirstId(
@@ -356,7 +368,7 @@ export default function HrLayout() {
           ['employeeId', 'id']
         );
       if (selfEmpId) {
-        const selfItems = await fetchJsonWithAuth(`/api/payroll/item/${selfEmpId}`, token);
+        const selfItems = await fetchJsonWithAuth(`/api/payroll/item/${selfEmpId}`);
         const firstItem = firstFromCollection(selfItems);
         const itemId = extractFirstId(firstItem, ['id', 'itemId', 'payrollItemId']);
         const payId = extractFirstId(firstItem, ['payId', 'payrollRunId']);
@@ -369,8 +381,7 @@ export default function HrLayout() {
   }
 
   async function handleBackendTest(action: BackendTestAction) {
-    const token = getAuthToken();
-    const context = await buildContext(token, getUserEmail());
+    const context = await buildContext(getUserEmail());
     let pathResolved = applyPathPlaceholders(action.path, context);
     let bodyResolved = applyBodyPlaceholders(action.body, context);
     const missing = new Set([...pathResolved.missing, ...bodyResolved.missing]);
@@ -395,11 +406,10 @@ export default function HrLayout() {
     try {
       const headers: Record<string, string> = {};
       if (bodyResolved.value !== undefined) headers['Content-Type'] = 'application/json';
-      if (token) headers.Authorization = `Bearer ${token}`;
 
-      const response = await fetch(`${API_BASE_URL}${resolvedPath}`, {
+      const response = await apiFetchRaw(resolvedPath, {
         method: action.method,
-        headers: Object.keys(headers).length > 0 ? headers : undefined,
+        headers,
         body: bodyResolved.value !== undefined ? JSON.stringify(bodyResolved.value) : undefined,
       });
 

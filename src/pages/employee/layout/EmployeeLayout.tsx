@@ -12,8 +12,9 @@ import {
 } from 'react-icons/fi';
 
 import './EmployeeLayout.css';
-import { clearSession, getAuthToken, getUserEmail } from '../../../lib/session';
+import { clearSession, getUserEmail } from '../../../lib/session';
 import { BACKEND_TEST_MODE } from '../../../config/flags';
+import { apiFetchRaw, getApiBaseUrl } from '../../../lib/api';
 import {
   applyBodyPlaceholders,
   applyPathPlaceholders,
@@ -38,7 +39,7 @@ type BackendTestAction = {
 };
 
 const notifications: NotificationItem[] = [];
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
+const API_BASE_URL = getApiBaseUrl();
 
 const backendActions: BackendTestAction[] = [
   {
@@ -71,8 +72,10 @@ const backendActions: BackendTestAction[] = [
     method: 'POST',
     path: '/api/overtime/create',
     body: {
-      requestedAt: '2026-02-28T08:00:00',
-      requestedHours: 2.5,
+      workDate: '2026-03-10',
+      startTime: '2026-03-10T18:00:00',
+      endTime: '2026-03-10T20:00:00',
+      overtimeType: 'OVERTIME',
       reason: 'Backend endpoint testing',
     },
   },
@@ -94,9 +97,8 @@ const backendActions: BackendTestAction[] = [
     method: 'POST',
     path: '/api/leave/create?empId={empId}',
     body: {
-      leaveType: 'SICK',
-      startDate: '2026-03-03',
-      endDate: '2026-03-03',
+      leaveDate: '2026-03-03',
+      approver: 'HR',
       reason: 'Backend test request',
     },
   },
@@ -112,7 +114,6 @@ const backendActions: BackendTestAction[] = [
     method: 'POST',
     path: '/api/bank/add/{empId}',
     body: {
-      accountName: 'Test Employee',
       accountNumber: '1234567890',
       bankName: 'Sample Bank',
     },
@@ -123,8 +124,9 @@ const backendActions: BackendTestAction[] = [
     method: 'PATCH',
     path: '/api/bank/update/{empId}',
     body: {
-      accountId: '{accountId}',
-      accountName: 'Test Employee Updated',
+      bankId: '{accountId}',
+      accountNumber: '1234567899',
+      bankName: 'Sample Bank Updated',
     },
   },
   {
@@ -139,8 +141,9 @@ const backendActions: BackendTestAction[] = [
     method: 'POST',
     path: '/api/logs/activity',
     body: {
-      employeeId: '{empId}',
-      activity: 'LOGIN',
+      username: '{username}',
+      activityType: 'CREATE',
+      message: 'Employee backend endpoint test',
     },
   },
   {
@@ -179,6 +182,7 @@ const backendActions: BackendTestAction[] = [
     method: 'POST',
     path: '/api/payroll/item/dispute/create/{itemId}',
     body: {
+      subject: 'Payroll review',
       reason: 'Testing dispute endpoint communication',
     },
   },
@@ -227,13 +231,8 @@ export default function EmployeeLayout() {
     navigate('/login', { replace: true });
   }
 
-  async function fetchJsonWithAuth(path: string, token: string | null) {
-    const headers: Record<string, string> = {};
-    if (token) headers.Authorization = `Bearer ${token}`;
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-      method: 'GET',
-      headers: Object.keys(headers).length > 0 ? headers : undefined,
-    });
+  async function fetchJsonWithAuth(path: string) {
+    const response = await apiFetchRaw(path, { method: 'GET' });
     if (!response.ok) return null;
     try {
       return await response.json();
@@ -242,14 +241,11 @@ export default function EmployeeLayout() {
     }
   }
 
-  async function buildContext(token: string | null, username: string | null): Promise<PlaceholderContext> {
+  async function buildContext(username: string | null): Promise<PlaceholderContext> {
     const context: PlaceholderContext = { username: username ?? undefined };
     if (!username) return context;
 
-    const userDetails = await fetchJsonWithAuth(
-      `/api/user/details/${encodeURIComponent(username)}`,
-      token
-    );
+    const userDetails = await fetchJsonWithAuth(`/api/user/details/${encodeURIComponent(username)}`);
     const empId =
       extractFirstId(userDetails, ['employeeId', 'id']) ??
       extractFirstId(
@@ -261,12 +257,12 @@ export default function EmployeeLayout() {
     if (empId) context.empId = empId;
 
     if (context.empId) {
-      const payrollItems = await fetchJsonWithAuth(`/api/payroll/item/${context.empId}`, token);
+      const payrollItems = await fetchJsonWithAuth(`/api/payroll/item/${context.empId}`);
       const firstItem = firstFromCollection(payrollItems);
       const itemId = extractFirstId(firstItem, ['id', 'itemId', 'payrollItemId']);
       if (itemId) context.itemId = itemId;
 
-      const bankAccounts = await fetchJsonWithAuth(`/api/bank/${context.empId}`, token);
+      const bankAccounts = await fetchJsonWithAuth(`/api/bank/${context.empId}`);
       const firstAccount = firstFromCollection(bankAccounts);
       const accountId = extractFirstId(firstAccount, ['accountId', 'id', 'bankId']);
       if (accountId) context.accountId = accountId;
@@ -277,8 +273,7 @@ export default function EmployeeLayout() {
 
   async function handleBackendTest(action: BackendTestAction) {
     const username = getUserEmail();
-    const token = getAuthToken();
-    const context = await buildContext(token, username);
+    const context = await buildContext(username);
 
     let pathResolved = applyPathPlaceholders(action.path, context);
     let bodyResolved = applyBodyPlaceholders(action.body, context);
@@ -305,11 +300,10 @@ export default function EmployeeLayout() {
     try {
       const headers: Record<string, string> = {};
       if (bodyResolved.value !== undefined) headers['Content-Type'] = 'application/json';
-      if (token) headers.Authorization = `Bearer ${token}`;
 
-      const response = await fetch(`${API_BASE_URL}${resolvedPath}`, {
+      const response = await apiFetchRaw(resolvedPath, {
         method: action.method,
-        headers: Object.keys(headers).length > 0 ? headers : undefined,
+        headers,
         body: bodyResolved.value !== undefined ? JSON.stringify(bodyResolved.value) : undefined,
       });
 
