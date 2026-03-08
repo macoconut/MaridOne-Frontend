@@ -9,8 +9,10 @@ import {
   FiClock,
   FiFileText,
   FiUsers,
+  FiCreditCard,
 } from 'react-icons/fi';
 import '../../employee/layout/EmployeeLayout.css';
+import '../shared/hr-theme.css';
 import { clearSession } from '../../../lib/session';
 import { BACKEND_TEST_MODE } from '../../../config/flags';
 
@@ -344,10 +346,15 @@ export default function HrLayout() {
   return (
     <div className="employeeLayout">
       <aside className="eSide">
-        <div className="eSide__brand">
+        <button
+          type="button"
+          className="eSide__brand eSide__brand--link"
+          onClick={() => navigate('/login', { replace: true })}
+          aria-label="Go to login"
+        >
           <div className="eSide__logo" aria-hidden="true" />
           <div className="eSide__name">MaridOne</div>
-        </div>
+        </button>
 
         <nav className="eSide__nav">
           <NavLink
@@ -377,6 +384,13 @@ export default function HrLayout() {
           >
             <FiFileText className="eSide__icon" />
             <span>Manage Payslips</span>
+          </NavLink>
+          <NavLink
+            to="/hr/pay-run-reporting"
+            className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
+          >
+            <FiCreditCard className="eSide__icon" />
+            <span>Pay Run Reporting</span>
           </NavLink>
           <NavLink
             to="/hr/manage-emp"

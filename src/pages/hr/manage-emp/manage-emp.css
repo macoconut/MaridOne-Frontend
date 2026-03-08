@@ -1,23 +1,23 @@
 .hrEmp {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 12px;
 }
 
 .hrEmp__title {
   margin: 0;
-  color: #2f2050;
-  font-size: 44px;
+  color: var(--hr-primary-dark);
+  font-size: 24px;
   font-weight: 900;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
 }
 
 .hrEmpTable {
-  border: 1px solid rgba(62, 35, 94, 0.35);
-  border-radius: 6px;
+  border: 1.5px solid var(--hr-border);
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.14);
-  background: #fff;
+  box-shadow: var(--hr-shadow);
+  background: var(--hr-surface);
 }
 
 .hrEmpTable__head,
@@ -28,22 +28,23 @@
 }
 
 .hrEmpTable__head {
-  background: #3a205b;
-  color: #fff;
-  font-size: 14px;
+  background: var(--hr-primary-soft);
+  border-bottom: 1px solid var(--hr-line);
+  color: var(--hr-primary-dark);
+  font-size: 13px;
   font-weight: 800;
-  padding: 9px 14px;
+  padding: 10px 14px;
 }
 
 .hrEmpRow {
   padding: 10px 14px;
   font-size: 12px;
-  color: #2e2d38;
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  color: var(--hr-text);
+  border-top: 1px solid var(--hr-line);
 }
 
 .hrEmpRow:nth-child(odd) {
-  background: #f6f6f6;
+  background: #faf9fc;
 }
 
 .hrEmpActions {
@@ -57,15 +58,15 @@
 .hrEmpActions button,
 .hrEmpModal__actions button {
   border: 0;
-  background: #8a4d93;
+  background: var(--hr-primary);
   color: #fff;
-  min-width: 128px;
+  min-width: 140px;
   height: 38px;
-  border-radius: 9px;
+  border-radius: 8px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
-  box-shadow: 0 4px 9px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--hr-button-shadow);
 }
 
 .hrEmpModalBackdrop {
@@ -88,8 +89,8 @@
 .hrEmpModal h2 {
   margin: 0;
   text-align: center;
-  color: #3a205b;
-  font-size: 46px;
+  color: var(--hr-primary-dark);
+  font-size: 26px;
   font-weight: 900;
 }
 
@@ -120,7 +121,7 @@
 }
 
 .hrEmpField label {
-  color: #322548;
+  color: var(--hr-text);
   font-size: 12px;
   font-weight: 800;
   white-space: nowrap;
@@ -128,11 +129,11 @@
 
 .hrEmpField input,
 .hrEmpField textarea {
-  border: 1px solid rgba(0, 0, 0, 0.34);
-  border-radius: 2px;
-  background: #f8f7f7;
+  border: 1px solid rgba(0, 0, 0, 0.22);
+  border-radius: 4px;
+  background: var(--hr-surface-soft);
   font-size: 12px;
-  color: #21212e;
+  color: var(--hr-text);
   height: 30px;
   padding: 0 10px;
 }
@@ -153,7 +154,7 @@
 .hrEmpField--icon svg {
   position: absolute;
   right: 8px;
-  color: #4d3b6d;
+  color: var(--hr-muted);
   pointer-events: none;
 }
 
@@ -176,7 +177,7 @@
 
 @media (max-width: 1100px) {
   .hrEmp__title {
-    font-size: 32px;
+    font-size: 22px;
   }
 
   .hrEmpTable__head,
@@ -191,7 +192,7 @@
   }
 
   .hrEmpModal h2 {
-    font-size: 34px;
+    font-size: 22px;
   }
 
   .hrEmpForm__grid {

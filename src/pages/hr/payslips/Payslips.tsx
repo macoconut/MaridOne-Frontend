@@ -1,159 +1,128 @@
+import { useState } from 'react';
 import './Payslips.css';
 
-const linePoints = [
-  72, 71, 72, 71, 73, 74, 78, 81, 79, 79, 76, 78, 80, 78, 78, 76, 75, 75, 74, 69, 65, 67, 70,
-  69, 72, 74, 72, 71, 70, 71, 73, 75, 74, 77, 75, 76, 78, 79, 76, 77, 74, 70,
+type DisputeStatus = 'Open' | 'Clear';
+
+type DisputeRow = {
+  id: number;
+  employee: string;
+  department: string;
+  payrollPeriod: string;
+  status: DisputeStatus;
+};
+
+const disputes: DisputeRow[] = [
+  { id: 1, employee: 'Employee #1', department: 'R&D', payrollPeriod: 'March 30, 2024', status: 'Open' },
+  { id: 2, employee: 'Employee #2', department: 'R&D', payrollPeriod: 'March 30, 2024', status: 'Clear' },
+  { id: 3, employee: 'Employee #3', department: 'R&D', payrollPeriod: 'March 30, 2024', status: 'Clear' },
+  { id: 4, employee: 'Employee #4', department: 'R&D', payrollPeriod: 'March 30, 2024', status: 'Clear' },
+  { id: 5, employee: 'Employee #5', department: 'R&D', payrollPeriod: 'March 30, 2024', status: 'Clear' },
 ];
 
-const barGroups = [28, 52, 29, 25, 44, 18];
-
 export default function HrPayslips() {
-  const polylinePoints = linePoints.map((value, index) => `${index * 6},${100 - value}`).join(' ');
+  const [selectedDispute, setSelectedDispute] = useState<DisputeRow | null>(null);
 
   return (
     <div className="hrPay">
       <h1 className="hrPay__title">Manage Payslips</h1>
 
-      <section className="hrPayBoard">
-        <div className="hrPayBoard__left">
-          <article className="hrPayCard">
-            <div className="hrPayCard__head">
-              <div>
-                <h3>Business Bank Account</h3>
-                <p>306-234-12345678</p>
-              </div>
-              <button type="button" aria-label="More">
-                ⋮
-              </button>
-            </div>
-
-            <div className="hrPayCard__meta">
-              <span className="is-status">Reconciled</span>
-              <span>Statement balance (Jul 17)</span>
-              <strong>(100.00)</strong>
-            </div>
-
-            <div className="hrPayChart hrPayChart--line">
-              <svg viewBox="0 0 250 100" preserveAspectRatio="none" aria-hidden="true">
-                <polyline points={polylinePoints} />
-                {linePoints.map((value, index) => (
-                  <circle key={index} cx={index * 6} cy={100 - value} r="1.9" />
-                ))}
-              </svg>
-              <div className="hrPayChart__axis">
-                <span>Jul 16</span>
-                <span>Jul 23</span>
-                <span>Jul 30</span>
-                <span>Aug 6</span>
-              </div>
-            </div>
-          </article>
-
-          <article className="hrPayCard">
-            <h3>Business Performance</h3>
-            <div className="hrPayPerf">
-              <div className="hrPayPerf__row">
-                <span>Accounts Payable Days</span>
-                <div className="hrPayPerf__spark">
-                  <i />
-                  <i />
-                  <i />
-                  <i />
-                  <i />
-                  <i />
-                  <i />
-                  <i />
-                  <i />
-                  <i />
-                </div>
-                <strong>1.60</strong>
-              </div>
-              <div className="hrPayPerf__row">
-                <span>Accounts Receivable Days</span>
-                <div className="hrPayPerf__spark">
-                  <i />
-                  <i />
-                  <i />
-                  <i />
-                  <i />
-                  <i />
-                  <i />
-                  <i />
-                  <i />
-                  <i />
-                </div>
-                <strong>1.60</strong>
-              </div>
-            </div>
-          </article>
-
-          <article className="hrPayCard hrPayCard--muted" />
+      <section className="hrPayPeriod">
+        <div>
+          <h2>Current Pay Period: April 15, 2024</h2>
+          <p>
+            Period from: <span>March 26, 2024 - April 11, 2024</span>
+          </p>
         </div>
+        <button type="button">Run Pay for this Period</button>
+      </section>
 
-        <div className="hrPayBoard__right">
-          <article className="hrPayCard">
-            <h3>Account watchlist</h3>
-            <table className="hrPayTable">
-              <thead>
-                <tr>
-                  <th>Account</th>
-                  <th>This month</th>
-                  <th>Year to date</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Accounts payable (800)</td>
-                  <td>2,400.00</td>
-                  <td>234,567.00</td>
-                </tr>
-                <tr>
-                  <td>Accounts receivable (610)</td>
-                  <td>5,345.00</td>
-                  <td>432,748.00</td>
-                </tr>
-                <tr>
-                  <td>Advertising (640)</td>
-                  <td>1,300.00</td>
-                  <td>46,324.00</td>
-                </tr>
-              </tbody>
-            </table>
-          </article>
+      <section className="hrPayPanel">
+        <header className="hrPayPanel__head">Payroll Dispute from Employees</header>
 
-          <article className="hrPayCard">
-            <h3>Invoices owed to you</h3>
-            <div className="hrPayInvoiceMeta">
-              <button type="button">New Sales Invoice</button>
-              <div>
-                <p>
-                  4 draft invoices <strong>2,058.00</strong>
-                </p>
-                <p>
-                  10 awaiting payment <strong>18,073.95</strong>
-                </p>
-                <p className="is-overdue">
-                  8 overdue <strong>14,653.95</strong>
-                </p>
-              </div>
-            </div>
-
-            <div className="hrPayChart hrPayChart--bar">
-              {barGroups.map((height, index) => (
-                <div key={index} style={{ height: `${height}%` }} />
-              ))}
-              <div className="hrPayChart__axis">
-                <span>Older</span>
-                <span>Oct 30 - Nov 5</span>
-                <span>This week</span>
-                <span>Nov 13 - 19</span>
-                <span>Nov 20 - 26</span>
-                <span>Future</span>
-              </div>
-            </div>
-          </article>
+        <div className="hrPayTable">
+          <div className="hrPayTable__head">
+            <span>Employee Name</span>
+            <span>Department</span>
+            <span>Payroll Period</span>
+            <span>Status</span>
+          </div>
+          <div className="hrPayTable__body">
+            {disputes.map((row) => (
+              <button key={row.id} className="hrPayRow" type="button" onClick={() => setSelectedDispute(row)}>
+                <span>{row.employee}</span>
+                <span>{row.department}</span>
+                <span>{row.payrollPeriod}</span>
+                <span className={row.status === 'Open' ? 'is-open' : ''}>{row.status}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </section>
+
+      {selectedDispute && (
+        <div className="hrPayModalBackdrop" role="dialog" aria-modal="true">
+          <article className="hrPayModal">
+            <h3>{selectedDispute.employee} - Payslip Dispute</h3>
+            <div className="hrPayModal__rule" />
+
+            <div className="hrPayModal__grid">
+              <label>
+                <span>Department:</span>
+                <input value="Research and Development" readOnly />
+              </label>
+              <label>
+                <span>Position:</span>
+                <input value="Head of Research" readOnly />
+              </label>
+              <label>
+                <span>Payroll Period:</span>
+                <input value="March 1, 2024" readOnly />
+              </label>
+              <label>
+                <span>Dispute Type:</span>
+                <input value="Overtime Pay Dispute" readOnly />
+              </label>
+            </div>
+
+            <label className="hrPayModal__area">
+              <span>Reason for Dispute:</span>
+              <textarea
+                value="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam blandit turpis vel sapien suscipit."
+                readOnly
+              />
+            </label>
+
+            <div className="hrPayModal__line">
+              <span>Supporting Documents:</span>
+              <button type="button">Click to View</button>
+            </div>
+
+            <div className="hrPayModal__line">
+              <span>Administrative Approval:</span>
+              <div className="hrPayModal__inlineBtns">
+                <button type="button">Approve</button>
+                <button type="button" className="is-muted">
+                  Deny
+                </button>
+              </div>
+            </div>
+
+            <label className="hrPayModal__area">
+              <span>Remarks:</span>
+              <textarea placeholder="Enter review notes..." />
+            </label>
+
+            <div className="hrPayModal__actions">
+              <button type="button" className="is-muted" onClick={() => setSelectedDispute(null)}>
+                Cancel
+              </button>
+              <button type="button" onClick={() => setSelectedDispute(null)}>
+                Submit
+              </button>
+            </div>
+          </article>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,0 +1,13 @@
+:root {
+  --hr-primary: #7b4a8f;
+  --hr-primary-dark: #2f2050;
+  --hr-primary-soft: rgba(123, 74, 143, 0.12);
+  --hr-text: #2d273b;
+  --hr-muted: #555066;
+  --hr-surface: #ffffff;
+  --hr-surface-soft: #f7f6f9;
+  --hr-border: rgba(62, 35, 94, 0.24);
+  --hr-line: rgba(0, 0, 0, 0.16);
+  --hr-shadow: 0 8px 14px rgba(0, 0, 0, 0.08);
+  --hr-button-shadow: 0 6px 12px rgba(0, 0, 0, 0.14);
+}

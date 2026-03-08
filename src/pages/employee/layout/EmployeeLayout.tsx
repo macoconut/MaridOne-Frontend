@@ -269,10 +269,15 @@ export default function EmployeeLayout() {
     <div className="employeeLayout">
       {/* SIDEBAR */}
       <aside className="eSide">
-        <div className="eSide__brand">
+        <button
+          type="button"
+          className="eSide__brand eSide__brand--link"
+          onClick={() => navigate('/login', { replace: true })}
+          aria-label="Go to login"
+        >
           <div className="eSide__logo" aria-hidden="true" />
           <div className="eSide__name">MaridOne</div>
-        </div>
+        </button>
 
         <nav className="eSide__nav">
           <NavLink

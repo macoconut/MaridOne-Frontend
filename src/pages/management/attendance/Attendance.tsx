@@ -1,10 +1,4 @@
-import {
-  FiCalendar,
-  FiChevronLeft,
-  FiChevronRight,
-  FiClock,
-  FiPieChart,
-} from 'react-icons/fi';
+import { FiCalendar, FiChevronLeft, FiChevronRight, FiClock } from 'react-icons/fi';
 import './Attendance.css';
 
 type StatCard = {
@@ -45,15 +39,11 @@ const onLeaveItems = Array.from({ length: 3 }, (_, i) => ({
   range: 'April 16, 2024 - April 17, 2024',
 }));
 
-function PersonDot() {
-  return <div className="mAtt__avatar" aria-hidden="true" />;
-}
-
 function PersonSummary(props: { name: string; dept: string; position: string; rightText?: string }) {
   const { name, dept, position, rightText } = props;
   return (
     <div className="mAtt__personRow">
-      <PersonDot />
+      <div className="mAtt__avatar" aria-hidden="true" />
       <div className="mAtt__personBody">
         <div className="mAtt__personName">{name}</div>
         <div className="mAtt__personMeta">{dept}</div>
@@ -83,7 +73,7 @@ export default function ManagementAttendance() {
           <div className="mAtt__stats">
             {statCards.map((item) => (
               <article key={item.label} className="mAtt__statCard">
-                <FiPieChart className="mAtt__statIcon" />
+                <div className="mAtt__statIcon" />
                 <div>
                   <div className="mAtt__statLabel">{item.label}</div>
                   <div className="mAtt__statValue">{item.value}</div>
@@ -93,21 +83,26 @@ export default function ManagementAttendance() {
           </div>
 
           <section className="mAtt__card">
-            <header className="mAtt__cardHeader">Departmental Attendance</header>
+            <header className="mAtt__cardHeader">Attendance per day:</header>
             <div className="mAtt__deptBody">
               <button className="mAtt__navBtn" type="button" aria-label="Previous department">
                 <FiChevronLeft />
               </button>
 
               <div className="mAtt__deptCharts">
-                <FiPieChart className="mAtt__deptIcon" />
-                <FiPieChart className="mAtt__deptIcon" />
-                <FiPieChart className="mAtt__deptIcon" />
+                <div className="mAtt__deptIcon" />
+                <div className="mAtt__deptIcon" />
+                <div className="mAtt__deptIcon" />
               </div>
 
               <button className="mAtt__navBtn" type="button" aria-label="Next department">
                 <FiChevronRight />
               </button>
+            </div>
+            <div className="mAtt__pager" aria-hidden="true">
+              <span />
+              <span className="is-active" />
+              <span />
             </div>
             <div className="mAtt__legend">
               <span className="mAtt__legendItem">

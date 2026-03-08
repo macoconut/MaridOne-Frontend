@@ -137,20 +137,17 @@ export default function ManagementLayout() {
   return (
     <div className="employeeLayout">
       <aside className="eSide">
-        <div className="eSide__brand">
+        <button
+          type="button"
+          className="eSide__brand eSide__brand--link"
+          onClick={() => navigate('/login', { replace: true })}
+          aria-label="Go to login"
+        >
           <div className="eSide__logo" aria-hidden="true" />
           <div className="eSide__name">MaridOne</div>
-        </div>
+        </button>
 
         <nav className="eSide__nav">
-          <NavLink
-            to="/management/dashboard"
-            className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
-          >
-            <FiGrid className="eSide__icon" />
-            <span>Sales Dashboard</span>
-          </NavLink>
-
           <NavLink
             to="/management/attendance"
             className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
@@ -160,11 +157,19 @@ export default function ManagementLayout() {
           </NavLink>
 
           <NavLink
-            to="/management/payroll-costs"
+            to="/management/payroll-dashboard"
+            className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
+          >
+            <FiGrid className="eSide__icon" />
+            <span>Payroll Dashboard</span>
+          </NavLink>
+
+          <NavLink
+            to="/management/pay-run-reporting"
             className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
           >
             <FiDollarSign className="eSide__icon" />
-            <span>Payroll Costs</span>
+            <span>Pay Run Reporting</span>
           </NavLink>
         </nav>
 
@@ -177,7 +182,7 @@ export default function ManagementLayout() {
       <div className="eMain">
         <header className="eTop">
           <div className="eTop__left">
-            <div className="eTop__title">Management#67</div>
+            <div className="eTop__title">Management67</div>
             <span className="eTop__badge">Management</span>
           </div>
 

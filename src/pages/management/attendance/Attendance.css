@@ -1,7 +1,7 @@
 .mAtt {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
 .mAtt__top {
@@ -14,23 +14,24 @@
 .mAtt__top h1 {
   margin: 0;
   color: #2f2050;
-  font-size: clamp(34px, 3.2vw, 54px);
-  line-height: 1;
+  font-size: 24px;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  font-weight: 900;
 }
 
 .mAtt__top p {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   color: #2b2336;
-  font-size: clamp(20px, 2vw, 34px);
-  line-height: 1.1;
+  font-size: 14px;
 }
 
 .mAtt__exportBtn {
   border: 0;
-  border-radius: 10px;
+  border-radius: 8px;
   background: #7f4895;
   color: #fff;
-  padding: 12px 16px;
+  padding: 10px 16px;
   font-weight: 800;
   font-size: 13px;
   line-height: 1.15;
@@ -40,26 +41,26 @@
 
 .mAtt__grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 300px;
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) 316px;
+  gap: 12px;
 }
 
 .mAtt__mainCol {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
 .mAtt__stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .mAtt__statCard,
 .mAtt__card {
   border: 1.5px solid rgba(44, 27, 79, 0.22);
-  border-radius: 12px;
+  border-radius: 8px;
   background: #fff;
   box-shadow: 0 7px 14px rgba(42, 24, 74, 0.08);
 }
@@ -67,17 +68,24 @@
 .mAtt__statCard {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 14px;
+  gap: 10px;
+  padding: 10px 10px;
+  min-height: 68px;
 }
 
 .mAtt__statIcon {
-  font-size: 44px;
-  color: #3a235f;
+  width: 50px;
+  height: 50px;
+  border-radius: 4px;
+  border: 1px solid rgba(47, 32, 80, 0.18);
+  background:
+    linear-gradient(45deg, transparent 49%, rgba(123, 74, 143, 0.13) 50%, transparent 51%),
+    linear-gradient(-45deg, transparent 49%, rgba(123, 74, 143, 0.13) 50%, transparent 51%),
+    #f6f1fb;
 }
 
 .mAtt__statLabel {
-  font-size: 16px;
+  font-size: 12px;
   font-weight: 800;
   color: #342254;
   line-height: 1.1;
@@ -85,7 +93,7 @@
 
 .mAtt__statValue {
   margin-top: 2px;
-  font-size: 29px;
+  font-size: 14px;
   line-height: 1;
   color: #312050;
 }
@@ -94,7 +102,7 @@
   padding: 8px 14px;
   border-bottom: 1.5px solid rgba(44, 27, 79, 0.22);
   color: #332251;
-  font-size: 20px;
+  font-size: 14px;
   font-weight: 800;
 }
 
@@ -103,15 +111,15 @@
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 10px;
-  padding: 14px 8px 8px;
+  padding: 12px 8px 6px;
 }
 
 .mAtt__navBtn {
-  border: 1px solid rgba(44, 27, 79, 0.24);
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: #fff;
+  border: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: transparent;
   color: #2e2150;
   display: grid;
   place-items: center;
@@ -121,20 +129,44 @@
 .mAtt__deptCharts {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 14px;
   justify-items: center;
 }
 
 .mAtt__deptIcon {
-  font-size: clamp(96px, 7vw, 140px);
-  color: #3a235f;
+  width: min(120px, 100%);
+  aspect-ratio: 1 / 1;
+  border-radius: 4px;
+  border: 1px solid rgba(47, 32, 80, 0.18);
+  background:
+    linear-gradient(45deg, transparent 49%, rgba(123, 74, 143, 0.12) 50%, transparent 51%),
+    linear-gradient(-45deg, transparent 49%, rgba(123, 74, 143, 0.12) 50%, transparent 51%),
+    #f6f2fb;
+}
+
+.mAtt__pager {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 0 6px;
+}
+
+.mAtt__pager span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(76, 58, 110, 0.32);
+}
+
+.mAtt__pager .is-active {
+  background: #2f2050;
 }
 
 .mAtt__legend {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
   padding: 2px 10px 10px;
 }
 
@@ -142,13 +174,13 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: 9px;
   color: #40335c;
 }
 
 .mAtt__legendItem i {
   display: inline-block;
-  width: 25px;
+  width: 20px;
   height: 7px;
   border-radius: 999px;
 }
@@ -176,12 +208,12 @@
 .mAtt__bottomCards {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 12px;
 }
 
 .mAtt__list,
 .mAtt__feedList {
-  padding: 8px 14px 10px;
+  padding: 6px 12px 8px;
 }
 
 .mAtt__listItem,
@@ -206,7 +238,7 @@
 }
 
 .mAtt__personName {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 800;
   color: #24183f;
   line-height: 1.05;
@@ -215,13 +247,13 @@
 .mAtt__personMeta {
   margin-top: 2px;
   color: #4d3d69;
-  font-size: 11px;
+  font-size: 9px;
   line-height: 1.05;
 }
 
 .mAtt__personRight {
   color: #433259;
-  font-size: 11px;
+  font-size: 10px;
   white-space: nowrap;
 }
 
@@ -238,7 +270,7 @@
   align-items: center;
   gap: 4px;
   color: #4c3e67;
-  font-size: 10px;
+  font-size: 9px;
 }
 
 .mAtt__feedCard {
