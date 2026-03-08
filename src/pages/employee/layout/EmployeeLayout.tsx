@@ -12,8 +12,15 @@ import {
 } from 'react-icons/fi';
 
 import './EmployeeLayout.css';
-import { clearSession } from '../../../lib/session';
+import { clearSession, getAuthToken, getUserEmail } from '../../../lib/session';
 import { BACKEND_TEST_MODE } from '../../../config/flags';
+import {
+  applyBodyPlaceholders,
+  applyPathPlaceholders,
+  extractFirstId,
+  firstFromCollection,
+  type PlaceholderContext,
+} from '../../../lib/backendTest';
 
 type NotificationItem = {
   id: string;
@@ -32,21 +39,19 @@ type BackendTestAction = {
 
 const notifications: NotificationItem[] = [];
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
-const EMP_ID = 1;
-const ITEM_ID = 1;
 
 const backendActions: BackendTestAction[] = [
   {
     label: 'Get User Account',
     description: 'Fetch own user account details by username.',
     method: 'GET',
-    path: '/api/user/details/employee',
+    path: '/api/user/details/{username}',
   },
   {
     label: 'Get Employee Details',
     description: 'Fetch employee profile details for self.',
     method: 'GET',
-    path: `/api/employees/${EMP_ID}`,
+    path: '/api/employees/{empId}',
   },
   {
     label: 'Get Notifications',
@@ -75,19 +80,19 @@ const backendActions: BackendTestAction[] = [
     label: 'Get My Overtime',
     description: 'Fetch overtime requests for employee.',
     method: 'GET',
-    path: `/api/overtime/all/${EMP_ID}?page=0&size=10`,
+    path: '/api/overtime/all/{empId}?page=0&size=10',
   },
   {
     label: 'Get Leave Balance',
     description: 'Fetch leave balances for employee.',
     method: 'GET',
-    path: `/api/leave/balance/${EMP_ID}`,
+    path: '/api/leave/balance/{empId}',
   },
   {
     label: 'Create Leave Request',
     description: 'Submit leave request as employee.',
     method: 'POST',
-    path: `/api/leave/create?empId=${EMP_ID}`,
+    path: '/api/leave/create?empId={empId}',
     body: {
       leaveType: 'SICK',
       startDate: '2026-03-03',
@@ -99,13 +104,13 @@ const backendActions: BackendTestAction[] = [
     label: 'Get Shift Schedule',
     description: 'Fetch employee shift schedule.',
     method: 'GET',
-    path: `/api/employee/schedule/${EMP_ID}`,
+    path: '/api/employee/schedule/{empId}',
   },
   {
     label: 'Add Bank Account',
     description: 'Create bank account details for employee.',
     method: 'POST',
-    path: `/api/bank/add/${EMP_ID}`,
+    path: '/api/bank/add/{empId}',
     body: {
       accountName: 'Test Employee',
       accountNumber: '1234567890',
@@ -116,9 +121,9 @@ const backendActions: BackendTestAction[] = [
     label: 'Update Bank Account',
     description: 'Update existing bank account details.',
     method: 'PATCH',
-    path: `/api/bank/update/${EMP_ID}`,
+    path: '/api/bank/update/{empId}',
     body: {
-      accountId: 1,
+      accountId: '{accountId}',
       accountName: 'Test Employee Updated',
     },
   },
@@ -126,7 +131,7 @@ const backendActions: BackendTestAction[] = [
     label: 'Get Bank Accounts',
     description: 'Fetch employee bank account list.',
     method: 'GET',
-    path: `/api/bank/${EMP_ID}`,
+    path: '/api/bank/{empId}',
   },
   {
     label: 'Create Activity Log',
@@ -134,7 +139,7 @@ const backendActions: BackendTestAction[] = [
     method: 'POST',
     path: '/api/logs/activity',
     body: {
-      employeeId: EMP_ID,
+      employeeId: '{empId}',
       activity: 'LOGIN',
     },
   },
@@ -142,37 +147,37 @@ const backendActions: BackendTestAction[] = [
     label: 'Create Attendance Log',
     description: 'Create attendance time log entry.',
     method: 'POST',
-    path: `/api/logs/attendance/${EMP_ID}`,
+    path: '/api/logs/attendance/{empId}',
   },
   {
     label: 'Get Payroll Items',
     description: 'Fetch payroll items assigned to employee.',
     method: 'GET',
-    path: `/api/payroll/item/${EMP_ID}`,
+    path: '/api/payroll/item/{empId}',
   },
   {
     label: 'Get Earnings',
     description: 'Fetch earnings line items for payroll item.',
     method: 'GET',
-    path: `/api/payroll/item/earnings/${ITEM_ID}`,
+    path: '/api/payroll/item/earnings/{itemId}',
   },
   {
     label: 'Get Deductions',
     description: 'Fetch deduction line items for payroll item.',
     method: 'GET',
-    path: `/api/payroll/item/deductions/${ITEM_ID}`,
+    path: '/api/payroll/item/deductions/{itemId}',
   },
   {
     label: 'Get My Disputes',
     description: 'Fetch dispute requests for employee.',
     method: 'GET',
-    path: `/api/payroll/item/dispute/self?empId=${EMP_ID}`,
+    path: '/api/payroll/item/dispute/self?empId={empId}',
   },
   {
     label: 'Create Payroll Dispute',
     description: 'Create dispute request for payroll item.',
     method: 'POST',
-    path: `/api/payroll/item/dispute/create/${ITEM_ID}`,
+    path: '/api/payroll/item/dispute/create/{itemId}',
     body: {
       reason: 'Testing dispute endpoint communication',
     },
@@ -189,7 +194,6 @@ export default function EmployeeLayout() {
   const bellRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
-  // Close notif on outside click / ESC
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (!notifOpen) return;
@@ -223,17 +227,90 @@ export default function EmployeeLayout() {
     navigate('/login', { replace: true });
   }
 
+  async function fetchJsonWithAuth(path: string, token: string | null) {
+    const headers: Record<string, string> = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method: 'GET',
+      headers: Object.keys(headers).length > 0 ? headers : undefined,
+    });
+    if (!response.ok) return null;
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }
+
+  async function buildContext(token: string | null, username: string | null): Promise<PlaceholderContext> {
+    const context: PlaceholderContext = { username: username ?? undefined };
+    if (!username) return context;
+
+    const userDetails = await fetchJsonWithAuth(
+      `/api/user/details/${encodeURIComponent(username)}`,
+      token
+    );
+    const empId =
+      extractFirstId(userDetails, ['employeeId', 'id']) ??
+      extractFirstId(
+        userDetails && typeof userDetails === 'object'
+          ? (userDetails as Record<string, unknown>).employee
+          : null,
+        ['employeeId', 'id']
+      );
+    if (empId) context.empId = empId;
+
+    if (context.empId) {
+      const payrollItems = await fetchJsonWithAuth(`/api/payroll/item/${context.empId}`, token);
+      const firstItem = firstFromCollection(payrollItems);
+      const itemId = extractFirstId(firstItem, ['id', 'itemId', 'payrollItemId']);
+      if (itemId) context.itemId = itemId;
+
+      const bankAccounts = await fetchJsonWithAuth(`/api/bank/${context.empId}`, token);
+      const firstAccount = firstFromCollection(bankAccounts);
+      const accountId = extractFirstId(firstAccount, ['accountId', 'id', 'bankId']);
+      if (accountId) context.accountId = accountId;
+    }
+
+    return context;
+  }
+
   async function handleBackendTest(action: BackendTestAction) {
-    const requestLabel = `${action.method} ${action.path}`;
+    const username = getUserEmail();
+    const token = getAuthToken();
+    const context = await buildContext(token, username);
+
+    let pathResolved = applyPathPlaceholders(action.path, context);
+    let bodyResolved = applyBodyPlaceholders(action.body, context);
+    const missing = new Set([...pathResolved.missing, ...bodyResolved.missing]);
+
+    for (const key of missing) {
+      const entered = window.prompt(`Enter value for ${key}:`);
+      if (!entered || entered.trim().length === 0) {
+        setBackendResult(`Cancelled: missing required value "${key}".`);
+        return;
+      }
+      context[key] = entered.trim();
+    }
+
+    pathResolved = applyPathPlaceholders(action.path, context);
+    bodyResolved = applyBodyPlaceholders(action.body, context);
+    const resolvedPath = pathResolved.value;
+
+    const requestLabel = `${action.method} ${resolvedPath}`;
     setBackendAction(requestLabel);
     setIsLoading(true);
     setBackendResult(`Sending ${requestLabel} ...`);
 
     try {
-      const response = await fetch(`${API_BASE_URL}${action.path}`, {
+      const headers: Record<string, string> = {};
+      if (bodyResolved.value !== undefined) headers['Content-Type'] = 'application/json';
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`${API_BASE_URL}${resolvedPath}`, {
         method: action.method,
-        headers: action.body ? { 'Content-Type': 'application/json' } : undefined,
-        body: action.body ? JSON.stringify(action.body) : undefined,
+        headers: Object.keys(headers).length > 0 ? headers : undefined,
+        body: bodyResolved.value !== undefined ? JSON.stringify(bodyResolved.value) : undefined,
       });
 
       const raw = await response.text();
@@ -246,7 +323,7 @@ export default function EmployeeLayout() {
 
       setBackendResult(
         [
-          `URL: ${API_BASE_URL}${action.path}`,
+          `URL: ${API_BASE_URL}${resolvedPath}`,
           `Status: ${response.status} ${response.statusText}`,
           '',
           formatted,
@@ -255,7 +332,7 @@ export default function EmployeeLayout() {
     } catch (error) {
       setBackendResult(
         [
-          `URL: ${API_BASE_URL}${action.path}`,
+          `URL: ${API_BASE_URL}${resolvedPath}`,
           'Request failed before reaching backend.',
           String(error),
         ].join('\n')
@@ -267,7 +344,6 @@ export default function EmployeeLayout() {
 
   return (
     <div className="employeeLayout">
-      {/* SIDEBAR */}
       <aside className="eSide">
         <button
           type="button"
@@ -327,16 +403,13 @@ export default function EmployeeLayout() {
         </button>
       </aside>
 
-      {/* MAIN */}
       <div className="eMain">
-        {/* top bar */}
         <header className="eTop">
           <div className="eTop__left">
             <div className="eTop__title">Employee</div>
             <span className="eTop__badge">Employee</span>
           </div>
 
-          {/* Bell + Notif */}
           <div className="notif">
             <button
               ref={bellRef}
@@ -350,10 +423,8 @@ export default function EmployeeLayout() {
               {unreadCount > 0 && <span className="notif__badge">{unreadCount}</span>}
             </button>
 
-            {/* Backdrop */}
             {notifOpen && <div className="notif__backdrop" />}
 
-            {/* Panel */}
             {notifOpen && (
               <div ref={panelRef} className="notifPanel" role="dialog" aria-label="Notifications">
                 <div className="notifPanel__header">
@@ -394,12 +465,11 @@ export default function EmployeeLayout() {
           </div>
         </header>
 
-        {/* page */}
         <main className="eContent">
           {BACKEND_TEST_MODE ? (
             <section className="backendTest" aria-label="Employee backend testing controls">
               <div className="backendTest__head">
-                <h2>Backend Testing w/ Arturtur</h2>
+                <h2>Backend Endpoint Testing</h2>
                 <span>Last action: {backendAction}</span>
               </div>
 
@@ -422,7 +492,6 @@ export default function EmployeeLayout() {
         </main>
       </div>
 
-      {/* FOOTER */}
       <footer className="eFooter">
         <div className="eFooter__inner">
           <div className="eFooter__brand">

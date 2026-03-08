@@ -13,8 +13,15 @@ import {
 } from 'react-icons/fi';
 import '../../employee/layout/EmployeeLayout.css';
 import '../shared/hr-theme.css';
-import { clearSession } from '../../../lib/session';
+import { clearSession, getAuthToken, getUserEmail } from '../../../lib/session';
 import { BACKEND_TEST_MODE } from '../../../config/flags';
+import {
+  applyBodyPlaceholders,
+  applyPathPlaceholders,
+  extractFirstId,
+  firstFromCollection,
+  type PlaceholderContext,
+} from '../../../lib/backendTest';
 
 type NotificationItem = {
   id: string;
@@ -60,7 +67,7 @@ const backendActions: BackendTestAction[] = [
     label: 'Update Employee',
     description: 'Update employee details by employee ID.',
     method: 'PATCH',
-    path: '/api/employees/1',
+    path: '/api/employees/{empId}',
     body: {
       firstName: 'Updated',
       lastName: 'Employee',
@@ -70,7 +77,7 @@ const backendActions: BackendTestAction[] = [
     label: 'Update Employee Status',
     description: 'Change employee status fields.',
     method: 'PATCH',
-    path: '/api/employees/status/1',
+    path: '/api/employees/status/{empId}',
     body: {
       accountStatus: 'ACTIVE',
     },
@@ -84,14 +91,14 @@ const backendActions: BackendTestAction[] = [
       username: 'test.employee',
       password: 'password123',
       role: 'EMPLOYEE',
-      employeeId: 1,
+      employeeId: '{empId}',
     },
   },
   {
     label: 'Create Leave Balance',
     description: 'Create leave balance row for employee.',
     method: 'POST',
-    path: '/api/leave/balance/1',
+    path: '/api/leave/balance/{empId}',
     body: {
       balanceHours: 8,
       leaveType: 'SICK',
@@ -101,7 +108,7 @@ const backendActions: BackendTestAction[] = [
     label: 'Update Leave Balance',
     description: 'Adjust leave balance by leave type.',
     method: 'PATCH',
-    path: '/api/leave/balance/update/1',
+    path: '/api/leave/balance/update/{empId}',
     body: {
       leaveType: 'SICK',
       type: 'ADD',
@@ -112,7 +119,7 @@ const backendActions: BackendTestAction[] = [
     label: 'Update Leave Request',
     description: 'Approve or deny leave request.',
     method: 'PATCH',
-    path: '/api/leave/update/1',
+    path: '/api/leave/update/{leaveRequestId}',
     body: {
       status: 'APPROVED',
       remarks: 'Approved by HR',
@@ -130,7 +137,7 @@ const backendActions: BackendTestAction[] = [
     method: 'PATCH',
     path: '/api/overtime/update',
     body: {
-      overtimeId: 1,
+      overtimeId: '{overtimeId}',
       status: 'APPROVED',
       remarks: 'Approved for payroll',
     },
@@ -141,7 +148,7 @@ const backendActions: BackendTestAction[] = [
     method: 'POST',
     path: '/api/employee/schedule/add',
     body: {
-      employeeId: 1,
+      employeeId: '{empId}',
       shiftDate: '2026-03-01',
       startTime: '08:00:00',
       endTime: '17:00:00',
@@ -153,7 +160,7 @@ const backendActions: BackendTestAction[] = [
     method: 'PATCH',
     path: '/api/employee/schedule/update',
     body: {
-      shiftId: 1,
+      shiftId: '{shiftId}',
       startTime: '09:00:00',
       endTime: '18:00:00',
     },
@@ -177,7 +184,7 @@ const backendActions: BackendTestAction[] = [
     method: 'PUT',
     path: '/api/calendar/events/update',
     body: {
-      calendarId: 1,
+      calendarId: '{calendarId}',
       title: 'Updated Backend Test Event',
     },
   },
@@ -185,7 +192,7 @@ const backendActions: BackendTestAction[] = [
     label: 'Delete Calendar Event',
     description: 'Soft-delete calendar event by ID.',
     method: 'PATCH',
-    path: '/api/calendar/events/delete/1',
+    path: '/api/calendar/events/delete/{calendarId}',
   },
   {
     label: 'Get Attendance Logs',
@@ -216,15 +223,15 @@ const backendActions: BackendTestAction[] = [
     method: 'POST',
     path: '/api/payroll/item/create',
     body: {
-      payId: 1,
-      employeeId: 1,
+      payId: '{payId}',
+      employeeId: '{empId}',
     },
   },
   {
     label: 'Update Payroll Item',
     description: 'Update payroll item values by item ID.',
     method: 'PATCH',
-    path: '/api/payroll/item/update/1',
+    path: '/api/payroll/item/update/{itemId}',
     body: {
       baseSalary: 20000,
     },
@@ -233,7 +240,7 @@ const backendActions: BackendTestAction[] = [
     label: 'Get Run Items',
     description: 'Fetch payroll items under a run.',
     method: 'GET',
-    path: '/api/payroll/run/1/items?page=0&size=20',
+    path: '/api/payroll/run/{payId}/items?page=0&size=20',
   },
   {
     label: 'Get Dispute Requests',
@@ -245,7 +252,7 @@ const backendActions: BackendTestAction[] = [
     label: 'Update Dispute Request',
     description: 'Resolve a payroll dispute request.',
     method: 'PATCH',
-    path: '/api/payroll/item/dispute/update/1',
+    path: '/api/payroll/item/dispute/update/{disputeId}',
     body: {
       status: 'RESOLVED',
       remarks: 'Resolved during backend test',
@@ -263,7 +270,7 @@ export default function HrLayout() {
   const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
   const [backendAction, setBackendAction] = useState<string>('None');
-  const [backendResult, setBackendResult] = useState<string>('No request sent yet.');
+  const [backendResult, setBackendResult] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const bellRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -301,17 +308,99 @@ export default function HrLayout() {
     navigate('/login', { replace: true });
   }
 
+  async function fetchJsonWithAuth(path: string, token: string | null) {
+    const headers: Record<string, string> = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method: 'GET',
+      headers: Object.keys(headers).length > 0 ? headers : undefined,
+    });
+    if (!response.ok) return null;
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }
+
+  async function buildContext(token: string | null, username: string | null): Promise<PlaceholderContext> {
+    const context: PlaceholderContext = { username: username ?? undefined };
+    const users = await fetchJsonWithAuth('/api/employees?page=0&size=20', token);
+    const firstEmployee = firstFromCollection(users);
+    const empId = extractFirstId(firstEmployee, ['employeeId', 'id', 'empId']);
+    if (empId) context.empId = empId;
+
+    const overtimes = await fetchJsonWithAuth('/api/overtime/all?page=0&size=20', token);
+    const firstOvertime = firstFromCollection(overtimes);
+    const overtimeId = extractFirstId(firstOvertime, ['overtimeId', 'id']);
+    if (overtimeId) context.overtimeId = overtimeId;
+
+    const events = await fetchJsonWithAuth('/api/calendar/events?month=4&year=2026', token);
+    const firstEvent = firstFromCollection(events);
+    const calendarId = extractFirstId(firstEvent, ['calendarId', 'id']);
+    if (calendarId) context.calendarId = calendarId;
+
+    const disputes = await fetchJsonWithAuth('/api/payroll/item/dispute/all?page=0&size=20', token);
+    const firstDispute = firstFromCollection(disputes);
+    const disputeId = extractFirstId(firstDispute, ['disputeId', 'id', 'requestId']);
+    if (disputeId) context.disputeId = disputeId;
+
+    if (username) {
+      const userDetails = await fetchJsonWithAuth(`/api/user/details/${encodeURIComponent(username)}`, token);
+      const selfEmpId =
+        extractFirstId(userDetails, ['employeeId', 'id']) ??
+        extractFirstId(
+          userDetails && typeof userDetails === 'object'
+            ? (userDetails as Record<string, unknown>).employee
+            : null,
+          ['employeeId', 'id']
+        );
+      if (selfEmpId) {
+        const selfItems = await fetchJsonWithAuth(`/api/payroll/item/${selfEmpId}`, token);
+        const firstItem = firstFromCollection(selfItems);
+        const itemId = extractFirstId(firstItem, ['id', 'itemId', 'payrollItemId']);
+        const payId = extractFirstId(firstItem, ['payId', 'payrollRunId']);
+        if (itemId) context.itemId = itemId;
+        if (payId) context.payId = payId;
+      }
+    }
+
+    return context;
+  }
+
   async function handleBackendTest(action: BackendTestAction) {
-    const requestLabel = `${action.method} ${action.path}`;
+    const token = getAuthToken();
+    const context = await buildContext(token, getUserEmail());
+    let pathResolved = applyPathPlaceholders(action.path, context);
+    let bodyResolved = applyBodyPlaceholders(action.body, context);
+    const missing = new Set([...pathResolved.missing, ...bodyResolved.missing]);
+
+    for (const key of missing) {
+      const entered = window.prompt(`Enter value for ${key}:`);
+      if (!entered || entered.trim().length === 0) {
+        setBackendResult(`Cancelled: missing required value "${key}".`);
+        return;
+      }
+      context[key] = entered.trim();
+    }
+
+    pathResolved = applyPathPlaceholders(action.path, context);
+    bodyResolved = applyBodyPlaceholders(action.body, context);
+    const resolvedPath = pathResolved.value;
+    const requestLabel = `${action.method} ${resolvedPath}`;
     setBackendAction(requestLabel);
     setIsLoading(true);
     setBackendResult(`Sending ${requestLabel} ...`);
 
     try {
-      const response = await fetch(`${API_BASE_URL}${action.path}`, {
+      const headers: Record<string, string> = {};
+      if (bodyResolved.value !== undefined) headers['Content-Type'] = 'application/json';
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`${API_BASE_URL}${resolvedPath}`, {
         method: action.method,
-        headers: action.body ? { 'Content-Type': 'application/json' } : undefined,
-        body: action.body ? JSON.stringify(action.body) : undefined,
+        headers: Object.keys(headers).length > 0 ? headers : undefined,
+        body: bodyResolved.value !== undefined ? JSON.stringify(bodyResolved.value) : undefined,
       });
 
       const raw = await response.text();
@@ -324,7 +413,7 @@ export default function HrLayout() {
 
       setBackendResult(
         [
-          `URL: ${API_BASE_URL}${action.path}`,
+          `URL: ${API_BASE_URL}${resolvedPath}`,
           `Status: ${response.status} ${response.statusText}`,
           '',
           formatted,
@@ -333,7 +422,7 @@ export default function HrLayout() {
     } catch (error) {
       setBackendResult(
         [
-          `URL: ${API_BASE_URL}${action.path}`,
+          `URL: ${API_BASE_URL}${resolvedPath}`,
           'Request failed before reaching backend.',
           String(error),
         ].join('\n')
@@ -456,7 +545,7 @@ export default function HrLayout() {
           {BACKEND_TEST_MODE ? (
             <section className="backendTest" aria-label="HR backend testing controls">
               <div className="backendTest__head">
-                <h2>Backend Testing w/ Arturtur</h2>
+                <h2>Backend Endpoint Testing</h2>
                 <span>Last action: {backendAction}</span>
               </div>
 
@@ -471,7 +560,7 @@ export default function HrLayout() {
                   </article>
                 ))}
               </div>
-              <pre className="backendTest__result">{backendResult}</pre>
+              {backendResult && <pre className="backendTest__result">{backendResult}</pre>}
             </section>
           ) : (
             <Outlet />

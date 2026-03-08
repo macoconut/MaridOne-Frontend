@@ -2,8 +2,15 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { FiBell, FiCalendar, FiDollarSign, FiGrid, FiLogOut } from 'react-icons/fi';
 import { useEffect, useRef, useState } from 'react';
 import '../../employee/layout/EmployeeLayout.css';
-import { clearSession } from '../../../lib/session';
+import { clearSession, getAuthToken, getUserEmail } from '../../../lib/session';
 import { BACKEND_TEST_MODE } from '../../../config/flags';
+import {
+  applyBodyPlaceholders,
+  applyPathPlaceholders,
+  extractFirstId,
+  firstFromCollection,
+  type PlaceholderContext,
+} from '../../../lib/backendTest';
 
 type NotificationItem = {
   id: string;
@@ -41,7 +48,7 @@ const backendActions: BackendTestAction[] = [
   {
     label: 'Get Run Items',
     method: 'GET',
-    path: '/api/payroll/run/1/items?page=0&size=20',
+    path: '/api/payroll/run/{payId}/items?page=0&size=20',
   },
 ];
 
@@ -86,17 +93,77 @@ export default function ManagementLayout() {
     navigate('/login', { replace: true });
   }
 
+  async function fetchJsonWithAuth(path: string, token: string | null) {
+    const headers: Record<string, string> = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method: 'GET',
+      headers: Object.keys(headers).length > 0 ? headers : undefined,
+    });
+    if (!response.ok) return null;
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }
+
+  async function buildContext(token: string | null, username: string | null): Promise<PlaceholderContext> {
+    const context: PlaceholderContext = { username: username ?? undefined };
+    if (!username) return context;
+    const userDetails = await fetchJsonWithAuth(`/api/user/details/${encodeURIComponent(username)}`, token);
+    const empId =
+      extractFirstId(userDetails, ['employeeId', 'id']) ??
+      extractFirstId(
+        userDetails && typeof userDetails === 'object'
+          ? (userDetails as Record<string, unknown>).employee
+          : null,
+        ['employeeId', 'id']
+      );
+    if (empId) {
+      context.empId = empId;
+      const items = await fetchJsonWithAuth(`/api/payroll/item/${empId}`, token);
+      const firstItem = firstFromCollection(items);
+      const payId = extractFirstId(firstItem, ['payId', 'payrollRunId']);
+      if (payId) context.payId = payId;
+    }
+    return context;
+  }
+
   async function handleBackendTest(action: BackendTestAction) {
-    const requestLabel = `${action.method} ${action.path}`;
+    const token = getAuthToken();
+    const context = await buildContext(token, getUserEmail());
+
+    let pathResolved = applyPathPlaceholders(action.path, context);
+    let bodyResolved = applyBodyPlaceholders(action.body, context);
+    const missing = new Set([...pathResolved.missing, ...bodyResolved.missing]);
+
+    for (const key of missing) {
+      const entered = window.prompt(`Enter value for ${key}:`);
+      if (!entered || entered.trim().length === 0) {
+        setBackendResult(`Cancelled: missing required value "${key}".`);
+        return;
+      }
+      context[key] = entered.trim();
+    }
+
+    pathResolved = applyPathPlaceholders(action.path, context);
+    bodyResolved = applyBodyPlaceholders(action.body, context);
+    const resolvedPath = pathResolved.value;
+    const requestLabel = `${action.method} ${resolvedPath}`;
     setBackendAction(requestLabel);
     setIsLoading(true);
     setBackendResult(`Sending ${requestLabel} ...`);
 
     try {
-      const response = await fetch(`${API_BASE_URL}${action.path}`, {
+      const headers: Record<string, string> = {};
+      if (bodyResolved.value !== undefined) headers['Content-Type'] = 'application/json';
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`${API_BASE_URL}${resolvedPath}`, {
         method: action.method,
-        headers: action.body ? { 'Content-Type': 'application/json' } : undefined,
-        body: action.body ? JSON.stringify(action.body) : undefined,
+        headers: Object.keys(headers).length > 0 ? headers : undefined,
+        body: bodyResolved.value !== undefined ? JSON.stringify(bodyResolved.value) : undefined,
       });
 
       const raw = await response.text();
@@ -109,7 +176,7 @@ export default function ManagementLayout() {
 
       setBackendResult(
         [
-          `URL: ${API_BASE_URL}${action.path}`,
+          `URL: ${API_BASE_URL}${resolvedPath}`,
           `Status: ${response.status} ${response.statusText}`,
           '',
           formatted,
@@ -118,7 +185,7 @@ export default function ManagementLayout() {
     } catch (error) {
       setBackendResult(
         [
-          `URL: ${API_BASE_URL}${action.path}`,
+          `URL: ${API_BASE_URL}${resolvedPath}`,
           'Request failed before reaching backend.',
           String(error),
         ].join('\n')

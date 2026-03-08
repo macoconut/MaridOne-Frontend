@@ -98,9 +98,17 @@ function extractRoleFromJwt(jwt: string): UserRole | null {
     const decoded = atob(padded);
     const payload = JSON.parse(decoded) as Record<string, unknown>;
 
-    const roles = payload.roles;
-    if (Array.isArray(roles)) {
-      for (const item of roles) {
+    const claimsToScan = [payload.roles, payload.authorities, payload.role, payload.authority];
+
+    for (const claim of claimsToScan) {
+      if (typeof claim === 'string') {
+        const normalized = normalizeRole(claim);
+        if (normalized) return normalized;
+        continue;
+      }
+
+      if (!Array.isArray(claim)) continue;
+      for (const item of claim) {
         const normalized = normalizeRole(item);
         if (normalized) return normalized;
       }
@@ -235,8 +243,6 @@ export default function EmployeeLogin() {
                 </button>
               </div>
             </div>
-
-            <div className="eloginHint">Use backend account credentials for this role route.</div>
 
             {error && <div className="eloginError">{error}</div>}
 

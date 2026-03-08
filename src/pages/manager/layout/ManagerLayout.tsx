@@ -2,7 +2,14 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { FiBell, FiCalendar, FiClock, FiGrid, FiLogOut } from 'react-icons/fi';
 import { useEffect, useRef, useState } from 'react';
 import '../../employee/layout/EmployeeLayout.css';
-import { clearSession } from '../../../lib/session';
+import { clearSession, getAuthToken, getUserEmail } from '../../../lib/session';
+import { BACKEND_TEST_MODE } from '../../../config/flags';
+import {
+  applyBodyPlaceholders,
+  applyPathPlaceholders,
+  extractFirstId,
+  type PlaceholderContext,
+} from '../../../lib/backendTest';
 
 type NotificationItem = {
   id: string;
@@ -12,10 +19,30 @@ type NotificationItem = {
 };
 
 const notifications: NotificationItem[] = [];
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
+
+type BackendTestAction = {
+  label: string;
+  method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
+  path: string;
+  body?: unknown;
+};
+
+const backendActions: BackendTestAction[] = [
+  { label: 'Get Notifications', method: 'GET', path: '/api/notifications' },
+  { label: 'Get Calendar Events', method: 'GET', path: '/api/calendar/events?month=4&year=2026' },
+  { label: 'Get My Overtime', method: 'GET', path: '/api/overtime/all/{empId}?page=0&size=20' },
+  { label: 'Get Leave Balance', method: 'GET', path: '/api/leave/balance/{empId}' },
+  { label: 'Get My Payroll Items', method: 'GET', path: '/api/payroll/item/{empId}' },
+  { label: 'Get My Disputes', method: 'GET', path: '/api/payroll/item/dispute/self?empId={empId}' },
+];
 
 export default function ManagerLayout() {
   const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
+  const [backendAction, setBackendAction] = useState<string>('None');
+  const [backendResult, setBackendResult] = useState<string>('Waiting for backend test.');
+  const [isLoading, setIsLoading] = useState(false);
   const bellRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
@@ -43,6 +70,102 @@ export default function ManagerLayout() {
   function handleLogout() {
     clearSession();
     navigate('/login', { replace: true });
+  }
+
+  async function fetchJsonWithAuth(path: string, token: string | null) {
+    const headers: Record<string, string> = {};
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      method: 'GET',
+      headers: Object.keys(headers).length > 0 ? headers : undefined,
+    });
+    if (!response.ok) return null;
+    try {
+      return await response.json();
+    } catch {
+      return null;
+    }
+  }
+
+  async function buildContext(token: string | null, username: string | null): Promise<PlaceholderContext> {
+    const context: PlaceholderContext = { username: username ?? undefined };
+    if (!username) return context;
+    const userDetails = await fetchJsonWithAuth(`/api/user/details/${encodeURIComponent(username)}`, token);
+    const empId =
+      extractFirstId(userDetails, ['employeeId', 'id']) ??
+      extractFirstId(
+        userDetails && typeof userDetails === 'object'
+          ? (userDetails as Record<string, unknown>).employee
+          : null,
+        ['employeeId', 'id']
+      );
+    if (empId) context.empId = empId;
+    return context;
+  }
+
+  async function handleBackendTest(action: BackendTestAction) {
+    const token = getAuthToken();
+    const context = await buildContext(token, getUserEmail());
+
+    let pathResolved = applyPathPlaceholders(action.path, context);
+    let bodyResolved = applyBodyPlaceholders(action.body, context);
+    const missing = new Set([...pathResolved.missing, ...bodyResolved.missing]);
+
+    for (const key of missing) {
+      const entered = window.prompt(`Enter value for ${key}:`);
+      if (!entered || entered.trim().length === 0) {
+        setBackendResult(`Cancelled: missing required value "${key}".`);
+        return;
+      }
+      context[key] = entered.trim();
+    }
+
+    pathResolved = applyPathPlaceholders(action.path, context);
+    bodyResolved = applyBodyPlaceholders(action.body, context);
+    const resolvedPath = pathResolved.value;
+    const requestLabel = `${action.method} ${resolvedPath}`;
+    setBackendAction(requestLabel);
+    setIsLoading(true);
+    setBackendResult(`Sending ${requestLabel} ...`);
+
+    try {
+      const headers: Record<string, string> = {};
+      if (bodyResolved.value !== undefined) headers['Content-Type'] = 'application/json';
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const response = await fetch(`${API_BASE_URL}${resolvedPath}`, {
+        method: action.method,
+        headers: Object.keys(headers).length > 0 ? headers : undefined,
+        body: bodyResolved.value !== undefined ? JSON.stringify(bodyResolved.value) : undefined,
+      });
+
+      const raw = await response.text();
+      let formatted = raw;
+      try {
+        formatted = JSON.stringify(JSON.parse(raw), null, 2);
+      } catch {
+        if (raw.trim().length === 0) formatted = '(no response body)';
+      }
+
+      setBackendResult(
+        [
+          `URL: ${API_BASE_URL}${resolvedPath}`,
+          `Status: ${response.status} ${response.statusText}`,
+          '',
+          formatted,
+        ].join('\n')
+      );
+    } catch (error) {
+      setBackendResult(
+        [
+          `URL: ${API_BASE_URL}${resolvedPath}`,
+          'Request failed before reaching backend.',
+          String(error),
+        ].join('\n')
+      );
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   const unreadCount = notifications.length;
@@ -144,6 +267,60 @@ export default function ManagerLayout() {
         </header>
 
         <main className="eContent">
+          {BACKEND_TEST_MODE && (
+            <details
+              style={{
+                border: '1.5px solid rgba(0,0,0,.18)',
+                borderRadius: 12,
+                background: '#fff',
+                padding: 12,
+                marginBottom: 12,
+              }}
+            >
+              <summary style={{ cursor: 'pointer', fontWeight: 700 }}>
+                Manager Backend Test Panel (click to expand)
+              </summary>
+              <div style={{ marginTop: 10, fontSize: 13, color: '#4a3e5e' }}>
+                Last action: <strong>{backendAction}</strong>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+                {backendActions.map((action) => (
+                  <button
+                    key={`${action.method}-${action.path}`}
+                    type="button"
+                    onClick={() => void handleBackendTest(action)}
+                    disabled={isLoading}
+                    style={{
+                      border: '1px solid rgba(0,0,0,.2)',
+                      borderRadius: 8,
+                      background: '#fff',
+                      padding: '6px 10px',
+                      cursor: isLoading ? 'default' : 'pointer',
+                      fontSize: 12,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
+              <pre
+                style={{
+                  marginTop: 10,
+                  border: '1px solid rgba(0,0,0,.14)',
+                  borderRadius: 8,
+                  background: '#f8f8fb',
+                  padding: 10,
+                  whiteSpace: 'pre-wrap',
+                  maxHeight: 220,
+                  overflow: 'auto',
+                  fontSize: 11,
+                }}
+              >
+                {backendResult}
+              </pre>
+            </details>
+          )}
           <Outlet />
         </main>
       </div>
