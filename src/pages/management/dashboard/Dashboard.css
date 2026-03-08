@@ -1,0 +1,158 @@
+.mDash {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.mDashTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mDashTop h1 {
+  margin: 0;
+  color: #312056;
+  font-size: 50px;
+  line-height: 1;
+}
+
+.mDashTop p {
+  margin: 6px 0 0;
+  color: #282132;
+  font-size: 36px;
+  line-height: 1.1;
+}
+
+.mDashTop__btn {
+  border: 0;
+  border-radius: 12px;
+  background: #7f4895;
+  color: #fff;
+  padding: 14px 20px;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(47, 32, 80, 0.16);
+}
+
+.mDashGrid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 14px;
+}
+
+.mDashGrid__left {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mDashCard {
+  border: 1.5px solid rgba(39, 23, 70, 0.24);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 8px 18px rgba(42, 24, 74, 0.08);
+  overflow: hidden;
+}
+
+.mDashCard__head {
+  padding: 10px 16px;
+  border-bottom: 1.5px solid rgba(39, 23, 70, 0.2);
+  color: #35245a;
+  font-weight: 800;
+  font-size: 31px;
+  line-height: 1;
+}
+
+.mDashCard__body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+}
+
+.mDashCard__iconWrap {
+  display: flex;
+  justify-content: center;
+}
+
+.mDashCard__icon {
+  font-size: clamp(120px, 10vw, 175px);
+  color: #38205f;
+}
+
+.mDashCard__image {
+  width: 100%;
+  min-height: 225px;
+  border-radius: 22px;
+  border: 1px solid rgba(47, 32, 80, 0.15);
+  background:
+    radial-gradient(circle at 80% 30%, rgba(165, 47, 47, 0.35), transparent 28%),
+    linear-gradient(145deg, #d6b28d 0%, #b98e66 52%, #dfc4a6 100%);
+}
+
+.mDashReports {
+  min-height: 100%;
+}
+
+.mDashReports__body {
+  min-height: 100%;
+  padding: 26px 20px;
+  display: grid;
+  place-items: center;
+  gap: 42px;
+}
+
+.mDashReports__icon {
+  font-size: clamp(140px, 12vw, 220px);
+  color: #38205f;
+}
+
+@media (max-width: 1280px) {
+  .mDashTop h1 {
+    font-size: 40px;
+  }
+
+  .mDashTop p {
+    font-size: 26px;
+  }
+
+  .mDashCard__head {
+    font-size: 25px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .mDashGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .mDashTop {
+    flex-direction: column;
+  }
+
+  .mDashTop h1 {
+    font-size: 34px;
+  }
+
+  .mDashTop p {
+    font-size: 22px;
+  }
+
+  .mDashCard__head {
+    font-size: 22px;
+  }
+
+  .mDashCard__body {
+    grid-template-columns: 1fr;
+  }
+
+  .mDashCard__image {
+    min-height: 180px;
+  }
+}

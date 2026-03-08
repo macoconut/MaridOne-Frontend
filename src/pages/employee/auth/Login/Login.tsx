@@ -4,7 +4,7 @@ import { setSession } from '../../../../lib/session';
 import './Login.css';
 
 type MockAccount = {
-  role: 'employee' | 'hr';
+  role: 'employee' | 'hr' | 'management' | 'accounting';
   route: string;
   aliases: string[];
   password: string;
@@ -22,6 +22,18 @@ const mockAccounts: MockAccount[] = [
     route: '/hr/dashboard',
     aliases: ['hr', 'hr@marid.com'],
     password: 'hr123',
+  },
+  {
+    role: 'management',
+    route: '/management/dashboard',
+    aliases: ['man', 'management', 'management@marid.com'],
+    password: 'man123',
+  },
+  {
+    role: 'accounting',
+    route: '/accounting/payroll-dashboard',
+    aliases: ['acc', 'accounting', 'accounting@marid.com'],
+    password: 'acc123',
   },
 ];
 
@@ -99,6 +111,8 @@ export default function EmployeeLogin() {
             <div className="eloginHint">
               <div>Employee: `employee` / `employee123`</div>
               <div>HR: `hr` / `hr123`</div>
+              <div>Management: `man` / `man123`</div>
+              <div>Accounting: `acc` / `acc123`</div>
             </div>
 
             {error && <div className="eloginError">{error}</div>}

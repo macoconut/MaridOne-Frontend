@@ -1,0 +1,316 @@
+.aPay {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.aPay__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.aPay__top h1 {
+  margin: 0;
+  color: #2f2050;
+  font-size: clamp(34px, 3vw, 54px);
+  line-height: 1;
+}
+
+.aPay__dateWrap {
+  margin-top: 12px;
+}
+
+.aPay__dateSelect {
+  width: min(600px, 100%);
+  border: 1.4px solid rgba(44, 27, 79, 0.3);
+  border-radius: 4px;
+  background: #fff;
+  color: #56506a;
+  font-size: 32px;
+  line-height: 1.1;
+  padding: 10px 16px;
+}
+
+.aPay__exportBtn {
+  border: 0;
+  border-radius: 10px;
+  background: #7f4895;
+  color: #fff;
+  padding: 12px 16px;
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 1.15;
+  max-width: 160px;
+  cursor: pointer;
+}
+
+.aPay__board {
+  border: 1.5px solid rgba(44, 27, 79, 0.22);
+  border-radius: 12px;
+  background: #f2f4f6;
+  padding: 16px;
+  box-shadow: 0 7px 14px rgba(42, 24, 74, 0.08);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.aPay__leftCol,
+.aPay__rightCol {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.aPay__card {
+  border: 1.5px solid rgba(44, 27, 79, 0.17);
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: 0 4px 10px rgba(44, 27, 79, 0.08);
+  padding: 12px 14px;
+}
+
+.aPay__cardHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px solid rgba(44, 27, 79, 0.16);
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+}
+
+.aPay__cardHead h3 {
+  margin: 0;
+  color: #284560;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.aPay__cardHead p {
+  margin: 2px 0 0;
+  color: #7b8491;
+  font-size: 12px;
+}
+
+.aPay__iconBtn {
+  border: 0;
+  background: transparent;
+  color: #8b95a4;
+  cursor: pointer;
+}
+
+.aPay__bankMeta {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  color: #758193;
+  font-size: 12px;
+}
+
+.aPay__ok {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #556172;
+}
+
+.aPay__ok svg {
+  color: #4fbf2a;
+}
+
+.aPay__bankMeta strong {
+  color: #4f6078;
+  font-weight: 700;
+}
+
+.aPay__lineChart {
+  margin-top: 10px;
+  width: 100%;
+  height: 125px;
+}
+
+.aPay__lineChart svg {
+  width: 100%;
+  height: 100%;
+}
+
+.aPay__xTicks {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 6px;
+  color: #8f97a2;
+  font-size: 11px;
+}
+
+.aPay__perfRow {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(44, 27, 79, 0.12);
+}
+
+.aPay__perfRow:last-child {
+  border-bottom: 0;
+}
+
+.aPay__perfRow span {
+  color: #38a1f0;
+  font-size: 14px;
+}
+
+.aPay__perfRow strong {
+  color: #4f6078;
+  font-size: 14px;
+}
+
+.aPay__spark {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 28px;
+}
+
+.aPay__spark i {
+  width: 10px;
+  height: 8px;
+  background: #a8d6ee;
+  border-radius: 2px 2px 0 0;
+}
+
+.aPay__spark .hi {
+  height: 16px;
+  background: #6abbe9;
+}
+
+.aPay__spark .max {
+  height: 20px;
+  background: #2ea0dd;
+}
+
+.aPay__watchHeader,
+.aPay__watchRow {
+  display: grid;
+  grid-template-columns: 1.4fr 0.7fr 0.7fr;
+  gap: 12px;
+}
+
+.aPay__watchHeader {
+  color: #9ea5b2;
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.aPay__watchRow {
+  color: #44556b;
+  font-size: 13px;
+  padding: 2px 0;
+}
+
+.aPay__invoiceTop {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.aPay__newInvoice {
+  border: 1px solid rgba(44, 27, 79, 0.22);
+  background: #f8fbff;
+  color: #33a3f0;
+  border-radius: 4px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.aPay__invoiceStats {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.aPay__invoiceStats div {
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  color: #7f8793;
+  font-size: 12px;
+}
+
+.aPay__invoiceStats strong {
+  color: #4f6078;
+}
+
+.aPay__invoiceStats .red span,
+.aPay__invoiceStats .red strong {
+  color: #e75656;
+}
+
+.aPay__bars {
+  height: 120px;
+  border-bottom: 1px solid rgba(44, 27, 79, 0.16);
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  align-items: end;
+}
+
+.aPay__barWrap {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.aPay__bar {
+  width: 100%;
+  border-radius: 3px 3px 0 0;
+}
+
+.aPay__bar--gray {
+  background: #b5bdc7;
+}
+
+.aPay__bar--light {
+  background: #9dccdf;
+}
+
+.aPay__bar--strong {
+  background: #2ea0dd;
+}
+
+.aPay__bar--mid {
+  background: #8fbed9;
+}
+
+.aPay__barWrap span {
+  color: #98a0ac;
+  font-size: 11px;
+  text-align: center;
+}
+
+@media (max-width: 1240px) {
+  .aPay__board {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .aPay__top {
+    flex-direction: column;
+  }
+
+  .aPay__dateSelect {
+    font-size: 24px;
+  }
+
+  .aPay__perfRow {
+    grid-template-columns: 1fr;
+  }
+}

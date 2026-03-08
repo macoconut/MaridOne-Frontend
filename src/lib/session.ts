@@ -1,6 +1,6 @@
 const AUTH_KEYS = ['maridone.authToken', 'maridone.role', 'maridone.userEmail'] as const;
 
-type UserRole = 'employee' | 'hr';
+type UserRole = 'employee' | 'hr' | 'management' | 'accounting';
 
 export function setSession(role: UserRole, userEmail: string, remember: boolean) {
   const storage = remember ? localStorage : sessionStorage;
