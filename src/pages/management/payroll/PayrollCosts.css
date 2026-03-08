@@ -1,7 +1,7 @@
 .mPay {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
 }
 
 .mPay__top {
@@ -14,303 +14,222 @@
 .mPay__top h1 {
   margin: 0;
   color: #2f2050;
-  font-size: clamp(34px, 3vw, 54px);
-  line-height: 1;
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
 }
 
-.mPay__dateWrap {
-  margin-top: 12px;
+.mPay__controls {
+  margin-top: 10px;
 }
 
 .mPay__dateSelect {
-  width: min(600px, 100%);
-  border: 1.4px solid rgba(44, 27, 79, 0.3);
-  border-radius: 4px;
-  background: #fff;
-  color: #56506a;
-  font-size: 32px;
-  line-height: 1.1;
-  padding: 10px 16px;
+  width: min(320px, 100%);
+  height: 36px;
+  border: 1px solid rgba(63, 43, 104, 0.28);
+  border-radius: 8px;
+  background: #f8f3fc;
+  color: #372a52;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 12px;
 }
 
 .mPay__exportBtn {
   border: 0;
-  border-radius: 10px;
-  background: #7f4895;
+  border-radius: 8px;
+  background: #7b4a8f;
   color: #fff;
-  padding: 12px 16px;
-  font-weight: 800;
+  height: 38px;
+  min-width: 170px;
+  padding: 0 14px;
   font-size: 13px;
-  line-height: 1.15;
-  max-width: 160px;
-  cursor: pointer;
+  font-weight: 800;
+  line-height: 1.1;
+  box-shadow: 0 6px 12px rgba(80, 47, 109, 0.2);
 }
 
-.mPay__board {
-  border: 1.5px solid rgba(44, 27, 79, 0.22);
-  border-radius: 12px;
-  background: #f2f4f6;
-  padding: 16px;
-  box-shadow: 0 7px 14px rgba(42, 24, 74, 0.08);
+.mPaySummaryGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
 }
 
-.mPay__leftCol,
-.mPay__rightCol {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.mPay__card {
-  border: 1.5px solid rgba(44, 27, 79, 0.17);
-  border-radius: 4px;
+.mPaySummaryCard,
+.mPayPanel {
+  border: 1.5px solid rgba(62, 35, 94, 0.24);
+  border-radius: 10px;
   background: #fff;
-  box-shadow: 0 4px 10px rgba(44, 27, 79, 0.08);
-  padding: 12px 14px;
+  box-shadow: 0 8px 14px rgba(80, 47, 109, 0.12);
 }
 
-.mPay__cardHead {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  border-bottom: 1px solid rgba(44, 27, 79, 0.16);
-  padding-bottom: 10px;
-  margin-bottom: 10px;
+.mPaySummaryCard {
+  padding: 14px 16px;
 }
 
-.mPay__cardHead h3 {
+.mPaySummaryCard h3 {
   margin: 0;
-  color: #284560;
+  color: #2f2050;
   font-size: 16px;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+.mPaySummaryCard__value {
+  margin-top: 14px;
+  color: #2f2050;
+  font-size: 46px;
   font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
-.mPay__cardHead p {
-  margin: 2px 0 0;
-  color: #7b8491;
-  font-size: 12px;
-}
-
-.mPay__iconBtn {
-  border: 0;
-  background: transparent;
-  color: #8b95a4;
-  cursor: pointer;
-}
-
-.mPay__bankMeta {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 10px;
-  color: #758193;
-  font-size: 12px;
-}
-
-.mPay__ok {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  color: #556172;
-}
-
-.mPay__ok svg {
-  color: #4fbf2a;
-}
-
-.mPay__bankMeta strong {
-  color: #4f6078;
-  font-weight: 700;
-}
-
-.mPay__lineChart {
-  margin-top: 10px;
-  width: 100%;
-  height: 125px;
-}
-
-.mPay__lineChart svg {
-  width: 100%;
-  height: 100%;
-}
-
-.mPay__xTicks {
-  display: flex;
-  justify-content: space-around;
-  margin-top: 6px;
-  color: #8f97a2;
-  font-size: 11px;
-}
-
-.mPay__perfRow {
-  display: grid;
-  grid-template-columns: 1.1fr 1fr auto;
-  gap: 10px;
-  align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px solid rgba(44, 27, 79, 0.12);
-}
-
-.mPay__perfRow:last-child {
-  border-bottom: 0;
-}
-
-.mPay__perfRow span {
-  color: #38a1f0;
+.mPaySummaryCard p {
+  margin: 10px 0 0;
+  color: #4f3a72;
   font-size: 14px;
 }
 
-.mPay__perfRow strong {
-  color: #4f6078;
+.mPayChartsGrid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 12px;
+}
+
+.mPayPanel__head {
+  border-bottom: 1px solid rgba(63, 43, 104, 0.2);
+  padding: 10px 12px;
+  color: #2f2050;
   font-size: 14px;
+  font-weight: 900;
 }
 
-.mPay__spark {
-  display: inline-flex;
-  align-items: flex-end;
-  gap: 2px;
-  height: 28px;
-}
-
-.mPay__spark i {
-  width: 10px;
-  height: 8px;
-  background: #a8d6ee;
-  border-radius: 2px 2px 0 0;
-}
-
-.mPay__spark .hi {
-  height: 16px;
-  background: #6abbe9;
-}
-
-.mPay__spark .max {
-  height: 20px;
-  background: #2ea0dd;
-}
-
-.mPay__watchHeader,
-.mPay__watchRow {
+.mPayHistory {
+  height: 280px;
+  margin: 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(63, 43, 104, 0.16);
+  background: #fbf8ff;
+  padding: 20px 16px 12px;
   display: grid;
-  grid-template-columns: 1.4fr 0.7fr 0.7fr;
-  gap: 12px;
-}
-
-.mPay__watchHeader {
-  color: #9ea5b2;
-  font-size: 11px;
-  margin-bottom: 4px;
-}
-
-.mPay__watchRow {
-  color: #44556b;
-  font-size: 13px;
-  padding: 2px 0;
-}
-
-.mPay__invoiceTop {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: flex-start;
-  margin-bottom: 12px;
-}
-
-.mPay__newInvoice {
-  border: 1px solid rgba(44, 27, 79, 0.22);
-  background: #f8fbff;
-  color: #33a3f0;
-  border-radius: 4px;
-  padding: 8px 14px;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.mPay__invoiceStats {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.mPay__invoiceStats div {
-  display: flex;
-  gap: 18px;
-  justify-content: space-between;
-  color: #7f8793;
-  font-size: 12px;
-}
-
-.mPay__invoiceStats strong {
-  color: #4f6078;
-}
-
-.mPay__invoiceStats .red span,
-.mPay__invoiceStats .red strong {
-  color: #e75656;
-}
-
-.mPay__bars {
-  height: 120px;
-  border-bottom: 1px solid rgba(44, 27, 79, 0.16);
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(6, 1fr);
   gap: 8px;
   align-items: end;
 }
 
-.mPay__barWrap {
+.mPayHistory__barWrap {
   display: grid;
   justify-items: center;
   gap: 8px;
+  height: 100%;
 }
 
-.mPay__bar {
+.mPayHistory__bar {
   width: 100%;
-  border-radius: 3px 3px 0 0;
+  border-radius: 4px 4px 0 0;
+  align-self: end;
 }
 
-.mPay__bar--gray {
-  background: #b5bdc7;
+.mPayHistory__bar--light {
+  background: #bc85d0;
 }
 
-.mPay__bar--light {
-  background: #9dccdf;
+.mPayHistory__bar--dark {
+  background: #6e3c88;
 }
 
-.mPay__bar--strong {
-  background: #2ea0dd;
-}
-
-.mPay__bar--mid {
-  background: #8fbed9;
-}
-
-.mPay__barWrap span {
-  color: #98a0ac;
+.mPayHistory__barWrap span {
+  color: #5d5868;
   font-size: 11px;
-  text-align: center;
+  font-weight: 700;
 }
 
-@media (max-width: 1240px) {
-  .mPay__board {
+.mPayDonutBlock {
+  padding: 16px 14px;
+  display: grid;
+  grid-template-columns: 1fr 180px;
+  align-items: center;
+  gap: 12px;
+}
+
+.mPayLegend {
+  display: grid;
+  gap: 8px;
+}
+
+.mPayLegend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mPayLegend__item i {
+  width: 26px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.mPayLegend__item span {
+  color: #3f3951;
+  font-size: 11px;
+}
+
+.mPayLegend .t1 {
+  background: #b83573;
+}
+.mPayLegend .t2 {
+  background: #f06f9b;
+}
+.mPayLegend .t3 {
+  background: #ef9aa8;
+}
+.mPayLegend .t4 {
+  background: #f3b6c3;
+}
+
+.mPayDonut {
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at center, #fff 0 60px, transparent 62px),
+    conic-gradient(
+      #b83573 0 55%,
+      #f06f9b 55% 73%,
+      #ef9aa8 73% 89%,
+      #f3b6c3 89% 100%
+    );
+}
+
+@media (max-width: 1200px) {
+  .mPaySummaryGrid {
     grid-template-columns: 1fr;
+  }
+
+  .mPayChartsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .mPaySummaryCard__value {
+    font-size: 30px;
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 768px) {
   .mPay__top {
     flex-direction: column;
+    align-items: stretch;
   }
 
-  .mPay__dateSelect {
-    font-size: 24px;
+  .mPay__exportBtn {
+    width: fit-content;
   }
 
-  .mPay__perfRow {
+  .mPayDonutBlock {
     grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .mPayHistory {
+    height: 220px;
   }
 }

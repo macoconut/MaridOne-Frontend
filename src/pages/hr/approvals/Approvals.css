@@ -6,7 +6,7 @@
 
 .hrAppr__title {
   margin: 0;
-  color: #2f2050;
+  color: var(--hr-primary-dark);
   font-size: 24px;
   font-weight: 900;
   display: inline-flex;
@@ -68,10 +68,10 @@
 }
 
 .hrApprTable {
-  border: 1.5px solid rgba(62, 35, 94, 0.25);
+  border: 1.5px solid var(--hr-border);
   border-radius: 16px;
-  background: #fff;
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+  background: var(--hr-surface);
+  box-shadow: var(--hr-shadow);
   padding: 14px 18px;
 }
 
@@ -94,7 +94,7 @@
 }
 
 .hrApprRow:hover {
-  background: rgba(123, 74, 143, 0.05);
+  background: var(--hr-primary-soft);
 }
 
 .hrApprRow__employee {
@@ -148,7 +148,7 @@
   text-align: center;
   font-size: 22px;
   font-weight: 900;
-  color: #2f2050;
+  color: var(--hr-primary-dark);
 }
 
 .hrApprModal__rule {
@@ -205,7 +205,7 @@
 .hrApprForm__actions button,
 .hrApprModal__footer button {
   border: 0;
-  background: #8a4d93;
+  background: var(--hr-primary);
   color: #fff;
   border-radius: 9px;
   min-width: 84px;

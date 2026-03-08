@@ -1,0 +1,258 @@
+.hrRun {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hrRun__top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hrRun__top h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  color: var(--hr-primary-dark);
+}
+
+.hrRun__top select {
+  height: 34px;
+  min-width: 132px;
+  border: 1px solid var(--hr-border);
+  border-radius: 8px;
+  background: var(--hr-surface-soft);
+  padding: 0 10px;
+  color: var(--hr-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.hrRunFilters {
+  display: grid;
+  grid-template-columns: 1.4fr auto auto auto;
+  gap: 8px 12px;
+  align-items: end;
+}
+
+.hrRunFilters__field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.hrRunFilters__field label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--hr-muted);
+}
+
+.hrRunFilters__field select {
+  height: 36px;
+  min-width: 142px;
+  border: 1px solid var(--hr-border);
+  border-radius: 4px;
+  background: var(--hr-surface-soft);
+  padding: 0 10px;
+  font-size: 13px;
+  color: #3f3a4c;
+}
+
+.hrRunFilters__searchWrap {
+  height: 36px;
+  border: 1px solid var(--hr-border);
+  border-radius: 4px;
+  background: var(--hr-surface-soft);
+  padding: 0 8px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.hrRunFilters__searchWrap svg {
+  color: #5a5666;
+  font-size: 15px;
+}
+
+.hrRunFilters__searchWrap input {
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  color: #3f3a4c;
+  pointer-events: none;
+}
+
+.hrRunFilters__searchWrap button {
+  border: 0;
+  background: transparent;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  color: #676278;
+}
+
+.hrRunFilters__refresh {
+  align-self: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #4a4361;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.hrRunTable {
+  border: 1.5px solid var(--hr-border);
+  border-radius: 12px;
+  background: var(--hr-surface);
+  box-shadow: var(--hr-shadow);
+  overflow: hidden;
+}
+
+.hrRunTable__head {
+  background: var(--hr-primary-soft);
+  border-bottom: 1px solid var(--hr-line);
+  padding: 10px 14px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  color: var(--hr-primary-dark);
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.hrRunTable__body {
+  padding: 8px 14px;
+}
+
+.hrRunEmployee {
+  padding: 10px 0 8px;
+  border-bottom: 1px solid var(--hr-line);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 10px;
+}
+
+.hrRunEmployee__name {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--hr-text);
+}
+
+.hrRunEmployee__sub {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--hr-muted);
+}
+
+.hrRunEmployee__value {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: end;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--hr-text);
+}
+
+.hrRunTypeRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--hr-line);
+  font-size: 13px;
+  color: var(--hr-text);
+}
+
+.hrRunTypeRow--total {
+  font-weight: 900;
+  color: #251c38;
+}
+
+.hrRunActions {
+  margin-top: 6px;
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+}
+
+.hrRunActions button {
+  border: 0;
+  border-radius: 8px;
+  background: var(--hr-primary);
+  min-width: 170px;
+  height: 38px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  box-shadow: var(--hr-button-shadow);
+  cursor: pointer;
+}
+
+@media (max-width: 1200px) {
+  .hrRun__top h1 {
+    font-size: 22px;
+  }
+
+  .hrRun__top select {
+    font-size: 12px;
+  }
+
+  .hrRunFilters {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  .hrRunFilters__field label {
+    font-size: 11px;
+  }
+
+  .hrRunFilters__field select,
+  .hrRunFilters__searchWrap input {
+    font-size: 12px;
+  }
+
+  .hrRunTable__head {
+    font-size: 13px;
+  }
+
+  .hrRunEmployee__name,
+  .hrRunEmployee__sub,
+  .hrRunEmployee__value,
+  .hrRunTypeRow {
+    font-size: 12px;
+  }
+
+  .hrRunActions button {
+    min-width: 132px;
+    height: 34px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 760px) {
+  .hrRun__top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .hrRunFilters {
+    grid-template-columns: 1fr;
+  }
+
+  .hrRunFilters__field select {
+    min-width: 100%;
+  }
+
+  .hrRunActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

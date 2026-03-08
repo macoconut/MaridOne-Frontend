@@ -13,7 +13,7 @@
 
 .hrDash__title {
   margin: 0;
-  color: #2f2050;
+  color: var(--hr-primary-dark);
   font-size: 24px;
   font-weight: 900;
   letter-spacing: -0.03em;
@@ -28,7 +28,7 @@
 .hrDash__exportBtn {
   border: 0;
   border-radius: 8px;
-  background: #7b4a8f;
+  background: var(--hr-primary);
   color: #fff;
   font-weight: 800;
   font-size: 14px;
@@ -97,19 +97,19 @@
 }
 
 .hrPanel {
-  border: 1.5px solid rgba(0, 0, 0, 0.24);
+  border: 1.5px solid var(--hr-border);
   border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 8px 15px rgba(0, 0, 0, 0.08);
+  background: var(--hr-surface);
+  box-shadow: var(--hr-shadow);
   overflow: hidden;
 }
 
 .hrPanel__header {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid var(--hr-line);
   padding: 8px 12px;
   font-size: 14px;
   font-weight: 900;
-  color: #2f2050;
+  color: var(--hr-primary-dark);
 }
 
 .hrDept {

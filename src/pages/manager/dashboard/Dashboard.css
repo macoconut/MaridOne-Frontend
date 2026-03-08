@@ -1,0 +1,307 @@
+.mgrUser {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mgrInfo,
+.mgrPanel {
+  border: 1.5px solid rgba(62, 35, 94, 0.22);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 14px rgba(80, 47, 109, 0.12);
+  overflow: hidden;
+}
+
+.mgrInfo {
+  background: rgba(123, 74, 143, 0.09);
+}
+
+.mgrInfo__head,
+.mgrPanel__head {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(63, 43, 104, 0.18);
+  color: #2f2050;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.mgrInfo__head {
+  border-bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.mgrInfo__head h1 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+}
+
+.mgrInfo__head button,
+.mgrActionCard,
+.mgrDoc button,
+.mgrDoc__actions button {
+  border: 0;
+  border-radius: 8px;
+  background: #7b4a8f;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.mgrInfo__head button {
+  height: 30px;
+  padding: 0 12px;
+}
+
+.mgrInfo__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 0.8fr;
+  gap: 12px;
+  padding: 10px 12px 14px;
+}
+
+.mgrInfo__identity,
+.mgrInfo__contacts,
+.mgrInfo__meta {
+  padding: 8px;
+}
+
+.mgrInfo__contacts,
+.mgrInfo__meta {
+  border-left: 2px solid rgba(62, 35, 94, 0.35);
+}
+
+.mgrInfo__identity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.mgrInfo__avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 8px;
+  border: 1px solid rgba(63, 43, 104, 0.2);
+  background:
+    linear-gradient(45deg, transparent 49%, rgba(123, 74, 143, 0.12) 50%, transparent 51%),
+    linear-gradient(-45deg, transparent 49%, rgba(123, 74, 143, 0.12) 50%, transparent 51%),
+    #f6f2fb;
+}
+
+.mgrInfo__identity h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #1e1b2b;
+  line-height: 1.1;
+}
+
+.mgrInfo__contacts p,
+.mgrInfo__meta p {
+  margin: 0 0 10px;
+  color: #272536;
+  font-size: 11px;
+}
+
+.mgrInfo__meta strong {
+  display: block;
+  font-size: 12px;
+}
+
+.mgrInfo__meta span {
+  color: #4f4a5f;
+  font-size: 10px;
+}
+
+.mgrUser__grid {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 12px;
+}
+
+.mgrUser__left,
+.mgrUser__right {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mgrActionGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.mgrActionCard {
+  min-height: 62px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 16px;
+  box-shadow: 0 8px 14px rgba(123, 74, 143, 0.3);
+}
+
+.mgrActionCard i {
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.mgrPanel__body {
+  padding: 10px 12px 12px;
+}
+
+.mgrDocs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.mgrDoc {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 10px;
+}
+
+.mgrDoc__thumb {
+  border-radius: 4px;
+  border: 1px solid rgba(63, 43, 104, 0.2);
+  min-height: 92px;
+  background:
+    linear-gradient(45deg, transparent 49%, rgba(123, 74, 143, 0.12) 50%, transparent 51%),
+    linear-gradient(-45deg, transparent 49%, rgba(123, 74, 143, 0.12) 50%, transparent 51%),
+    #f6f2fb;
+}
+
+.mgrDoc h4 {
+  margin: 4px 0 0;
+  color: #2f2050;
+  font-size: 14px;
+}
+
+.mgrDoc ul {
+  margin: 4px 0;
+  padding-left: 16px;
+  color: #282634;
+  font-size: 12px;
+}
+
+.mgrDoc button {
+  height: 26px;
+  padding: 0 10px;
+  background: #7b4a8f;
+}
+
+.mgrDoc__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.mgrDoc__actions button {
+  background: #7b4a8f;
+}
+
+.mgrCalendar {
+  border: 1px solid rgba(63, 43, 104, 0.2);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.mgrCalendar__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #2f2c3e;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(63, 43, 104, 0.14);
+}
+
+.mgrCalendar__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.mgrCalendar__cell {
+  min-height: 44px;
+  border-right: 1px solid rgba(63, 43, 104, 0.12);
+  border-bottom: 1px solid rgba(63, 43, 104, 0.12);
+}
+
+.mgrCalendar__cell:nth-child(7n) {
+  border-right: 0;
+}
+
+.mgrCalendar__cell.is-event {
+  background: rgba(123, 74, 143, 0.24);
+}
+
+.mgrAnnounceGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding: 10px 12px 12px;
+}
+
+.mgrAnnounce {
+  border-radius: 8px;
+  border: 1px solid rgba(63, 43, 104, 0.16);
+  background: #fcf9ff;
+  padding: 8px;
+}
+
+.mgrAnnounce h4 {
+  margin: 0;
+  font-size: 12px;
+  color: #2b2541;
+}
+
+.mgrAnnounce p {
+  margin: 5px 0 0;
+  color: #444052;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+@media (max-width: 1400px) {
+  .mgrInfo__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mgrInfo__contacts,
+  .mgrInfo__meta {
+    border-left: 0;
+    border-top: 1px solid rgba(0, 0, 0, 0.14);
+  }
+
+  .mgrInfo__identity h2 {
+    font-size: 16px;
+  }
+
+  .mgrInfo__contacts p,
+  .mgrInfo__meta p,
+  .mgrInfo__meta strong,
+  .mgrInfo__meta span {
+    font-size: 11px;
+  }
+
+  .mgrUser__grid,
+  .mgrDocs,
+  .mgrAnnounceGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .mgrInfo__head h1 {
+    font-size: 24px;
+  }
+
+  .mgrActionGrid {
+    grid-template-columns: 1fr;
+  }
+}
