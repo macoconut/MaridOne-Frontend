@@ -2,10 +2,10 @@ const AUTH_KEYS = ['maridone.authToken', 'maridone.role', 'maridone.userEmail'] 
 
 type UserRole = 'employee' | 'hr' | 'manager' | 'management' | 'accounting';
 
-export function setSession(role: UserRole, userEmail: string, remember: boolean) {
+export function setSession(role: UserRole, userEmail: string, remember: boolean, token = 'mock-token') {
   const storage = remember ? localStorage : sessionStorage;
 
-  storage.setItem('maridone.authToken', 'mock-token');
+  storage.setItem('maridone.authToken', token);
   storage.setItem('maridone.role', role);
   storage.setItem('maridone.userEmail', userEmail);
 }

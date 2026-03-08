@@ -3,76 +3,168 @@ import { useNavigate } from 'react-router-dom';
 import { setSession } from '../../../../lib/session';
 import './Login.css';
 
-type MockAccount = {
-  role: 'employee' | 'hr' | 'manager' | 'management' | 'accounting';
-  route: string;
-  aliases: string[];
-  password: string;
-};
+type UserRole = 'employee' | 'hr' | 'manager' | 'management' | 'accounting';
 
-const mockAccounts: MockAccount[] = [
-  {
-    role: 'employee',
-    route: '/employee/dashboard',
-    aliases: ['employee', 'employee@marid.com'],
-    password: 'employee123',
-  },
-  {
-    role: 'hr',
-    route: '/hr/dashboard',
-    aliases: ['hr', 'hr@marid.com'],
-    password: 'hr123',
-  },
-  {
-    role: 'manager',
-    route: '/manager/dashboard',
-    aliases: ['man', 'manager', 'manager@marid.com'],
-    password: 'man123',
-  },
-  {
-    role: 'management',
-    route: '/management/dashboard',
-    aliases: ['management', 'management@marid.com', 'mgt'],
-    password: 'management123',
-  },
-  {
-    role: 'accounting',
-    route: '/accounting/payroll-dashboard',
-    aliases: ['acc', 'accounting', 'accounting@marid.com'],
-    password: 'acc123',
-  },
-];
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
+
+function mapRoleToRoute(role: UserRole) {
+  switch (role) {
+    case 'employee':
+      return '/employee/dashboard';
+    case 'hr':
+      return '/hr/dashboard';
+    case 'manager':
+      return '/manager/dashboard';
+    case 'management':
+      return '/management/attendance';
+    case 'accounting':
+      return '/accounting/payroll-dashboard';
+    default:
+      return '/login';
+  }
+}
+
+function normalizeRole(input: unknown): UserRole | null {
+  if (typeof input !== 'string') return null;
+
+  const raw = input.trim().toLowerCase();
+  const cleaned = raw.startsWith('role_') ? raw.slice(5) : raw;
+
+  if (cleaned === 'employee') return 'employee';
+  if (cleaned === 'hr') return 'hr';
+  if (cleaned === 'manager') return 'manager';
+  if (cleaned === 'management') return 'management';
+  if (cleaned === 'accounting' || cleaned === 'accountant') return 'accounting';
+  return null;
+}
+
+function extractRole(payload: unknown): UserRole | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const data = payload as Record<string, unknown>;
+
+  const direct =
+    normalizeRole(data.role) ??
+    normalizeRole(data.userRole) ??
+    normalizeRole(data.accountType) ??
+    normalizeRole(data.user_type);
+  if (direct) return direct;
+
+  if (Array.isArray(data.authorities) && data.authorities.length > 0) {
+    const first = data.authorities[0];
+    if (typeof first === 'string') return normalizeRole(first);
+    if (first && typeof first === 'object') {
+      const auth = first as Record<string, unknown>;
+      return normalizeRole(auth.authority) ?? normalizeRole(auth.role);
+    }
+  }
+
+  if (data.user && typeof data.user === 'object') {
+    return extractRole(data.user);
+  }
+
+  if (data.data && typeof data.data === 'object') {
+    return extractRole(data.data);
+  }
+
+  return null;
+}
+
+function extractToken(payload: unknown): string {
+  if (!payload || typeof payload !== 'object') return 'authenticated-session';
+  const data = payload as Record<string, unknown>;
+
+  const direct = [data.token, data.accessToken, data.jwt, data.authToken].find(
+    (value): value is string => typeof value === 'string' && value.trim().length > 0
+  );
+  if (direct) return direct;
+
+  if (data.data && typeof data.data === 'object') return extractToken(data.data);
+  return 'authenticated-session';
+}
+
+function extractIdentity(payload: unknown, fallback: string): string {
+  if (!payload || typeof payload !== 'object') return fallback;
+  const data = payload as Record<string, unknown>;
+
+  const direct = [data.username, data.email, data.userEmail, data.userName, data.login].find(
+    (value): value is string => typeof value === 'string' && value.trim().length > 0
+  );
+  if (direct) return direct;
+
+  if (data.user && typeof data.user === 'object') return extractIdentity(data.user, fallback);
+  if (data.data && typeof data.data === 'object') return extractIdentity(data.data, fallback);
+  return fallback;
+}
 
 export default function EmployeeLogin() {
   const navigate = useNavigate();
-
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const normalizedUsername = username.trim();
 
-    const normalized = username.trim().toLowerCase();
-    const matchedAccount = mockAccounts.find(
-      (account) => account.aliases.includes(normalized) && account.password === password
-    );
-
-    if (!matchedAccount) {
-      setError('Invalid username/email or password.');
+    if (!normalizedUsername || !password) {
+      setError('Enter username/email and password.');
       return;
     }
 
+    setIsLoading(true);
     setError('');
-    setSession(matchedAccount.role, normalized, remember);
-    navigate(matchedAccount.route);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          username: normalizedUsername,
+          usernameOrEmail: normalizedUsername,
+          password,
+        }),
+      });
+
+      let payload: unknown = null;
+      try {
+        payload = await response.json();
+      } catch {
+        payload = null;
+      }
+
+      if (!response.ok) {
+        const serverMessage =
+          payload && typeof payload === 'object' && typeof (payload as Record<string, unknown>).message === 'string'
+            ? String((payload as Record<string, unknown>).message)
+            : '';
+        setError(serverMessage || 'Login failed. Check backend credentials.');
+        return;
+      }
+
+      const role = extractRole(payload);
+      if (!role) {
+        setError('Login succeeded but role was missing in API response.');
+        return;
+      }
+
+      const token = extractToken(payload);
+      const identity = extractIdentity(payload, normalizedUsername.toLowerCase());
+
+      setSession(role, identity, remember, token);
+      navigate(mapRoleToRoute(role), { replace: true });
+    } catch {
+      setError('Cannot reach backend. Make sure API is running.');
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
     <div className="elogin">
-      {/* LEFT */}
       <div className="elogin__left">
         <div className="eloginCard">
           <form className="eloginForm" onSubmit={handleSubmit}>
@@ -114,13 +206,7 @@ export default function EmployeeLogin() {
               </div>
             </div>
 
-            <div className="eloginHint">
-              <div>Employee: `employee` / `employee123`</div>
-              <div>HR: `hr` / `hr123`</div>
-              <div>Manager: `man` / `man123`</div>
-              <div>Management: `management` / `management123`</div>
-              <div>Accounting: `acc` / `acc123`</div>
-            </div>
+            <div className="eloginHint">Use backend account credentials for this role route.</div>
 
             {error && <div className="eloginError">{error}</div>}
 
@@ -134,26 +220,20 @@ export default function EmployeeLogin() {
                 <span>Remember Me</span>
               </label>
 
-              <button className="submitBtn" type="submit">
-                Log in
+              <button className="submitBtn" type="submit" disabled={isLoading}>
+                {isLoading ? 'Logging in...' : 'Log in'}
               </button>
             </div>
-            {error && <p className="field__error">{error}</p>}
           </form>
         </div>
       </div>
 
-      {/* RIGHT */}
       <div className="elogin__right">
         <div className="eloginHero">
           <div className="eloginHero__img" aria-label="Login hero image" />
 
           <div className="eloginHero__brand">
-            <img
-              className="eloginHero__icon"
-              src="/images/landing-logo.png"
-              alt="MaridOne logo"
-            />
+            <img className="eloginHero__icon" src="/images/landing-logo.png" alt="MaridOne logo" />
             <div className="eloginHero__name">MaridOne</div>
           </div>
         </div>
