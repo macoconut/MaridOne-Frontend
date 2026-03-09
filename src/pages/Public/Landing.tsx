@@ -1,8 +1,14 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { expireCurrentSession } from '../../lib/api';
 import './Landing.css';
 
 export default function Landing() {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    void expireCurrentSession();
+  }, []);
 
   return (
     <div className="landing">

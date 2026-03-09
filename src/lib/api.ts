@@ -13,6 +13,25 @@ export function getApiBaseUrl() {
   return API_BASE_URL;
 }
 
+export async function expireCurrentSession() {
+  const refreshToken = getRefreshToken();
+
+  try {
+    if (refreshToken) {
+      await fetch(`${API_BASE_URL}/api/auth/logout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ refreshToken }),
+      });
+    }
+  } catch {
+    // Always clear local auth state even if backend logout is unreachable.
+  } finally {
+    clearSession();
+  }
+}
+
 function redirectToLogin() {
   clearSession();
   if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
@@ -27,6 +46,37 @@ function parseJsonSafely(text: string): unknown {
   } catch {
     return null;
   }
+}
+
+function extractErrorMessage(data: unknown, fallbackStatus: number, rawText: string): string {
+  if (data && typeof data === 'object') {
+    const obj = data as Record<string, unknown>;
+
+    if (typeof obj.message === 'string' && obj.message.trim().length > 0) {
+      return obj.message;
+    }
+
+    if (typeof obj.error === 'string' && obj.error.trim().length > 0) {
+      return obj.error;
+    }
+
+    if (Array.isArray(obj.errors) && obj.errors.length > 0) {
+      const first = obj.errors[0];
+      if (typeof first === 'string' && first.trim().length > 0) return first;
+      if (first && typeof first === 'object') {
+        const firstObj = first as Record<string, unknown>;
+        if (typeof firstObj.defaultMessage === 'string' && firstObj.defaultMessage.trim().length > 0) {
+          return firstObj.defaultMessage;
+        }
+      }
+    }
+  }
+
+  if (rawText && !data) {
+    return rawText.length > 250 ? `Request failed (${fallbackStatus})` : rawText;
+  }
+
+  return `Request failed (${fallbackStatus})`;
 }
 
 async function refreshAccessToken(): Promise<boolean> {
@@ -103,10 +153,7 @@ export async function apiFetchJson<T>(path: string, init: RequestInit = {}): Pro
   const data = parseJsonSafely(text);
 
   if (!response.ok) {
-    const message =
-      data && typeof data === 'object' && typeof (data as Record<string, unknown>).message === 'string'
-        ? String((data as Record<string, unknown>).message)
-        : `Request failed (${response.status})`;
+    const message = extractErrorMessage(data, response.status, text);
     throw new Error(message);
   }
 

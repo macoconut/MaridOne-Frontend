@@ -16,14 +16,51 @@ type ApprovalItem = {
 
 type OvertimeRow = {
   overtimeId?: number;
-  requestedAt?: string;
-  status?: string;
+  requestAt?: string;
+  workDate?: string;
+  startTime?: string;
+  approvedAt?: string;
   requestStatus?: string;
-  approvedBy?: string;
-  approverName?: string;
+  approver?: string;
   reason?: string;
   approveReason?: string;
+  overtimeType?: string;
 };
+
+type DisputeRow = {
+  id?: number;
+  subject?: string;
+  reason?: string;
+  status?: string;
+  createdAt?: string;
+  statusReason?: string;
+  itemId?: number;
+};
+
+function extractApprover(statusReason?: string) {
+  if (!statusReason) return '-';
+  const byMatch = statusReason.match(/\bby\s+(.+)$/i);
+  if (byMatch?.[1]) return byMatch[1].trim();
+  return statusReason.trim() || '-';
+}
+
+function formatDateTime(value?: string) {
+  if (!value) return '-';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+}
+
+function formatDate(value?: string) {
+  if (!value) return '-';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
+}
+
+function formatTime(value?: string) {
+  if (!value) return '-';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
 
 export default function Approval() {
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
@@ -50,26 +87,62 @@ export default function Approval() {
                 : null;
 
         if (!empId) throw new Error('Missing employee ID');
-        const response = await apiFetchJson<unknown>(`/api/overtime/all/${empId}?page=0&size=20`);
-        const mapped = toArray<OvertimeRow>(response).map((row) => {
+        const [otResponse, disputeResponse] = await Promise.all([
+          apiFetchJson<unknown>(`/api/overtime/all/${empId}?page=0&size=20`),
+          apiFetchJson<unknown>(`/api/payroll/item/dispute/self?empId=${empId}&page=0&size=20`),
+        ]);
+
+        const overtimeItems = toArray<OvertimeRow>(otResponse).map((row) => {
+          const statusRaw = String(row.requestStatus ?? '').toUpperCase();
           const status: ApprovalItem['status'] =
-            (row.status ?? row.requestStatus)?.toUpperCase() === 'APPROVED'
+            statusRaw === 'APPROVED'
               ? 'Approved'
-              : (row.status ?? row.requestStatus)?.toUpperCase() === 'REJECTED'
+              : statusRaw === 'REJECTED' || statusRaw === 'DENIED'
                 ? 'Denied'
                 : 'Pending';
           return {
             id: String(row.overtimeId ?? Math.random()),
-            dateOfRequest: row.requestedAt ?? '-',
+            dateOfRequest: formatDateTime(row.requestAt),
             requestType: 'Overtime',
-            category: 'OT',
-            startOfRequest: row.requestedAt ?? '-',
+            category: row.overtimeType || 'OT',
+            startOfRequest:
+              row.startTime
+                ? `${formatDate(row.workDate)} ${formatTime(row.startTime)}`
+                : formatDate(row.workDate),
             status,
-            approvedBy: row.approvedBy ?? row.approverName ?? '-',
+            approvedBy: row.approver ?? '-',
             remarks: row.approveReason ?? row.reason ?? '-',
           };
         });
-        setApprovals(mapped);
+
+        const disputeItems = toArray<DisputeRow>(disputeResponse).map((row) => {
+          const statusRaw = String(row.status ?? '').toUpperCase();
+          const status: ApprovalItem['status'] =
+            statusRaw === 'APPROVED'
+              ? 'Approved'
+              : statusRaw === 'REJECTED' || statusRaw === 'DENIED'
+                ? 'Denied'
+                : 'Pending';
+          return {
+            id: `dispute-${String(row.id ?? Math.random())}`,
+            dateOfRequest: formatDateTime(row.createdAt),
+            requestType: 'Payslip Dispute',
+            category: row.subject || 'Dispute',
+            startOfRequest: `Item #${row.itemId ?? '-'}`,
+            status,
+            approvedBy: status === 'Pending' ? '-' : extractApprover(row.statusReason),
+            remarks: row.statusReason ?? row.reason ?? '-',
+          };
+        });
+
+        const merged = [...overtimeItems, ...disputeItems].sort((a, b) => {
+          const aTime = Date.parse(a.dateOfRequest);
+          const bTime = Date.parse(b.dateOfRequest);
+          if (Number.isNaN(aTime) || Number.isNaN(bTime)) return 0;
+          return bTime - aTime;
+        });
+
+        setApprovals(merged);
       } catch {
         setApprovals([]);
       }
@@ -79,6 +152,11 @@ export default function Approval() {
   const approvedCount = approvals.filter((item) => item.status === 'Approved').length;
   const deniedCount = approvals.filter((item) => item.status === 'Denied').length;
   const pendingCount = approvals.filter((item) => item.status === 'Pending').length;
+  const cards = [
+    { label: 'Approved', value: approvedCount, cls: 'approved' },
+    { label: 'Denied', value: deniedCount, cls: 'denied' },
+    { label: 'Pending', value: pendingCount, cls: 'pending' },
+  ] as const;
 
   return (
     <div className="appr">
@@ -87,29 +165,21 @@ export default function Approval() {
       </div>
 
       <div className="appr__stats">
-        <div className="apprCard">
-          <div className="apprCard__ring apprCard__ring--approved" />
-          <div className="apprCard__body">
-            <div className="apprCard__label">Approved</div>
-            <div className="apprCard__value">{approvedCount}</div>
+        {cards.map((card) => (
+          <div key={card.label} className="apprCard">
+            {card.value > 0 ? (
+              <div className={`apprCard__ring apprCard__ring--${card.cls}`} />
+            ) : (
+              <div className="apprCard__empty" aria-hidden="true">
+                -
+              </div>
+            )}
+            <div className="apprCard__body">
+              <div className="apprCard__label">{card.label}</div>
+              <div className="apprCard__value">{card.value}</div>
+            </div>
           </div>
-        </div>
-
-        <div className="apprCard">
-          <div className="apprCard__ring apprCard__ring--denied" />
-          <div className="apprCard__body">
-            <div className="apprCard__label">Denied</div>
-            <div className="apprCard__value">{deniedCount}</div>
-          </div>
-        </div>
-
-        <div className="apprCard">
-          <div className="apprCard__ring apprCard__ring--pending" />
-          <div className="apprCard__body">
-            <div className="apprCard__label">Pending</div>
-            <div className="apprCard__value">{pendingCount}</div>
-          </div>
-        </div>
+        ))}
       </div>
 
       <section className="apprTable">

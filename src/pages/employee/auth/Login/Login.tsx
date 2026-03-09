@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { setSession } from '../../../../lib/session';
+import { clearSession, setSession } from '../../../../lib/session';
+import { expireCurrentSession } from '../../../../lib/api';
 import './Login.css';
 
 type UserRole = 'employee' | 'hr' | 'manager' | 'management' | 'accounting';
@@ -35,6 +36,17 @@ function normalizeRole(input: unknown): UserRole | null {
   if (cleaned === 'manager') return 'manager';
   if (cleaned === 'management') return 'management';
   if (cleaned === 'accounting' || cleaned === 'accountant') return 'accounting';
+  return null;
+}
+
+function mapPositionToRole(input: unknown): UserRole | null {
+  if (typeof input !== 'string') return null;
+  const value = input.trim().toUpperCase();
+  if (value === 'EMPLOYEE') return 'employee';
+  if (value === 'HR') return 'hr';
+  if (value === 'MANAGER') return 'manager';
+  if (value === 'MANAGEMENT') return 'management';
+  if (value === 'ACCOUNTING') return 'accounting';
   return null;
 }
 
@@ -134,7 +146,7 @@ function extractIdentity(payload: unknown, fallback: string): string {
   if (!payload || typeof payload !== 'object') return fallback;
   const data = payload as Record<string, unknown>;
 
-  const direct = [data.username, data.email, data.userEmail, data.userName, data.login].find(
+  const direct = [data.username, data.userName, data.login, data.userEmail, data.email].find(
     (value): value is string => typeof value === 'string' && value.trim().length > 0
   );
   if (direct) return direct;
@@ -153,6 +165,46 @@ export default function EmployeeLogin() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  useEffect(() => {
+    void expireCurrentSession();
+  }, []);
+
+  function mapLoginError(status: number, payload: unknown) {
+    const message =
+      payload && typeof payload === 'object'
+        ? (typeof (payload as Record<string, unknown>).message === 'string'
+            ? String((payload as Record<string, unknown>).message)
+            : typeof (payload as Record<string, unknown>).error === 'string'
+              ? String((payload as Record<string, unknown>).error)
+              : '')
+        : '';
+
+    if (status === 401) return message || 'Invalid username or password.';
+    if (status === 403) return message || 'Your account is not allowed to sign in.';
+    if (status === 423) return message || 'Your account is locked. Contact admin.';
+    if (status === 429) return message || 'Too many login attempts. Please wait and try again.';
+    return message || 'Login failed. Please try again.';
+  }
+
+  async function resolveRoleFromUserDetails(identity: string, token: string): Promise<UserRole | null> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/user/details/${encodeURIComponent(identity)}`, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
+      });
+      if (!response.ok) return null;
+      const payload = (await response.json()) as Record<string, unknown>;
+      const employee =
+        payload.employee && typeof payload.employee === 'object'
+          ? (payload.employee as Record<string, unknown>)
+          : null;
+      return mapPositionToRole(employee?.position ?? payload.role);
+    } catch {
+      return null;
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const normalizedUsername = username.trim();
@@ -164,6 +216,7 @@ export default function EmployeeLogin() {
 
     setIsLoading(true);
     setError('');
+    clearSession();
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
@@ -185,23 +238,25 @@ export default function EmployeeLogin() {
       }
 
       if (!response.ok) {
-        const serverMessage =
-          payload && typeof payload === 'object' && typeof (payload as Record<string, unknown>).message === 'string'
-            ? String((payload as Record<string, unknown>).message)
-            : '';
-        setError(serverMessage || 'Login failed. Check backend credentials.');
+        setError(mapLoginError(response.status, payload));
         return;
       }
 
-      const role = extractRole(payload);
+      const roleFromPayload = extractRole(payload);
+
+      const token = extractToken(payload);
+      const refreshToken = extractRefreshToken(payload);
+      const identity = extractIdentity(payload, normalizedUsername);
+      const roleFromDetails =
+        token && token !== 'authenticated-session'
+          ? await resolveRoleFromUserDetails(identity, token)
+          : null;
+      const role = roleFromDetails ?? roleFromPayload;
+
       if (!role) {
         setError('Login succeeded but role was missing in API response.');
         return;
       }
-
-      const token = extractToken(payload);
-      const refreshToken = extractRefreshToken(payload);
-      const identity = extractIdentity(payload, normalizedUsername.toLowerCase());
 
       setSession(role, identity, remember, token, refreshToken);
       navigate(mapRoleToRoute(role), { replace: true });

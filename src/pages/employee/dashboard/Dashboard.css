@@ -305,6 +305,15 @@
   margin-bottom: 10px;
 }
 
+.calendarShell__navBtn{
+  border:none;
+  background: transparent;
+  color: var(--purple-dark);
+  font-weight: 900;
+  font-size: 16px;
+  cursor: pointer;
+}
+
 .calendarGrid{
   display:grid;
   grid-template-columns: repeat(7, 1fr);
@@ -335,6 +344,13 @@
   color:#fff;
   opacity:1;
   border-color: transparent;
+}
+
+.dashEditError{
+  margin: -12px 0 0;
+  color: #a63f4d;
+  font-weight: 700;
+  font-size: 12px;
 }
 
 /* responsive */

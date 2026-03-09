@@ -13,9 +13,9 @@ import {
 } from 'react-icons/fi';
 import '../../employee/layout/EmployeeLayout.css';
 import '../shared/hr-theme.css';
-import { clearSession, getUserEmail } from '../../../lib/session';
+import { getUserEmail } from '../../../lib/session';
 import { BACKEND_TEST_MODE } from '../../../config/flags';
-import { apiFetchRaw, getApiBaseUrl } from '../../../lib/api';
+import { apiFetchRaw, expireCurrentSession, getApiBaseUrl } from '../../../lib/api';
 import {
   applyBodyPlaceholders,
   applyPathPlaceholders,
@@ -29,6 +29,7 @@ type NotificationItem = {
   title: string;
   description?: string;
   time: string;
+  isRead?: boolean;
 };
 
 type BackendTestAction = {
@@ -39,7 +40,6 @@ type BackendTestAction = {
   body?: unknown;
 };
 
-const notifications: NotificationItem[] = [];
 const API_BASE_URL = getApiBaseUrl();
 
 const backendActions: BackendTestAction[] = [
@@ -286,6 +286,8 @@ const backendActions: BackendTestAction[] = [
 export default function HrLayout() {
   const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [headerTitle, setHeaderTitle] = useState('HR');
   const [backendAction, setBackendAction] = useState<string>('None');
   const [backendResult, setBackendResult] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -314,15 +316,85 @@ export default function HrLayout() {
     };
   }, [notifOpen]);
 
-  const unreadCount = notifications.length;
+  useEffect(() => {
+    void (async () => {
+      try {
+        const username = getUserEmail();
+        if (!username) {
+          setHeaderTitle('HR');
+          return;
+        }
+
+        const detailsResponse = await apiFetchRaw(`/api/user/details/${encodeURIComponent(username)}`, {
+          method: 'GET',
+        });
+        if (!detailsResponse.ok) {
+          setHeaderTitle('HR');
+        } else {
+          const payload = (await detailsResponse.json()) as Record<string, unknown>;
+          const employee =
+            payload.employee && typeof payload.employee === 'object'
+              ? (payload.employee as Record<string, unknown>)
+              : null;
+          const empId =
+            extractFirstId(payload, ['employeeId', 'id']) ??
+            extractFirstId(employee, ['employeeId', 'id']);
+          setHeaderTitle(empId ? `HR#${empId}` : 'HR');
+        }
+
+        const notifResponse = await apiFetchRaw('/api/notifications?page=0&size=20', { method: 'GET' });
+        if (!notifResponse.ok) {
+          setNotifications([]);
+          return;
+        }
+
+        const notifPayload = (await notifResponse.json()) as { content?: Array<Record<string, unknown>> };
+        const mapped = Array.isArray(notifPayload?.content)
+          ? notifPayload.content.map((row) => {
+              const idRaw = row.notificationId;
+              const id = typeof idRaw === 'number' ? String(idRaw) : String(idRaw ?? crypto.randomUUID());
+              const createdAt = typeof row.createdAt === 'string' ? new Date(row.createdAt) : null;
+              return {
+                id,
+                title: typeof row.message === 'string' ? row.message : 'Notification',
+                description: typeof row.importance === 'string' ? `Importance: ${row.importance}` : undefined,
+                time: createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt.toLocaleString() : 'Now',
+                isRead: Boolean(row.readStatus),
+              } as NotificationItem;
+            })
+          : [];
+        setNotifications(mapped);
+      } catch {
+        setHeaderTitle('HR');
+        setNotifications([]);
+      }
+    })();
+  }, []);
+
+  const unreadCount = notifications.filter((item) => !item.isRead).length;
   const todayLabel = new Date().toLocaleDateString(undefined, {
     month: 'long',
     day: 'numeric',
   });
 
-  function handleLogout() {
-    clearSession();
+  async function handleLogout() {
+    await expireCurrentSession();
     navigate('/login', { replace: true });
+  }
+
+  function handleBrandClick() {
+    navigate('/hr/dashboard', { replace: true });
+  }
+
+  async function markNotificationRead(id: string) {
+    const numericId = Number(id);
+    if (!Number.isFinite(numericId)) return;
+    try {
+      await apiFetchRaw(`/api/notifications?notificationId=${numericId}`, { method: 'PATCH' });
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+    } catch {
+      // no-op
+    }
   }
 
   async function fetchJsonWithAuth(path: string) {
@@ -448,8 +520,8 @@ export default function HrLayout() {
         <button
           type="button"
           className="eSide__brand eSide__brand--link"
-          onClick={() => navigate('/login', { replace: true })}
-          aria-label="Go to login"
+          onClick={handleBrandClick}
+          aria-label="Go to dashboard"
         >
           <div className="eSide__logo" aria-hidden="true" />
           <div className="eSide__name">MaridOne</div>
@@ -509,7 +581,7 @@ export default function HrLayout() {
       <div className="eMain">
         <header className="eTop">
           <div className="eTop__left">
-            <div className="eTop__title">HR#67</div>
+            <div className="eTop__title">{headerTitle}</div>
             <span className="eTop__badge">Human Resources</span>
           </div>
 
@@ -536,15 +608,30 @@ export default function HrLayout() {
                 </div>
 
                 <div className="notifPanel__list">
-                  <div className="notifItem">
-                    <div className="notifItem__icon">
-                      <FiCheckCircle />
+                  {notifications.length > 0 ? (
+                    notifications.map((n) => (
+                      <button key={n.id} type="button" className="notifItem" onClick={() => void markNotificationRead(n.id)}>
+                        <div className="notifItem__icon">
+                          <FiCheckCircle />
+                        </div>
+                        <div className="notifItem__body">
+                          <div className="notifItem__title">{n.title}</div>
+                          {n.description && <div className="notifItem__msg">{n.description}</div>}
+                        </div>
+                        <div className="notifItem__time">{n.time}</div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="notifItem">
+                      <div className="notifItem__icon">
+                        <FiCheckCircle />
+                      </div>
+                      <div className="notifItem__body">
+                        <div className="notifItem__title">No new notifications.</div>
+                      </div>
+                      <div className="notifItem__time">Now</div>
                     </div>
-                    <div className="notifItem__body">
-                      <div className="notifItem__title">No new notifications.</div>
-                    </div>
-                    <div className="notifItem__time">Now</div>
-                  </div>
+                  )}
                 </div>
               </div>
             )}

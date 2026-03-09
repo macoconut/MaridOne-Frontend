@@ -12,9 +12,9 @@ import {
 } from 'react-icons/fi';
 
 import './EmployeeLayout.css';
-import { clearSession, getUserEmail } from '../../../lib/session';
+import { getUserEmail } from '../../../lib/session';
 import { BACKEND_TEST_MODE } from '../../../config/flags';
-import { apiFetchRaw, getApiBaseUrl } from '../../../lib/api';
+import { apiFetchRaw, expireCurrentSession, getApiBaseUrl } from '../../../lib/api';
 import {
   applyBodyPlaceholders,
   applyPathPlaceholders,
@@ -28,6 +28,7 @@ type NotificationItem = {
   title: string;
   description?: string;
   time: string;
+  isRead?: boolean;
 };
 
 type BackendTestAction = {
@@ -38,7 +39,6 @@ type BackendTestAction = {
   body?: unknown;
 };
 
-const notifications: NotificationItem[] = [];
 const API_BASE_URL = getApiBaseUrl();
 
 const backendActions: BackendTestAction[] = [
@@ -191,6 +191,8 @@ const backendActions: BackendTestAction[] = [
 export default function EmployeeLayout() {
   const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [headerTitle, setHeaderTitle] = useState('Employee');
   const [backendAction, setBackendAction] = useState<string>('None');
   const [backendResult, setBackendResult] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -220,15 +222,90 @@ export default function EmployeeLayout() {
     };
   }, [notifOpen]);
 
-  const unreadCount = notifications.length;
+  useEffect(() => {
+    void (async () => {
+      const username = getUserEmail();
+      if (!username) {
+        setHeaderTitle('Employee');
+        return;
+      }
+
+      try {
+        const userDetails = await fetchJsonWithAuth(`/api/user/details/${encodeURIComponent(username)}`);
+        const directEmpId = extractFirstId(userDetails, ['employeeId', 'id', 'empId']);
+        const nestedEmpId = extractFirstId(
+          userDetails && typeof userDetails === 'object'
+            ? (userDetails as Record<string, unknown>).employee
+            : null,
+          ['employeeId', 'id', 'empId']
+        );
+        const empId = directEmpId ?? nestedEmpId;
+        setHeaderTitle(empId ? `Employee#${empId}` : 'Employee');
+      } catch {
+        setHeaderTitle('Employee');
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const response = await apiFetchRaw('/api/notifications?page=0&size=20', { method: 'GET' });
+        if (!response.ok) {
+          setNotifications([]);
+          return;
+        }
+
+        const payload = (await response.json()) as { content?: Array<Record<string, unknown>> };
+        const mapped = Array.isArray(payload?.content)
+          ? payload.content.map((row) => {
+              const idRaw = row.notificationId;
+              const id = typeof idRaw === 'number' ? String(idRaw) : String(idRaw ?? crypto.randomUUID());
+              const createdAt = typeof row.createdAt === 'string' ? new Date(row.createdAt) : null;
+              return {
+                id,
+                title: typeof row.message === 'string' ? row.message : 'Notification',
+                description: typeof row.importance === 'string' ? `Importance: ${row.importance}` : undefined,
+                time: createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt.toLocaleString() : 'Now',
+                isRead: Boolean(row.readStatus),
+              } as NotificationItem;
+            })
+          : [];
+
+        setNotifications(mapped);
+      } catch {
+        setNotifications([]);
+      }
+    })();
+  }, []);
+
+  const unreadCount = notifications.filter((item) => !item.isRead).length;
   const todayLabel = new Date().toLocaleDateString(undefined, {
     month: 'long',
     day: 'numeric',
   });
 
-  function handleLogout() {
-    clearSession();
+  async function handleLogout() {
+    await expireCurrentSession();
     navigate('/login', { replace: true });
+  }
+
+  function handleBrandClick() {
+    navigate('/employee/dashboard', { replace: true });
+  }
+
+  async function markNotificationRead(id: string) {
+    const numericId = Number(id);
+    if (!Number.isFinite(numericId)) return;
+
+    try {
+      await apiFetchRaw(`/api/notifications?notificationId=${numericId}`, { method: 'PATCH' });
+      setNotifications((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, isRead: true } : item))
+      );
+    } catch {
+      // Keep UI state unchanged if backend mark-read fails.
+    }
   }
 
   async function fetchJsonWithAuth(path: string) {
@@ -342,8 +419,8 @@ export default function EmployeeLayout() {
         <button
           type="button"
           className="eSide__brand eSide__brand--link"
-          onClick={() => navigate('/login', { replace: true })}
-          aria-label="Go to login"
+          onClick={handleBrandClick}
+          aria-label="Go to dashboard"
         >
           <div className="eSide__logo" aria-hidden="true" />
           <div className="eSide__name">MaridOne</div>
@@ -400,7 +477,7 @@ export default function EmployeeLayout() {
       <div className="eMain">
         <header className="eTop">
           <div className="eTop__left">
-            <div className="eTop__title">Employee</div>
+            <div className="eTop__title">{headerTitle}</div>
             <span className="eTop__badge">Employee</span>
           </div>
 
@@ -429,7 +506,12 @@ export default function EmployeeLayout() {
                 <div className="notifPanel__list">
                   {notifications.length > 0 ? (
                     notifications.map((n) => (
-                      <div key={n.id} className="notifItem">
+                      <button
+                        key={n.id}
+                        type="button"
+                        className="notifItem"
+                        onClick={() => void markNotificationRead(n.id)}
+                      >
                         <div className="notifItem__icon">
                           <FiCheckCircle />
                         </div>
@@ -440,7 +522,7 @@ export default function EmployeeLayout() {
                         </div>
 
                         <div className="notifItem__time">{n.time}</div>
-                      </div>
+                      </button>
                     ))
                   ) : (
                     <div className="notifItem">

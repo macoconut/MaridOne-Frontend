@@ -43,6 +43,18 @@
   border-top: 1px solid var(--hr-line);
 }
 
+button.hrEmpRow {
+  width: 100%;
+  border: none;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+button.hrEmpRow:hover {
+  background: #f1ebfa;
+}
+
 .hrEmpRow:nth-child(odd) {
   background: #faf9fc;
 }
@@ -128,6 +140,7 @@
 }
 
 .hrEmpField input,
+.hrEmpField select,
 .hrEmpField textarea {
   border: 1px solid rgba(0, 0, 0, 0.22);
   border-radius: 4px;
@@ -169,6 +182,21 @@
   justify-content: flex-end;
   gap: 10px;
   padding-top: 10px;
+}
+
+.hrEmpForm__error,
+.hrEmpForm__success {
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hrEmpForm__error {
+  color: #b24651;
+}
+
+.hrEmpForm__success {
+  color: #2f7f4e;
 }
 
 .hrEmpModal.is-delete {

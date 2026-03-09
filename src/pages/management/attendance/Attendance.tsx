@@ -7,37 +7,31 @@ type StatCard = {
 };
 
 const statCards: StatCard[] = [
-  { label: 'Present', value: 67 },
-  { label: 'Absent', value: 67 },
-  { label: 'On Time', value: 34 },
-  { label: 'Late', value: 33 },
+  { label: 'Present', value: 0 },
+  { label: 'Absent', value: 0 },
+  { label: 'On Time', value: 0 },
+  { label: 'Late', value: 0 },
 ];
 
-const feedItems = Array.from({ length: 8 }, (_, i) => ({
-  id: `feed-${i}`,
-  name: 'Name',
-  dept: 'Department',
-  position: 'Position',
-  ago: '30m Ago',
-}));
+const feedItems: Array<{ id: string; name: string; dept: string; position: string; ago: string }> = [];
 
-const lateTodayItems = Array.from({ length: 3 }, (_, i) => ({
-  id: `late-${i}`,
-  name: 'Name',
-  dept: 'Department',
-  position: 'Position',
-  inTime: '8:32 AM',
-  lateBy: '1h 32m',
-  streak: 'This Month - 6 days',
-}));
+const lateTodayItems: Array<{
+  id: string;
+  name: string;
+  dept: string;
+  position: string;
+  inTime: string;
+  lateBy: string;
+  streak: string;
+}> = [];
 
-const onLeaveItems = Array.from({ length: 3 }, (_, i) => ({
-  id: `leave-${i}`,
-  name: 'Name',
-  dept: 'Department',
-  position: 'Position',
-  range: 'April 16, 2024 - April 17, 2024',
-}));
+const onLeaveItems: Array<{
+  id: string;
+  name: string;
+  dept: string;
+  position: string;
+  range: string;
+}> = [];
 
 function PersonSummary(props: { name: string; dept: string; position: string; rightText?: string }) {
   const { name, dept, position, rightText } = props;
@@ -132,42 +126,50 @@ export default function ManagementAttendance() {
             <section className="mAtt__card">
               <header className="mAtt__cardHeader">Late Today</header>
               <div className="mAtt__list">
-                {lateTodayItems.map((item) => (
-                  <div key={item.id} className="mAtt__listItem">
-                    <PersonSummary name={item.name} dept={item.dept} position={item.position} />
-                    <div className="mAtt__smallMeta">
-                      <span>
-                        <FiClock />
-                        {item.inTime}
-                      </span>
-                      <span>
-                        <FiClock />
-                        {item.lateBy}
-                      </span>
-                      <span>
-                        <FiCalendar />
-                        {item.streak}
-                      </span>
+                {lateTodayItems.length === 0 ? (
+                  <div className="mAtt__listItem">No late attendance records yet.</div>
+                ) : (
+                  lateTodayItems.map((item) => (
+                    <div key={item.id} className="mAtt__listItem">
+                      <PersonSummary name={item.name} dept={item.dept} position={item.position} />
+                      <div className="mAtt__smallMeta">
+                        <span>
+                          <FiClock />
+                          {item.inTime}
+                        </span>
+                        <span>
+                          <FiClock />
+                          {item.lateBy}
+                        </span>
+                        <span>
+                          <FiCalendar />
+                          {item.streak}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </section>
 
             <section className="mAtt__card">
               <header className="mAtt__cardHeader">On Leave</header>
               <div className="mAtt__list">
-                {onLeaveItems.map((item) => (
-                  <div key={item.id} className="mAtt__listItem">
-                    <PersonSummary name={item.name} dept={item.dept} position={item.position} />
-                    <div className="mAtt__smallMeta">
-                      <span>
-                        <FiCalendar />
-                        {item.range}
-                      </span>
+                {onLeaveItems.length === 0 ? (
+                  <div className="mAtt__listItem">No leave records yet.</div>
+                ) : (
+                  onLeaveItems.map((item) => (
+                    <div key={item.id} className="mAtt__listItem">
+                      <PersonSummary name={item.name} dept={item.dept} position={item.position} />
+                      <div className="mAtt__smallMeta">
+                        <span>
+                          <FiCalendar />
+                          {item.range}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </section>
           </div>
@@ -176,16 +178,20 @@ export default function ManagementAttendance() {
         <section className="mAtt__card mAtt__feedCard">
           <header className="mAtt__cardHeader">Attendance Feed</header>
           <div className="mAtt__feedList">
-            {feedItems.map((item) => (
-              <div key={item.id} className="mAtt__feedItem">
-                <PersonSummary
-                  name={item.name}
-                  dept={item.dept}
-                  position={item.position}
-                  rightText={item.ago}
-                />
-              </div>
-            ))}
+            {feedItems.length === 0 ? (
+              <div className="mAtt__feedItem">No attendance feed data yet.</div>
+            ) : (
+              feedItems.map((item) => (
+                <div key={item.id} className="mAtt__feedItem">
+                  <PersonSummary
+                    name={item.name}
+                    dept={item.dept}
+                    position={item.position}
+                    rightText={item.ago}
+                  />
+                </div>
+              ))
+            )}
           </div>
         </section>
       </div>

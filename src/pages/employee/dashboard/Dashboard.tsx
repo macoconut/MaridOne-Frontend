@@ -1,25 +1,34 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetchJson, toArray } from '../../../lib/api';
-import { getUserEmail } from '../../../lib/session';
+import { getAuthToken, getUserEmail } from '../../../lib/session';
 import './Dashboard.css';
 
 type UserDetails = {
   username?: string;
-  email?: string;
+  employeeId?: number;
   employee?: {
+    employeeId?: number;
     fullName?: string;
     firstName?: string;
     lastName?: string;
     middleName?: string;
     contactNumber?: string;
+    phoneNumber?: string;
+    email?: string;
     address?: string | Record<string, unknown>;
+    employmentDateStart?: string;
+    employmentDate?: string;
     dateHired?: string;
   };
 };
 
 type CalendarEvent = {
   day?: number;
+};
+
+type AttendanceLog = {
+  timestamp?: string;
 };
 
 function formatAddress(value: unknown) {
@@ -41,10 +50,50 @@ function formatAddress(value: unknown) {
   return parts.length > 0 ? parts.join(', ') : 'Address not available';
 }
 
+function formatJwtIssuedAt(token: string | null) {
+  if (!token || token === 'authenticated-session') return 'Not available';
+  const parts = token.split('.');
+  if (parts.length < 2) return 'Not available';
+
+  try {
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+    const decoded = atob(padded);
+    const payload = JSON.parse(decoded) as Record<string, unknown>;
+    if (typeof payload.iat !== 'number') return 'Not available';
+    const issuedAt = new Date(payload.iat * 1000);
+    return issuedAt.toLocaleString();
+  } catch {
+    return 'Not available';
+  }
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<UserDetails | null>(null);
+  const [employee, setEmployee] = useState<UserDetails['employee'] | null>(null);
+  const [employeeId, setEmployeeId] = useState<number | null>(null);
   const [eventDays, setEventDays] = useState<number[]>([]);
+  const [lastLoginLabel, setLastLoginLabel] = useState<string>('Not available');
+  const [lastAttendanceLabel, setLastAttendanceLabel] = useState<string>('Not available');
+  const [calendarMonthIndex, setCalendarMonthIndex] = useState(new Date().getMonth());
+  const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState('');
+  const [editDraft, setEditDraft] = useState({
+    email: '',
+    phoneNumber: '',
+    permanentAddress: '',
+    temporaryAddress: '',
+    city: '',
+    state: '',
+    country: '',
+    zipCode: '',
+  });
+
+  useEffect(() => {
+    setLastLoginLabel(formatJwtIssuedAt(getAuthToken()));
+  }, []);
 
   useEffect(() => {
     const username = getUserEmail();
@@ -54,17 +103,101 @@ export default function Dashboard() {
       try {
         const details = await apiFetchJson<UserDetails>(`/api/user/details/${encodeURIComponent(username)}`);
         setProfile(details);
+
+        const fromUser =
+          details.employee && typeof details.employee === 'object' ? details.employee : null;
+        const resolvedEmpId =
+          typeof details.employeeId === 'number'
+            ? details.employeeId
+            : typeof fromUser?.employeeId === 'number'
+              ? fromUser.employeeId
+              : null;
+        setEmployeeId(resolvedEmpId ?? null);
+
+        if (fromUser) {
+          setEmployee(fromUser);
+          setEditDraft({
+            email: typeof fromUser.email === 'string' ? fromUser.email : '',
+            phoneNumber:
+              typeof fromUser.phoneNumber === 'string'
+                ? fromUser.phoneNumber
+                : typeof fromUser.contactNumber === 'string'
+                  ? fromUser.contactNumber
+                  : '',
+            permanentAddress: '',
+            temporaryAddress: '',
+            city: '',
+            state: '',
+            country: '',
+            zipCode: '',
+          });
+          const empId = typeof fromUser.employeeId === 'number' ? fromUser.employeeId : resolvedEmpId;
+          if (empId) {
+            try {
+              const attendance = await apiFetchJson<unknown>(`/api/logs/attendance/self/${empId}?page=0&size=1`);
+              const first = toArray<AttendanceLog>(attendance)[0];
+              if (first?.timestamp) {
+                setLastAttendanceLabel(new Date(first.timestamp).toLocaleString());
+              } else {
+                setLastAttendanceLabel('Not available');
+              }
+            } catch {
+              setLastAttendanceLabel('Not available');
+            }
+          }
+          return;
+        }
+
+        if (resolvedEmpId) {
+          const selfEmployee = await apiFetchJson<UserDetails['employee']>(
+            `/api/employees/${resolvedEmpId}`
+          );
+          setEmployee(selfEmployee);
+          const rawAddress =
+            selfEmployee && typeof selfEmployee.address === 'object' && selfEmployee.address
+              ? (selfEmployee.address as Record<string, unknown>)
+              : {};
+          setEditDraft({
+            email: typeof selfEmployee?.email === 'string' ? selfEmployee.email : '',
+            phoneNumber:
+              typeof selfEmployee?.phoneNumber === 'string'
+                ? selfEmployee.phoneNumber
+                : typeof selfEmployee?.contactNumber === 'string'
+                  ? selfEmployee.contactNumber
+                  : '',
+            permanentAddress: typeof rawAddress.permanentAddress === 'string' ? rawAddress.permanentAddress : '',
+            temporaryAddress: typeof rawAddress.temporaryAddress === 'string' ? rawAddress.temporaryAddress : '',
+            city: typeof rawAddress.city === 'string' ? rawAddress.city : '',
+            state: typeof rawAddress.state === 'string' ? rawAddress.state : '',
+            country: typeof rawAddress.country === 'string' ? rawAddress.country : '',
+            zipCode: typeof rawAddress.zipCode === 'string' ? rawAddress.zipCode : '',
+          });
+          try {
+            const attendance = await apiFetchJson<unknown>(`/api/logs/attendance/self/${resolvedEmpId}?page=0&size=1`);
+            const first = toArray<AttendanceLog>(attendance)[0];
+            if (first?.timestamp) {
+              setLastAttendanceLabel(new Date(first.timestamp).toLocaleString());
+            } else {
+              setLastAttendanceLabel('Not available');
+            }
+          } catch {
+            setLastAttendanceLabel('Not available');
+          }
+          return;
+        }
+
+        setEmployee(null);
       } catch {
         setProfile(null);
+        setEmployee(null);
+        setLastAttendanceLabel('Not available');
       }
     })();
   }, []);
 
   useEffect(() => {
-    const now = new Date();
-    const month = now.getMonth() + 1;
-    const year = now.getFullYear();
-
+    const month = calendarMonthIndex + 1;
+    const year = calendarYear;
     void (async () => {
       try {
         const events = await apiFetchJson<unknown>(`/api/calendar/events?month=${month}&year=${year}`);
@@ -76,24 +209,87 @@ export default function Dashboard() {
         setEventDays([]);
       }
     })();
-  }, []);
+  }, [calendarMonthIndex, calendarYear]);
 
-  const now = new Date();
-  const monthLabel = now.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-  const year = now.getFullYear();
-  const monthIndex = now.getMonth();
+  const monthLabel = new Date(calendarYear, calendarMonthIndex, 1).toLocaleDateString(undefined, {
+    month: 'long',
+    year: 'numeric',
+  });
+  const year = calendarYear;
+  const monthIndex = calendarMonthIndex;
   const firstDay = new Date(year, monthIndex, 1);
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
   const mondayBasedStart = (firstDay.getDay() + 6) % 7;
   const totalCells = Math.ceil((mondayBasedStart + daysInMonth) / 7) * 7;
 
   const employeeName = useMemo(() => {
-    const emp = profile?.employee;
+    const emp = employee;
     const fromParts = [emp?.firstName, emp?.middleName, emp?.lastName]
       .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
       .join(' ');
     return emp?.fullName || fromParts || 'Employee Name';
-  }, [profile]);
+  }, [employee]);
+
+  function shiftCalendarMonth(offset: number) {
+    const next = new Date(calendarYear, calendarMonthIndex + offset, 1);
+    setCalendarYear(next.getFullYear());
+    setCalendarMonthIndex(next.getMonth());
+  }
+
+  async function submitEditInfo() {
+    if (!employeeId) {
+      setEditError('Employee profile cannot be updated right now.');
+      return;
+    }
+    const nextEmail = window.prompt('Update email:', editDraft.email) ?? editDraft.email;
+    const nextPhone = window.prompt('Update phone number:', editDraft.phoneNumber) ?? editDraft.phoneNumber;
+    const nextPermanent =
+      window.prompt('Update permanent address:', editDraft.permanentAddress) ?? editDraft.permanentAddress;
+    const nextTemporary =
+      window.prompt('Update temporary address:', editDraft.temporaryAddress) ?? editDraft.temporaryAddress;
+    const nextCity = window.prompt('Update city:', editDraft.city) ?? editDraft.city;
+    const nextState = window.prompt('Update state:', editDraft.state) ?? editDraft.state;
+    const nextCountry = window.prompt('Update country:', editDraft.country) ?? editDraft.country;
+    const nextZip = window.prompt('Update zip code:', editDraft.zipCode) ?? editDraft.zipCode;
+
+    const nextDraft = {
+      email: nextEmail,
+      phoneNumber: nextPhone,
+      permanentAddress: nextPermanent,
+      temporaryAddress: nextTemporary,
+      city: nextCity,
+      state: nextState,
+      country: nextCountry,
+      zipCode: nextZip,
+    };
+    setEditDraft(nextDraft);
+
+    setEditError('');
+    setSavingEdit(true);
+    try {
+      await apiFetchJson(`/api/employees/${employeeId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          email: nextDraft.email.trim() || undefined,
+          phoneNumber: nextDraft.phoneNumber.trim() || undefined,
+          address: {
+            permanentAddress: nextDraft.permanentAddress.trim() || undefined,
+            temporaryAddress: nextDraft.temporaryAddress.trim() || undefined,
+            city: nextDraft.city.trim() || undefined,
+            state: nextDraft.state.trim() || undefined,
+            country: nextDraft.country.trim() || undefined,
+            zipCode: nextDraft.zipCode.trim() || undefined,
+          },
+        }),
+      });
+      const refreshed = await apiFetchJson<UserDetails['employee']>(`/api/employees/${employeeId}`);
+      setEmployee(refreshed);
+    } catch (error) {
+      setEditError(error instanceof Error ? error.message : 'Unable to update employee profile.');
+    } finally {
+      setSavingEdit(false);
+    }
+  }
 
   return (
     <div className="dashPage">
@@ -101,7 +297,7 @@ export default function Dashboard() {
       <section className="infoCardX">
         <div className="infoCardX__header">
           <div className="infoCardX__title">Your Information</div>
-          <button className="infoCardX__edit" type="button" onClick={() => navigate('/employee/dashboard')}>
+          <button className="infoCardX__edit" type="button" onClick={() => void submitEditInfo()} disabled={savingEdit}>
             Edit Info
           </button>
         </div>
@@ -121,15 +317,15 @@ export default function Dashboard() {
           <div className="infoCardX__mid">
             <div className="infoRow">
               <span className="infoRow__icon">⌂</span>
-              <span>{formatAddress(profile?.employee?.address)}</span>
+              <span>{formatAddress(employee?.address)}</span>
             </div>
             <div className="infoRow">
               <span className="infoRow__icon">✉</span>
-              <span className="infoRow__link">{profile?.email || 'Email not available'}</span>
+              <span className="infoRow__link">{employee?.email || profile?.username || 'Email not available'}</span>
             </div>
             <div className="infoRow">
               <span className="infoRow__icon">☎</span>
-              <span>{profile?.employee?.contactNumber || 'Phone not available'}</span>
+              <span>{employee?.phoneNumber || employee?.contactNumber || 'Phone not available'}</span>
             </div>
           </div>
 
@@ -139,17 +335,19 @@ export default function Dashboard() {
           <div className="infoCardX__right">
             <div className="statBlock">
               <div className="statBlock__label">Part of Marid since:</div>
-              <div className="statBlock__value">{profile?.employee?.dateHired || 'Not available'}</div>
+              <div className="statBlock__value">
+                {employee?.employmentDateStart || employee?.employmentDate || employee?.dateHired || 'Not available'}
+              </div>
             </div>
 
             <div className="statBlock">
               <div className="statBlock__label">Last Login:</div>
-              <div className="statBlock__value">Not available</div>
+              <div className="statBlock__value">{lastLoginLabel}</div>
             </div>
 
             <div className="statBlock">
               <div className="statBlock__label">Last attendance:</div>
-              <div className="statBlock__value">Not available</div>
+              <div className="statBlock__value">{lastAttendanceLabel}</div>
             </div>
           </div>
         </div>
@@ -245,9 +443,9 @@ export default function Dashboard() {
           <div className="cardX__title">Company Events</div>
           <div className="calendarShell" aria-label="Company events calendar">
             <div className="calendarShell__top">
-              <span>‹</span>
+              <button type="button" className="calendarShell__navBtn" onClick={() => shiftCalendarMonth(-1)} aria-label="Previous month">‹</button>
               <strong>{monthLabel}</strong>
-              <span>›</span>
+              <button type="button" className="calendarShell__navBtn" onClick={() => shiftCalendarMonth(1)} aria-label="Next month">›</button>
             </div>
 
             <div className="calendarGrid">
@@ -269,6 +467,7 @@ export default function Dashboard() {
           </div>
         </div>
       </section>
+      {editError && <p className="dashEditError">{editError}</p>}
     </div>
   );
 }

@@ -73,11 +73,6 @@ function RequireRole({
 }
 
 function LoginRoute() {
-  const token = getAuthToken();
-  const currentRole = getUserRole();
-  if (token && currentRole) {
-    return <Navigate to={roleHome(currentRole)} replace />;
-  }
   return <EmployeeLogin />;
 }
 

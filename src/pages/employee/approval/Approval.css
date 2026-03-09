@@ -49,6 +49,17 @@
 .apprCard__ring--denied{ border-color:#b24c4c; border-right-color:transparent; border-bottom-color:transparent; }
 .apprCard__ring--pending{ border-color:#8a6bb0; border-right-color:transparent; border-bottom-color:transparent; }
 
+.apprCard__empty{
+  width:34px;
+  height:34px;
+  border-radius:50%;
+  border:1.5px dashed rgba(43, 32, 54, 0.28);
+  color:rgba(43, 32, 54, 0.45);
+  display:grid;
+  place-items:center;
+  font-weight:700;
+}
+
 .apprCard__label{
   font-weight:800;
   font-size:12px;

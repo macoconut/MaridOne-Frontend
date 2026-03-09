@@ -2,9 +2,9 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { FiBell, FiCalendar, FiClock, FiGrid, FiLogOut } from 'react-icons/fi';
 import { useEffect, useRef, useState } from 'react';
 import '../../employee/layout/EmployeeLayout.css';
-import { clearSession, getUserEmail } from '../../../lib/session';
+import { getUserEmail } from '../../../lib/session';
 import { BACKEND_TEST_MODE } from '../../../config/flags';
-import { apiFetchRaw, getApiBaseUrl } from '../../../lib/api';
+import { apiFetchRaw, expireCurrentSession, getApiBaseUrl } from '../../../lib/api';
 import {
   applyBodyPlaceholders,
   applyPathPlaceholders,
@@ -68,9 +68,13 @@ export default function ManagerLayout() {
     };
   }, [notifOpen]);
 
-  function handleLogout() {
-    clearSession();
+  async function handleLogout() {
+    await expireCurrentSession();
     navigate('/login', { replace: true });
+  }
+
+  function handleBrandClick() {
+    navigate('/manager/dashboard', { replace: true });
   }
 
   async function fetchJsonWithAuth(path: string) {
@@ -174,8 +178,8 @@ export default function ManagerLayout() {
         <button
           type="button"
           className="eSide__brand eSide__brand--link"
-          onClick={() => navigate('/login', { replace: true })}
-          aria-label="Go to login"
+          onClick={handleBrandClick}
+          aria-label="Go to dashboard"
         >
           <div className="eSide__logo" aria-hidden="true" />
           <div className="eSide__name">MaridOne</div>
