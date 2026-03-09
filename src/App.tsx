@@ -31,7 +31,6 @@ import ManagerPendingApprovals from './pages/manager/pending-approvals/PendingAp
 import AccountingLayout from './pages/accounting/layout/AccountingLayout';
 import AccountingPayrollDashboard from './pages/accounting/payroll-dashboard/PayrollDashboard';
 import AccountingPayrollReview from './pages/accounting/payroll-review/PayrollReview';
-import AccountingBookkeeping from './pages/accounting/bookkeeping/Bookkeeping';
 
 function roleHome(role: UserRole) {
   switch (role) {
@@ -143,7 +142,6 @@ export default function App() {
           <Route index element={<Navigate to="payroll-dashboard" replace />} />
           <Route path="payroll-dashboard" element={<AccountingPayrollDashboard />} />
           <Route path="payroll-review" element={<AccountingPayrollReview />} />
-          <Route path="bookkeeping" element={<AccountingBookkeeping />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

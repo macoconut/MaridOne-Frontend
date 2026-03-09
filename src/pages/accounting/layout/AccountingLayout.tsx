@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { FiBarChart2, FiBookOpen, FiClipboard, FiLogOut } from 'react-icons/fi';
+import { FiBarChart2, FiClipboard, FiLogOut } from 'react-icons/fi';
 import '../../employee/layout/EmployeeLayout.css';
 import { clearSession, getUserEmail } from '../../../lib/session';
 import { BACKEND_TEST_MODE } from '../../../config/flags';
@@ -183,14 +183,6 @@ export default function AccountingLayout() {
           >
             <FiClipboard className="eSide__icon" />
             <span>Payroll Review</span>
-          </NavLink>
-
-          <NavLink
-            to="/accounting/bookkeeping"
-            className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
-          >
-            <FiBookOpen className="eSide__icon" />
-            <span>Bookkeeping</span>
           </NavLink>
         </nav>
 
