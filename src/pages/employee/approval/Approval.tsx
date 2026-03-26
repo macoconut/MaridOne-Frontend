@@ -12,6 +12,9 @@ type ApprovalItem = {
   status: 'Pending' | 'Approved' | 'Denied';
   approvedBy: string;
   remarks: string;
+  requestReason: string;
+  decisionReason: string;
+  decisionDate: string;
 };
 
 type OvertimeRow = {
@@ -64,6 +67,14 @@ function formatTime(value?: string) {
 
 export default function Approval() {
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
+  const [selectedApproval, setSelectedApproval] = useState<ApprovalItem | null>(null);
+
+  useEffect(() => {
+    if (selectedApproval) document.body.classList.add('modal-open');
+    else document.body.classList.remove('modal-open');
+
+    return () => document.body.classList.remove('modal-open');
+  }, [selectedApproval]);
 
   useEffect(() => {
     void (async () => {
@@ -112,6 +123,9 @@ export default function Approval() {
             status,
             approvedBy: row.approver ?? '-',
             remarks: row.approveReason ?? row.reason ?? '-',
+            requestReason: row.reason ?? '-',
+            decisionReason: row.approveReason ?? '-',
+            decisionDate: formatDateTime(row.approvedAt),
           };
         });
 
@@ -132,6 +146,9 @@ export default function Approval() {
             status,
             approvedBy: status === 'Pending' ? '-' : extractApprover(row.statusReason),
             remarks: row.statusReason ?? row.reason ?? '-',
+            requestReason: row.reason ?? '-',
+            decisionReason: row.statusReason ?? '-',
+            decisionDate: '-',
           };
         });
 
@@ -196,7 +213,16 @@ export default function Approval() {
         <div className="apprTable__body">
           {approvals.length > 0 ? (
             approvals.map((row) => (
-              <div key={row.id} className="apprRow">
+              <button
+                key={row.id}
+                type="button"
+                className={`apprRow apprRow--button ${row.status !== 'Pending' ? 'is-openable' : ''}`}
+                onClick={() => {
+                  if (row.status === 'Pending') return;
+                  setSelectedApproval(row);
+                }}
+                disabled={row.status === 'Pending'}
+              >
                 <div>{row.dateOfRequest}</div>
                 <div>{row.requestType}</div>
                 <div>{row.category}</div>
@@ -206,7 +232,7 @@ export default function Approval() {
                 </div>
                 <div>{row.approvedBy}</div>
                 <div>{row.remarks}</div>
-              </div>
+              </button>
             ))
           ) : (
             <div className="apprRow">
@@ -221,6 +247,79 @@ export default function Approval() {
           )}
         </div>
       </section>
+
+      {selectedApproval && (
+        <div className="apprModalBackdrop" role="dialog" aria-modal="true" aria-label="Approval details">
+          <div className="apprModal">
+            <div className="apprModal__top">
+              <div>
+                <div className="apprModal__eyebrow">Request Breakdown</div>
+                <div className="apprModal__title">{selectedApproval.requestType}</div>
+              </div>
+              <button type="button" className="apprModal__close" onClick={() => setSelectedApproval(null)}>
+                x
+              </button>
+            </div>
+
+            <div className="apprModal__hero">
+              <div>
+                <div className="apprModal__heroLabel">Current Status</div>
+                <div className={`apprModal__status apprModal__status--${selectedApproval.status.toLowerCase()}`}>
+                  {selectedApproval.status}
+                </div>
+              </div>
+              <div className="apprModal__heroMeta">
+                <div>
+                  <span>Category</span>
+                  <strong>{selectedApproval.category}</strong>
+                </div>
+                <div>
+                  <span>Handled By</span>
+                  <strong>{selectedApproval.approvedBy}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="apprModal__rule" />
+
+            <div className="apprModal__summary">
+              <div className="apprModal__card">
+                <span>Date of Request</span>
+                <strong>{selectedApproval.dateOfRequest}</strong>
+              </div>
+              <div className="apprModal__card">
+                <span>Start of Request</span>
+                <strong>{selectedApproval.startOfRequest}</strong>
+              </div>
+              <div className="apprModal__card">
+                <span>Decision Timestamp</span>
+                <strong>{selectedApproval.decisionDate}</strong>
+              </div>
+            </div>
+
+            <div className="apprModal__body">
+              <div className="apprModal__section">
+                <div className="apprModal__sectionTitle">Request Reason</div>
+                <p className="apprModal__sectionBody">{selectedApproval.requestReason}</p>
+              </div>
+              <div className="apprModal__section">
+                <div className="apprModal__sectionTitle">Approval / Denial Reason</div>
+                <p className="apprModal__sectionBody">{selectedApproval.decisionReason}</p>
+              </div>
+              <div className="apprModal__section apprModal__section--compact">
+                <div className="apprModal__sectionTitle">Remarks Preview</div>
+                <p className="apprModal__sectionBody">{selectedApproval.remarks}</p>
+              </div>
+            </div>
+
+            <div className="apprModal__actions">
+              <button type="button" onClick={() => setSelectedApproval(null)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

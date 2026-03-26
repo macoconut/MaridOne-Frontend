@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FiSearch, FiFilter, FiXCircle } from 'react-icons/fi';
 import { apiFetchJson, toArray } from '../../../lib/api';
+import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './Approvals.css';
 
 type DisputeDto = {
@@ -42,9 +43,13 @@ export default function HrApprovals() {
   const [requests, setRequests] = useState<HrRequest[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [decisionReason, setDecisionReason] = useState('');
+  const [submitError, setSubmitError] = useState('');
+  const [loadError, setLoadError] = useState('');
 
   async function loadRequests() {
     try {
+      setLoadError('');
       const [disputesRes, overtimeRes] = await Promise.all([
         apiFetchJson<unknown>('/api/payroll/item/dispute/all?page=0&size=50'),
         apiFetchJson<unknown>('/api/overtime/all?page=0&size=50'),
@@ -74,8 +79,9 @@ export default function HrApprovals() {
 
       const merged = [...disputeRows, ...overtimeRows].sort((a, b) => (a.id < b.id ? 1 : -1));
       setRequests(merged);
-    } catch {
+    } catch (error) {
       setRequests([]);
+      setLoadError(getFriendlyErrorMessage(error, 'employee-load'));
     }
   }
 
@@ -99,8 +105,20 @@ export default function HrApprovals() {
     [selectedId, requests]
   );
 
+  useEffect(() => {
+    setDecisionReason('');
+    setSubmitError('');
+  }, [selectedId]);
+
   async function submitDecision(nextStatus: 'APPROVED' | 'REJECTED') {
     if (!selected) return;
+    const trimmedReason = decisionReason.trim();
+    if (trimmedReason.length < 5) {
+      setSubmitError('Please enter at least 5 characters explaining the decision.');
+      return;
+    }
+
+    setSubmitError('');
     setIsSaving(true);
     try {
       if (selected.source === 'dispute') {
@@ -109,7 +127,7 @@ export default function HrApprovals() {
           method: 'PATCH',
           body: JSON.stringify({
             status: nextStatus,
-            statusReason: `${nextStatus} by HR`,
+            statusReason: trimmedReason,
           }),
         });
       } else {
@@ -119,15 +137,15 @@ export default function HrApprovals() {
           body: JSON.stringify({
             overtimeId,
             updateStatus: nextStatus,
-            approveReason: `${nextStatus} by HR`,
+            approveReason: trimmedReason,
           }),
         });
       }
 
       setSelectedId(null);
       await loadRequests();
-    } catch {
-      // Keep modal open so HR can retry.
+    } catch (error) {
+      setSubmitError(getFriendlyErrorMessage(error, 'approval-decision'));
     } finally {
       setIsSaving(false);
     }
@@ -158,6 +176,7 @@ export default function HrApprovals() {
       </div>
 
       <section className="hrApprTable">
+        {loadError && <p className="hrApprForm__error">{loadError}</p>}
         {requests.length > 0 ? (
           requests.map((request) => (
             <button
@@ -222,6 +241,19 @@ export default function HrApprovals() {
                 <textarea value={selected.reason || 'No reason provided.'} readOnly />
               </label>
             </div>
+
+            <div className="hrApprForm__row">
+              <label>
+                <span>Reason for Approval / Denial:</span>
+                <textarea
+                  value={decisionReason}
+                  onChange={(e) => setDecisionReason(e.target.value)}
+                  placeholder="Type the reason for approving or denying this request"
+                />
+              </label>
+            </div>
+
+            {submitError && <p className="hrApprForm__error">{submitError}</p>}
 
             <div className="hrApprModal__rule" />
 

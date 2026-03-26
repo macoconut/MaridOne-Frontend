@@ -83,13 +83,17 @@ body.modal-open{
 }
 
 .cal__cell {
-  height: 84px;
+  min-height: 118px;
   border-right: 1px solid rgba(0,0,0,0.05);
   border-bottom: 1px solid rgba(0,0,0,0.05);
   background: #fcfbff;
   text-align: left;
   padding: 8px 8px;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
 }
 
 .cal__cell:nth-child(7n) {
@@ -121,6 +125,8 @@ body.modal-open{
   font-size: 11px;
   font-weight: 800;
   color: rgba(0,0,0,0.7);
+  position: relative;
+  z-index: 2;
 }
 
 .cal__cell--today {
@@ -148,19 +154,37 @@ body.modal-open{
   letter-spacing: 0.01em;
   opacity: 0.95;
   line-height: 1.2;
-  white-space: nowrap;
+  white-space: normal;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.cal__notes {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: 8px;
+.cal__statusNotes {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: auto;
+}
+
+.cal__detailNotes {
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.cal__detail {
+  font-size: 10px;
+  line-height: 1.2;
+  color: rgba(23, 18, 35, 0.9);
+  font-weight: 700;
+  white-space: normal;
+}
+
+.cal__cell--approved .cal__detail,
+.cal__cell--holiday .cal__detail {
+  color: rgba(255,255,255,0.96);
 }
 
 /* Highlight styles like figma */
@@ -218,6 +242,12 @@ body.modal-open{
 .cal__note--denied {
   color: #7a2033;
   font-weight: 900;
+}
+
+@media (max-width: 900px) {
+  .cal__cell {
+    min-height: 132px;
+  }
 }
 
 /* bottom buttons */

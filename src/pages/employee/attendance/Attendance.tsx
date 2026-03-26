@@ -1,10 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import './Attendance.css';
 import { FiPlusSquare, FiX, FiUpload, FiCalendar } from 'react-icons/fi';
-import { apiFetchJson, apiFetchRaw, toArray } from '../../../lib/api';
+import { ApiError, apiFetchJson, apiFetchRaw, toArray } from '../../../lib/api';
 import { getUserEmail } from '../../../lib/session';
+import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 
-type LeaveType = 'Sick Leave' | 'Vacation Leave' | 'Emergency Leave' | 'Others';
+type LeaveType =
+  | 'SICK_LEAVE'
+  | 'VACATION_LEAVE'
+  | 'MATERNITY_LEAVE'
+  | 'PATERNITY_LEAVE'
+  | 'SOLO_PARENT_LEAVE'
+  | 'MAGNA_CARTA'
+  | 'RA9262';
 type OvertimeType = 'OVERTIME' | 'DOUBLE_OVERTIME' | 'TRIPLE_OVERTIME' | 'HOLIDAY';
 
 type RequestEntry = {
@@ -20,7 +28,8 @@ type RequestEntry = {
 
 type DayCell = {
   day: number | null;
-  notes?: string[];
+  statusNotes?: string[];
+  detailNotes?: string[];
   variant?: 'approved' | 'pending' | 'denied' | 'holiday';
   clickable?: boolean;
 };
@@ -39,6 +48,15 @@ type AttendanceLog = {
 };
 
 const LEAVE_CACHE_PREFIX = 'employee-leave-requests';
+const LEAVE_TYPE_OPTIONS: Array<{ label: string; value: LeaveType }> = [
+  { label: 'Sick Leave', value: 'SICK_LEAVE' },
+  { label: 'Vacation Leave', value: 'VACATION_LEAVE' },
+  { label: 'Maternity Leave', value: 'MATERNITY_LEAVE' },
+  { label: 'Paternity Leave', value: 'PATERNITY_LEAVE' },
+  { label: 'Solo Parent Leave', value: 'SOLO_PARENT_LEAVE' },
+  { label: 'Magna Carta', value: 'MAGNA_CARTA' },
+  { label: 'RA 9262', value: 'RA9262' },
+];
 
 function readCachedLeaveRequests(empId: number): RequestEntry[] {
   try {
@@ -110,7 +128,7 @@ export default function Attendance() {
   // Leave modal state
   const [leaveOpen, setLeaveOpen] = useState(false);
 
-  const [leaveType, setLeaveType] = useState<LeaveType>('Sick Leave');
+  const [leaveType, setLeaveType] = useState<LeaveType>('SICK_LEAVE');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [reason, setReason] = useState<string>('');
@@ -218,7 +236,9 @@ export default function Attendance() {
           setRequestEntries([...otEntries, ...cachedLeaveEntries]);
 
           try {
-            const logs = await apiFetchJson<unknown>(`/api/logs/attendance?empId=${resolvedEmpId}&page=0&size=500`);
+            const logs = await apiFetchJson<unknown>(
+              `/api/logs/attendance/self/${resolvedEmpId}?page=0&size=500`
+            );
             const next: Record<string, { in?: string; out?: string }> = {};
             for (const row of toArray<AttendanceLog>(logs)) {
               if (typeof row.timestamp !== 'string') continue;
@@ -270,12 +290,22 @@ export default function Attendance() {
     return new Set(requestEntries.map((entry) => entry.dateKey));
   }, [requestEntries]);
 
-  const hasApprovedTodayRequest = useMemo(() => {
+  const hasApprovedTodayLeave = useMemo(() => {
     const todayKey = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
     return requestEntries.some(
-      (entry) => entry.dateKey === todayKey && entry.status.toUpperCase() === 'APPROVED'
+      (entry) =>
+        entry.dateKey === todayKey &&
+        entry.kind === 'LEAVE' &&
+        entry.status.toUpperCase() === 'APPROVED'
     );
   }, [requestEntries, today]);
+
+  const todayAttendance = useMemo(() => {
+    const todayKey = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
+    return attendanceByDate[todayKey] ?? {};
+  }, [attendanceByDate, today]);
+
+  const isClockOutAction = Boolean(todayAttendance.in && !todayAttendance.out);
 
   const calendarCells = useMemo(() => {
     // Build a Sunday-last calendar (MO..SU) like your screenshot
@@ -328,7 +358,11 @@ export default function Attendance() {
         clickable = true;
       }
 
-      if (attendance?.in || attendance?.out) {
+      const hasApprovedLeave = dayRequests.some(
+        (entry) => entry.kind === 'LEAVE' && entry.status.toUpperCase() === 'APPROVED'
+      );
+
+      if (!hasApprovedLeave && (attendance?.in || attendance?.out)) {
         detailNotes.push(`Time In: ${attendance?.in ?? 'N/A'}`);
         detailNotes.push(`Time Out: ${attendance?.out ?? 'N/A'}`);
       }
@@ -341,8 +375,13 @@ export default function Attendance() {
         detailNotes.push('Event');
       }
 
-      const notes = [...detailNotes, ...statusNotes];
-      cells.push({ day: d, notes: notes.length > 0 ? notes : undefined, variant, clickable });
+      cells.push({
+        day: d,
+        statusNotes: statusNotes.length > 0 ? statusNotes : undefined,
+        detailNotes: detailNotes.length > 0 ? detailNotes : undefined,
+        variant,
+        clickable,
+      });
     }
 
     // trailing blanks to fill full weeks
@@ -356,7 +395,7 @@ export default function Attendance() {
     const iso = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
     setStartDate(iso);
     setEndDate(iso);
-    setLeaveType('Sick Leave');
+    setLeaveType('SICK_LEAVE');
     setReason('');
     setFile(null);
     setLeaveOpen(true);
@@ -406,8 +445,11 @@ export default function Attendance() {
       setClockError('Employee ID not found.');
       return;
     }
-    if (hasApprovedTodayRequest) {
-      setClockError('Clock in/out is blocked today because there is an approved OT/Leave request.');
+    if (hasApprovedTodayLeave) {
+      setClockError('Clock in/out is blocked today because there is an approved leave request.');
+      return;
+    }
+    if (isClockOutAction && !window.confirm('Are you sure you want to clock out?')) {
       return;
     }
 
@@ -418,7 +460,7 @@ export default function Attendance() {
       });
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || `Attendance log failed (${response.status})`);
+        throw new ApiError(response.status, text || `Attendance log failed (${response.status})`);
       }
 
       const now = new Date();
@@ -435,7 +477,7 @@ export default function Attendance() {
 
       setClockMessage('Attendance log submitted.');
     } catch (error) {
-      setClockError(error instanceof Error ? error.message : 'Failed to submit attendance log.');
+      setClockError(getFriendlyErrorMessage(error, 'attendance'));
     } finally {
       setIsClocking(false);
     }
@@ -499,7 +541,7 @@ export default function Attendance() {
         },
       ]);
     } catch (error) {
-      setOtSubmitError(error instanceof Error ? error.message : 'Failed to submit overtime request.');
+      setOtSubmitError(getFriendlyErrorMessage(error, 'overtime-request'));
     }
   }
 
@@ -540,7 +582,8 @@ export default function Attendance() {
           body: form,
         });
         if (!uploadResponse.ok) {
-          throw new Error(
+          throw new ApiError(
+            uploadResponse.status,
             uploadResponse.status === 404
               ? 'Document upload endpoint is not enabled in current backend profile.'
               : `Document upload failed (${uploadResponse.status}).`
@@ -551,8 +594,9 @@ export default function Attendance() {
       }
 
       const payload = {
-        leaveDate: startDate,
-        approver: 'HR',
+        startDateTime: `${startDate}T00:00:00`,
+        endDateTime: `${endDate}T23:59:59`,
+        leaveType,
         reason: [
           reason.trim(),
           attachmentRef ? `(Attachment ID: ${attachmentRef})` : '',
@@ -561,39 +605,14 @@ export default function Attendance() {
           .join(' '),
       };
 
-      const primary = await apiFetchRaw(`/api/leave/create?empId=${employeeId}`, {
+      const response = await apiFetchRaw(`/api/leave/create/${employeeId}`, {
         method: 'POST',
         body: JSON.stringify(payload),
       });
 
-      if (primary.status === 404 || primary.status === 403) {
-        const altNoQuery = await apiFetchRaw('/api/leave/create', {
-          method: 'POST',
-          body: JSON.stringify({ ...payload, empId: employeeId, employeeId }),
-        });
-
-        if (altNoQuery.ok) {
-          setLeaveOpen(false);
-          return;
-        }
-
-        const fallback = await apiFetchRaw(`/api/leave/create/${employeeId}`, {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        });
-        if (!fallback.ok) {
-          const text = await fallback.text();
-          if (fallback.status === 403) {
-            throw new Error('Leave request blocked by backend authorization (403). Check backend role/permission for this endpoint.');
-          }
-          throw new Error(text || `Request failed (${fallback.status})`);
-        }
-      } else if (!primary.ok) {
-        const text = await primary.text();
-        if (primary.status === 403) {
-          throw new Error('Leave request blocked by backend authorization (403). Check backend role/permission for this endpoint.');
-        }
-        throw new Error(text || `Request failed (${primary.status})`);
+      if (!response.ok) {
+        const text = await response.text();
+        throw new ApiError(response.status, text || `Request failed (${response.status})`);
       }
 
       setLeaveOpen(false);
@@ -611,7 +630,7 @@ export default function Attendance() {
         return next;
       });
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : 'Failed to submit leave request.');
+      setSubmitError(getFriendlyErrorMessage(error, 'leave-request'));
     }
   }
 
@@ -692,9 +711,9 @@ export default function Attendance() {
                 aria-current={isToday ? 'date' : undefined}
               >
                 {c.day && <div className="cal__day">{c.day}</div>}
-                {c.notes && (
-                  <div className="cal__notes">
-                    {c.notes.slice(0, 3).map((line, lineIdx) => (
+                {c.statusNotes && (
+                  <div className="cal__statusNotes">
+                    {c.statusNotes.slice(0, 2).map((line, lineIdx) => (
                       <div
                         key={`${line}-${lineIdx}`}
                         className={`cal__note ${
@@ -712,6 +731,15 @@ export default function Attendance() {
                     ))}
                   </div>
                 )}
+                {c.detailNotes && (
+                  <div className="cal__detailNotes">
+                    {c.detailNotes.slice(0, 3).map((line, lineIdx) => (
+                      <div key={`${line}-${lineIdx}`} className="cal__detail">
+                        {line}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </button>
             );
           })}
@@ -721,7 +749,7 @@ export default function Attendance() {
       {/* Bottom buttons like figma */}
       <div className="attActions">
         <button className="attBtn" type="button" onClick={() => void recordAttendance()} disabled={isClocking}>
-          <span>{isClocking ? 'Submitting...' : 'Time In / Time Out'}</span>
+          <span>{isClocking ? 'Submitting...' : isClockOutAction ? 'Time Out' : 'Time In'}</span>
           <span className="attBtn__icon">
             <FiPlusSquare />
           </span>
@@ -770,10 +798,11 @@ export default function Attendance() {
                   value={leaveType}
                   onChange={(e) => setLeaveType(e.target.value as LeaveType)}
                 >
-                  <option>Sick Leave</option>
-                  <option>Vacation Leave</option>
-                  <option>Emergency Leave</option>
-                  <option>Others</option>
+                  {LEAVE_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 

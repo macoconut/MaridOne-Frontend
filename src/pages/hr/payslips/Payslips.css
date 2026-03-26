@@ -1,14 +1,17 @@
+body.modal-open {
+  overflow: hidden;
+}
+
 .hrPay {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
-.hrPay__message {
-  margin: 0;
-  color: #9e3e51;
-  font-size: 12px;
-  font-weight: 700;
+.hrPay__head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .hrPay__title {
@@ -19,70 +22,181 @@
   letter-spacing: -0.03em;
 }
 
-.hrPayPeriod {
-  border: 1.5px solid var(--hr-border);
-  border-radius: 10px;
-  background: var(--hr-primary-soft);
-  padding: 12px 14px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 14px;
-}
-
-.hrPayPeriod h2 {
-  margin: 0;
-  color: var(--hr-primary-dark);
-  font-size: 22px;
-  font-weight: 900;
-}
-
-.hrPayPeriod p {
-  margin: 2px 0 0;
-  color: #3d3951;
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.hrPayPeriod p span {
-  font-weight: 500;
-}
-
-.hrPayPeriod button,
+.hrPay__runBtn,
 .hrPayModal__actions button,
-.hrPayModal__inlineBtns button,
-.hrPayModal__line button {
+.hrPayModal__inlineBtns button {
   border: 0;
   background: var(--hr-primary);
   color: #fff;
-  height: 38px;
+  min-height: 40px;
   padding: 0 16px;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 13px;
   font-weight: 800;
   cursor: pointer;
   box-shadow: var(--hr-button-shadow);
 }
 
+.hrPay__runBtn--secondary {
+  background: #ede4f8;
+  color: var(--hr-primary-dark);
+  box-shadow: none;
+}
+
+.hrPay__message {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: #9e3e51;
+}
+
+.hrPay__message--ok {
+  color: #216d42;
+}
+
+.hrPayNotice {
+  border-radius: 12px;
+  border: 1px solid rgba(37, 126, 80, 0.18);
+  background: linear-gradient(180deg, #f5fff9 0%, #ffffff 100%);
+  box-shadow: 0 8px 20px rgba(49, 34, 74, 0.05);
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.hrPayNotice__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hrPayNotice__copy strong {
+  color: #1e6a46;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.hrPayNotice__copy span {
+  color: #4a5b52;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.hrPayNotice__meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #2c3b34;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.hrPayNotice__dismiss {
+  border: 0;
+  background: rgba(37, 126, 80, 0.12);
+  color: #1e6a46;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.hrPayPeriod,
 .hrPayPanel {
   border: 1.5px solid var(--hr-border);
   border-radius: 12px;
-  background: var(--hr-surface);
-  box-shadow: var(--hr-shadow);
-  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(49, 34, 74, 0.08);
+}
+
+.hrPayPeriod {
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.hrPayPeriod__copy {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hrPayPeriod h2 {
+  margin: 0;
+  color: #191424;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.hrPayPeriod h2 span {
+  font-weight: 600;
+}
+
+.hrPayPeriod p {
+  margin: 0;
+  color: #383245;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.hrPayPeriod__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.hrPayPeriod__actions {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.hrPayPeriod__runId {
+  color: #5a506d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hrPayPill {
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: rgba(123, 74, 143, 0.12);
+  color: var(--hr-primary-dark);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.hrPayPill--status {
+  background: #f6f1ff;
+}
+
+.hrPayPanel {
+  padding: 18px 16px 20px;
 }
 
 .hrPayPanel__head {
   text-align: center;
-  font-size: 16px;
+  font-size: 20px;
   font-weight: 900;
-  color: var(--hr-primary-dark);
-  padding: 12px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.18);
+  color: #191424;
+  padding: 0 0 14px;
+  margin: 0 0 18px;
+  border-bottom: 2px solid rgba(0, 0, 0, 0.82);
 }
 
 .hrPayTable {
-  padding: 10px 14px 14px;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .hrPayTable__head,
@@ -93,38 +207,38 @@
 }
 
 .hrPayTable__head {
-  border: 1px solid var(--hr-line);
-  border-radius: 8px;
-  background: var(--hr-primary-soft);
-  color: var(--hr-primary-dark);
-  padding: 9px 12px;
-  font-size: 13px;
-  font-weight: 800;
+  padding: 9px 14px;
+  background: var(--hr-primary);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 900;
+  text-align: center;
 }
 
 .hrPayTable__body {
-  margin-top: 8px;
+  background: #fff;
 }
 
 .hrPayRow {
   width: 100%;
+  padding: 15px 14px;
   border: 0;
-  border-bottom: 1px solid var(--hr-line);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.18);
   background: transparent;
-  text-align: left;
-  padding: 11px 12px;
-  font-size: 13px;
+  text-align: center;
   color: var(--hr-text);
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
 }
 
 .hrPayRow:hover {
-  background: var(--hr-primary-soft);
+  background: rgba(123, 74, 143, 0.05);
 }
 
 .hrPayRow .is-open {
-  font-weight: 900;
   color: #3d2b67;
+  font-weight: 900;
 }
 
 .hrPayModalBackdrop {
@@ -135,33 +249,74 @@
   display: grid;
   place-items: center;
   padding: 20px;
+  overflow-y: auto;
 }
 
 .hrPayModal {
   width: min(920px, 96vw);
-  border-radius: 16px;
+  border-radius: 18px;
   background: #fff;
-  padding: 16px;
+  padding: 20px;
+  box-shadow: 0 22px 56px rgba(0, 0, 0, 0.28);
+}
+
+.hrPayModal--run {
+  width: min(620px, 96vw);
 }
 
 .hrPayModal h3 {
   margin: 0;
   text-align: center;
   color: var(--hr-primary-dark);
-  font-size: 30px;
+  font-size: 28px;
   font-weight: 900;
 }
 
 .hrPayModal__rule {
-  margin: 8px 0 12px;
-  height: 1px;
-  background: rgba(0, 0, 0, 0.2);
+  margin: 10px 0 16px;
+  height: 2px;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.hrPayModal__intro {
+  margin: 0 0 14px;
+  color: #544a69;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
 }
 
 .hrPayModal__grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px 16px;
+  gap: 10px 16px;
+}
+
+.hrPayModal__grid--compact {
+  grid-template-columns: 1fr 1fr;
+}
+
+.hrPayModal__summary {
+  border: 1px solid rgba(123, 74, 143, 0.16);
+  border-radius: 12px;
+  background: #faf7ff;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hrPayModal__summaryRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hrPayModal__summaryRow strong {
+  color: var(--hr-primary-dark);
+  font-size: 13px;
+  font-weight: 900;
 }
 
 .hrPayModal__grid label,
@@ -169,7 +324,7 @@
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .hrPayModal span {
@@ -179,88 +334,88 @@
 }
 
 .hrPayModal input,
+.hrPayModal select,
 .hrPayModal textarea {
-  border: 1px solid rgba(0, 0, 0, 0.28);
-  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.24);
+  border-radius: 8px;
   background: #f8f8fb;
   color: #2e2939;
-  font-size: 12px;
-  padding: 0 10px;
-  height: 30px;
+  font-size: 13px;
+  padding: 0 12px;
+  min-height: 38px;
+  width: 100%;
 }
 
 .hrPayModal__area {
-  margin-top: 8px;
+  margin-top: 12px;
   align-items: start;
 }
 
 .hrPayModal__area textarea {
-  min-height: 70px;
-  resize: none;
-  padding: 8px 10px;
+  min-height: 96px;
+  resize: vertical;
+  padding: 10px 12px;
 }
 
 .hrPayModal__line {
-  margin-top: 8px;
+  margin-top: 12px;
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-
-.hrPayModal__line button {
-  height: 30px;
-  min-width: 108px;
-  box-shadow: none;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .hrPayModal__inlineBtns {
   display: flex;
-  gap: 8px;
+  gap: 10px;
 }
 
 .hrPayModal__inlineBtns button {
-  height: 30px;
-  min-width: 90px;
-  box-shadow: none;
+  min-width: 96px;
 }
 
 .hrPayModal .is-muted {
-  background: #d9d8df;
-  color: #322b44;
+  background: #e8deef;
+  color: #382d51;
+  box-shadow: none;
 }
 
 .hrPayModal__actions {
-  margin-top: 12px;
+  margin-top: 16px;
   display: flex;
   justify-content: flex-end;
   gap: 10px;
 }
 
-.hrPayModal__actions button {
-  min-width: 96px;
-}
-
 @media (max-width: 1100px) {
+  .hrPay__head,
   .hrPayPeriod {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .hrPayPeriod h2 {
-    font-size: 18px;
+  .hrPayNotice {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .hrPayPeriod__actions {
+    width: 100%;
+    justify-content: stretch;
   }
 
   .hrPayTable__head,
   .hrPayRow {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .hrPayTable__head,
+  .hrPayRow {
     row-gap: 6px;
   }
 
-  .hrPayModal h3 {
-    font-size: 24px;
-  }
-
-  .hrPayModal__grid {
+  .hrPayModal__grid,
+  .hrPayModal__grid--compact {
     grid-template-columns: 1fr;
   }
 
@@ -268,8 +423,20 @@
   .hrPayModal__area {
     grid-template-columns: 1fr;
   }
+}
 
-  .hrPayModal__line {
+@media (max-width: 700px) {
+  .hrPay__runBtn,
+  .hrPayModal__actions button,
+  .hrPayModal__inlineBtns button,
+  .hrPayNotice__dismiss {
+    width: 100%;
+  }
+
+  .hrPayModal__actions,
+  .hrPayModal__inlineBtns,
+  .hrPayNotice__meta {
+    width: 100%;
     flex-direction: column;
     align-items: flex-start;
   }

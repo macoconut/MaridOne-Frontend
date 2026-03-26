@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { FiBell, FiCalendar, FiClock, FiGrid, FiLogOut } from 'react-icons/fi';
+import { FiBell, FiCalendar, FiCheckCircle, FiClock, FiGrid, FiLogOut } from 'react-icons/fi';
 import { useEffect, useRef, useState } from 'react';
 import '../../employee/layout/EmployeeLayout.css';
 import { getUserEmail } from '../../../lib/session';
@@ -17,9 +17,9 @@ type NotificationItem = {
   title: string;
   description?: string;
   time: string;
+  isRead?: boolean;
 };
 
-const notifications: NotificationItem[] = [];
 const API_BASE_URL = getApiBaseUrl();
 
 type BackendTestAction = {
@@ -32,15 +32,15 @@ type BackendTestAction = {
 const backendActions: BackendTestAction[] = [
   { label: 'Get Notifications', method: 'GET', path: '/api/notifications' },
   { label: 'Get Calendar Events', method: 'GET', path: '/api/calendar/events?month=4&year=2026' },
-  { label: 'Get My Overtime', method: 'GET', path: '/api/overtime/all/{empId}?page=0&size=20' },
-  { label: 'Get Leave Balance', method: 'GET', path: '/api/leave/balance/{empId}' },
-  { label: 'Get My Payroll Items', method: 'GET', path: '/api/payroll/item/{empId}' },
-  { label: 'Get My Disputes', method: 'GET', path: '/api/payroll/item/dispute/self?empId={empId}' },
+  { label: 'Get Team Attendance', method: 'GET', path: '/api/logs/attendance/team?page=0&size=25' },
+  { label: 'Get My Attendance', method: 'GET', path: '/api/logs/attendance/self/{empId}?page=0&size=25' },
 ];
 
 export default function ManagerLayout() {
   const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [headerTitle, setHeaderTitle] = useState('Manager');
   const [backendAction, setBackendAction] = useState<string>('None');
   const [backendResult, setBackendResult] = useState<string>('Waiting for backend test.');
   const [isLoading, setIsLoading] = useState(false);
@@ -68,6 +68,55 @@ export default function ManagerLayout() {
     };
   }, [notifOpen]);
 
+  useEffect(() => {
+    void (async () => {
+      try {
+        const username = getUserEmail();
+        if (!username) {
+          setHeaderTitle('Manager');
+          return;
+        }
+
+        const detailsResponse = await apiFetchRaw(`/api/user/details/${encodeURIComponent(username)}`, {
+          method: 'GET',
+        });
+        if (!detailsResponse.ok) {
+          setHeaderTitle('Manager');
+        } else {
+          const payload = (await detailsResponse.json()) as Record<string, unknown>;
+          const empId = extractFirstId(payload, ['employeeId', 'id']);
+          setHeaderTitle(empId ? `Manager#${empId}` : 'Manager');
+        }
+
+        const notifResponse = await apiFetchRaw('/api/notifications?page=0&size=20', { method: 'GET' });
+        if (!notifResponse.ok) {
+          setNotifications([]);
+          return;
+        }
+
+        const notifPayload = (await notifResponse.json()) as { content?: Array<Record<string, unknown>> };
+        const mapped = Array.isArray(notifPayload?.content)
+          ? notifPayload.content.map((row) => {
+              const idRaw = row.notificationId;
+              const id = typeof idRaw === 'number' ? String(idRaw) : String(idRaw ?? crypto.randomUUID());
+              const createdAt = typeof row.createdAt === 'string' ? new Date(row.createdAt) : null;
+              return {
+                id,
+                title: typeof row.message === 'string' ? row.message : 'Notification',
+                description: typeof row.importance === 'string' ? `Importance: ${row.importance}` : undefined,
+                time: createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt.toLocaleString() : 'Now',
+                isRead: Boolean(row.readStatus),
+              } as NotificationItem;
+            })
+          : [];
+        setNotifications(mapped);
+      } catch {
+        setHeaderTitle('Manager');
+        setNotifications([]);
+      }
+    })();
+  }, []);
+
   async function handleLogout() {
     await expireCurrentSession();
     navigate('/login', { replace: true });
@@ -75,6 +124,17 @@ export default function ManagerLayout() {
 
   function handleBrandClick() {
     navigate('/manager/dashboard', { replace: true });
+  }
+
+  async function markNotificationRead(id: string) {
+    const numericId = Number(id);
+    if (!Number.isFinite(numericId)) return;
+    try {
+      await apiFetchRaw(`/api/notifications?notificationId=${numericId}`, { method: 'PATCH' });
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+    } catch {
+      // no-op
+    }
   }
 
   async function fetchJsonWithAuth(path: string) {
@@ -91,14 +151,7 @@ export default function ManagerLayout() {
     const context: PlaceholderContext = { username: username ?? undefined };
     if (!username) return context;
     const userDetails = await fetchJsonWithAuth(`/api/user/details/${encodeURIComponent(username)}`);
-    const empId =
-      extractFirstId(userDetails, ['employeeId', 'id']) ??
-      extractFirstId(
-        userDetails && typeof userDetails === 'object'
-          ? (userDetails as Record<string, unknown>).employee
-          : null,
-        ['employeeId', 'id']
-      );
+    const empId = extractFirstId(userDetails, ['employeeId', 'id']);
     if (empId) context.empId = empId;
     return context;
   }
@@ -166,7 +219,7 @@ export default function ManagerLayout() {
     }
   }
 
-  const unreadCount = notifications.length;
+  const unreadCount = notifications.filter((item) => !item.isRead).length;
   const todayLabel = new Date().toLocaleDateString(undefined, {
     month: 'long',
     day: 'numeric',
@@ -228,7 +281,7 @@ export default function ManagerLayout() {
       <div className="eMain">
         <header className="eTop">
           <div className="eTop__left">
-            <div className="eTop__title">Manager#67</div>
+            <div className="eTop__title">{headerTitle}</div>
             <span className="eTop__badge">Manager</span>
           </div>
 
@@ -254,10 +307,30 @@ export default function ManagerLayout() {
                   <div className="notifPanel__date">Today, {todayLabel}</div>
                 </div>
                 <div className="notifPanel__list">
-                  <div className="notifItem">
-                    <div className="notifItem__title">No new notifications.</div>
-                    <div className="notifItem__time">Now</div>
-                  </div>
+                  {notifications.length > 0 ? (
+                    notifications.map((n) => (
+                      <button key={n.id} type="button" className="notifItem" onClick={() => void markNotificationRead(n.id)}>
+                        <div className="notifItem__icon">
+                          <FiCheckCircle />
+                        </div>
+                        <div className="notifItem__body">
+                          <div className="notifItem__title">{n.title}</div>
+                          {n.description && <div className="notifItem__msg">{n.description}</div>}
+                        </div>
+                        <div className="notifItem__time">{n.time}</div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="notifItem">
+                      <div className="notifItem__icon">
+                        <FiCheckCircle />
+                      </div>
+                      <div className="notifItem__body">
+                        <div className="notifItem__title">No new notifications.</div>
+                      </div>
+                      <div className="notifItem__time">Now</div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -333,7 +406,7 @@ export default function ManagerLayout() {
                 <div className="eFooter__brandTitle">Corporation</div>
               </div>
             </div>
-            <div className="eFooter__slogan">insert slogan of Marid Industries here</div>
+            <div className="eFooter__slogan">Smart packaging solutions for modern food service.</div>
             <div className="eFooter__copy">© 2026 Marid Industries Corporation</div>
           </div>
 

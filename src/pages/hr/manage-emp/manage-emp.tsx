@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiFetchJson, toArray } from '../../../lib/api';
+import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './manage-emp.css';
 
-type ModalType = 'add' | 'edit' | 'delete' | null;
+type ModalType = 'add' | 'edit-pick' | 'edit' | 'delete' | null;
 
 type EmployeeRow = {
   id: string;
@@ -112,7 +113,7 @@ export default function HrManageEmp() {
         );
       } catch {
         setEmployeeRows([]);
-        const message = error instanceof Error ? error.message : 'Failed to load employees.';
+        const message = getFriendlyErrorMessage(error, 'employee-load');
         setLoadMessage(`Cannot load employees for HR role yet: ${message}`);
       }
     }
@@ -140,6 +141,27 @@ export default function HrManageEmp() {
     setSubmitError('');
     setSubmitSuccess('');
     setForm(emptyForm);
+  }
+
+  function populateFormFromRow(row: EmployeeRow) {
+    setForm((prev) => ({
+      ...prev,
+      employeeId: row.id,
+      firstName: row.name.split(' ')[0] ?? '',
+      middleName: '',
+      lastName: row.name.split(' ').slice(1).join(' ') ?? '',
+      email: row.email === '-' ? '' : row.email,
+      phoneNumber: row.phone === '-' ? '' : row.phone,
+      position: row.position === '-' ? 'EMPLOYEE' : row.position,
+      employmentStatus: row.status === '-' ? 'REGULAR' : row.status,
+    }));
+  }
+
+  function beginEdit(row: EmployeeRow) {
+    populateFormFromRow(row);
+    setSubmitError('');
+    setSubmitSuccess('');
+    setModal('edit');
   }
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -211,11 +233,13 @@ export default function HrManageEmp() {
             employmentStatus: 'TERMINATED',
           }),
         });
-        setSubmitSuccess('Employee status updated to TERMINATED.');
+        setSubmitSuccess('Employee terminated successfully.');
       }
       await loadEmployees();
     } catch (error) {
-      setSubmitError(error instanceof Error ? error.message : 'Failed to save employee changes.');
+      setSubmitError(
+        getFriendlyErrorMessage(error, modal === 'delete' ? 'employee-terminate' : 'employee-save')
+      );
     } finally {
       setIsSaving(false);
     }
@@ -243,13 +267,7 @@ export default function HrManageEmp() {
                 type="button"
                 className="hrEmpRow"
                 onClick={() => {
-                  setField('employeeId', row.id);
-                  setField('firstName', row.name.split(' ')[0] ?? '');
-                  setField('lastName', row.name.split(' ').slice(1).join(' ') ?? '');
-                  setField('email', row.email === '-' ? '' : row.email);
-                  setField('phoneNumber', row.phone === '-' ? '' : row.phone);
-                  setField('position', row.position === '-' ? 'EMPLOYEE' : row.position);
-                  setField('employmentStatus', row.status === '-' ? 'REGULAR' : row.status);
+                  populateFormFromRow(row);
                 }}
               >
                 <div>{row.id}</div>
@@ -278,31 +296,73 @@ export default function HrManageEmp() {
         <button type="button" onClick={() => openModal('add')}>
           Add Employee
         </button>
-        <button type="button" onClick={() => openModal('edit')}>
+        <button type="button" onClick={() => openModal('edit-pick')}>
           Edit Employee
         </button>
         <button type="button" onClick={() => openModal('delete')}>
-          Delete Employee
+          Terminate Employee
         </button>
       </div>
 
-      {modal && (
+      {modal === 'edit-pick' && (
+        <div className="hrEmpModalBackdrop" role="dialog" aria-modal="true">
+          <div className="hrEmpModal hrEmpModal--picker">
+            <h2>SELECT EMPLOYEE TO EDIT</h2>
+            <div className="hrEmpModal__rule" />
+
+            <div className="hrEmpPicker">
+              {employeeRows.length > 0 ? (
+                employeeRows.map((row) => (
+                  <button
+                    key={`edit-pick-${row.id}`}
+                    type="button"
+                    className="hrEmpPicker__row"
+                    onClick={() => beginEdit(row)}
+                  >
+                    <div className="hrEmpPicker__primary">
+                      <strong>{row.name}</strong>
+                      <span>Employee #{row.id}</span>
+                    </div>
+                    <div className="hrEmpPicker__secondary">
+                      <span>{row.position}</span>
+                      <span>{row.status}</span>
+                    </div>
+                  </button>
+                ))
+              ) : (
+                <div className="hrEmpPicker__empty">{loadMessage || 'No employee records available yet.'}</div>
+              )}
+            </div>
+
+            <div className="hrEmpModal__actions">
+              <button type="button" onClick={closeModal}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modal && modal !== 'edit-pick' && (
         <div className="hrEmpModalBackdrop" role="dialog" aria-modal="true">
           <div className={`hrEmpModal ${modal === 'delete' ? 'is-delete' : ''}`}>
-            <h2>{modal === 'add' ? 'ADD EMPLOYEE' : modal === 'edit' ? 'EDIT EMPLOYEE' : 'DELETE EMPLOYEE'}</h2>
+            <h2>{modal === 'add' ? 'ADD EMPLOYEE' : modal === 'edit' ? 'EDIT EMPLOYEE' : 'TERMINATE EMPLOYEE'}</h2>
             <div className="hrEmpModal__rule" />
 
             <div className="hrEmpForm">
-              <div className="hrEmpForm__grid">
-                <div className="hrEmpField">
-                  <label>Employee ID:</label>
-                  <input
-                    placeholder="e.g. 67676767"
-                    value={form.employeeId}
-                    onChange={(e) => setField('employeeId', e.target.value)}
-                    disabled={modal === 'add'}
-                  />
-                </div>
+              <div className="hrEmpForm__section">
+                <div className="hrEmpForm__sectionTitle">Employment Details</div>
+                <div className="hrEmpForm__grid hrEmpForm__grid--meta">
+                {modal !== 'add' && (
+                  <div className="hrEmpField">
+                    <label>Employee ID:</label>
+                    <input
+                      placeholder="e.g. 67676767"
+                      value={form.employeeId}
+                      onChange={(e) => setField('employeeId', e.target.value)}
+                    />
+                  </div>
+                )}
                 <div className="hrEmpField">
                   <label>Status:</label>
                   <select
@@ -316,11 +376,14 @@ export default function HrManageEmp() {
                     <option value="TERMINATED">TERMINATED</option>
                   </select>
                 </div>
+                </div>
               </div>
 
               {modal !== 'delete' ? (
                 <>
-                  <div className="hrEmpForm__grid">
+                  <div className="hrEmpForm__section">
+                    <div className="hrEmpForm__sectionTitle">Personal Information</div>
+                    <div className="hrEmpForm__grid">
                     <div className="hrEmpField">
                       <label>First Name:</label>
                       <input value={form.firstName} onChange={(e) => setField('firstName', e.target.value)} />
@@ -366,8 +429,11 @@ export default function HrManageEmp() {
                       />
                     </div>
                   </div>
+                  </div>
 
-                  <div className="hrEmpForm__grid">
+                  <div className="hrEmpForm__section">
+                    <div className="hrEmpForm__sectionTitle">Address Information</div>
+                    <div className="hrEmpForm__grid">
                     <div className="hrEmpField">
                       <label>Permanent Address:</label>
                       <input value={form.permanentAddress} onChange={(e) => setField('permanentAddress', e.target.value)} />
@@ -393,6 +459,7 @@ export default function HrManageEmp() {
                       <input value={form.zipCode} onChange={(e) => setField('zipCode', e.target.value)} />
                     </div>
                   </div>
+                  </div>
                 </>
               ) : (
                 <div className="hrEmpDelete">
@@ -401,7 +468,7 @@ export default function HrManageEmp() {
                     <input value={selectedEmployee ? `${selectedEmployee.id} - ${selectedEmployee.name}` : form.employeeId} readOnly />
                   </div>
                   <div className="hrEmpField hrEmpField--full">
-                    <label>Reason for Deleting / Terminating:</label>
+                    <label>Reason for Termination:</label>
                     <textarea value={form.reason} onChange={(e) => setField('reason', e.target.value)} />
                   </div>
                 </div>

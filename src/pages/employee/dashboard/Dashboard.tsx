@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getAuthToken, getUserEmail } from '../../../lib/session';
+import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './Dashboard.css';
 
 type UserDetails = {
@@ -80,6 +81,7 @@ export default function Dashboard() {
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState('');
+  const [editOpen, setEditOpen] = useState(false);
   const [editDraft, setEditDraft] = useState({
     email: '',
     phoneNumber: '',
@@ -94,6 +96,13 @@ export default function Dashboard() {
   useEffect(() => {
     setLastLoginLabel(formatJwtIssuedAt(getAuthToken()));
   }, []);
+
+  useEffect(() => {
+    if (editOpen) document.body.classList.add('modal-open');
+    else document.body.classList.remove('modal-open');
+
+    return () => document.body.classList.remove('modal-open');
+  }, [editOpen]);
 
   useEffect(() => {
     const username = getUserEmail();
@@ -236,33 +245,26 @@ export default function Dashboard() {
     setCalendarMonthIndex(next.getMonth());
   }
 
+  function openEditModal() {
+    setEditError('');
+    setEditOpen(true);
+  }
+
+  function closeEditModal() {
+    if (savingEdit) return;
+    setEditOpen(false);
+    setEditError('');
+  }
+
+  function setEditField<K extends keyof typeof editDraft>(key: K, value: (typeof editDraft)[K]) {
+    setEditDraft((prev) => ({ ...prev, [key]: value }));
+  }
+
   async function submitEditInfo() {
     if (!employeeId) {
       setEditError('Employee profile cannot be updated right now.');
       return;
     }
-    const nextEmail = window.prompt('Update email:', editDraft.email) ?? editDraft.email;
-    const nextPhone = window.prompt('Update phone number:', editDraft.phoneNumber) ?? editDraft.phoneNumber;
-    const nextPermanent =
-      window.prompt('Update permanent address:', editDraft.permanentAddress) ?? editDraft.permanentAddress;
-    const nextTemporary =
-      window.prompt('Update temporary address:', editDraft.temporaryAddress) ?? editDraft.temporaryAddress;
-    const nextCity = window.prompt('Update city:', editDraft.city) ?? editDraft.city;
-    const nextState = window.prompt('Update state:', editDraft.state) ?? editDraft.state;
-    const nextCountry = window.prompt('Update country:', editDraft.country) ?? editDraft.country;
-    const nextZip = window.prompt('Update zip code:', editDraft.zipCode) ?? editDraft.zipCode;
-
-    const nextDraft = {
-      email: nextEmail,
-      phoneNumber: nextPhone,
-      permanentAddress: nextPermanent,
-      temporaryAddress: nextTemporary,
-      city: nextCity,
-      state: nextState,
-      country: nextCountry,
-      zipCode: nextZip,
-    };
-    setEditDraft(nextDraft);
 
     setEditError('');
     setSavingEdit(true);
@@ -270,22 +272,23 @@ export default function Dashboard() {
       await apiFetchJson(`/api/employees/${employeeId}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          email: nextDraft.email.trim() || undefined,
-          phoneNumber: nextDraft.phoneNumber.trim() || undefined,
+          email: editDraft.email.trim() || undefined,
+          phoneNumber: editDraft.phoneNumber.trim() || undefined,
           address: {
-            permanentAddress: nextDraft.permanentAddress.trim() || undefined,
-            temporaryAddress: nextDraft.temporaryAddress.trim() || undefined,
-            city: nextDraft.city.trim() || undefined,
-            state: nextDraft.state.trim() || undefined,
-            country: nextDraft.country.trim() || undefined,
-            zipCode: nextDraft.zipCode.trim() || undefined,
+            permanentAddress: editDraft.permanentAddress.trim() || undefined,
+            temporaryAddress: editDraft.temporaryAddress.trim() || undefined,
+            city: editDraft.city.trim() || undefined,
+            state: editDraft.state.trim() || undefined,
+            country: editDraft.country.trim() || undefined,
+            zipCode: editDraft.zipCode.trim() || undefined,
           },
         }),
       });
       const refreshed = await apiFetchJson<UserDetails['employee']>(`/api/employees/${employeeId}`);
       setEmployee(refreshed);
+      setEditOpen(false);
     } catch (error) {
-      setEditError(error instanceof Error ? error.message : 'Unable to update employee profile.');
+      setEditError(getFriendlyErrorMessage(error, 'profile-update'));
     } finally {
       setSavingEdit(false);
     }
@@ -297,7 +300,7 @@ export default function Dashboard() {
       <section className="infoCardX">
         <div className="infoCardX__header">
           <div className="infoCardX__title">Your Information</div>
-          <button className="infoCardX__edit" type="button" onClick={() => void submitEditInfo()} disabled={savingEdit}>
+          <button className="infoCardX__edit" type="button" onClick={openEditModal} disabled={savingEdit}>
             Edit Info
           </button>
         </div>
@@ -468,6 +471,83 @@ export default function Dashboard() {
         </div>
       </section>
       {editError && <p className="dashEditError">{editError}</p>}
+
+      {editOpen && (
+        <div className="dashModalBackdrop" role="dialog" aria-modal="true" aria-label="Edit employee info">
+          <div className="dashModal">
+            <div className="dashModal__top">
+              <div className="dashModal__title">EDIT INFO</div>
+              <button type="button" className="dashModal__close" onClick={closeEditModal} disabled={savingEdit}>
+                x
+              </button>
+            </div>
+
+            <div className="dashModal__rule" />
+
+            <div className="dashModal__grid">
+              <label className="dashModal__field">
+                <span>Email</span>
+                <input value={editDraft.email} onChange={(e) => setEditField('email', e.target.value)} />
+              </label>
+              <label className="dashModal__field">
+                <span>Phone Number</span>
+                <input value={editDraft.phoneNumber} onChange={(e) => setEditField('phoneNumber', e.target.value)} />
+              </label>
+              <label className="dashModal__field dashModal__field--full">
+                <span>Permanent Address</span>
+                <input
+                  value={editDraft.permanentAddress}
+                  onChange={(e) => setEditField('permanentAddress', e.target.value)}
+                />
+              </label>
+              <label className="dashModal__field dashModal__field--full">
+                <span>Temporary Address</span>
+                <input
+                  value={editDraft.temporaryAddress}
+                  onChange={(e) => setEditField('temporaryAddress', e.target.value)}
+                />
+              </label>
+              <label className="dashModal__field">
+                <span>City</span>
+                <input value={editDraft.city} onChange={(e) => setEditField('city', e.target.value)} />
+              </label>
+              <label className="dashModal__field">
+                <span>State</span>
+                <input value={editDraft.state} onChange={(e) => setEditField('state', e.target.value)} />
+              </label>
+              <label className="dashModal__field">
+                <span>Country</span>
+                <input value={editDraft.country} onChange={(e) => setEditField('country', e.target.value)} />
+              </label>
+              <label className="dashModal__field">
+                <span>Zip Code</span>
+                <input value={editDraft.zipCode} onChange={(e) => setEditField('zipCode', e.target.value)} />
+              </label>
+            </div>
+
+            {editError && <div className="dashModal__error">{editError}</div>}
+
+            <div className="dashModal__actions">
+              <button
+                type="button"
+                className="dashModal__btn dashModal__btn--ghost"
+                onClick={closeEditModal}
+                disabled={savingEdit}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="dashModal__btn"
+                onClick={() => void submitEditInfo()}
+                disabled={savingEdit}
+              >
+                {savingEdit ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

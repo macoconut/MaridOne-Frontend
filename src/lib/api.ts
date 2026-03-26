@@ -9,6 +9,20 @@ import {
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
 let refreshPromise: Promise<boolean> | null = null;
 
+export class ApiError extends Error {
+  status: number;
+  rawMessage: string;
+  details: string[];
+
+  constructor(status: number, message: string, rawMessage = message, details: string[] = []) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.rawMessage = rawMessage;
+    this.details = details;
+  }
+}
+
 export function getApiBaseUrl() {
   return API_BASE_URL;
 }
@@ -77,6 +91,39 @@ function extractErrorMessage(data: unknown, fallbackStatus: number, rawText: str
   }
 
   return `Request failed (${fallbackStatus})`;
+}
+
+function extractErrorDetails(data: unknown): string[] {
+  if (!data || typeof data !== 'object') return [];
+
+  const obj = data as Record<string, unknown>;
+  const details: string[] = [];
+
+  if (typeof obj.message === 'string' && obj.message.trim().length > 0) {
+    details.push(obj.message.trim());
+  }
+
+  if (typeof obj.error === 'string' && obj.error.trim().length > 0) {
+    details.push(obj.error.trim());
+  }
+
+  if (Array.isArray(obj.errors)) {
+    for (const item of obj.errors) {
+      if (typeof item === 'string' && item.trim().length > 0) {
+        details.push(item.trim());
+        continue;
+      }
+
+      if (item && typeof item === 'object') {
+        const entry = item as Record<string, unknown>;
+        if (typeof entry.defaultMessage === 'string' && entry.defaultMessage.trim().length > 0) {
+          details.push(entry.defaultMessage.trim());
+        }
+      }
+    }
+  }
+
+  return [...new Set(details)];
 }
 
 async function refreshAccessToken(): Promise<boolean> {
@@ -154,7 +201,8 @@ export async function apiFetchJson<T>(path: string, init: RequestInit = {}): Pro
 
   if (!response.ok) {
     const message = extractErrorMessage(data, response.status, text);
-    throw new Error(message);
+    const details = extractErrorDetails(data);
+    throw new ApiError(response.status, message, message, details);
   }
 
   return data as T;

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FiSearch, FiFilter } from 'react-icons/fi';
+import { FiCalendar, FiRefreshCw, FiUsers, FiX } from 'react-icons/fi';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import './AttendanceReports.css';
 
@@ -10,135 +10,577 @@ type AttendanceLog = {
   direction?: string;
 };
 
-const days = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
+type EmployeeRow = {
+  id: number;
+  name: string;
+  status: string;
+  position: string;
+};
+
+type DayCell = {
+  day: number | null;
+  presentCount: number;
+  lateCount: number;
+  incompleteCount: number;
+  absentCount: number | null;
+};
+
+type DailyEmployeeRecord = {
+  employeeId: number;
+  name: string;
+  position: string;
+  status: string;
+  inTime?: string;
+  outTime?: string;
+  logCount: number;
+  isLate: boolean;
+  isIncomplete: boolean;
+};
+
+const DAYS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
+
+function pad2(value: number) {
+  return String(value).padStart(2, '0');
+}
+
+function toISODate(year: number, monthIndex: number, day: number) {
+  return `${year}-${pad2(monthIndex + 1)}-${pad2(day)}`;
+}
+
+function localDateKey(value?: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+}
+
+function localTimeLabel(value?: string) {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function isInDirection(direction?: string) {
+  const value = (direction ?? '').toUpperCase();
+  return value.includes('IN') || value.includes('LATE');
+}
+
+function isOutDirection(direction?: string) {
+  return (direction ?? '').toUpperCase().includes('OUT');
+}
+
+function isLateDirection(direction?: string) {
+  return (direction ?? '').toUpperCase().includes('LATE');
+}
 
 function monthCells(year: number, monthIndex: number) {
-  const firstDay = new Date(year, monthIndex, 1);
+  const first = new Date(year, monthIndex, 1);
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
-  const mondayStart = (firstDay.getDay() + 6) % 7;
-  const cells = Array.from({ length: 42 }).map((_, idx) => {
-    const date = idx - mondayStart + 1;
-    return date > 0 && date <= daysInMonth ? date : null;
-  });
+  const mondayBased = (first.getDay() + 6) % 7;
+  const cells: DayCell[] = [];
+
+  for (let i = 0; i < mondayBased; i++) {
+    cells.push({ day: null, presentCount: 0, lateCount: 0, incompleteCount: 0, absentCount: null });
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    cells.push({ day, presentCount: 0, lateCount: 0, incompleteCount: 0, absentCount: null });
+  }
+
+  while (cells.length % 7 !== 0) {
+    cells.push({ day: null, presentCount: 0, lateCount: 0, incompleteCount: 0, absentCount: null });
+  }
+
   return cells;
 }
 
-export default function HrAttendanceReports() {
-  const now = new Date();
-  const [monthIndex, setMonthIndex] = useState(now.getMonth());
-  const [year, setYear] = useState(now.getFullYear());
-  const [logs, setLogs] = useState<AttendanceLog[]>([]);
-  const monthLabel = new Date(year, monthIndex, 1).toLocaleDateString(undefined, {
-    month: 'long',
-    year: 'numeric',
-  });
+function employeeName(employee: EmployeeRow | undefined, employeeId: number) {
+  return employee?.name || `Employee #${employeeId}`;
+}
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const response = await apiFetchJson<unknown>('/api/logs/attendance?page=0&size=1000');
-        setLogs(toArray<AttendanceLog>(response));
-      } catch {
-        setLogs([]);
-      }
-    })();
-  }, []);
+function buildDailyRecords(logs: AttendanceLog[], employeeById: Map<number, EmployeeRow>) {
+  const grouped = new Map<number, AttendanceLog[]>();
 
-  const notesByDay = useMemo(() => {
-    const map = new Map<number, string[]>();
-    const month = monthIndex + 1;
-    const monthKey = `${year}-${String(month).padStart(2, '0')}`;
-    for (const log of logs) {
-      if (typeof log.timestamp !== 'string') continue;
-      if (!log.timestamp.startsWith(monthKey)) continue;
-
-      const day = Number(log.timestamp.slice(8, 10));
-      if (!Number.isFinite(day)) continue;
-      const time = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const direction = log.direction || 'LOG';
-      const line = `${direction}: ${time}`;
-
-      const current = map.get(day) ?? [];
-      if (current.length < 2) current.push(line);
-      map.set(day, current);
-    }
-    return map;
-  }, [logs, monthIndex, year]);
-
-  const cells = monthCells(year, monthIndex);
-
-  function onMonthChange(value: string) {
-    const [mLabel, yLabel] = value.split(' ');
-    const parsedYear = Number(yLabel);
-    const date = new Date(`${mLabel} 1, ${yLabel}`);
-    if (!Number.isFinite(parsedYear) || Number.isNaN(date.getTime())) return;
-    setMonthIndex(date.getMonth());
-    setYear(parsedYear);
+  for (const log of logs) {
+    if (typeof log.employeeId !== 'number') continue;
+    const current = grouped.get(log.employeeId) ?? [];
+    current.push(log);
+    grouped.set(log.employeeId, current);
   }
 
-  const monthOptions = [
-    new Date(now.getFullYear(), now.getMonth() - 1, 1),
-    new Date(now.getFullYear(), now.getMonth(), 1),
-    new Date(now.getFullYear(), now.getMonth() + 1, 1),
-  ].map((d) =>
-    d.toLocaleDateString(undefined, {
+  return [...grouped.entries()]
+    .map(([employeeId, rows]) => {
+      const sorted = [...rows].sort((a, b) => {
+        const at = typeof a.timestamp === 'string' ? Date.parse(a.timestamp) : 0;
+        const bt = typeof b.timestamp === 'string' ? Date.parse(b.timestamp) : 0;
+        return at - bt;
+      });
+      const firstIn = sorted.find((row) => isInDirection(row.direction));
+      const lastOut = [...sorted].reverse().find((row) => isOutDirection(row.direction));
+      const isLate = sorted.some((row) => isLateDirection(row.direction));
+      const hasIn = sorted.some((row) => isInDirection(row.direction));
+      const hasOut = sorted.some((row) => isOutDirection(row.direction));
+      const employee = employeeById.get(employeeId);
+
+      return {
+        employeeId,
+        name: employeeName(employee, employeeId),
+        position: employee?.position || '-',
+        status: employee?.status || '-',
+        inTime: localTimeLabel(firstIn?.timestamp),
+        outTime: localTimeLabel(lastOut?.timestamp),
+        logCount: sorted.length,
+        isLate,
+        isIncomplete: !(hasIn && hasOut),
+      } satisfies DailyEmployeeRecord;
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export default function HrAttendanceReports() {
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const [year, setYear] = useState(today.getFullYear());
+  const [monthIndex, setMonthIndex] = useState(today.getMonth());
+  const [monthValue, setMonthValue] = useState(
+    new Date(today.getFullYear(), today.getMonth(), 1).toLocaleDateString(undefined, {
       month: 'long',
       year: 'numeric',
     })
   );
+  const [logs, setLogs] = useState<AttendanceLog[]>([]);
+  const [employees, setEmployees] = useState<EmployeeRow[]>([]);
+  const [hasFullRoster, setHasFullRoster] = useState(false);
+  const [rosterMessage, setRosterMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [refreshTick, setRefreshTick] = useState(0);
+  const [selectedDateKey, setSelectedDateKey] = useState(toISODate(today.getFullYear(), today.getMonth(), today.getDate()));
+  const [detailOpen, setDetailOpen] = useState(false);
+
+  useEffect(() => {
+    if (detailOpen) document.body.classList.add('modal-open');
+    else document.body.classList.remove('modal-open');
+
+    return () => document.body.classList.remove('modal-open');
+  }, [detailOpen]);
+
+  useEffect(() => {
+    setMonthValue(
+      new Date(year, monthIndex, 1).toLocaleDateString(undefined, {
+        month: 'long',
+        year: 'numeric',
+      })
+    );
+  }, [monthIndex, year]);
+
+  useEffect(() => {
+    const todayKey = toISODate(today.getFullYear(), today.getMonth(), today.getDate());
+    if (year === today.getFullYear() && monthIndex === today.getMonth()) {
+      setSelectedDateKey(todayKey);
+    } else {
+      setSelectedDateKey('');
+    }
+  }, [monthIndex, today, year]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPageData() {
+      setIsLoading(true);
+      setLoadError('');
+      try {
+        const logResponse = await apiFetchJson<unknown>('/api/logs/attendance?page=0&size=5000');
+        if (cancelled) return;
+
+        const nextLogs = toArray<AttendanceLog>(logResponse);
+        setLogs(nextLogs);
+
+        try {
+          const employeeResponse = await apiFetchJson<unknown>('/api/employees?page=0&size=500');
+          if (cancelled) return;
+
+          const mappedEmployees = toArray<Record<string, unknown>>(employeeResponse).map((row, idx) => ({
+            id: Number(row.employeeId ?? row.id ?? idx + 1),
+            name:
+              [row.firstName, row.middleName, row.lastName]
+                .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+                .join(' ') || `Employee #${row.employeeId ?? row.id ?? idx + 1}`,
+            status: String(row.employmentStatus ?? '-'),
+            position: String(row.position ?? '-'),
+          }));
+
+          setEmployees(mappedEmployees.filter((row) => Number.isFinite(row.id)));
+          setHasFullRoster(true);
+          setRosterMessage('');
+        } catch {
+          const ids = new Set<number>();
+          for (const log of nextLogs) {
+            if (typeof log.employeeId === 'number') ids.add(log.employeeId);
+          }
+          setEmployees(
+            [...ids]
+              .sort((a, b) => a - b)
+              .map((id) => ({
+                id,
+                name: `Employee #${id}`,
+                status: 'Unknown',
+                position: '-',
+              }))
+          );
+          setHasFullRoster(false);
+          setRosterMessage(
+            'HR can load attendance logs, but full employee roster access is restricted. Present and late counts are accurate; absent counts are unavailable.'
+          );
+        }
+      } catch (error) {
+        if (cancelled) return;
+        setLogs([]);
+        setEmployees([]);
+        setHasFullRoster(false);
+        setRosterMessage('');
+        setLoadError(error instanceof Error ? error.message : 'Failed to load attendance data.');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+
+    void loadPageData();
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshTick]);
+
+  const employeeById = useMemo(() => {
+    const map = new Map<number, EmployeeRow>();
+    for (const employee of employees) {
+      map.set(employee.id, employee);
+    }
+    return map;
+  }, [employees]);
+
+  const activeEmployeeIds = useMemo(() => {
+    return employees
+      .filter((employee) => employee.status.toUpperCase() !== 'TERMINATED')
+      .map((employee) => employee.id);
+  }, [employees]);
+
+  const logsByDate = useMemo(() => {
+    const grouped = new Map<string, AttendanceLog[]>();
+    for (const log of logs) {
+      const key = localDateKey(log.timestamp);
+      if (!key) continue;
+      const current = grouped.get(key) ?? [];
+      current.push(log);
+      grouped.set(key, current);
+    }
+    return grouped;
+  }, [logs]);
+
+  const calendarCells = useMemo(() => {
+    const cells = monthCells(year, monthIndex);
+    return cells.map((cell) => {
+      if (cell.day === null) return cell;
+      const dateKey = toISODate(year, monthIndex, cell.day);
+      const records = buildDailyRecords(logsByDate.get(dateKey) ?? [], employeeById);
+      const presentCount = records.length;
+      const lateCount = records.filter((record) => record.isLate).length;
+      const incompleteCount = records.filter((record) => record.isIncomplete).length;
+      const absentCount = hasFullRoster ? Math.max(activeEmployeeIds.length - presentCount, 0) : null;
+
+      return {
+        day: cell.day,
+        presentCount,
+        lateCount,
+        incompleteCount,
+        absentCount,
+      } satisfies DayCell;
+    });
+  }, [activeEmployeeIds.length, employeeById, hasFullRoster, logsByDate, monthIndex, year]);
+
+  const selectedRecords = useMemo(() => {
+    if (!selectedDateKey) return [];
+    return buildDailyRecords(logsByDate.get(selectedDateKey) ?? [], employeeById);
+  }, [employeeById, logsByDate, selectedDateKey]);
+
+  const selectedAbsent = useMemo(() => {
+    if (!hasFullRoster) return [];
+    const presentIds = new Set(selectedRecords.map((record) => record.employeeId));
+    return employees
+      .filter((employee) => employee.status.toUpperCase() !== 'TERMINATED')
+      .filter((employee) => !presentIds.has(employee.id))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [employees, hasFullRoster, selectedRecords]);
+
+  const selectedSummary = useMemo(() => {
+    const late = selectedRecords.filter((record) => record.isLate).length;
+    const incomplete = selectedRecords.filter((record) => record.isIncomplete).length;
+    return {
+      present: selectedRecords.length,
+      late,
+      incomplete,
+      absent: hasFullRoster ? selectedAbsent.length : null,
+      totalLogs: (logsByDate.get(selectedDateKey) ?? []).length,
+    };
+  }, [hasFullRoster, logsByDate, selectedAbsent.length, selectedDateKey, selectedRecords]);
+
+  const monthOptions = useMemo(() => {
+    return Array.from({ length: 12 }).map((_, index) =>
+      new Date(currentYear, index, 1).toLocaleDateString(undefined, {
+        month: 'long',
+        year: 'numeric',
+      })
+    );
+  }, [currentYear]);
+
+  function parseMonthValue(value: string) {
+    const parsed = new Date(`1 ${value}`);
+    if (Number.isNaN(parsed.getTime())) return;
+    setMonthIndex(parsed.getMonth());
+    setYear(parsed.getFullYear());
+  }
+
+  function openDayDetails(day: number) {
+    const key = toISODate(year, monthIndex, day);
+    setSelectedDateKey(key);
+    setDetailOpen(true);
+  }
 
   return (
     <div className="hrAtt">
       <div className="hrAtt__head">
-        <h1 className="hrAtt__title">
-          Attendance Report
-          <span className="hrAtt__tools">
-            <FiSearch />
-            <FiFilter />
-          </span>
-        </h1>
+        <div className="hrAtt__titleWrap">
+          <h1 className="hrAtt__title">Attendance Report</h1>
+          <div className="hrAtt__monthSelectWrap">
+            <select
+              className="hrAtt__monthSelect"
+              value={monthValue}
+              onChange={(event) => {
+                setMonthValue(event.target.value);
+                parseMonthValue(event.target.value);
+              }}
+            >
+              {monthOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="hrAtt__topActions">
+          <button className="hrAtt__actionBtn hrAtt__actionBtn--ghost" type="button" onClick={() => setRefreshTick((tick) => tick + 1)}>
+            <FiRefreshCw />
+            Refresh
+          </button>
+          <button className="hrAtt__actionBtn" type="button" onClick={() => window.print()}>
+            <FiCalendar />
+            Export Attendance
+          </button>
+        </div>
       </div>
 
-      <div className="hrAtt__monthWrap">
-        <select className="hrAtt__month" value={monthLabel} onChange={(e) => onMonthChange(e.target.value)}>
-          {monthOptions.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </select>
-      </div>
+      {isLoading && <p className="hrAtt__hint">Loading attendance data...</p>}
+      {!isLoading && loadError && <p className="hrAtt__error">{loadError}</p>}
+      {!isLoading && !loadError && rosterMessage && <p className="hrAtt__hint">{rosterMessage}</p>}
 
-      <section className="hrAtt__card">
-        <div className="hrAtt__monthTitle">{monthLabel.replace(' ', '')}</div>
+      <section className="hrAttCard">
+        <div className="hrAttCard__monthBar">
+          <div className="hrAttCard__monthLabel">{monthValue}</div>
+        </div>
 
-        <div className="hrAtt__grid">
-          {days.map((day) => (
-            <div key={day} className="hrAtt__dow">
+        <div className="hrCal">
+          {DAYS.map((day) => (
+            <div key={day} className="hrCal__dow">
               {day}
             </div>
           ))}
 
-          {cells.map((date, idx) => (
-            <div key={idx} className={`hrAtt__cell ${date === now.getDate() ? 'is-focus' : ''}`}>
-              {date !== null && <div className="hrAtt__date">{date}</div>}
-              {date !== null && (notesByDay.get(date) ?? []).length > 0 && (
-                <div className="hrAtt__notes">
-                  {(notesByDay.get(date) ?? []).map((note) => (
-                    <div key={note}>{note}</div>
-                  ))}
+          {calendarCells.map((cell, index) => {
+            if (cell.day === null) {
+              return <div key={`empty-${index}`} className="hrCal__cell hrCal__cell--disabled" aria-hidden="true" />;
+            }
+
+            const day = cell.day;
+            const dateKey = toISODate(year, monthIndex, day);
+            const isToday = dateKey === toISODate(today.getFullYear(), today.getMonth(), today.getDate());
+            const isSelected = dateKey === selectedDateKey;
+            const cellClass = [
+              'hrCal__cell',
+              'hrCal__cell--click',
+              isToday ? 'hrCal__cell--today' : '',
+              isSelected ? 'hrCal__cell--selected' : '',
+              cell.lateCount > 0 || cell.incompleteCount > 0 ? 'hrCal__cell--attention' : '',
+              cell.presentCount > 0 ? 'hrCal__cell--active' : '',
+            ]
+              .filter(Boolean)
+              .join(' ');
+
+            return (
+              <button
+                key={dateKey}
+                type="button"
+                className={cellClass}
+                onClick={() => openDayDetails(day)}
+                aria-current={isToday ? 'date' : undefined}
+                aria-label={`Attendance details for ${dateKey}`}
+              >
+                <div className="hrCal__day">{day}</div>
+                <div className="hrCal__stats">
+                  <div className="hrCal__stat">
+                    <span>Present</span>
+                    <strong>{cell.presentCount}</strong>
+                  </div>
+                  <div className="hrCal__stat">
+                    <span>Late</span>
+                    <strong>{cell.lateCount}</strong>
+                  </div>
+                  <div className="hrCal__stat">
+                    <span>{hasFullRoster ? 'Absent' : 'Incomplete'}</span>
+                    <strong>{hasFullRoster ? cell.absentCount ?? '-' : cell.incompleteCount}</strong>
+                  </div>
                 </div>
-              )}
-            </div>
-          ))}
+              </button>
+            );
+          })}
         </div>
       </section>
 
-      <div className="hrAtt__actions">
-        <button className="hrAtt__exportBtn" type="button" onClick={() => window.print()}>
-          Export Attendance Report
-        </button>
-      </div>
+      {selectedDateKey && (
+        <p className="hrAtt__hint">
+          Selected date: {selectedDateKey}
+        </p>
+      )}
+
+      {detailOpen && (
+        <div className="hrAttModalBackdrop" role="dialog" aria-modal="true" aria-label="Attendance breakdown">
+          <div className="hrAttModal">
+            <div className="hrAttModal__top">
+              <div>
+                <div className="hrAttModal__eyebrow">Daily Attendance Breakdown</div>
+                <div className="hrAttModal__title">{selectedDateKey}</div>
+              </div>
+              <button className="hrAttModal__close" type="button" onClick={() => setDetailOpen(false)} aria-label="Close">
+                <FiX />
+              </button>
+            </div>
+
+            <div className="hrAttModal__rule" />
+
+            <div className="hrAttSummary">
+              <article className="hrAttSummary__card">
+                <span>Present</span>
+                <strong>{selectedSummary.present}</strong>
+              </article>
+              <article className="hrAttSummary__card">
+                <span>Late</span>
+                <strong>{selectedSummary.late}</strong>
+              </article>
+              <article className="hrAttSummary__card">
+                <span>Incomplete</span>
+                <strong>{selectedSummary.incomplete}</strong>
+              </article>
+              <article className="hrAttSummary__card">
+                <span>{hasFullRoster ? 'Absent' : 'Total Logs'}</span>
+                <strong>{hasFullRoster ? selectedSummary.absent ?? '-' : selectedSummary.totalLogs}</strong>
+              </article>
+            </div>
+
+            {!hasFullRoster && (
+              <p className="hrAtt__hint">
+                Absent counts are not shown because the backend does not currently expose a full employee roster to HR on this screen.
+              </p>
+            )}
+
+            <div className="hrAttBreakdown">
+              <section className="hrAttBreakdown__section">
+                <div className="hrAttBreakdown__title">
+                  <FiUsers />
+                  Present Employees
+                </div>
+
+                <div className="hrAttBreakdown__list">
+                  {selectedRecords.length > 0 ? (
+                    selectedRecords.map((record) => (
+                      <article key={`${selectedDateKey}-${record.employeeId}`} className="hrAttPerson">
+                        <div className="hrAttPerson__avatar" aria-hidden="true">
+                          {record.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="hrAttPerson__body">
+                          <div className="hrAttPerson__topLine">
+                            <div className="hrAttPerson__name">{record.name}</div>
+                            <div
+                              className={`hrAttPerson__badge ${
+                                record.isIncomplete
+                                  ? 'is-incomplete'
+                                  : record.isLate
+                                    ? 'is-late'
+                                    : 'is-on-time'
+                              }`}
+                            >
+                              {record.isIncomplete ? 'Incomplete' : record.isLate ? 'Late' : 'On Time'}
+                            </div>
+                          </div>
+                          <div className="hrAttPerson__meta">
+                            Employee #{record.employeeId} • {record.position} • {record.status}
+                          </div>
+                          <div className="hrAttPerson__times">
+                            <span>Time In: {record.inTime ?? 'N/A'}</span>
+                            <span>Time Out: {record.outTime ?? 'N/A'}</span>
+                            <span>Logs: {record.logCount}</span>
+                          </div>
+                        </div>
+                      </article>
+                    ))
+                  ) : (
+                    <div className="hrAttBreakdown__empty">No attendance logs recorded for this day.</div>
+                  )}
+                </div>
+              </section>
+
+              {hasFullRoster && (
+                <section className="hrAttBreakdown__section">
+                  <div className="hrAttBreakdown__title">
+                    <FiCalendar />
+                    No Logs Recorded
+                  </div>
+
+                  <div className="hrAttBreakdown__list">
+                    {selectedAbsent.length > 0 ? (
+                      selectedAbsent.map((employee) => (
+                        <article key={`absent-${selectedDateKey}-${employee.id}`} className="hrAttPerson hrAttPerson--soft">
+                          <div className="hrAttPerson__avatar" aria-hidden="true">
+                            {employee.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="hrAttPerson__body">
+                            <div className="hrAttPerson__topLine">
+                              <div className="hrAttPerson__name">{employee.name}</div>
+                              <div className="hrAttPerson__badge is-muted">No Logs</div>
+                            </div>
+                            <div className="hrAttPerson__meta">
+                              Employee #{employee.id} • {employee.position} • {employee.status}
+                            </div>
+                          </div>
+                        </article>
+                      ))
+                    ) : (
+                      <div className="hrAttBreakdown__empty">All active employees recorded attendance for this day.</div>
+                    )}
+                  </div>
+                </section>
+              )}
+            </div>
+
+            <div className="hrAttModal__actions">
+              <button className="hrAtt__actionBtn hrAtt__actionBtn--ghost" type="button" onClick={() => setDetailOpen(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

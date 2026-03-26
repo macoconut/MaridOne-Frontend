@@ -8,6 +8,10 @@
   --shadow-soft: 0 6px 14px rgba(0,0,0,.12);
 }
 
+body.modal-open{
+  overflow:hidden;
+}
+
 .dashPage{
   display:flex;
   flex-direction:column;
@@ -353,6 +357,117 @@
   font-size: 12px;
 }
 
+.dashModalBackdrop{
+  position: fixed;
+  inset: 0;
+  background: rgba(31, 22, 43, 0.48);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  z-index: 3000;
+}
+
+.dashModal{
+  width: min(760px, 94vw);
+  background: #fff;
+  border: 1.5px solid rgba(0,0,0,.14);
+  border-radius: 16px;
+  box-shadow: 0 18px 40px rgba(0,0,0,.20);
+  padding: 16px 16px 14px;
+}
+
+.dashModal__top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 12px;
+}
+
+.dashModal__title{
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--ink);
+}
+
+.dashModal__close{
+  border:none;
+  background: transparent;
+  color: var(--purple-dark);
+  font-size: 22px;
+  line-height: 1;
+  cursor:pointer;
+}
+
+.dashModal__rule{
+  height: 2px;
+  background: rgba(0,0,0,.16);
+  margin: 10px 0 14px;
+}
+
+.dashModal__grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 16px;
+}
+
+.dashModal__field{
+  display:flex;
+  flex-direction:column;
+  gap: 6px;
+}
+
+.dashModal__field--full{
+  grid-column: 1 / -1;
+}
+
+.dashModal__field span{
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.dashModal__field input{
+  height: 38px;
+  border: 1px solid rgba(0,0,0,.16);
+  border-radius: 10px;
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--ink);
+  background: #fff;
+}
+
+.dashModal__error{
+  margin-top: 12px;
+  color: #a63f4d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dashModal__actions{
+  display:flex;
+  justify-content:flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.dashModal__btn{
+  border:none;
+  background: var(--purple);
+  color:#fff;
+  font-weight:800;
+  font-size: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  cursor:pointer;
+  box-shadow: 0 8px 16px rgba(123,74,143,.22);
+}
+
+.dashModal__btn--ghost{
+  background: #ece5f3;
+  color: var(--purple-dark);
+  box-shadow: none;
+}
+
 /* responsive */
 @media (max-width: 1400px){
   .actionRowX{ grid-template-columns: 1fr 1fr; }
@@ -360,4 +475,5 @@
   .miniFolders{ grid-template-columns: 1fr; }
   .infoCardX__grid{ grid-template-columns: 1fr; }
   .infoCardX__divider{ display:none; }
+  .dashModal__grid{ grid-template-columns: 1fr; }
 }

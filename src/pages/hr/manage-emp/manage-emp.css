@@ -88,67 +88,170 @@ button.hrEmpRow:hover {
   z-index: 3000;
   display: grid;
   place-items: center;
-  padding: 20px;
+  padding: 16px;
+  overflow-y: auto;
 }
 
 .hrEmpModal {
   width: min(880px, 94vw);
-  background: #fff;
-  border-radius: 16px;
-  padding: 16px 16px 12px;
+  background:
+    radial-gradient(circle at top right, rgba(123, 74, 143, 0.08), transparent 26%),
+    linear-gradient(180deg, #ffffff 0%, #fbf8fe 100%);
+  border: 1px solid rgba(61, 38, 90, 0.12);
+  border-radius: 20px;
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.18);
+  padding: 18px 18px 14px;
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+}
+
+.hrEmpModal--picker {
+  width: min(640px, 94vw);
 }
 
 .hrEmpModal h2 {
   margin: 0;
   text-align: center;
   color: var(--hr-primary-dark);
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 900;
+  letter-spacing: -0.03em;
 }
 
 .hrEmpModal__rule {
   height: 2px;
-  background: rgba(0, 0, 0, 0.2);
-  margin: 8px 0 12px;
+  background: linear-gradient(90deg, rgba(123, 74, 143, 0.24), rgba(123, 74, 143, 0.04));
+  margin: 10px 0 14px;
+}
+
+.hrEmpPicker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: min(56vh, 460px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.hrEmpPicker__row {
+  width: 100%;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  background: #faf9fc;
+  padding: 12px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.hrEmpPicker__row:hover {
+  background: #f1ebfa;
+  border-color: rgba(123, 74, 143, 0.28);
+  transform: translateY(-1px);
+}
+
+.hrEmpPicker__primary,
+.hrEmpPicker__secondary {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.hrEmpPicker__primary strong {
+  color: var(--hr-primary-dark);
+  font-size: 13px;
+}
+
+.hrEmpPicker__primary span,
+.hrEmpPicker__secondary span,
+.hrEmpPicker__empty {
+  color: var(--hr-text);
+  font-size: 12px;
+}
+
+.hrEmpPicker__secondary {
+  align-items: flex-end;
+}
+
+.hrEmpPicker__empty {
+  padding: 12px 4px;
 }
 
 .hrEmpForm,
 .hrEmpDelete {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.hrEmpForm__section {
+  border: 1px solid rgba(61, 38, 90, 0.10);
+  border-radius: 16px;
+  background: #fff;
+  padding: 14px 14px 12px;
+}
+
+.hrEmpForm__sectionTitle {
+  color: var(--hr-primary-dark);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
 }
 
 .hrEmpForm__grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+}
+
+.hrEmpForm__grid--meta {
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
 }
 
 .hrEmpField {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
 }
 
 .hrEmpField label {
   color: var(--hr-text);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
-  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .hrEmpField input,
 .hrEmpField select,
 .hrEmpField textarea {
-  border: 1px solid rgba(0, 0, 0, 0.22);
-  border-radius: 4px;
-  background: var(--hr-surface-soft);
-  font-size: 12px;
+  border: 1px solid rgba(61, 38, 90, 0.16);
+  border-radius: 10px;
+  background: #fcfbfe;
+  font-size: 13px;
   color: var(--hr-text);
-  height: 30px;
-  padding: 0 10px;
+  min-height: 40px;
+  padding: 0 12px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.hrEmpField input:focus,
+.hrEmpField select:focus,
+.hrEmpField textarea:focus {
+  outline: none;
+  border-color: rgba(123, 74, 143, 0.42);
+  box-shadow: 0 0 0 4px rgba(123, 74, 143, 0.12);
+  background: #fff;
 }
 
 .hrEmpField input::placeholder,
@@ -157,7 +260,7 @@ button.hrEmpRow:hover {
 }
 
 .hrEmpField--full {
-  grid-template-columns: auto 1fr;
+  grid-column: 1 / -1;
 }
 
 .hrEmpField--icon {
@@ -174,14 +277,17 @@ button.hrEmpRow:hover {
 .hrEmpField textarea {
   min-height: 114px;
   resize: none;
-  padding: 8px 10px;
+  padding: 10px 12px;
 }
 
 .hrEmpModal__actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  padding-top: 10px;
+  padding-top: 6px;
+  margin-top: 12px;
+  border-top: 1px solid rgba(61, 38, 90, 0.10);
+  flex-shrink: 0;
 }
 
 .hrEmpForm__error,
@@ -225,11 +331,19 @@ button.hrEmpRow:hover {
 
   .hrEmpForm__grid {
     grid-template-columns: 1fr;
-    gap: 8px;
+    gap: 10px;
   }
 
   .hrEmpField {
-    grid-template-columns: 1fr;
-    align-items: start;
+    align-items: stretch;
+  }
+
+  .hrEmpPicker__row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .hrEmpPicker__secondary {
+    align-items: flex-start;
   }
 }
