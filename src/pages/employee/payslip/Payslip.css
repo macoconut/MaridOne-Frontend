@@ -18,6 +18,17 @@
   margin:2px 0 6px;
 }
 
+.pay__notice{
+  margin: 0;
+  border: 1px solid rgba(123, 74, 143, 0.18);
+  border-radius: 10px;
+  background: #faf6ff;
+  color: #56456e;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .pay__selectWrap{
   width: 360px;
   max-width: 100%;
@@ -198,6 +209,12 @@
   font-size:12px;
   box-shadow: 0 8px 16px rgba(123, 74, 143, 0.26);
   cursor:pointer;
+}
+
+.payBtn:disabled{
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 @media (max-width: 1100px){

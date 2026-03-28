@@ -37,13 +37,14 @@ type DisputeRow = {
 export default function Payslip() {
   const [employeeId, setEmployeeId] = useState<number | null>(null);
   const [payrollItems, setPayrollItems] = useState<PayrollItemRow[]>([]);
+  const [loadNotice, setLoadNotice] = useState('');
   const [selectedPeriodIndex, setSelectedPeriodIndex] = useState(0);
   const [payslipPeriods, setPayslipPeriods] = useState<string[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const [selectedRun, setSelectedRun] = useState<{ periodStart?: string; periodEnd?: string } | null>(null);
   const [employeeInfo, setEmployeeInfo] = useState<EmployeeDetails | null>(null);
-  const [earnings, setEarnings] = useState<Array<{ label: string; amount: string }>>([]);
-  const [deductions, setDeductions] = useState<Array<{ label: string; amount: string }>>([]);
+  const [earnings, setEarnings] = useState<Array<{ key: string; label: string; amount: string }>>([]);
+  const [deductions, setDeductions] = useState<Array<{ key: string; label: string; amount: string }>>([]);
   const [disputeOpen, setDisputeOpen] = useState(false);
   const [disputeSubject, setDisputeSubject] = useState('Overtime pay dispute');
   const [disputeReason, setDisputeReason] = useState('');
@@ -77,6 +78,11 @@ export default function Payslip() {
 
         const items = await apiFetchJson<unknown>(`/api/payroll/item/${resolvedEmpId}`);
         const rows = toArray<PayrollItemRow>(items);
+        setLoadNotice(
+          rows.length === 0
+            ? 'Posted payslips will appear here once HR posts a payroll run.'
+            : ''
+        );
         setPayrollItems(rows);
         setPayslipPeriods(
           rows.map((row, idx) => {
@@ -103,6 +109,7 @@ export default function Payslip() {
         setPayslipPeriods([]);
         setSelectedItemId(null);
         setSelectedRun(null);
+        setLoadNotice('We could not load your payslip records right now.');
       }
     })();
   }, []);
@@ -136,13 +143,15 @@ export default function Payslip() {
 
         setEarnings(
           toArray<Record<string, unknown>>(earningsResponse).map((row, idx) => ({
+            key: String(row.earningsId ?? `earn-${idx}-${row.description ?? row.type ?? 'unknown'}-${row.amount ?? '0.00'}`),
             label: String(row.description ?? row.type ?? `Earning ${idx + 1}`),
             amount: String(row.amount ?? '0.00'),
           }))
         );
         setDeductions(
           toArray<Record<string, unknown>>(deductionsResponse).map((row, idx) => ({
-            label: String(row.deductionType ?? row.description ?? `Deduction ${idx + 1}`),
+            key: String(row.deductionsId ?? `deduct-${idx}-${row.deductionType ?? row.description ?? 'unknown'}-${row.amount ?? '0.00'}`),
+            label: String(row.description ?? row.deductionType ?? `Deduction ${idx + 1}`),
             amount: String(row.amount ?? '0.00'),
           }))
         );
@@ -196,7 +205,10 @@ export default function Payslip() {
     return diffDays > 0 ? String(diffDays) : '-';
   }, [selectedRun]);
 
+  const hasPayslip = selectedItemId !== null;
+
   function handleDownload() {
+    if (!selectedItemId) return;
     const content = [
       `Employee ID: ${employeeId ?? '-'}`,
       `Selected Item ID: ${selectedItemId ?? '-'}`,
@@ -214,6 +226,7 @@ export default function Payslip() {
   }
 
   function openDisputeForm() {
+    if (!selectedItemId) return;
     setDisputeSubject('Overtime pay dispute');
     setDisputeReason('');
     setDisputeFile(null);
@@ -321,6 +334,7 @@ export default function Payslip() {
           </select>
         </div>
       </div>
+      {loadNotice && <p className="pay__notice">{loadNotice}</p>}
 
       <section className="payCard">
         <div className="payCard__header">
@@ -386,7 +400,7 @@ export default function Payslip() {
             </div>
             {earnings.length > 0 ? (
               earnings.map((item) => (
-                <div className="payTable__row" key={item.label}>
+                <div className="payTable__row" key={item.key}>
                   <span>{item.label}</span>
                   <span>{item.amount}</span>
                 </div>
@@ -410,7 +424,7 @@ export default function Payslip() {
             </div>
             {deductions.length > 0 ? (
               deductions.map((item) => (
-                <div className="payTable__row" key={item.label}>
+                <div className="payTable__row" key={item.key}>
                   <span>{item.label}</span>
                   <span>{item.amount}</span>
                 </div>
@@ -445,9 +459,9 @@ export default function Payslip() {
       </section>
 
       <div className="payActions">
-        <button className="payBtn" type="button" onClick={handleDownload}>Download Payslip</button>
-        <button className="payBtn" type="button" onClick={() => window.print()}>Print Payslip</button>
-        <button className="payBtn" type="button" onClick={openDisputeForm}>File Dispute</button>
+        <button className="payBtn" type="button" onClick={handleDownload} disabled={!hasPayslip}>Download Payslip</button>
+        <button className="payBtn" type="button" onClick={() => window.print()} disabled={!hasPayslip}>Print Payslip</button>
+        <button className="payBtn" type="button" onClick={openDisputeForm} disabled={!hasPayslip}>File Dispute</button>
       </div>
 
       {disputeOpen && (
