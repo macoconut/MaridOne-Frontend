@@ -16,6 +16,7 @@ import '../shared/hr-theme.css';
 import { getUserEmail } from '../../../lib/session';
 import { BACKEND_TEST_MODE } from '../../../config/flags';
 import { apiFetchRaw, expireCurrentSession, getApiBaseUrl } from '../../../lib/api';
+import { mapNotificationItem, type NotificationItem } from '../../../lib/notificationRouting';
 import {
   applyBodyPlaceholders,
   applyPathPlaceholders,
@@ -23,14 +24,6 @@ import {
   firstFromCollection,
   type PlaceholderContext,
 } from '../../../lib/backendTest';
-
-type NotificationItem = {
-  id: string;
-  title: string;
-  description?: string;
-  time: string;
-  isRead?: boolean;
-};
 
 type BackendTestAction = {
   label: string;
@@ -221,16 +214,29 @@ const backendActions: BackendTestAction[] = [
     path: '/api/logs/activity?page=0&size=25',
   },
   {
-    label: 'Create Payroll Run',
-    description: 'Create payroll run period.',
+    label: 'Process Payroll Run',
+    description: 'Create a regular payroll run and generate payroll items.',
     method: 'POST',
-    path: '/api/payroll/run/create',
+    path: '/api/payroll/run/process',
     body: {
       periodStart: '2026-02-01',
       periodEnd: '2026-02-15',
       periodDescription: 'Regular payroll run Feb 1-15',
       payrollStatus: 'IN_PROGRESS',
       runType: 'REGULAR',
+    },
+  },
+  {
+    label: 'Create Adjustment Run',
+    description: 'Create an adjustment payroll run for corrections.',
+    method: 'POST',
+    path: '/api/payroll/run/create',
+    body: {
+      periodStart: '2026-02-01',
+      periodEnd: '2026-02-15',
+      periodDescription: 'Adjustment payroll run Feb 1-15',
+      payrollStatus: 'IN_PROGRESS',
+      runType: 'ADJUSTMENT',
     },
   },
   {
@@ -350,18 +356,7 @@ export default function HrLayout() {
 
         const notifPayload = (await notifResponse.json()) as { content?: Array<Record<string, unknown>> };
         const mapped = Array.isArray(notifPayload?.content)
-          ? notifPayload.content.map((row) => {
-              const idRaw = row.notificationId;
-              const id = typeof idRaw === 'number' ? String(idRaw) : String(idRaw ?? crypto.randomUUID());
-              const createdAt = typeof row.createdAt === 'string' ? new Date(row.createdAt) : null;
-              return {
-                id,
-                title: typeof row.message === 'string' ? row.message : 'Notification',
-                description: typeof row.importance === 'string' ? `Importance: ${row.importance}` : undefined,
-                time: createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt.toLocaleString() : 'Now',
-                isRead: Boolean(row.readStatus),
-              } as NotificationItem;
-            })
+          ? notifPayload.content.map((row) => mapNotificationItem('hr', row))
           : [];
         setNotifications(mapped);
       } catch {
@@ -395,6 +390,12 @@ export default function HrLayout() {
     } catch {
       // no-op
     }
+  }
+
+  async function handleNotificationClick(notification: NotificationItem) {
+    await markNotificationRead(notification.id);
+    setNotifOpen(false);
+    navigate(notification.destination);
   }
 
   async function fetchJsonWithAuth(path: string) {
@@ -610,7 +611,12 @@ export default function HrLayout() {
                 <div className="notifPanel__list">
                   {notifications.length > 0 ? (
                     notifications.map((n) => (
-                      <button key={n.id} type="button" className="notifItem" onClick={() => void markNotificationRead(n.id)}>
+                      <button
+                        key={n.id}
+                        type="button"
+                        className="notifItem"
+                        onClick={() => void handleNotificationClick(n)}
+                      >
                         <div className="notifItem__icon">
                           <FiCheckCircle />
                         </div>

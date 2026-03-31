@@ -21,11 +21,14 @@ type UserDetails = {
     employmentDateStart?: string;
     employmentDate?: string;
     dateHired?: string;
+    position?: string;
+    employmentStatus?: string;
   };
 };
 
 type CalendarEvent = {
   day?: number;
+  title?: string;
 };
 
 type AttendanceLog = {
@@ -75,6 +78,8 @@ export default function Dashboard() {
   const [employee, setEmployee] = useState<UserDetails['employee'] | null>(null);
   const [employeeId, setEmployeeId] = useState<number | null>(null);
   const [eventDays, setEventDays] = useState<number[]>([]);
+  const [updateItems, setUpdateItems] = useState<string[]>([]);
+  const [eventHighlights, setEventHighlights] = useState<string[]>([]);
   const [lastLoginLabel, setLastLoginLabel] = useState<string>('Not available');
   const [lastAttendanceLabel, setLastAttendanceLabel] = useState<string>('Not available');
   const [calendarMonthIndex, setCalendarMonthIndex] = useState(new Date().getMonth());
@@ -208,14 +213,38 @@ export default function Dashboard() {
     const month = calendarMonthIndex + 1;
     const year = calendarYear;
     void (async () => {
-      try {
-        const events = await apiFetchJson<unknown>(`/api/calendar/events?month=${month}&year=${year}`);
-        const days = toArray<CalendarEvent>(events)
-          .map((item) => item.day)
-          .filter((day): day is number => typeof day === 'number');
-        setEventDays(days);
-      } catch {
+      const [eventsResponse, notificationsResponse] = await Promise.allSettled([
+        apiFetchJson<unknown>(`/api/calendar/events?month=${month}&year=${year}`),
+        apiFetchJson<unknown>('/api/notifications?page=0&size=8'),
+      ]);
+
+      if (eventsResponse.status === 'fulfilled') {
+        const eventRows = toArray<CalendarEvent>(eventsResponse.value);
+        setEventDays(
+          eventRows
+            .map((item) => item.day)
+            .filter((day): day is number => typeof day === 'number')
+        );
+        setEventHighlights(
+          eventRows
+            .map((item) => String(item.title ?? '').trim())
+            .filter((title) => title.length > 0)
+            .slice(0, 3)
+        );
+      } else {
         setEventDays([]);
+        setEventHighlights([]);
+      }
+
+      if (notificationsResponse.status === 'fulfilled') {
+        setUpdateItems(
+          toArray<Record<string, unknown>>(notificationsResponse.value)
+            .map((item) => String(item.message ?? '').trim())
+            .filter((message) => message.length > 0)
+            .slice(0, 3)
+        );
+      } else {
+        setUpdateItems([]);
       }
     })();
   }, [calendarMonthIndex, calendarYear]);
@@ -382,19 +411,20 @@ export default function Dashboard() {
         <div className="lowerColX">
           {/* training */}
           <div className="cardX">
-            <div className="cardX__title">Training and Onboarding Materials</div>
+            <div className="cardX__title">Latest HR Updates & Events</div>
 
             <div className="miniFolders">
               <div className="miniFolder">
                 <div className="miniFolder__icon" />
                 <div className="miniFolder__body">
-                  <div className="miniFolder__name">Updated Training v1.5</div>
+                  <div className="miniFolder__name">{updateItems[0] || 'No HR updates in your notification feed yet.'}</div>
                   <ul>
-                    <li>Revised workflow and role responsibilities</li>
-                    <li>Latest internal tool usage guidelines</li>
+                    {(updateItems.length > 1 ? updateItems.slice(1) : ['Check your notifications to see the latest HR announcements.']).map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
                   </ul>
                   <button className="miniFolder__btn" type="button" onClick={() => navigate('/employee/training')}>
-                    View Training Materials
+                    View Updates
                   </button>
                 </div>
               </div>
@@ -402,13 +432,14 @@ export default function Dashboard() {
               <div className="miniFolder">
                 <div className="miniFolder__icon" />
                 <div className="miniFolder__body">
-                  <div className="miniFolder__name">Updated Onboarding v1.5</div>
+                  <div className="miniFolder__name">{eventHighlights[0] || 'No company events scheduled this month.'}</div>
                   <ul>
-                    <li>Updated employee account setup process</li>
-                    <li>Current onboarding checkpoints and contacts</li>
+                    {(eventHighlights.length > 1 ? eventHighlights.slice(1) : ['Upcoming company events will appear here when the calendar is updated.']).map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
                   </ul>
                   <button className="miniFolder__btn" type="button" onClick={() => navigate('/employee/training')}>
-                    View Onboarding Materials
+                    View Events
                   </button>
                 </div>
               </div>
@@ -417,23 +448,23 @@ export default function Dashboard() {
 
           {/* handbook */}
           <div className="cardX">
-            <div className="cardX__title">Employee Handbook</div>
+            <div className="cardX__title">Employee Snapshot</div>
 
             <div className="handbookRow">
               <div className="handbookRow__icon" />
               <div className="handbookRow__body">
-                <div className="handbookRow__name">Updated Handbook v2.1</div>
+                <div className="handbookRow__name">Your current work profile</div>
                 <ul>
-                  <li>Current HR policies and attendance rules.</li>
-                  <li>Code of conduct and reporting procedures.</li>
+                  <li>Position: {employee?.position || 'Not available'}</li>
+                  <li>Employment Status: {employee?.employmentStatus || 'Not available'}</li>
                 </ul>
 
                 <div className="handbookRow__actions">
-                  <button className="handbookBtn" type="button" onClick={() => navigate('/employee/training')}>
-                    View Handbook
+                  <button className="handbookBtn" type="button" onClick={() => navigate('/employee/payslip')}>
+                    View Payslip
                   </button>
-                  <button className="handbookBtn" type="button" onClick={() => navigate('/employee/training')}>
-                    Download Handbook
+                  <button className="handbookBtn" type="button" onClick={() => navigate('/employee/attendance')}>
+                    View Attendance
                   </button>
                 </div>
               </div>

@@ -182,6 +182,14 @@
   text-align: center;
 }
 
+.hrDonutCard__meta {
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #54496b;
+  text-align: center;
+}
+
 .hrPager {
   display: flex;
   gap: 8px;
@@ -205,6 +213,16 @@
   gap: 8px;
   padding: 8px 8px 10px;
   flex-wrap: wrap;
+}
+
+.hrLegend--note {
+  padding-top: 0;
+}
+
+.hrLegend__note {
+  font-size: 11px;
+  font-weight: 700;
+  color: #554c69;
 }
 
 .hrLegend__item {

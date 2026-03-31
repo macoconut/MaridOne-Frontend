@@ -34,17 +34,71 @@ type DisputeRow = {
   status?: string;
 };
 
+type PayslipLine = {
+  key: string;
+  label: string;
+  amount: string;
+  originalAmount?: string;
+  adjustedBy?: string;
+  adjustedAt?: string;
+  isAdjusted: boolean;
+};
+
+function toMoneyString(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value.toFixed(2);
+  if (typeof value === 'string' && value.trim().length > 0) return value;
+  return '0.00';
+}
+
+function toOptionalMoneyString(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value.toFixed(2);
+  if (typeof value === 'string' && value.trim().length > 0) return value;
+  return undefined;
+}
+
+function toOptionalText(value: unknown) {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function formatAdjustmentTimestamp(value?: string) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function formatDisplayDate(value?: string) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+function formatPeriodLabel(start?: string, end?: string) {
+  if (!start || !end) return '-';
+  return `${formatDisplayDate(start)} to ${formatDisplayDate(end)}`;
+}
+
 export default function Payslip() {
   const [employeeId, setEmployeeId] = useState<number | null>(null);
   const [payrollItems, setPayrollItems] = useState<PayrollItemRow[]>([]);
-  const [loadNotice, setLoadNotice] = useState('');
   const [selectedPeriodIndex, setSelectedPeriodIndex] = useState(0);
   const [payslipPeriods, setPayslipPeriods] = useState<string[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const [selectedRun, setSelectedRun] = useState<{ periodStart?: string; periodEnd?: string } | null>(null);
   const [employeeInfo, setEmployeeInfo] = useState<EmployeeDetails | null>(null);
-  const [earnings, setEarnings] = useState<Array<{ key: string; label: string; amount: string }>>([]);
-  const [deductions, setDeductions] = useState<Array<{ key: string; label: string; amount: string }>>([]);
+  const [earnings, setEarnings] = useState<PayslipLine[]>([]);
+  const [deductions, setDeductions] = useState<PayslipLine[]>([]);
   const [disputeOpen, setDisputeOpen] = useState(false);
   const [disputeSubject, setDisputeSubject] = useState('Overtime pay dispute');
   const [disputeReason, setDisputeReason] = useState('');
@@ -78,17 +132,12 @@ export default function Payslip() {
 
         const items = await apiFetchJson<unknown>(`/api/payroll/item/${resolvedEmpId}`);
         const rows = toArray<PayrollItemRow>(items);
-        setLoadNotice(
-          rows.length === 0
-            ? 'Posted payslips will appear here once HR posts a payroll run.'
-            : ''
-        );
         setPayrollItems(rows);
         setPayslipPeriods(
           rows.map((row, idx) => {
             const start = row.runDetails?.periodStart;
             const end = row.runDetails?.periodEnd;
-            return start && end ? `${start} to ${end}` : `Payslip ${idx + 1}`;
+            return start && end ? formatPeriodLabel(start, end) : `Payslip ${idx + 1}`;
           })
         );
         const first = rows[0];
@@ -109,7 +158,6 @@ export default function Payslip() {
         setPayslipPeriods([]);
         setSelectedItemId(null);
         setSelectedRun(null);
-        setLoadNotice('We could not load your payslip records right now.');
       }
     })();
   }, []);
@@ -143,16 +191,24 @@ export default function Payslip() {
 
         setEarnings(
           toArray<Record<string, unknown>>(earningsResponse).map((row, idx) => ({
-            key: String(row.earningsId ?? `earn-${idx}-${row.description ?? row.type ?? 'unknown'}-${row.amount ?? '0.00'}`),
+            key: String(row.earningsId ?? `earning-${idx + 1}`),
             label: String(row.description ?? row.type ?? `Earning ${idx + 1}`),
-            amount: String(row.amount ?? '0.00'),
+            amount: toMoneyString(row.amount),
+            originalAmount: toOptionalMoneyString(row.originalAmount),
+            adjustedBy: toOptionalText(row.adjustedBy),
+            adjustedAt: toOptionalText(row.adjustedAt),
+            isAdjusted: row.originalAmount != null || row.adjustedAt != null || row.adjustedBy != null,
           }))
         );
         setDeductions(
           toArray<Record<string, unknown>>(deductionsResponse).map((row, idx) => ({
-            key: String(row.deductionsId ?? `deduct-${idx}-${row.deductionType ?? row.description ?? 'unknown'}-${row.amount ?? '0.00'}`),
-            label: String(row.description ?? row.deductionType ?? `Deduction ${idx + 1}`),
-            amount: String(row.amount ?? '0.00'),
+            key: String(row.deductionsId ?? `deduction-${idx + 1}`),
+            label: String(row.deductionType ?? row.description ?? `Deduction ${idx + 1}`),
+            amount: toMoneyString(row.amount),
+            originalAmount: toOptionalMoneyString(row.originalAmount),
+            adjustedBy: toOptionalText(row.adjustedBy),
+            adjustedAt: toOptionalText(row.adjustedAt),
+            isAdjusted: row.originalAmount != null || row.adjustedAt != null || row.adjustedBy != null,
           }))
         );
       } catch {
@@ -170,28 +226,17 @@ export default function Payslip() {
     () => deductions.reduce((sum, row) => sum + Number(row.amount || 0), 0),
     [deductions]
   );
+  const adjustedLines = useMemo(
+    () => [...earnings, ...deductions].filter((row) => row.isAdjusted),
+    [deductions, earnings]
+  );
+  const hasAdjustedLines = adjustedLines.length > 0;
 
   const employeeName = useMemo(() => {
     const parts = [employeeInfo?.firstName, employeeInfo?.middleName, employeeInfo?.lastName]
       .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
       .join(' ');
     return parts || '-';
-  }, [employeeInfo]);
-
-  const employeeAddress = useMemo(() => {
-    const addr = employeeInfo?.address;
-    if (!addr) return '-';
-    const parts = [
-      addr.permanentAddress,
-      addr.temporaryAddress,
-      addr.city,
-      addr.state,
-      addr.country,
-      addr.zipCode,
-    ]
-      .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
-      .map((part) => part.trim());
-    return parts.length > 0 ? parts.join(', ') : '-';
   }, [employeeInfo]);
 
   const workedDays = useMemo(() => {
@@ -205,13 +250,36 @@ export default function Payslip() {
     return diffDays > 0 ? String(diffDays) : '-';
   }, [selectedRun]);
 
-  const hasPayslip = selectedItemId !== null;
+  const displayPayPeriod = useMemo(
+    () => formatPeriodLabel(selectedRun?.periodStart, selectedRun?.periodEnd),
+    [selectedRun]
+  );
 
   function handleDownload() {
-    if (!selectedItemId) return;
+    const formatLine = (line: PayslipLine) => {
+      const parts = [`${line.label}: ${line.amount}`];
+      if (line.isAdjusted) {
+        parts.push(
+          `[Adjusted${line.originalAmount ? ` | Original: ${line.originalAmount}` : ''}${
+            line.adjustedBy ? ` | By: ${line.adjustedBy}` : ''
+          }${line.adjustedAt ? ` | At: ${formatAdjustmentTimestamp(line.adjustedAt)}` : ''}]`
+        );
+      }
+      return parts.join(' ');
+    };
+
     const content = [
       `Employee ID: ${employeeId ?? '-'}`,
       `Selected Item ID: ${selectedItemId ?? '-'}`,
+      `Pay Period: ${displayPayPeriod}`,
+      hasAdjustedLines ? `Adjusted Lines: ${adjustedLines.length}` : 'Adjusted Lines: 0',
+      '',
+      'Earnings:',
+      ...(earnings.length > 0 ? earnings.map(formatLine) : ['No earnings data available']),
+      '',
+      'Deductions:',
+      ...(deductions.length > 0 ? deductions.map(formatLine) : ['No deductions data available']),
+      '',
       `Total Earnings: ${totalEarnings.toFixed(2)}`,
       `Total Deductions: ${totalDeductions.toFixed(2)}`,
       `Net Pay: ${(totalEarnings - totalDeductions).toFixed(2)}`,
@@ -220,13 +288,12 @@ export default function Payslip() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `payslip-${selectedItemId ?? 'latest'}.txt`;
+    anchor.download = `payslip-summary-${selectedItemId ?? 'latest'}.txt`;
     anchor.click();
     URL.revokeObjectURL(url);
   }
 
   function openDisputeForm() {
-    if (!selectedItemId) return;
     setDisputeSubject('Overtime pay dispute');
     setDisputeReason('');
     setDisputeFile(null);
@@ -236,22 +303,30 @@ export default function Payslip() {
   }
 
   async function uploadDocument(file: File) {
-    const form = new FormData();
-    form.append('file', file);
-    const response = await apiFetchRaw('/api/document/upload', {
-      method: 'POST',
-      body: form,
-    });
-    if (!response.ok) {
-      throw new Error(
-        response.status === 404
-          ? 'Document upload endpoint is not enabled in current backend profile.'
-          : `Document upload failed (${response.status}).`
-      );
+    const uploadPaths = ['/api/document/upload', '/api/LOCAL/document/upload'];
+
+    for (const path of uploadPaths) {
+      const form = new FormData();
+      form.append('file', file);
+
+      const response = await apiFetchRaw(path, {
+        method: 'POST',
+        body: form,
+      });
+
+      if (response.ok) {
+        const payload = (await response.json()) as Record<string, unknown>;
+        const pathId = typeof payload.pathId === 'number' ? payload.pathId : null;
+        if (pathId != null) return pathId;
+        throw new Error('Document upload succeeded but no file reference was returned.');
+      }
+
+      if (response.status !== 404) {
+        throw new Error(`Document upload failed (${response.status}).`);
+      }
     }
-    const payload = (await response.json()) as Record<string, unknown>;
-    const pathId = typeof payload.pathId === 'number' ? payload.pathId : null;
-    return pathId;
+
+    throw new Error('Document upload endpoint is not enabled in current backend profile.');
   }
 
   async function submitDispute() {
@@ -334,19 +409,28 @@ export default function Payslip() {
           </select>
         </div>
       </div>
-      {loadNotice && <p className="pay__notice">{loadNotice}</p>}
 
       <section className="payCard">
         <div className="payCard__header">
             <div className="payCard__company">
               <div className="payCard__companyName">Marid Industries Corporation</div>
-              <div className="payCard__companyMeta">{employeeAddress}</div>
-              <div className="payCard__companyMeta">{employeeInfo?.email ?? 'marid@marid.com'}</div>
+              <div className="payCard__companyMeta">Employee payroll statement</div>
+              <div className="payCard__companyMeta">{displayPayPeriod}</div>
             </div>
           <div className="payCard__title">PAYSLIP</div>
         </div>
 
         <div className="payCard__rule" />
+
+        {hasAdjustedLines && (
+          <section className="payAdjustmentNotice" aria-live="polite">
+            <strong>This payslip contains adjusted payroll lines.</strong>
+            <span>
+              {adjustedLines.length} {adjustedLines.length === 1 ? 'entry was' : 'entries were'} updated after the
+              original computation.
+            </span>
+          </section>
+        )}
 
         <div className="payInfo">
           <div className="payInfo__col">
@@ -355,7 +439,7 @@ export default function Payslip() {
               <span className="payInfo__line">{employeeName}</span>
             </div>
             <div className="payInfo__row">
-              <span>Tax Number</span>
+              <span>Employee Number</span>
               <span className="payInfo__line">{employeeId ? `EMP-${employeeId}` : '-'}</span>
             </div>
             <div className="payInfo__row">
@@ -363,30 +447,26 @@ export default function Payslip() {
               <span className="payInfo__line">{employeeInfo?.position ?? '-'}</span>
             </div>
             <div className="payInfo__row">
-              <span>Department</span>
-              <span className="payInfo__line">{employeeInfo?.position ?? '-'}</span>
+              <span>Email</span>
+              <span className="payInfo__line">{employeeInfo?.email ?? '-'}</span>
             </div>
           </div>
 
           <div className="payInfo__col">
             <div className="payInfo__row">
               <span>Pay Period</span>
-              <span className="payInfo__line">
-                {selectedRun?.periodStart && selectedRun?.periodEnd
-                  ? `${selectedRun.periodStart} to ${selectedRun.periodEnd}`
-                  : '-'}
-              </span>
+              <span className="payInfo__line">{displayPayPeriod}</span>
             </div>
             <div className="payInfo__row">
               <span>Start Date</span>
-              <span className="payInfo__line">{selectedRun?.periodStart ?? '-'}</span>
+              <span className="payInfo__line">{formatDisplayDate(selectedRun?.periodStart)}</span>
             </div>
             <div className="payInfo__row">
               <span>End Date</span>
-              <span className="payInfo__line">{selectedRun?.periodEnd ?? '-'}</span>
+              <span className="payInfo__line">{formatDisplayDate(selectedRun?.periodEnd)}</span>
             </div>
             <div className="payInfo__row">
-              <span>Worked Days</span>
+              <span>Covered Days</span>
               <span className="payInfo__line">{workedDays}</span>
             </div>
           </div>
@@ -400,9 +480,25 @@ export default function Payslip() {
             </div>
             {earnings.length > 0 ? (
               earnings.map((item) => (
-                <div className="payTable__row" key={item.key}>
-                  <span>{item.label}</span>
-                  <span>{item.amount}</span>
+                <div className={`payTable__row${item.isAdjusted ? ' payTable__row--adjusted' : ''}`} key={item.key}>
+                  <div className="payTable__cell">
+                    <div className="payTable__lineTitle">
+                      <span>{item.label}</span>
+                      {item.isAdjusted && <span className="payTable__badge">Adjusted</span>}
+                    </div>
+                    {item.isAdjusted && (
+                      <div className="payTable__meta">
+                        {item.adjustedBy && <span>By {item.adjustedBy}</span>}
+                        {item.adjustedAt && <span>{formatAdjustmentTimestamp(item.adjustedAt)}</span>}
+                      </div>
+                    )}
+                  </div>
+                  <div className="payTable__amount">
+                    <span>{item.amount}</span>
+                    {item.isAdjusted && item.originalAmount && (
+                      <span className="payTable__original">Original: {item.originalAmount}</span>
+                    )}
+                  </div>
                 </div>
               ))
             ) : (
@@ -424,9 +520,25 @@ export default function Payslip() {
             </div>
             {deductions.length > 0 ? (
               deductions.map((item) => (
-                <div className="payTable__row" key={item.key}>
-                  <span>{item.label}</span>
-                  <span>{item.amount}</span>
+                <div className={`payTable__row${item.isAdjusted ? ' payTable__row--adjusted' : ''}`} key={item.key}>
+                  <div className="payTable__cell">
+                    <div className="payTable__lineTitle">
+                      <span>{item.label}</span>
+                      {item.isAdjusted && <span className="payTable__badge">Adjusted</span>}
+                    </div>
+                    {item.isAdjusted && (
+                      <div className="payTable__meta">
+                        {item.adjustedBy && <span>By {item.adjustedBy}</span>}
+                        {item.adjustedAt && <span>{formatAdjustmentTimestamp(item.adjustedAt)}</span>}
+                      </div>
+                    )}
+                  </div>
+                  <div className="payTable__amount">
+                    <span>{item.amount}</span>
+                    {item.isAdjusted && item.originalAmount && (
+                      <span className="payTable__original">Original: {item.originalAmount}</span>
+                    )}
+                  </div>
                 </div>
               ))
             ) : (
@@ -459,9 +571,9 @@ export default function Payslip() {
       </section>
 
       <div className="payActions">
-        <button className="payBtn" type="button" onClick={handleDownload} disabled={!hasPayslip}>Download Payslip</button>
-        <button className="payBtn" type="button" onClick={() => window.print()} disabled={!hasPayslip}>Print Payslip</button>
-        <button className="payBtn" type="button" onClick={openDisputeForm} disabled={!hasPayslip}>File Dispute</button>
+        <button className="payBtn" type="button" onClick={handleDownload}>Download Summary</button>
+        <button className="payBtn" type="button" onClick={() => window.print()}>Print Payslip</button>
+        <button className="payBtn" type="button" onClick={openDisputeForm}>File Dispute</button>
       </div>
 
       {disputeOpen && (

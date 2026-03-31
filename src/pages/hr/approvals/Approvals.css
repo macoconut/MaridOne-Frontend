@@ -202,6 +202,14 @@
   font-weight: 700;
 }
 
+.hrApprForm__hint {
+  margin: 2px 0 0;
+  color: #5a4b77;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
 .hrApprForm__inline {
   display: flex;
   align-items: center;

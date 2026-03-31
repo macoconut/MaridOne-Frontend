@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './Payslips.css';
@@ -10,6 +11,8 @@ type DisputeDto = {
   status?: string;
   createdAt?: string;
   itemId?: number;
+  employeeId?: number;
+  statusReason?: string;
 };
 
 type PayrollRunDto = {
@@ -22,49 +25,20 @@ type PayrollRunDto = {
   itemCount?: number;
 };
 
-type RunItemDto = {
-  empId?: number;
-  firstName?: string;
-  lastName?: string;
-  itemId?: number;
-  grossPay?: number | string;
-  netPay?: number | string;
-};
-
-type CorrectionSourceItemDto = {
-  itemId?: number;
-  empId?: number;
-  firstName?: string;
-  lastName?: string;
-  runDetails?: {
-    periodStart?: string;
-    periodEnd?: string;
-    runType?: string;
-  };
-  grossPay?: number | string;
-  netPay?: number | string;
-};
-
-type CorrectionLineOption = {
-  key: string;
-  sourceLineType: 'EARNING' | 'DEDUCTION';
-  sourceLineId: number;
-  label: string;
-  originalAmount: number;
-  formattedAmount: string;
-};
-
 type DisputeStatus = 'Open' | 'Clear';
 
 type DisputeRow = {
   id: number;
   itemId?: number;
+  employeeId?: number;
   employee: string;
   department: string;
   payrollPeriod: string;
   status: DisputeStatus;
+  rawStatus: string;
   subject: string;
   reason: string;
+  decisionSummary?: string;
 };
 
 type RunFormState = {
@@ -73,11 +47,47 @@ type RunFormState = {
   runType: 'REGULAR' | 'ADJUSTMENT';
 };
 
-type CorrectionFormState = {
-  targetPayId: string;
-  sourceLineKey: string;
-  correctedAmount: string;
+type CorrectionIntent = {
+  disputeId: number;
+  itemId: number;
+  employee: string;
+  message: string;
+  disputeReason: string;
+  decisionReason: string;
 };
+
+type CorrectionRouteState = {
+  correctionIntent?: CorrectionIntent;
+};
+
+type CorrectionSourceItem = {
+  itemId?: number;
+  empId?: number;
+  firstName?: string;
+  lastName?: string;
+  grossPay?: number | string;
+  netPay?: number | string;
+  runDetails?: {
+    id?: number;
+    periodStart?: string;
+    periodEnd?: string;
+    payrollStatus?: string;
+    runType?: string;
+  };
+};
+
+type CorrectionLine = {
+  key: string;
+  lineId: number;
+  lineType: 'EARNING' | 'DEDUCTION';
+  label: string;
+  amount: string;
+  originalAmount?: string;
+  adjustedBy?: string;
+  adjustedAt?: string;
+};
+
+const PAYROLL_RUN_STORAGE_KEY = 'maridone.hr.latestPayrollRun';
 
 function mapStatus(value: string | undefined): DisputeStatus {
   return value && value.toUpperCase() === 'PENDING' ? 'Open' : 'Clear';
@@ -97,6 +107,39 @@ function formatDate(value?: string) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
 }
 
+function formatDateTime(value?: string) {
+  if (!value) return 'Not available';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function toMoneyString(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value.toFixed(2);
+  if (typeof value === 'string' && value.trim().length > 0) return value;
+  return '0.00';
+}
+
+function toOptionalMoneyString(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value.toFixed(2);
+  if (typeof value === 'string' && value.trim().length > 0) return value;
+  return undefined;
+}
+
+function toOptionalText(value: unknown) {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function employeeLabel(employeeId?: number) {
+  return typeof employeeId === 'number' ? `Employee ID ${employeeId}` : 'Employee unavailable';
+}
+
 function createDefaultRunForm(): RunFormState {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -109,16 +152,12 @@ function createDefaultRunForm(): RunFormState {
   };
 }
 
-function createDefaultCorrectionForm(): CorrectionFormState {
-  return {
-    targetPayId: '',
-    sourceLineKey: '',
-    correctedAmount: '',
-  };
-}
-
 function describeRun(periodStart: string, periodEnd: string) {
   return `Payroll run ${periodStart} to ${periodEnd}`;
+}
+
+function describeAdjustmentRun(periodStart: string, periodEnd: string) {
+  return `Payroll adjustment ${periodStart} to ${periodEnd}`;
 }
 
 function formatRunType(value?: string) {
@@ -126,71 +165,31 @@ function formatRunType(value?: string) {
   return value === 'ADJUSTMENT' ? 'Adjustment Payroll' : 'Regular Payroll';
 }
 
-function formatMoney(value?: number | string) {
-  const amount = Number(value ?? 0);
-  if (!Number.isFinite(amount)) return '0.00';
-  return amount.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+function normalizeRunType(value?: string): RunFormState['runType'] {
+  return value === 'ADJUSTMENT' ? 'ADJUSTMENT' : 'REGULAR';
 }
 
-function formatCount(value?: number) {
-  const count = Number(value ?? 0);
-  return `${count} ${count === 1 ? 'payslip' : 'payslips'}`;
+function formatItemCount(value?: number) {
+  const count = typeof value === 'number' && Number.isFinite(value) ? value : 0;
+  return `${count} payroll item${count === 1 ? '' : 's'}`;
 }
 
-function buildEmployeeLabel(item: RunItemDto) {
-  const fullName = [item.firstName, item.lastName].filter(Boolean).join(' ').trim();
-  if (fullName) {
-    return item.empId ? `${fullName} (#${item.empId})` : fullName;
+function readStoredRun() {
+  try {
+    const raw = window.localStorage.getItem(PAYROLL_RUN_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PayrollRunDto;
+    if (!parsed || typeof parsed !== 'object') return null;
+    return parsed;
+  } catch {
+    return null;
   }
-  return item.empId ? `Employee #${item.empId}` : 'Employee record';
-}
-
-function buildCorrectionSourceLabel(item: CorrectionSourceItemDto | null) {
-  if (!item) return 'Posted payslip';
-  const fullName = [item.firstName, item.lastName].filter(Boolean).join(' ').trim();
-  return fullName ? `${fullName} (#${item.empId ?? '-'})` : `Employee #${item.empId ?? '-'}`;
-}
-
-function isOpenAdjustmentRun(run: PayrollRunDto) {
-  return run.runType === 'ADJUSTMENT' && run.payrollStatus !== 'POSTED' && Boolean(run.payId);
-}
-
-function isPostedRegularRun(run: PayrollRunDto | null | undefined) {
-  return run?.payrollStatus === 'POSTED' && run.runType !== 'ADJUSTMENT';
-}
-
-function toEarningCorrectionOptions(response: unknown): CorrectionLineOption[] {
-  return toArray<Record<string, unknown>>(response).map((row, idx) => {
-    const amount = Number(row.amount ?? 0);
-    return {
-      key: `EARNING:${row.earningsId ?? idx}`,
-      sourceLineType: 'EARNING',
-      sourceLineId: Number(row.earningsId ?? 0),
-      label: String(row.description ?? `Earning ${idx + 1}`),
-      originalAmount: amount,
-      formattedAmount: formatMoney(amount),
-    };
-  });
-}
-
-function toDeductionCorrectionOptions(response: unknown): CorrectionLineOption[] {
-  return toArray<Record<string, unknown>>(response).map((row, idx) => {
-    const amount = Number(row.amount ?? 0);
-    return {
-      key: `DEDUCTION:${row.deductionsId ?? idx}`,
-      sourceLineType: 'DEDUCTION',
-      sourceLineId: Number(row.deductionsId ?? 0),
-      label: String(row.description ?? row.deductionType ?? `Deduction ${idx + 1}`),
-      originalAmount: amount,
-      formattedAmount: formatMoney(amount),
-    };
-  });
 }
 
 export default function HrPayslips() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const handledCorrectionIntentRef = useRef<string | null>(null);
   const [disputes, setDisputes] = useState<DisputeRow[]>([]);
   const [selectedDispute, setSelectedDispute] = useState<DisputeRow | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -201,32 +200,84 @@ export default function HrPayslips() {
   const [runModalOpen, setRunModalOpen] = useState(false);
   const [postModalOpen, setPostModalOpen] = useState(false);
   const [runForm, setRunForm] = useState<RunFormState>(() => createDefaultRunForm());
-  const [isCreatingRun, setIsCreatingRun] = useState(false);
+  const [isSubmittingRun, setIsSubmittingRun] = useState(false);
   const [isPostingRun, setIsPostingRun] = useState(false);
   const [runMessage, setRunMessage] = useState('');
   const [runError, setRunError] = useState('');
-  const [runs, setRuns] = useState<PayrollRunDto[]>([]);
-  const [isLoadingRuns, setIsLoadingRuns] = useState(false);
-  const [isLoadingRunItems, setIsLoadingRunItems] = useState(false);
-  const [runItemsError, setRunItemsError] = useState('');
-  const [runItems, setRunItems] = useState<RunItemDto[]>([]);
   const [currentRun, setCurrentRun] = useState<PayrollRunDto | null>(null);
-  const [correctionModalOpen, setCorrectionModalOpen] = useState(false);
-  const [correctionSourceItem, setCorrectionSourceItem] = useState<CorrectionSourceItemDto | null>(null);
-  const [correctionLines, setCorrectionLines] = useState<CorrectionLineOption[]>([]);
-  const [correctionForm, setCorrectionForm] = useState<CorrectionFormState>(() => createDefaultCorrectionForm());
-  const [isLoadingCorrectionSource, setIsLoadingCorrectionSource] = useState(false);
-  const [isSavingCorrection, setIsSavingCorrection] = useState(false);
+  const [correctionOpen, setCorrectionOpen] = useState(false);
+  const [correctionIntent, setCorrectionIntent] = useState<CorrectionIntent | null>(null);
+  const [correctionSource, setCorrectionSource] = useState<CorrectionSourceItem | null>(null);
+  const [correctionLines, setCorrectionLines] = useState<CorrectionLine[]>([]);
+  const [selectedCorrectionKey, setSelectedCorrectionKey] = useState('');
+  const [correctedAmount, setCorrectedAmount] = useState('');
   const [correctionError, setCorrectionError] = useState('');
+  const [isLoadingCorrection, setIsLoadingCorrection] = useState(false);
+  const [isSubmittingCorrection, setIsSubmittingCorrection] = useState(false);
+  const [adjustmentRunId, setAdjustmentRunId] = useState<number | null>(null);
+
+  function syncRunForm(run: PayrollRunDto) {
+    setRunForm((prev) => ({
+      periodStart: run.periodStart ?? prev.periodStart,
+      periodEnd: run.periodEnd ?? prev.periodEnd,
+      runType: normalizeRunType(run.runType),
+    }));
+  }
+
+  async function loadCurrentRun(preferredPayId?: number | null) {
+    try {
+      const response = await apiFetchJson<unknown>('/api/payroll/run');
+      const runs = toArray<PayrollRunDto>(response);
+      const preferredRun =
+        preferredPayId != null ? runs.find((run) => run.payId === preferredPayId) ?? null : null;
+      const nextRun = preferredRun ?? runs.find((run) => (run.itemCount ?? 0) > 0) ?? runs[0] ?? null;
+
+      setCurrentRun(nextRun);
+      if (nextRun) syncRunForm(nextRun);
+    } catch (error) {
+      setRunError(getFriendlyErrorMessage(error, 'payroll-run'));
+    }
+  }
 
   useEffect(() => {
-    if (selectedDispute || runModalOpen || postModalOpen || correctionModalOpen) {
-      document.body.classList.add('modal-open');
-    }
+    if (selectedDispute || runModalOpen || postModalOpen || correctionOpen) document.body.classList.add('modal-open');
     else document.body.classList.remove('modal-open');
 
     return () => document.body.classList.remove('modal-open');
-  }, [correctionModalOpen, postModalOpen, runModalOpen, selectedDispute]);
+  }, [correctionOpen, postModalOpen, runModalOpen, selectedDispute]);
+
+  useEffect(() => {
+    const storedRun = readStoredRun();
+    if (storedRun) syncRunForm(storedRun);
+    const routeState = location.state as CorrectionRouteState | null;
+    if (routeState?.correctionIntent) return;
+    void loadCurrentRun(storedRun?.payId);
+  }, []);
+
+  useEffect(() => {
+    const routeState = location.state as CorrectionRouteState | null;
+    const intent = routeState?.correctionIntent;
+    if (!intent) return;
+
+    const intentKey = `${intent.disputeId}:${intent.itemId}:${intent.decisionReason}`;
+    if (handledCorrectionIntentRef.current === intentKey) return;
+    handledCorrectionIntentRef.current = intentKey;
+
+    void startApprovedDisputeCorrection(intent);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, location.state, navigate]);
+
+  useEffect(() => {
+    try {
+      if (currentRun) {
+        window.localStorage.setItem(PAYROLL_RUN_STORAGE_KEY, JSON.stringify(currentRun));
+      } else {
+        window.localStorage.removeItem(PAYROLL_RUN_STORAGE_KEY);
+      }
+    } catch {
+      // ignore storage write failures
+    }
+  }, [currentRun]);
 
   async function loadDisputes() {
     try {
@@ -235,12 +286,15 @@ export default function HrPayslips() {
       const mapped = toArray<DisputeDto>(response).map((item, idx) => ({
         id: item.id ?? idx + 1,
         itemId: item.itemId,
-        employee: `Item #${item.itemId ?? '-'}`,
-        department: 'From backend',
+        employeeId: item.employeeId,
+        employee: employeeLabel(item.employeeId),
+        department: 'Payroll',
         payrollPeriod: item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'No date',
         status: mapStatus(item.status),
+        rawStatus: item.status || 'PENDING',
         subject: item.subject || 'Payroll dispute',
         reason: item.reason || '',
+        decisionSummary: item.statusReason || '',
       }));
       setDisputes(mapped);
     } catch (error) {
@@ -249,180 +303,250 @@ export default function HrPayslips() {
     }
   }
 
-  async function loadRuns(selectedPayId?: number) {
-    setIsLoadingRuns(true);
-    setRunError('');
-    try {
-      const response = await apiFetchJson<unknown>('/api/payroll/run');
-      const rows = toArray<PayrollRunDto>(response);
-      setRuns(rows);
-
-      const preferredRun =
-        (selectedPayId ? rows.find((row) => row.payId === selectedPayId) : null) ??
-        (currentRun?.payId ? rows.find((row) => row.payId === currentRun.payId) : null) ??
-        rows[0] ??
-        null;
-
-      setCurrentRun(preferredRun);
-      if (preferredRun) {
-        setRunForm((prev) => ({
-          periodStart: preferredRun.periodStart ?? prev.periodStart,
-          periodEnd: preferredRun.periodEnd ?? prev.periodEnd,
-          runType:
-            preferredRun.runType === 'ADJUSTMENT' || preferredRun.runType === 'REGULAR'
-              ? preferredRun.runType
-              : prev.runType,
-        }));
-      }
-    } catch (error) {
-      setRuns([]);
-      setCurrentRun(null);
-      setRunError(getFriendlyErrorMessage(error, 'payroll-run'));
-    } finally {
-      setIsLoadingRuns(false);
-    }
-  }
-
-  async function loadRunItems(payId: number) {
-    setIsLoadingRunItems(true);
-    setRunItemsError('');
-    try {
-      const response = await apiFetchJson<unknown>(`/api/payroll/run/${payId}/items?page=0&size=100`);
-      setRunItems(toArray<RunItemDto>(response));
-    } catch (error) {
-      setRunItems([]);
-      setRunItemsError(getFriendlyErrorMessage(error, 'payroll-run'));
-    } finally {
-      setIsLoadingRunItems(false);
-    }
-  }
-
   useEffect(() => {
     void loadDisputes();
-    void loadRuns();
   }, []);
-
-  useEffect(() => {
-    if (!currentRun?.payId) {
-      setRunItems([]);
-      setRunItemsError('');
-      return;
-    }
-
-    void loadRunItems(currentRun.payId);
-  }, [currentRun?.payId]);
 
   const displayedPeriodStart = currentRun?.periodStart ?? runForm.periodStart;
   const displayedPeriodEnd = currentRun?.periodEnd ?? runForm.periodEnd;
+  const canPostCurrentRun =
+    Boolean(currentRun?.payId) &&
+    currentRun?.payrollStatus !== 'POSTED' &&
+    (currentRun?.itemCount ?? 0) > 0;
+  const emptyRunHint =
+    currentRun && currentRun.payrollStatus !== 'POSTED' && (currentRun.itemCount ?? 0) <= 0
+      ? currentRun.runType === 'ADJUSTMENT'
+        ? 'This adjustment run is still empty. Add correction items before posting it.'
+        : 'This run has no generated payroll items yet. Process the payroll period again or check if there were eligible employees for these dates.'
+      : '';
+  const runModalTitle =
+    runForm.runType === 'ADJUSTMENT' ? 'Create Adjustment Run' : 'Process Payroll Run';
+  const runModalIntro =
+    runForm.runType === 'ADJUSTMENT'
+      ? 'Adjustment runs start empty so HR can add correction lines before posting them.'
+      : 'This will create the payroll run and immediately generate payroll items for all eligible employees in the selected period.';
+  const runSubmitLabel =
+    runForm.runType === 'ADJUSTMENT' ? 'Create Adjustment Run' : 'Process Payroll';
 
-  const currentPayPeriod = useMemo(() => formatDate(displayedPeriodEnd), [displayedPeriodEnd]);
-  const openAdjustmentRuns = useMemo(() => runs.filter(isOpenAdjustmentRun), [runs]);
-  const canStageCorrections = openAdjustmentRuns.length > 0;
-  const canCorrectCurrentRun = isPostedRegularRun(currentRun) && canStageCorrections;
+  const currentPayPeriod = useMemo(() => {
+    return formatDate(displayedPeriodEnd);
+  }, [displayedPeriodEnd]);
+  const canReviewSelectedDispute =
+    selectedDispute ? String(selectedDispute.rawStatus ?? '').toUpperCase() === 'PENDING' : false;
+
   const selectedCorrectionLine = useMemo(
-    () => correctionLines.find((line) => line.key === correctionForm.sourceLineKey) ?? null,
-    [correctionForm.sourceLineKey, correctionLines]
+    () => correctionLines.find((line) => line.key === selectedCorrectionKey) ?? null,
+    [correctionLines, selectedCorrectionKey]
   );
-  const correctionDeltaPreview = useMemo(() => {
-    if (!selectedCorrectionLine) return '';
-    const correctedAmount = Number(correctionForm.correctedAmount);
-    if (!Number.isFinite(correctedAmount) || correctedAmount < 0) {
-      return 'Enter the corrected amount for the selected source line.';
-    }
 
-    const delta = Number((correctedAmount - selectedCorrectionLine.originalAmount).toFixed(2));
-    if (delta === 0) {
-      return 'No delta will be created because the corrected amount matches the current line.';
-    }
-
-    const direction =
-      selectedCorrectionLine.sourceLineType === 'EARNING'
-        ? delta > 0
-          ? `This will add an earning adjustment of ${formatMoney(delta)}.`
-          : `This will add a deduction adjustment of ${formatMoney(Math.abs(delta))} to recover the overpayment.`
-        : delta > 0
-          ? `This will add a deduction adjustment of ${formatMoney(delta)}.`
-          : `This will add an earning adjustment of ${formatMoney(Math.abs(delta))} to refund the overdeduction.`;
-
-    return direction;
-  }, [correctionForm.correctedAmount, selectedCorrectionLine]);
-
-  async function selectRun(payId?: number) {
-    if (!payId) return;
-    setRunError('');
-    try {
-      const run = await apiFetchJson<PayrollRunDto>(`/api/payroll/run/${payId}`);
-      setCurrentRun(run);
-    } catch (error) {
-      setRunError(getFriendlyErrorMessage(error, 'payroll-run'));
-    }
-  }
-
-  function closeCorrectionModal() {
-    setCorrectionModalOpen(false);
-    setCorrectionSourceItem(null);
+  function resetCorrectionState() {
+    setCorrectionOpen(false);
+    setCorrectionIntent(null);
+    setCorrectionSource(null);
     setCorrectionLines([]);
-    setCorrectionForm(createDefaultCorrectionForm());
+    setSelectedCorrectionKey('');
+    setCorrectedAmount('');
     setCorrectionError('');
-    setIsLoadingCorrectionSource(false);
+    setIsLoadingCorrection(false);
+    setIsSubmittingCorrection(false);
+    setAdjustmentRunId(null);
   }
 
-  async function openCorrectionModal(sourceItemId?: number) {
-    if (!sourceItemId) {
-      setCorrectionError('Choose a posted payslip item first.');
+  async function ensureAdjustmentRun(source: CorrectionSourceItem) {
+    const sourceRun = source.runDetails;
+    const sourceStart = sourceRun?.periodStart;
+    const sourceEnd = sourceRun?.periodEnd;
+
+    if (!sourceStart || !sourceEnd) {
+      throw new Error('The source payslip is missing its payroll period, so no adjustment run can be prepared yet.');
+    }
+
+    const runsResponse = await apiFetchJson<unknown>('/api/payroll/run');
+    const runs = toArray<PayrollRunDto>(runsResponse);
+    const reusableRun =
+      runs.find(
+        (run) =>
+          run.runType === 'ADJUSTMENT' &&
+          run.payrollStatus !== 'POSTED' &&
+          run.periodStart === sourceStart &&
+          run.periodEnd === sourceEnd
+      ) ?? null;
+
+    if (reusableRun) {
+      setCurrentRun(reusableRun);
+      syncRunForm(reusableRun);
+      setAdjustmentRunId(reusableRun.payId ?? null);
+      setRunMessage(`Reusing adjustment run #${reusableRun.payId ?? '-'} for this approved dispute.`);
+      return reusableRun;
+    }
+
+    const createdRun = await apiFetchJson<PayrollRunDto>('/api/payroll/run/create', {
+      method: 'POST',
+      body: JSON.stringify({
+        periodStart: sourceStart,
+        periodEnd: sourceEnd,
+        periodDescription: describeAdjustmentRun(sourceStart, sourceEnd),
+        payrollStatus: 'IN_PROGRESS',
+        runType: 'ADJUSTMENT',
+      }),
+    });
+
+    setCurrentRun(createdRun);
+    syncRunForm(createdRun);
+    setAdjustmentRunId(createdRun.payId ?? null);
+    setRunMessage(`Adjustment run #${createdRun.payId ?? '-'} is ready for the approved dispute.`);
+    return createdRun;
+  }
+
+  async function startApprovedDisputeCorrection(intent: CorrectionIntent) {
+    setCorrectionOpen(true);
+    setCorrectionIntent(intent);
+    setCorrectionSource(null);
+    setCorrectionLines([]);
+    setSelectedCorrectionKey('');
+    setCorrectedAmount('');
+    setCorrectionError('');
+    setIsLoadingCorrection(true);
+
+    try {
+      const [sourceResponse, earningsResponse, deductionsResponse] = await Promise.all([
+        apiFetchJson<CorrectionSourceItem>(`/api/payroll/item/manage/${intent.itemId}`),
+        apiFetchJson<unknown>(`/api/payroll/item/earnings/${intent.itemId}`),
+        apiFetchJson<unknown>(`/api/payroll/item/deductions/${intent.itemId}`),
+      ]);
+
+      const nextLines: CorrectionLine[] = [
+        ...toArray<Record<string, unknown>>(earningsResponse).map((row, idx) => ({
+          key: `EARNING-${String(row.earningsId ?? idx + 1)}`,
+          lineId: Number(row.earningsId),
+          lineType: 'EARNING' as const,
+          label: String(row.description ?? `Earning ${idx + 1}`),
+          amount: toMoneyString(row.amount),
+          originalAmount: toOptionalMoneyString(row.originalAmount),
+          adjustedBy: toOptionalText(row.adjustedBy),
+          adjustedAt: toOptionalText(row.adjustedAt),
+        })),
+        ...toArray<Record<string, unknown>>(deductionsResponse).map((row, idx) => ({
+          key: `DEDUCTION-${String(row.deductionsId ?? idx + 1)}`,
+          lineId: Number(row.deductionsId),
+          lineType: 'DEDUCTION' as const,
+          label: String(row.description ?? row.deductionType ?? `Deduction ${idx + 1}`),
+          amount: toMoneyString(row.amount),
+          originalAmount: toOptionalMoneyString(row.originalAmount),
+          adjustedBy: toOptionalText(row.adjustedBy),
+          adjustedAt: toOptionalText(row.adjustedAt),
+        })),
+      ].filter((line) => Number.isFinite(line.lineId) && line.lineId > 0);
+
+      if (nextLines.length === 0) {
+        throw new Error('No earnings or deductions were found for the selected payslip item.');
+      }
+
+      setCorrectionSource(sourceResponse);
+      setCorrectionLines(nextLines);
+      setSelectedCorrectionKey(nextLines[0]?.key ?? '');
+      await ensureAdjustmentRun(sourceResponse);
+    } catch (error) {
+      setCorrectionError(getFriendlyErrorMessage(error, 'payroll-dispute'));
+      if (!currentRun) {
+        await loadCurrentRun();
+      }
+    } finally {
+      setIsLoadingCorrection(false);
+    }
+  }
+
+  async function submitCorrection() {
+    if (!correctionIntent || !correctionSource?.itemId || !selectedCorrectionLine || !adjustmentRunId) {
+      setCorrectionError('Complete the correction details before submitting.');
       return;
     }
 
-    setCorrectionModalOpen(true);
-    setIsLoadingCorrectionSource(true);
+    const trimmedAmount = correctedAmount.trim();
+    if (!trimmedAmount) {
+      setCorrectionError('Enter the corrected amount before staging this payroll change.');
+      return;
+    }
+
+    const parsedAmount = Number(trimmedAmount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount < 0) {
+      setCorrectionError('Corrected amount must be a valid non-negative number.');
+      return;
+    }
+
+    if (parsedAmount.toFixed(2) === Number(selectedCorrectionLine.amount).toFixed(2)) {
+      setCorrectionError('Change the amount before submitting. The corrected amount cannot match the current line.');
+      return;
+    }
+
     setCorrectionError('');
+    setIsSubmittingCorrection(true);
     try {
-      const [sourceItem, earningsResponse, deductionsResponse] = await Promise.all([
-        apiFetchJson<CorrectionSourceItemDto>(`/api/payroll/item/manage/${sourceItemId}`),
-        apiFetchJson<unknown>(`/api/payroll/item/earnings/${sourceItemId}`),
-        apiFetchJson<unknown>(`/api/payroll/item/deductions/${sourceItemId}`),
-      ]);
-
-      const sourceLines = [...toEarningCorrectionOptions(earningsResponse), ...toDeductionCorrectionOptions(deductionsResponse)]
-        .filter((line) => Number.isFinite(line.sourceLineId) && line.sourceLineId > 0);
-      const preferredTargetPayId =
-        currentRun && isOpenAdjustmentRun(currentRun)
-          ? String(currentRun.payId)
-          : String(openAdjustmentRuns[0]?.payId ?? '');
-      const firstLine = sourceLines[0] ?? null;
-
-      setCorrectionSourceItem(sourceItem);
-      setCorrectionLines(sourceLines);
-      setCorrectionForm({
-        targetPayId: preferredTargetPayId,
-        sourceLineKey: firstLine?.key ?? '',
-        correctedAmount: firstLine ? String(firstLine.originalAmount.toFixed(2)) : '',
+      await apiFetchJson(`/api/payroll/run/${adjustmentRunId}/adjustment/correction`, {
+        method: 'POST',
+        body: JSON.stringify({
+          sourceItemId: correctionSource.itemId,
+          sourceLineType: selectedCorrectionLine.lineType,
+          sourceLineId: selectedCorrectionLine.lineId,
+          correctedAmount: trimmedAmount,
+          disputeId: correctionIntent.disputeId,
+        }),
       });
+
+      const runId = adjustmentRunId;
+      const employee = correctionIntent.employee;
+      resetCorrectionState();
+      await loadCurrentRun(runId);
+      await loadDisputes();
+      setRunMessage(
+        `Approved dispute for ${employee} was staged in adjustment run #${runId}. Review the run and post it when you are ready.`
+      );
     } catch (error) {
-      setCorrectionSourceItem(null);
-      setCorrectionLines([]);
-      setCorrectionForm(createDefaultCorrectionForm());
-      setCorrectionError(getFriendlyErrorMessage(error, 'payroll-run'));
+      setCorrectionError(getFriendlyErrorMessage(error, 'payroll-dispute'));
     } finally {
-      setIsLoadingCorrectionSource(false);
+      setIsSubmittingCorrection(false);
     }
   }
 
   async function updateDispute(status: 'APPROVED' | 'REJECTED') {
     if (!selectedDispute) return;
+    const trimmedRemarks = remarks.trim();
+    if (trimmedRemarks.length < 5) {
+      setActionError('Please enter at least 5 characters explaining the approval or denial.');
+      return;
+    }
+
     setIsSaving(true);
     setActionError('');
     try {
-      await apiFetchJson(`/api/payroll/item/dispute/update/${selectedDispute.id}`, {
+      const activeDispute = selectedDispute;
+      await apiFetchJson(`/api/payroll/item/dispute/update/${activeDispute.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
           status,
-          statusReason: remarks.trim() || `${status} by HR in payslip review`,
+          statusReason: trimmedRemarks,
         }),
       });
+
+      const approvedIntent =
+        status === 'APPROVED' && typeof activeDispute.itemId === 'number'
+          ? {
+              disputeId: activeDispute.id,
+              itemId: activeDispute.itemId,
+              employee: activeDispute.employee,
+              message: activeDispute.subject,
+              disputeReason: activeDispute.reason,
+              decisionReason: trimmedRemarks,
+            }
+          : null;
+
       setSelectedDispute(null);
       setRemarks('');
       await loadDisputes();
+
+      if (approvedIntent) {
+        await startApprovedDisputeCorrection(approvedIntent);
+      }
     } catch (error) {
       setActionError(getFriendlyErrorMessage(error, 'payroll-dispute'));
     } finally {
@@ -430,7 +554,7 @@ export default function HrPayslips() {
     }
   }
 
-  async function createPayrollRun() {
+  async function submitPayrollRun() {
     setRunError('');
     setRunMessage('');
 
@@ -444,9 +568,11 @@ export default function HrPayslips() {
       return;
     }
 
-    setIsCreatingRun(true);
+    const isAdjustmentRun = runForm.runType === 'ADJUSTMENT';
+    const endpoint = isAdjustmentRun ? '/api/payroll/run/create' : '/api/payroll/run/process';
+
+    setIsSubmittingRun(true);
     try {
-      const endpoint = runForm.runType === 'ADJUSTMENT' ? '/api/payroll/run/create' : '/api/payroll/run/process';
       const createdRun = await apiFetchJson<PayrollRunDto>(endpoint, {
         method: 'POST',
         body: JSON.stringify({
@@ -458,70 +584,37 @@ export default function HrPayslips() {
         }),
       });
 
-      await loadRuns(createdRun.payId);
       setCurrentRun(createdRun);
+      syncRunForm(createdRun);
       setRunModalOpen(false);
-      setRunMessage(
-        runForm.runType === 'ADJUSTMENT'
-          ? `Adjustment run #${createdRun.payId ?? '-'} is ready for linked payroll corrections.`
-          : `Payroll run #${createdRun.payId ?? '-'} generated ${formatCount(createdRun.itemCount)}.`
-      );
+
+      const generatedCount = createdRun.itemCount ?? 0;
+      if (isAdjustmentRun) {
+        setRunMessage(`Adjustment run #${createdRun.payId ?? '-'} is ready for corrections.`);
+      } else if (generatedCount > 0) {
+        setRunMessage(
+          `Payroll run #${createdRun.payId ?? '-'} generated ${formatItemCount(generatedCount)}.`
+        );
+      } else {
+        setRunMessage(
+          `Payroll run #${createdRun.payId ?? '-'} was processed, but no payroll items were generated for this period.`
+        );
+      }
     } catch (error) {
       setRunError(getFriendlyErrorMessage(error, 'payroll-run'));
     } finally {
-      setIsCreatingRun(false);
-    }
-  }
-
-  async function createLineCorrection() {
-    if (!correctionSourceItem?.itemId) {
-      setCorrectionError('Pick the posted payslip item you want to correct.');
-      return;
-    }
-    if (!correctionForm.targetPayId) {
-      setCorrectionError('Create or choose an open adjustment run first.');
-      return;
-    }
-    if (!selectedCorrectionLine) {
-      setCorrectionError('Choose the specific payslip line that needs correcting.');
-      return;
-    }
-
-    const correctedAmount = Number(correctionForm.correctedAmount);
-    if (!Number.isFinite(correctedAmount) || correctedAmount < 0) {
-      setCorrectionError('Enter a valid corrected amount.');
-      return;
-    }
-
-    setIsSavingCorrection(true);
-    setCorrectionError('');
-    try {
-      await apiFetchJson(`/api/payroll/run/${correctionForm.targetPayId}/adjustment/correction`, {
-        method: 'POST',
-        body: JSON.stringify({
-          sourceItemId: correctionSourceItem.itemId,
-          sourceLineType: selectedCorrectionLine.sourceLineType,
-          sourceLineId: selectedCorrectionLine.sourceLineId,
-          correctedAmount: correctionForm.correctedAmount,
-        }),
-      });
-
-      await loadRuns(Number(correctionForm.targetPayId));
-      await loadRunItems(Number(correctionForm.targetPayId));
-      setRunMessage(
-        `Created a correction for ${selectedCorrectionLine.label} on ${buildCorrectionSourceLabel(correctionSourceItem)}.`
-      );
-      closeCorrectionModal();
-    } catch (error) {
-      setCorrectionError(getFriendlyErrorMessage(error, 'payroll-run'));
-    } finally {
-      setIsSavingCorrection(false);
+      setIsSubmittingRun(false);
     }
   }
 
   async function postCurrentRun() {
     if (!currentRun?.payId) {
       setRunError('Create a payroll run first before posting it.');
+      return;
+    }
+
+    if ((currentRun.itemCount ?? 0) <= 0) {
+      setRunError('Generate payroll items first before posting this run.');
       return;
     }
 
@@ -532,22 +625,15 @@ export default function HrPayslips() {
       const postedRun = await apiFetchJson<PayrollRunDto>(`/api/payroll/run/${currentRun.payId}/post`, {
         method: 'PATCH',
       });
-      await loadRuns(postedRun.payId);
       setCurrentRun(postedRun);
       setPostModalOpen(false);
-      setRunMessage(`Payroll run #${postedRun.payId ?? '-'} has been posted and released to employees.`);
+      setRunMessage(`Payroll run #${postedRun.payId ?? '-'} has been posted.`);
     } catch (error) {
       setRunError(getFriendlyErrorMessage(error, 'payroll-run'));
     } finally {
       setIsPostingRun(false);
     }
   }
-
-  const runActionLabel = runForm.runType === 'ADJUSTMENT' ? 'Create Adjustment Run' : 'Generate Payroll';
-  const runActionIntro =
-    runForm.runType === 'ADJUSTMENT'
-      ? 'Create an empty adjustment run that HR can use to stage corrections for specific posted payslip lines.'
-      : 'Generate payroll items for every active employee in this cutoff period.';
 
   return (
     <div className="hrPay">
@@ -568,14 +654,14 @@ export default function HrPayslips() {
             <div className="hrPayPeriod__meta">
               <span className="hrPayPill">{currentRun.runType ?? 'REGULAR'}</span>
               <span className="hrPayPill hrPayPill--status">{currentRun.payrollStatus ?? 'IN_PROGRESS'}</span>
-              <span className="hrPayPill hrPayPill--count">{formatCount(currentRun.itemCount)}</span>
               <span className="hrPayPeriod__runId">Run ID #{currentRun.payId ?? '-'}</span>
+              <span className="hrPayPeriod__runCount">{formatItemCount(currentRun.itemCount)}</span>
             </div>
           )}
         </div>
 
         <div className="hrPayPeriod__actions">
-          {currentRun?.payId && currentRun.payrollStatus !== 'POSTED' && (
+          {canPostCurrentRun && (
             <button
               type="button"
               className="hrPay__runBtn hrPay__runBtn--secondary"
@@ -616,121 +702,7 @@ export default function HrPayslips() {
         </section>
       )}
       {runError && <p className="hrPay__message">{runError}</p>}
-
-      <section className="hrPayRunGrid">
-        <article className="hrPayPanel">
-          <header className="hrPayPanel__head">Payroll Runs</header>
-
-          <div className="hrPayRunList">
-            {isLoadingRuns ? (
-              <div className="hrPayRunList__empty">Loading payroll runs...</div>
-            ) : runs.length > 0 ? (
-              runs.map((run) => (
-                <button
-                  key={run.payId ?? `${run.periodStart}-${run.periodEnd}`}
-                  type="button"
-                  className={`hrPayRunCard ${run.payId === currentRun?.payId ? 'is-active' : ''}`}
-                  onClick={() => void selectRun(run.payId)}
-                >
-                  <div className="hrPayRunCard__top">
-                    <strong>{formatRunType(run.runType)}</strong>
-                    <span className="hrPayPill hrPayPill--status">{run.payrollStatus ?? 'IN_PROGRESS'}</span>
-                  </div>
-                  <div className="hrPayRunCard__period">
-                    {formatDate(run.periodStart)} - {formatDate(run.periodEnd)}
-                  </div>
-                  <div className="hrPayRunCard__meta">
-                    <span>Run #{run.payId ?? '-'}</span>
-                    <span>{formatCount(run.itemCount)}</span>
-                  </div>
-                </button>
-              ))
-            ) : (
-              <div className="hrPayRunList__empty">
-                No payroll runs yet. Generate a regular run to create payslips, or create an adjustment run to stage payroll corrections.
-              </div>
-            )}
-          </div>
-        </article>
-
-        <article className="hrPayPanel">
-          <header className="hrPayPanel__head">Generated Payslips</header>
-          {runItemsError && <p className="hrPay__message">{runItemsError}</p>}
-
-          <div className="hrPayRunSummary">
-            {currentRun ? (
-              <>
-                <strong>{formatRunType(currentRun.runType)}</strong>
-                <span>
-                  {formatDate(currentRun.periodStart)} - {formatDate(currentRun.periodEnd)}
-                </span>
-                <span>{formatCount(currentRun.itemCount)}</span>
-                {canCorrectCurrentRun && (
-                  <span>Click a payslip row to correct a specific posted line.</span>
-                )}
-                {isPostedRegularRun(currentRun) && !canStageCorrections && (
-                  <span>Create an in-progress adjustment run first to enable payslip corrections.</span>
-                )}
-              </>
-            ) : (
-              <span>Select a payroll run to inspect its generated payslips.</span>
-            )}
-          </div>
-
-          <div className="hrPayTable">
-            <div className="hrPayTable__head hrPayTable__head--run">
-              <span>Employee</span>
-              <span>Item ID</span>
-              <span>Gross Pay</span>
-              <span>Net Pay</span>
-            </div>
-            <div className="hrPayTable__body">
-              {isLoadingRunItems ? (
-                <div className="hrPayRow hrPayRow--empty">
-                  <span>Loading generated payslips...</span>
-                  <span>-</span>
-                  <span>-</span>
-                  <span>-</span>
-                </div>
-              ) : runItems.length > 0 ? (
-                runItems.map((item) =>
-                  canCorrectCurrentRun ? (
-                    <button
-                      key={item.itemId ?? `${item.empId}-${item.firstName}`}
-                      type="button"
-                      className="hrPayRow hrPayRow--action"
-                      onClick={() => void openCorrectionModal(item.itemId)}
-                    >
-                      <span>{buildEmployeeLabel(item)}</span>
-                      <span>#{item.itemId ?? '-'}</span>
-                      <span>{formatMoney(item.grossPay)}</span>
-                      <span>{formatMoney(item.netPay)}</span>
-                    </button>
-                  ) : (
-                    <div key={item.itemId ?? `${item.empId}-${item.firstName}`} className="hrPayRow">
-                      <span>{buildEmployeeLabel(item)}</span>
-                      <span>#{item.itemId ?? '-'}</span>
-                      <span>{formatMoney(item.grossPay)}</span>
-                      <span>{formatMoney(item.netPay)}</span>
-                    </div>
-                  )
-                )
-              ) : (
-                <div className="hrPayRow hrPayRow--empty">
-                  <span>
-                    {currentRun?.runType === 'ADJUSTMENT'
-                      ? 'This adjustment run is still empty. Open a posted payslip from its source run to add linked corrections here.'
-                      : 'No generated payslips were found for this run yet.'}
-                  </span>
-                  <span>-</span>
-                  <span>-</span>
-                  <span>-</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </article>
-      </section>
+      {emptyRunHint && <p className="hrPay__message">{emptyRunHint}</p>}
 
       <section className="hrPayPanel">
         <header className="hrPayPanel__head">Payroll Dispute from Employees</header>
@@ -766,12 +738,12 @@ export default function HrPayslips() {
       </section>
 
       {runModalOpen && (
-        <div className="hrPayModalBackdrop" role="dialog" aria-modal="true" aria-label="Create payroll run">
+        <div className="hrPayModalBackdrop" role="dialog" aria-modal="true" aria-label={runModalTitle}>
           <article className="hrPayModal hrPayModal--run">
-            <h3>{runActionLabel}</h3>
+            <h3>{runModalTitle}</h3>
             <div className="hrPayModal__rule" />
 
-            <p className="hrPayModal__intro">{runActionIntro}</p>
+            <p className="hrPayModal__intro">{runModalIntro}</p>
 
             <div className="hrPayModal__grid hrPayModal__grid--compact">
               <label>
@@ -808,170 +780,11 @@ export default function HrPayslips() {
             </div>
 
             <div className="hrPayModal__actions">
-              <button type="button" className="is-muted" onClick={() => setRunModalOpen(false)} disabled={isCreatingRun}>
+              <button type="button" className="is-muted" onClick={() => setRunModalOpen(false)} disabled={isSubmittingRun}>
                 Cancel
               </button>
-              <button type="button" onClick={() => void createPayrollRun()} disabled={isCreatingRun}>
-                {isCreatingRun ? 'Working...' : runActionLabel}
-              </button>
-            </div>
-          </article>
-        </div>
-      )}
-
-      {correctionModalOpen && (
-        <div className="hrPayModalBackdrop" role="dialog" aria-modal="true" aria-label="Create payslip correction">
-          <article className="hrPayModal">
-            <h3>Correct Specific Payslip Line</h3>
-            <div className="hrPayModal__rule" />
-
-            <p className="hrPayModal__intro">
-              Choose the exact posted line that needs fixing, enter the corrected amount, and this will stage the audit-safe
-              correction inside an adjustment run while updating the employee-facing version of the original payslip once that
-              adjustment run is posted.
-            </p>
-
-            <div className="hrPayModal__split">
-              <section className="hrPayModal__formStack">
-                <div className="hrPayModal__summary">
-                  <div className="hrPayModal__summaryRow">
-                    <span>Source Payslip</span>
-                    <strong>#{correctionSourceItem?.itemId ?? '-'}</strong>
-                  </div>
-                  <div className="hrPayModal__summaryRow">
-                    <span>Employee</span>
-                    <strong>{buildCorrectionSourceLabel(correctionSourceItem)}</strong>
-                  </div>
-                  <div className="hrPayModal__summaryRow">
-                    <span>Source Period</span>
-                    <strong>
-                      {formatDate(correctionSourceItem?.runDetails?.periodStart)} - {formatDate(correctionSourceItem?.runDetails?.periodEnd)}
-                    </strong>
-                  </div>
-                </div>
-
-                {openAdjustmentRuns.length === 0 && (
-                  <p className="hrPay__message">
-                    Create an open adjustment run first. Once it exists, come back here and tie the correction to that run.
-                  </p>
-                )}
-
-                <div className="hrPayModal__grid">
-                  <label className="hrPayModal__fieldWide hrPayModal__fieldStacked">
-                    <span>Target Adjustment Run:</span>
-                    <select
-                      value={correctionForm.targetPayId}
-                      onChange={(event) =>
-                        setCorrectionForm((prev) => ({
-                          ...prev,
-                          targetPayId: event.target.value,
-                        }))
-                      }
-                      disabled={isLoadingCorrectionSource || isSavingCorrection || openAdjustmentRuns.length === 0}
-                    >
-                      <option value="">{openAdjustmentRuns.length > 0 ? 'Select adjustment run' : 'No open adjustment runs'}</option>
-                      {openAdjustmentRuns.map((run) => (
-                        <option key={run.payId ?? `${run.periodStart}-${run.periodEnd}`} value={run.payId ?? ''}>
-                          #{run.payId ?? '-'} - {formatDate(run.periodStart)} - {formatDate(run.periodEnd)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="hrPayModal__fieldWide hrPayModal__fieldStacked">
-                    <span>Source Line:</span>
-                    <select
-                      value={correctionForm.sourceLineKey}
-                      onChange={(event) => {
-                        const nextLine = correctionLines.find((line) => line.key === event.target.value) ?? null;
-                        setCorrectionForm((prev) => ({
-                          ...prev,
-                          sourceLineKey: event.target.value,
-                          correctedAmount: nextLine ? nextLine.originalAmount.toFixed(2) : prev.correctedAmount,
-                        }));
-                      }}
-                      disabled={isLoadingCorrectionSource || isSavingCorrection || correctionLines.length === 0}
-                    >
-                      <option value="">{isLoadingCorrectionSource ? 'Loading posted lines...' : 'Select source line'}</option>
-                      {correctionLines.map((line) => (
-                        <option key={line.key} value={line.key}>
-                          {line.label} - {line.formattedAmount}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label>
-                    <span>Corrected Amount:</span>
-                    <input
-                      type="number"
-                      min="0.00"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={correctionForm.correctedAmount}
-                      onChange={(event) =>
-                        setCorrectionForm((prev) => ({
-                          ...prev,
-                          correctedAmount: event.target.value,
-                        }))
-                      }
-                      disabled={isLoadingCorrectionSource || isSavingCorrection}
-                    />
-                  </label>
-                </div>
-
-                {selectedCorrectionLine && (
-                  <div className="hrPayModal__summary">
-                    <div className="hrPayModal__summaryRow">
-                      <span>Original Line</span>
-                      <strong>{selectedCorrectionLine.label}</strong>
-                    </div>
-                    <div className="hrPayModal__summaryRow">
-                      <span>Current Amount</span>
-                      <strong>{selectedCorrectionLine.formattedAmount}</strong>
-                    </div>
-                    <div className="hrPayModal__summaryRow">
-                      <span>Delta Preview</span>
-                      <strong>{correctionDeltaPreview || 'Enter a corrected amount.'}</strong>
-                    </div>
-                  </div>
-                )}
-
-                {correctionError && <p className="hrPay__message">{correctionError}</p>}
-              </section>
-
-              <aside className="hrPayAdjustPreview">
-                <div className="hrPayAdjustPreview__head">Posted Source Lines</div>
-                {isLoadingCorrectionSource ? (
-                  <div className="hrPayAdjustPreview__empty">Loading the posted payslip lines...</div>
-                ) : correctionLines.length > 0 ? (
-                  correctionLines.map((line) => (
-                    <div
-                      key={line.key}
-                      className={`hrPayAdjustPreview__row ${line.key === correctionForm.sourceLineKey ? 'is-selected' : ''}`}
-                    >
-                      <span>{line.label}</span>
-                      <strong>{line.formattedAmount}</strong>
-                    </div>
-                  ))
-                ) : (
-                  <div className="hrPayAdjustPreview__empty">
-                    No source lines were found for this posted payslip item.
-                  </div>
-                )}
-              </aside>
-            </div>
-
-            <div className="hrPayModal__actions">
-              <button type="button" className="is-muted" onClick={closeCorrectionModal} disabled={isSavingCorrection}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => void createLineCorrection()}
-                disabled={isSavingCorrection || isLoadingCorrectionSource || openAdjustmentRuns.length === 0}
-              >
-                {isSavingCorrection ? 'Saving...' : 'Create Correction'}
+              <button type="button" onClick={() => void submitPayrollRun()} disabled={isSubmittingRun}>
+                {isSubmittingRun ? 'Submitting...' : runSubmitLabel}
               </button>
             </div>
           </article>
@@ -988,7 +801,7 @@ export default function HrPayslips() {
               You are about to post this payroll run. Once posted, the run status will move from
               <strong> IN_PROGRESS </strong>
               to
-              <strong> POSTED</strong>, and employees will be able to view the released payslips.
+              <strong> POSTED</strong>.
             </p>
 
             <div className="hrPayModal__summary">
@@ -1004,10 +817,6 @@ export default function HrPayslips() {
                 <span>Period</span>
                 <strong>{formatDate(currentRun.periodStart)} - {formatDate(currentRun.periodEnd)}</strong>
               </div>
-              <div className="hrPayModal__summaryRow">
-                <span>Generated Payslips</span>
-                <strong>{formatCount(currentRun.itemCount)}</strong>
-              </div>
             </div>
 
             <div className="hrPayModal__actions">
@@ -1016,6 +825,138 @@ export default function HrPayslips() {
               </button>
               <button type="button" onClick={() => void postCurrentRun()} disabled={isPostingRun}>
                 {isPostingRun ? 'Posting...' : 'Confirm Post'}
+              </button>
+            </div>
+          </article>
+        </div>
+      )}
+
+      {correctionOpen && (
+        <div className="hrPayModalBackdrop" role="dialog" aria-modal="true" aria-label="Stage payroll correction">
+          <article className="hrPayModal">
+            <h3>Stage Approved Dispute Correction</h3>
+            <div className="hrPayModal__rule" />
+
+            {isLoadingCorrection ? (
+              <p className="hrPayModal__intro">
+                Loading the disputed payslip item, its earnings and deductions, and the adjustment run to use for this
+                correction.
+              </p>
+            ) : (
+              <>
+                <p className="hrPayModal__intro">
+                  Pick the exact payroll line that needs to change, then enter the corrected amount that should be
+                  staged into the adjustment run.
+                </p>
+
+                <div className="hrPayCorrectionSummary">
+                  <div className="hrPayCorrectionSummary__row">
+                    <span>Employee</span>
+                    <strong>{correctionIntent?.employee ?? '-'}</strong>
+                  </div>
+                  <div className="hrPayCorrectionSummary__row">
+                    <span>Source Item</span>
+                    <strong>#{correctionSource?.itemId ?? correctionIntent?.itemId ?? '-'}</strong>
+                  </div>
+                  <div className="hrPayCorrectionSummary__row">
+                    <span>Source Period</span>
+                    <strong>
+                      {formatDate(correctionSource?.runDetails?.periodStart)} - {formatDate(correctionSource?.runDetails?.periodEnd)}
+                    </strong>
+                  </div>
+                  <div className="hrPayCorrectionSummary__row">
+                    <span>Adjustment Run</span>
+                    <strong>#{adjustmentRunId ?? '-'}</strong>
+                  </div>
+                </div>
+
+                <label className="hrPayModal__area">
+                  <span>Dispute Message:</span>
+                  <textarea value={correctionIntent?.message ?? 'No dispute message provided.'} readOnly />
+                </label>
+
+                <label className="hrPayModal__area">
+                  <span>Employee Reason:</span>
+                  <textarea value={correctionIntent?.disputeReason ?? 'No employee reason provided.'} readOnly />
+                </label>
+
+                <label className="hrPayModal__area">
+                  <span>HR Decision Note:</span>
+                  <textarea value={correctionIntent?.decisionReason ?? '-'} readOnly />
+                </label>
+
+                <div className="hrPayCorrectionPicker">
+                  <div className="hrPayCorrectionPicker__head">
+                    <span>Select the exact line to correct</span>
+                    <span>{correctionLines.length} available lines</span>
+                  </div>
+                  <div className="hrPayCorrectionPicker__list">
+                    {correctionLines.map((line) => (
+                      <button
+                        key={line.key}
+                        type="button"
+                        className={`hrPayCorrectionLine${line.key === selectedCorrectionKey ? ' is-selected' : ''}`}
+                        onClick={() => setSelectedCorrectionKey(line.key)}
+                      >
+                        <div className="hrPayCorrectionLine__main">
+                          <strong>{line.label}</strong>
+                          <span>{line.lineType === 'EARNING' ? 'Earning' : 'Deduction'}</span>
+                        </div>
+                        <div className="hrPayCorrectionLine__meta">
+                          <span>Current amount: {line.amount}</span>
+                          {line.originalAmount && <span>Original posted amount: {line.originalAmount}</span>}
+                          {line.adjustedBy && <span>Last adjusted by {line.adjustedBy}</span>}
+                          {line.adjustedAt && <span>{formatDateTime(line.adjustedAt)}</span>}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="hrPayModal__grid hrPayModal__grid--compact">
+                  <label>
+                    <span>Selected Line:</span>
+                    <input
+                      value={
+                        selectedCorrectionLine
+                          ? `${selectedCorrectionLine.lineType === 'EARNING' ? 'Earning' : 'Deduction'} • ${selectedCorrectionLine.label}`
+                          : 'Choose a line first'
+                      }
+                      readOnly
+                    />
+                  </label>
+                  <label>
+                    <span>Corrected Amount:</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={correctedAmount}
+                      onChange={(event) => setCorrectedAmount(event.target.value)}
+                      placeholder={selectedCorrectionLine ? `Current amount: ${selectedCorrectionLine.amount}` : 'Enter amount'}
+                    />
+                  </label>
+                </div>
+
+                {correctionError && <p className="hrPay__message">{correctionError}</p>}
+              </>
+            )}
+
+            <div className="hrPayModal__actions">
+              <button
+                type="button"
+                className="is-muted"
+                onClick={() => resetCorrectionState()}
+                disabled={isSubmittingCorrection}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void submitCorrection()}
+                disabled={isLoadingCorrection || isSubmittingCorrection}
+              >
+                {isSubmittingCorrection ? 'Staging...' : 'Stage Correction'}
               </button>
             </div>
           </article>
@@ -1035,7 +976,7 @@ export default function HrPayslips() {
               </label>
               <label>
                 <span>Status:</span>
-                <input value={selectedDispute.status} readOnly />
+                <input value={selectedDispute.rawStatus} readOnly />
               </label>
               <label>
                 <span>Payroll Period:</span>
@@ -1052,31 +993,42 @@ export default function HrPayslips() {
               <textarea value={selectedDispute.reason || 'No reason provided.'} readOnly />
             </label>
 
+            {selectedDispute.decisionSummary && (
+              <label className="hrPayModal__area">
+                <span>Latest Decision Note:</span>
+                <textarea value={selectedDispute.decisionSummary} readOnly />
+              </label>
+            )}
+
             <div className="hrPayModal__line">
               <span>Administrative Approval:</span>
               <div className="hrPayModal__inlineBtns">
-                <button type="button" disabled={isSaving} onClick={() => void updateDispute('APPROVED')}>
+                <button type="button" disabled={isSaving || !canReviewSelectedDispute} onClick={() => void updateDispute('APPROVED')}>
                   Approve
                 </button>
-                <button type="button" className="is-muted" disabled={isSaving} onClick={() => void updateDispute('REJECTED')}>
+                <button
+                  type="button"
+                  className="is-muted"
+                  disabled={isSaving || !canReviewSelectedDispute}
+                  onClick={() => void updateDispute('REJECTED')}
+                >
                   Deny
                 </button>
               </div>
             </div>
 
-            <p className="hrPay__message">
-              If this dispute needs a payroll correction, open the related posted payslip from its payroll run and correct the
-              specific line there.
-            </p>
-
             <label className="hrPayModal__area">
-              <span>Remarks:</span>
+              <span>Reason for Approval / Denial:</span>
               <textarea
-                placeholder="Enter review notes..."
+                placeholder="Type at least 5 characters explaining the decision"
                 value={remarks}
                 onChange={(event) => setRemarks(event.target.value)}
+                readOnly={!canReviewSelectedDispute}
               />
             </label>
+            {!canReviewSelectedDispute && (
+              <p className="hrPay__message">This dispute already has a final decision. Open a new adjustment from the payroll page if another correction is needed.</p>
+            )}
             {actionError && <p className="hrPay__message">{actionError}</p>}
 
             <div className="hrPayModal__actions">

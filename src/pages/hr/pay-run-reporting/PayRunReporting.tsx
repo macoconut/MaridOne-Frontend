@@ -1,33 +1,224 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FiRefreshCw, FiSearch, FiXCircle } from 'react-icons/fi';
+import { apiFetchJson, toArray } from '../../../lib/api';
+import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './PayRunReporting.css';
 
 type ReportView = 'employee' | 'payType';
 
-const employeeRows = [
-  { name: 'Employee #1', amount: '0.00' },
-  { name: 'Employee #2', amount: '0.00' },
-  { name: 'Employee #3', amount: '0.00' },
-  { name: 'Employee #4', amount: '0.00' },
-  { name: 'Employee #5', amount: '0.00' },
-  { name: 'Employee #67', amount: '0.00' },
-];
+type PayrollRunRow = {
+  payId?: number;
+  periodStart?: string;
+  periodEnd?: string;
+  periodDescription?: string;
+  payrollStatus?: string;
+  runType?: string;
+  itemCount?: number;
+};
 
-const payTypeRows = [
-  { label: 'Wages', amount: '0.00' },
-  { label: 'Allowances', amount: '0.00' },
-  { label: 'Deductions', amount: '0.00' },
-  { label: 'Taxes', amount: '0.00' },
-  { label: 'Non-taxable Allowances', amount: '0.00' },
-  { label: 'Post-tax Deductions', amount: '0.00' },
-  { label: 'Employer Contributions', amount: '0.00' },
-];
+type PayrollItemRow = {
+  empId?: number;
+  firstName?: string;
+  lastName?: string;
+  itemId?: number;
+  grossPay?: number | string;
+  netPay?: number | string;
+};
+
+type PayTypeSummaryRow = {
+  payType?: string;
+  total?: number | string;
+};
+
+function formatCurrency(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value.toFixed(2);
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed.toFixed(2) : value;
+  }
+  return '0.00';
+}
+
+function toAmount(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
+function formatDate(value?: string) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+function formatEmployeeName(row: PayrollItemRow) {
+  const fullName = [row.firstName, row.lastName]
+    .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+    .join(' ');
+
+  if (fullName) return fullName;
+  if (typeof row.empId === 'number') return `Employee ID ${row.empId}`;
+  return 'Unnamed employee';
+}
+
+function getEmptyRunMessage(run: PayrollRunRow | null, view: ReportView) {
+  if (!run) {
+    return view === 'employee'
+      ? 'No employee totals matched this payroll run.'
+      : 'No pay type totals matched this payroll run.';
+  }
+
+  if ((run.itemCount ?? 0) > 0) {
+    return view === 'employee'
+      ? 'No employee totals matched this payroll run.'
+      : 'No pay type totals matched this payroll run.';
+  }
+
+  if (run.runType === 'ADJUSTMENT') {
+    return view === 'employee'
+      ? 'This adjustment run is still empty. Add correction items to see employee totals here.'
+      : 'This adjustment run is still empty. Add correction items to see pay type totals here.';
+  }
+
+  return view === 'employee'
+    ? 'This payroll run has no generated payroll items yet.'
+    : 'This payroll run has no generated pay type totals yet.';
+}
 
 export default function HrPayRunReporting() {
   const [view, setView] = useState<ReportView>('employee');
-  const [filterValue, setFilterValue] = useState('All');
+  const [filterValue, setFilterValue] = useState('');
+  const [runs, setRuns] = useState<PayrollRunRow[]>([]);
+  const [selectedPayId, setSelectedPayId] = useState<number | null>(null);
+  const [employeeRows, setEmployeeRows] = useState<PayrollItemRow[]>([]);
+  const [payTypeRows, setPayTypeRows] = useState<PayTypeSummaryRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [refreshTick, setRefreshTick] = useState(0);
 
   const filterLabel = useMemo(() => (view === 'employee' ? 'Employee:' : 'Pay Type:'), [view]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRuns() {
+      setIsLoading(true);
+      setLoadError('');
+
+      try {
+        const runResponse = await apiFetchJson<unknown>('/api/payroll/run');
+        if (cancelled) return;
+
+        const nextRuns = toArray<PayrollRunRow>(runResponse);
+        setRuns(nextRuns);
+
+        const selectedExists = nextRuns.some((run) => run.payId === selectedPayId);
+        const defaultRun = nextRuns.find((run) => (run.itemCount ?? 0) > 0) ?? nextRuns[0] ?? null;
+        const nextPayId =
+          selectedExists && selectedPayId != null
+            ? selectedPayId
+            : typeof defaultRun?.payId === 'number'
+              ? defaultRun.payId
+              : null;
+
+        setSelectedPayId(nextPayId);
+      } catch (error) {
+        if (cancelled) return;
+        setRuns([]);
+        setSelectedPayId(null);
+        setEmployeeRows([]);
+        setPayTypeRows([]);
+        setLoadError(getFriendlyErrorMessage(error, 'payroll-run'));
+        setIsLoading(false);
+      }
+    }
+
+    void loadRuns();
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshTick, selectedPayId]);
+
+  useEffect(() => {
+    if (selectedPayId == null) {
+      setEmployeeRows([]);
+      setPayTypeRows([]);
+      setIsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadRunDetails() {
+      setIsLoading(true);
+      setLoadError('');
+
+      try {
+        const [itemsResponse, summaryResponse] = await Promise.all([
+          apiFetchJson<unknown>(`/api/payroll/run/${selectedPayId}/items?page=0&size=200`),
+          apiFetchJson<unknown>(`/api/payroll/run/summary/${selectedPayId}`),
+        ]);
+
+        if (cancelled) return;
+
+        setEmployeeRows(toArray<PayrollItemRow>(itemsResponse));
+        setPayTypeRows(toArray<PayTypeSummaryRow>(summaryResponse));
+      } catch (error) {
+        if (cancelled) return;
+        setEmployeeRows([]);
+        setPayTypeRows([]);
+        setLoadError(getFriendlyErrorMessage(error, 'payroll-run'));
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+
+    void loadRunDetails();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPayId]);
+
+  const selectedRun = useMemo(
+    () => runs.find((run) => run.payId === selectedPayId) ?? null,
+    [runs, selectedPayId]
+  );
+
+  const normalizedFilter = filterValue.trim().toLowerCase();
+
+  const visibleEmployeeRows = useMemo(() => {
+    if (!normalizedFilter || normalizedFilter === 'all') return employeeRows;
+
+    return employeeRows.filter((row) => {
+      const name = formatEmployeeName(row).toLowerCase();
+      const employeeId = typeof row.empId === 'number' ? String(row.empId) : '';
+      return name.includes(normalizedFilter) || employeeId.includes(normalizedFilter);
+    });
+  }, [employeeRows, normalizedFilter]);
+
+  const visiblePayTypeRows = useMemo(() => {
+    if (!normalizedFilter || normalizedFilter === 'all') return payTypeRows;
+
+    return payTypeRows.filter((row) =>
+      String(row.payType ?? '')
+        .toLowerCase()
+        .includes(normalizedFilter)
+    );
+  }, [normalizedFilter, payTypeRows]);
+
+  const payTypeTotal = useMemo(
+    () => visiblePayTypeRows.reduce((sum, row) => sum + toAmount(row.total), 0),
+    [visiblePayTypeRows]
+  );
 
   return (
     <div className="hrRun">
@@ -44,7 +235,11 @@ export default function HrPayRunReporting() {
           <label>{filterLabel}</label>
           <div className="hrRunFilters__searchWrap">
             <FiSearch />
-            <input value={filterValue} onChange={(e) => setFilterValue(e.target.value)} />
+            <input
+              value={filterValue}
+              onChange={(e) => setFilterValue(e.target.value)}
+              placeholder={view === 'employee' ? 'Search by employee name or ID' : 'Search by pay type'}
+            />
             <button type="button" aria-label="Clear filter" onClick={() => setFilterValue('')}>
               <FiXCircle />
             </button>
@@ -53,15 +248,41 @@ export default function HrPayRunReporting() {
 
         <div className="hrRunFilters__field">
           <label>From:</label>
-          <select aria-label="From date">
-            <option>April 1, 2024</option>
+          <select
+            aria-label="From date"
+            value={selectedPayId ?? ''}
+            onChange={(e) => setSelectedPayId(e.target.value ? Number(e.target.value) : null)}
+            disabled={runs.length === 0}
+          >
+            {runs.length > 0 ? (
+              runs.map((run) => (
+                <option key={`from-${run.payId}`} value={run.payId}>
+                  {formatDate(run.periodStart)}
+                </option>
+              ))
+            ) : (
+              <option value="">No payroll runs yet</option>
+            )}
           </select>
         </div>
 
         <div className="hrRunFilters__field">
           <label>To:</label>
-          <select aria-label="To date">
-            <option>April 30, 2024</option>
+          <select
+            aria-label="To date"
+            value={selectedPayId ?? ''}
+            onChange={(e) => setSelectedPayId(e.target.value ? Number(e.target.value) : null)}
+            disabled={runs.length === 0}
+          >
+            {runs.length > 0 ? (
+              runs.map((run) => (
+                <option key={`to-${run.payId}`} value={run.payId}>
+                  {formatDate(run.periodEnd)}
+                </option>
+              ))
+            ) : (
+              <option value="">No payroll runs yet</option>
+            )}
           </select>
         </div>
 
@@ -69,11 +290,20 @@ export default function HrPayRunReporting() {
           className="hrRunFilters__refresh"
           type="button"
           aria-label="Refresh"
-          onClick={() => setFilterValue((v) => v)}
+          onClick={() => setRefreshTick((tick) => tick + 1)}
         >
           <FiRefreshCw />
         </button>
       </div>
+
+      {selectedRun && (
+        <p className="hrRun__status">
+          {selectedRun.periodDescription || `${formatDate(selectedRun.periodStart)} to ${formatDate(selectedRun.periodEnd)}`} •{' '}
+          {selectedRun.payrollStatus || 'Unknown status'} • {selectedRun.itemCount ?? 0} item
+          {(selectedRun.itemCount ?? 0) === 1 ? '' : 's'}
+        </p>
+      )}
+      {loadError && <p className="hrRun__status hrRun__status--error">{loadError}</p>}
 
       {view === 'employee' ? (
         <section className="hrRunTable" aria-label="Pay run by employee">
@@ -83,13 +313,22 @@ export default function HrPayRunReporting() {
           </div>
 
           <div className="hrRunTable__body">
-            {employeeRows.map((row) => (
-              <article key={row.name} className="hrRunEmployee">
-                <div className="hrRunEmployee__name">{row.name}</div>
-                <div className="hrRunEmployee__sub">NET PAY</div>
-                <div className="hrRunEmployee__value">{row.amount}</div>
+            {!isLoading && visibleEmployeeRows.length > 0 ? (
+              visibleEmployeeRows.map((row, index) => (
+                <article key={`${row.itemId ?? row.empId ?? index}`} className="hrRunEmployee">
+                  <div className="hrRunEmployee__name">{formatEmployeeName(row)}</div>
+                  <div className="hrRunEmployee__sub">
+                    NET PAY • GROSS {formatCurrency(row.grossPay)}
+                    {typeof row.itemId === 'number' ? ` • ITEM #${row.itemId}` : ''}
+                  </div>
+                  <div className="hrRunEmployee__value">{formatCurrency(row.netPay)}</div>
+                </article>
+              ))
+            ) : (
+              <article className="hrRunEmpty">
+                {isLoading ? 'Loading pay run details...' : getEmptyRunMessage(selectedRun, 'employee')}
               </article>
-            ))}
+            )}
           </div>
         </section>
       ) : (
@@ -100,23 +339,35 @@ export default function HrPayRunReporting() {
           </div>
 
           <div className="hrRunTable__body">
-            {payTypeRows.map((row) => (
-              <article key={row.label} className="hrRunTypeRow">
-                <div>{row.label}</div>
-                <div>{row.amount}</div>
+            {!isLoading && visiblePayTypeRows.length > 0 ? (
+              <>
+                {visiblePayTypeRows.map((row, index) => (
+                  <article key={`${row.payType ?? index}`} className="hrRunTypeRow">
+                    <div>{row.payType ?? 'Unknown pay type'}</div>
+                    <div>{formatCurrency(row.total)}</div>
+                  </article>
+                ))}
+                <article className="hrRunTypeRow hrRunTypeRow--total">
+                  <div>TOTAL</div>
+                  <div>{payTypeTotal.toFixed(2)}</div>
+                </article>
+              </>
+            ) : (
+              <article className="hrRunEmpty">
+                {isLoading ? 'Loading pay type totals...' : getEmptyRunMessage(selectedRun, 'payType')}
               </article>
-            ))}
-            <article className="hrRunTypeRow hrRunTypeRow--total">
-              <div>TOTAL</div>
-              <div>0.00</div>
-            </article>
+            )}
           </div>
         </section>
       )}
 
       <div className="hrRunActions">
-        <button type="button" onClick={() => window.print()}>Download Report</button>
-        <button type="button" onClick={() => window.print()}>Print Report</button>
+        <button type="button" onClick={() => window.print()}>
+          Download Report
+        </button>
+        <button type="button" onClick={() => window.print()}>
+          Print Report
+        </button>
       </div>
     </div>
   );

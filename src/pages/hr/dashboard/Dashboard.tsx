@@ -10,12 +10,30 @@ type AttendanceLog = {
   direction?: string;
 };
 
+type LeaveRequest = {
+  requestId?: number;
+  empId?: number;
+  startDateTime?: string;
+  endDateTime?: string;
+  requestStatus?: string;
+  reason?: string;
+  isPaid?: boolean;
+};
+
 type FeedItem = {
   id: string;
   name: string;
-  department: string;
-  position: string;
+  summary: string;
+  detail: string;
   time: string;
+};
+
+type LeaveCardItem = {
+  id: string;
+  name: string;
+  summary: string;
+  detail: string;
+  period: string;
 };
 
 function localDateKey(value?: string) {
@@ -25,8 +43,34 @@ function localDateKey(value?: string) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+function formatDateLabel(value?: string) {
+  if (!value) return 'Unknown date';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatPeriodLabel(start?: string, end?: string) {
+  const startLabel = formatDateLabel(start);
+  const endLabel = formatDateLabel(end);
+  return startLabel === endLabel ? startLabel : `${startLabel} to ${endLabel}`;
+}
+
+function isTodayWithin(start?: string, end?: string, today = new Date()) {
+  if (!start || !end) return false;
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return false;
+
+  const dayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const dayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999).getTime();
+
+  return startDate.getTime() <= dayEnd && endDate.getTime() >= dayStart;
+}
+
 export default function HrDashboard() {
   const [logs, setLogs] = useState<AttendanceLog[]>([]);
+  const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [deptPage, setDeptPage] = useState(0);
@@ -34,25 +78,37 @@ export default function HrDashboard() {
 
   useEffect(() => {
     let cancelled = false;
-    async function fetchLogs(silent = false) {
+
+    async function fetchDashboardData(silent = false) {
       if (!silent) setIsLoading(true);
       setLoadError(null);
-      try {
-        const response = await apiFetchJson<unknown>('/api/logs/attendance?page=0&size=400');
-        if (!cancelled) setLogs(toArray<AttendanceLog>(response));
-      } catch (error) {
-        if (!cancelled) {
-          setLogs([]);
-          setLoadError(error instanceof Error ? error.message : 'Failed to load attendance logs.');
-        }
-      } finally {
-        if (!cancelled && !silent) setIsLoading(false);
+
+      const [logsResult, leavesResult] = await Promise.allSettled([
+        apiFetchJson<unknown>('/api/logs/attendance?page=0&size=400'),
+        apiFetchJson<unknown>('/api/leave/request?page=0&size=200'),
+      ]);
+
+      if (cancelled) return;
+
+      if (logsResult.status === 'fulfilled') {
+        setLogs(toArray<AttendanceLog>(logsResult.value));
+      } else {
+        setLogs([]);
+        setLoadError(logsResult.reason instanceof Error ? logsResult.reason.message : 'Failed to load attendance logs.');
       }
+
+      if (leavesResult.status === 'fulfilled') {
+        setLeaveRequests(toArray<LeaveRequest>(leavesResult.value));
+      } else {
+        setLeaveRequests([]);
+      }
+
+      if (!silent) setIsLoading(false);
     }
 
-    void fetchLogs(false);
+    void fetchDashboardData(false);
     const timer = window.setInterval(() => {
-      void fetchLogs(true);
+      void fetchDashboardData(true);
     }, 15000);
 
     return () => {
@@ -91,11 +147,11 @@ export default function HrDashboard() {
   const metricCards = useMemo(
     () => [
       { label: 'Present', value: presentSet.size },
-      { label: 'Absent', value: 0 },
+      { label: 'Attendance Logs', value: todayLogs.length },
       { label: 'On Time', value: Math.max(presentSet.size - lateSet.size, 0) },
       { label: 'Late', value: lateSet.size },
     ],
-    [lateSet.size, presentSet.size]
+    [lateSet.size, presentSet.size, todayLogs.length]
   );
 
   const attendanceFeed: FeedItem[] = useMemo(() => {
@@ -108,62 +164,92 @@ export default function HrDashboard() {
       .slice(0, 10)
       .map((log, idx) => {
         const date = typeof log.timestamp === 'string' ? new Date(log.timestamp) : null;
-        const direction = typeof log.direction === 'string' ? log.direction : 'Log';
+        const direction = typeof log.direction === 'string' ? log.direction : 'Attendance log';
         return {
           id: String(log.attendanceId ?? idx),
-          name: `Employee #${log.employeeId ?? '-'}`,
-          department: 'From backend log',
-          position: direction,
+          name: `Employee ID ${log.employeeId ?? '-'}`,
+          summary: direction,
+          detail: date
+            ? date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+            : 'Recorded recently',
           time: date ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A',
         };
       });
   }, [logs]);
+
   const lateToday = useMemo(() => {
     return [...todayLogs]
       .filter((log) => typeof log.direction === 'string' && log.direction.toUpperCase().includes('LATE'))
       .slice(0, 6)
       .map((log, idx) => {
-        const time = log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A';
+        const time = log.timestamp
+          ? new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          : 'N/A';
+
         return {
           id: String(log.attendanceId ?? idx),
-          name: `Employee #${log.employeeId ?? '-'}`,
-          department: 'From backend logs',
-          position: 'Late log',
+          name: `Employee ID ${log.employeeId ?? '-'}`,
+          summary: 'Late attendance entry',
+          detail: `Direction: ${String(log.direction ?? 'UNKNOWN')}`,
           timeIn: time,
-          duration: 'N/A',
+          duration: lateSet.has(log.employeeId ?? -1) ? 'Late flag active' : 'Under review',
           period: 'Today',
         };
       });
-  }, [todayLogs]);
+  }, [lateSet, todayLogs]);
 
-  const onLeave: Array<{
-    id: string;
-    name: string;
-    department: string;
-    position: string;
-    period: string;
-  }> = [];
+  const onLeave: LeaveCardItem[] = useMemo(() => {
+    return leaveRequests
+      .filter((request) => String(request.requestStatus ?? '').toUpperCase() === 'APPROVED')
+      .filter((request) => isTodayWithin(request.startDateTime, request.endDateTime, now))
+      .slice(0, 6)
+      .map((request, idx) => ({
+        id: String(request.requestId ?? idx),
+        name: `Employee ID ${request.empId ?? '-'}`,
+        summary: request.isPaid ? 'Paid leave' : 'Unpaid leave',
+        detail: request.reason?.trim() || 'Approved leave request',
+        period: formatPeriodLabel(request.startDateTime, request.endDateTime),
+      }));
+  }, [leaveRequests, now]);
 
-  const departments = useMemo(() => {
-    const counts = new Map<number, number>();
+  const activityLeaders = useMemo(() => {
+    const activity = new Map<number, { logCount: number; lateCount: number }>();
+
     for (const log of todayLogs) {
       if (typeof log.employeeId !== 'number') continue;
-      counts.set(log.employeeId, (counts.get(log.employeeId) ?? 0) + 1);
+      const current = activity.get(log.employeeId) ?? { logCount: 0, lateCount: 0 };
+      current.logCount += 1;
+      if (String(log.direction ?? '').toUpperCase().includes('LATE')) current.lateCount += 1;
+      activity.set(log.employeeId, current);
     }
-    return [...counts.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .map(([empId]) => `Employee #${empId}`);
+
+    return [...activity.entries()]
+      .sort((a, b) => b[1].logCount - a[1].logCount || b[1].lateCount - a[1].lateCount)
+      .map(([employeeId, counts]) => ({
+        id: String(employeeId),
+        name: `Employee ID ${employeeId}`,
+        logCount: counts.logCount,
+        lateCount: counts.lateCount,
+      }));
   }, [todayLogs]);
-  const maxDeptPage = Math.max(Math.ceil(departments.length / 3) - 1, 0);
+
+  const maxDeptPage = Math.max(Math.ceil(activityLeaders.length / 3) - 1, 0);
   const activeDeptPage = Math.min(deptPage, maxDeptPage);
-  const visibleDepartments = departments.slice(activeDeptPage * 3, activeDeptPage * 3 + 3);
+  const visibleLeaders = activityLeaders.slice(activeDeptPage * 3, activeDeptPage * 3 + 3);
 
   return (
     <div className="hrDash">
       <div className="hrDash__top">
         <div>
           <h1 className="hrDash__title">Attendance Dashboard</h1>
-          <p className="hrDash__subtitle">{new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p>
+          <p className="hrDash__subtitle">
+            {new Date().toLocaleDateString(undefined, {
+              weekday: 'long',
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+            })}
+          </p>
         </div>
         <div className="hrDash__topActions">
           <button className="hrDash__refreshBtn" type="button" onClick={() => setRefreshTick((t) => t + 1)}>
@@ -194,12 +280,12 @@ export default function HrDashboard() {
           </section>
 
           <section className="hrPanel">
-            <div className="hrPanel__header">Departmental Attendance</div>
+            <div className="hrPanel__header">Most Active Employees Today</div>
             <div className="hrDept">
               <button
                 className="hrCircleBtn"
                 type="button"
-                aria-label="Previous department page"
+                aria-label="Previous activity page"
                 onClick={() => setDeptPage((p) => Math.max(0, p - 1))}
                 disabled={activeDeptPage === 0}
               >
@@ -207,16 +293,20 @@ export default function HrDashboard() {
               </button>
 
               <div className="hrDept__cards">
-                {visibleDepartments.length > 0 ? (
-                  visibleDepartments.map((dept, idx) => (
-                    <div key={`${dept}-${idx}`} className="hrDonutCard">
+                {visibleLeaders.length > 0 ? (
+                  visibleLeaders.map((leader) => (
+                    <div key={leader.id} className="hrDonutCard">
                       <div className="hrDonut" />
-                      <div className="hrDonutCard__name">{dept}</div>
+                      <div className="hrDonutCard__name">{leader.name}</div>
+                      <div className="hrDonutCard__meta">
+                        {leader.logCount} log{leader.logCount === 1 ? '' : 's'}
+                        {leader.lateCount > 0 ? ` • ${leader.lateCount} late` : ' • on time today'}
+                      </div>
                     </div>
                   ))
                 ) : (
                   <div className="hrDonutCard">
-                    <div className="hrDonutCard__name">No department data yet.</div>
+                    <div className="hrDonutCard__name">No attendance logs recorded yet.</div>
                   </div>
                 )}
               </div>
@@ -224,9 +314,9 @@ export default function HrDashboard() {
               <button
                 className="hrCircleBtn"
                 type="button"
-                aria-label="Next department page"
-                onClick={() => setDeptPage((p) => (p + 1) * 3 < departments.length ? p + 1 : p)}
-                disabled={(activeDeptPage + 1) * 3 >= departments.length}
+                aria-label="Next activity page"
+                onClick={() => setDeptPage((p) => ((p + 1) * 3 < activityLeaders.length ? p + 1 : p))}
+                disabled={(activeDeptPage + 1) * 3 >= activityLeaders.length}
               >
                 <FiChevronRight />
               </button>
@@ -238,12 +328,8 @@ export default function HrDashboard() {
               <span />
             </div>
 
-            <div className="hrLegend">
-              <span className="hrLegend__item">On Time</span>
-              <span className="hrLegend__item">Late</span>
-              <span className="hrLegend__item">Absent</span>
-              <span className="hrLegend__item">On Leave</span>
-              <span className="hrLegend__item">Day Off</span>
+            <div className="hrLegend hrLegend--note">
+              <span className="hrLegend__note">Leaderboard is based on today&apos;s attendance log activity only.</span>
             </div>
           </section>
 
@@ -257,8 +343,8 @@ export default function HrDashboard() {
                       <div className="hrPerson__avatar" />
                       <div className="hrPerson__body">
                         <div className="hrPerson__name">{item.name}</div>
-                        <div className="hrPerson__meta">{item.department}</div>
-                        <div className="hrPerson__meta">{item.position}</div>
+                        <div className="hrPerson__meta">{item.summary}</div>
+                        <div className="hrPerson__meta">{item.detail}</div>
                         <div className="hrPerson__infoRow">
                           <span>
                             <FiClock /> {item.timeIn}
@@ -276,7 +362,7 @@ export default function HrDashboard() {
                 ) : (
                   <article className="hrPerson">
                     <div className="hrPerson__body">
-                      <div className="hrPerson__name">No late attendance data yet.</div>
+                      <div className="hrPerson__name">No late attendance entries today.</div>
                     </div>
                   </article>
                 )}
@@ -292,8 +378,8 @@ export default function HrDashboard() {
                       <div className="hrPerson__avatar" />
                       <div className="hrPerson__body">
                         <div className="hrPerson__name">{item.name}</div>
-                        <div className="hrPerson__meta">{item.department}</div>
-                        <div className="hrPerson__meta">{item.position}</div>
+                        <div className="hrPerson__meta">{item.summary}</div>
+                        <div className="hrPerson__meta">{item.detail}</div>
                         <div className="hrPerson__infoRow">
                           <span>
                             <FiCalendar /> {item.period}
@@ -305,7 +391,7 @@ export default function HrDashboard() {
                 ) : (
                   <article className="hrPerson">
                     <div className="hrPerson__body">
-                      <div className="hrPerson__name">No leave data yet.</div>
+                      <div className="hrPerson__name">No approved leave requests covering today.</div>
                     </div>
                   </article>
                 )}
@@ -323,8 +409,8 @@ export default function HrDashboard() {
                   <div className="hrPerson__avatar" />
                   <div className="hrPerson__body">
                     <div className="hrPerson__name">{item.name}</div>
-                    <div className="hrPerson__meta">{item.department}</div>
-                    <div className="hrPerson__meta">{item.position}</div>
+                    <div className="hrPerson__meta">{item.summary}</div>
+                    <div className="hrPerson__meta">{item.detail}</div>
                   </div>
                   <div className="hrPerson__time">{item.time}</div>
                 </article>

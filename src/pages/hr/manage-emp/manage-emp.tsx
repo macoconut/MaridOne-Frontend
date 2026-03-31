@@ -34,10 +34,6 @@ type FormState = {
   reason: string;
 };
 
-type AttendanceLog = {
-  employeeId?: number;
-};
-
 const emptyForm: FormState = {
   employeeId: '',
   firstName: '',
@@ -89,33 +85,11 @@ export default function HrManageEmp() {
       setEmployeeRows(mapped);
       setLoadMessage(mapped.length === 0 ? 'No employees found.' : '');
     } catch (error) {
-      try {
-        const logsResponse = await apiFetchJson<unknown>('/api/logs/attendance?page=0&size=500');
-        const ids = new Set<number>();
-        for (const log of toArray<AttendanceLog>(logsResponse)) {
-          if (typeof log.employeeId === 'number') ids.add(log.employeeId);
-        }
-        const fallbackRows = [...ids]
-          .sort((a, b) => a - b)
-          .map((id) => ({
-            id: String(id),
-            name: `Employee #${id}`,
-            status: 'Unknown',
-            email: '-',
-            phone: '-',
-            position: '-',
-          }));
-        setEmployeeRows(fallbackRows);
-        setLoadMessage(
-          fallbackRows.length > 0
-            ? 'Loaded employee IDs from attendance logs only. Full profile list endpoint is restricted for HR role.'
-            : 'No employee data available for HR role yet.'
-        );
-      } catch {
-        setEmployeeRows([]);
-        const message = getFriendlyErrorMessage(error, 'employee-load');
-        setLoadMessage(`Cannot load employees for HR role yet: ${message}`);
-      }
+      setEmployeeRows([]);
+      const message = getFriendlyErrorMessage(error, 'employee-load');
+      setLoadMessage(
+        `The employee roster endpoint is not available to the HR role yet. Enter an employee ID manually to edit or terminate a record. (${message})`
+      );
     }
   }
 
@@ -330,7 +304,12 @@ export default function HrManageEmp() {
                   </button>
                 ))
               ) : (
-                <div className="hrEmpPicker__empty">{loadMessage || 'No employee records available yet.'}</div>
+                <div className="hrEmpPicker__empty">
+                  <div>{loadMessage || 'No employee records available yet.'}</div>
+                  <button type="button" className="hrEmpPicker__row" onClick={() => setModal('edit')}>
+                    Enter employee ID manually
+                  </button>
+                </div>
               )}
             </div>
 
@@ -465,7 +444,12 @@ export default function HrManageEmp() {
                 <div className="hrEmpDelete">
                   <div className="hrEmpField">
                     <label>Selected Employee:</label>
-                    <input value={selectedEmployee ? `${selectedEmployee.id} - ${selectedEmployee.name}` : form.employeeId} readOnly />
+                    <input
+                      value={selectedEmployee ? `${selectedEmployee.id} - ${selectedEmployee.name}` : form.employeeId}
+                      onChange={(e) => setField('employeeId', e.target.value)}
+                      readOnly={!!selectedEmployee}
+                      placeholder="Enter employee ID"
+                    />
                   </div>
                   <div className="hrEmpField hrEmpField--full">
                     <label>Reason for Termination:</label>

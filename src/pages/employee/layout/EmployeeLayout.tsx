@@ -15,6 +15,7 @@ import './EmployeeLayout.css';
 import { getUserEmail } from '../../../lib/session';
 import { BACKEND_TEST_MODE } from '../../../config/flags';
 import { apiFetchRaw, expireCurrentSession, getApiBaseUrl } from '../../../lib/api';
+import { mapNotificationItem, type NotificationItem } from '../../../lib/notificationRouting';
 import {
   applyBodyPlaceholders,
   applyPathPlaceholders,
@@ -22,14 +23,6 @@ import {
   firstFromCollection,
   type PlaceholderContext,
 } from '../../../lib/backendTest';
-
-type NotificationItem = {
-  id: string;
-  title: string;
-  description?: string;
-  time: string;
-  isRead?: boolean;
-};
 
 type BackendTestAction = {
   label: string;
@@ -258,18 +251,7 @@ export default function EmployeeLayout() {
 
         const payload = (await response.json()) as { content?: Array<Record<string, unknown>> };
         const mapped = Array.isArray(payload?.content)
-          ? payload.content.map((row) => {
-              const idRaw = row.notificationId;
-              const id = typeof idRaw === 'number' ? String(idRaw) : String(idRaw ?? crypto.randomUUID());
-              const createdAt = typeof row.createdAt === 'string' ? new Date(row.createdAt) : null;
-              return {
-                id,
-                title: typeof row.message === 'string' ? row.message : 'Notification',
-                description: typeof row.importance === 'string' ? `Importance: ${row.importance}` : undefined,
-                time: createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt.toLocaleString() : 'Now',
-                isRead: Boolean(row.readStatus),
-              } as NotificationItem;
-            })
+          ? payload.content.map((row) => mapNotificationItem('employee', row))
           : [];
 
         setNotifications(mapped);
@@ -306,6 +288,12 @@ export default function EmployeeLayout() {
     } catch {
       // Keep UI state unchanged if backend mark-read fails.
     }
+  }
+
+  async function handleNotificationClick(notification: NotificationItem) {
+    await markNotificationRead(notification.id);
+    setNotifOpen(false);
+    navigate(notification.destination);
   }
 
   async function fetchJsonWithAuth(path: string) {
@@ -510,7 +498,7 @@ export default function EmployeeLayout() {
                         key={n.id}
                         type="button"
                         className="notifItem"
-                        onClick={() => void markNotificationRead(n.id)}
+                        onClick={() => void handleNotificationClick(n)}
                       >
                         <div className="notifItem__icon">
                           <FiCheckCircle />

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FiSearch, FiFilter, FiXCircle } from 'react-icons/fi';
+import { useNavigate } from 'react-router-dom';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './Approvals.css';
@@ -10,8 +11,10 @@ type DisputeDto = {
   reason?: string;
   status?: string;
   createdAt?: string;
+  updatedAt?: string;
   statusReason?: string;
   itemId?: number;
+  employeeId?: number;
 };
 
 type OvertimeDto = {
@@ -25,11 +28,13 @@ type OvertimeDto = {
   approveReason?: string;
 };
 
-type RequestType = 'Leave' | 'OT';
+type RequestType = 'Dispute' | 'Overtime';
 type SourceType = 'dispute' | 'overtime';
 
 type HrRequest = {
   id: string;
+  disputeId?: number;
+  itemId?: number;
   employee: string;
   message: string;
   time: string;
@@ -37,9 +42,51 @@ type HrRequest = {
   source: SourceType;
   status: string;
   reason: string;
+  referenceLabel: string;
+  referenceValue: string;
+  decisionSummary?: string;
+  sortStamp: number;
 };
 
+type CorrectionIntent = {
+  disputeId: number;
+  itemId: number;
+  employee: string;
+  message: string;
+  disputeReason: string;
+  decisionReason: string;
+};
+
+function formatDateTime(value?: string) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function formatDateOnly(value?: string) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+function employeeLabel(employeeId?: number) {
+  return typeof employeeId === 'number' ? `Employee ID ${employeeId}` : 'Employee unavailable';
+}
+
 export default function HrApprovals() {
+  const navigate = useNavigate();
   const [requests, setRequests] = useState<HrRequest[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -57,27 +104,37 @@ export default function HrApprovals() {
 
       const disputeRows = toArray<DisputeDto>(disputesRes).map((item, idx) => ({
         id: `dispute-${item.id ?? idx}`,
-        employee: `Item #${item.itemId ?? '-'}`,
-        message: item.subject || 'Payroll dispute',
-        time: item.createdAt ? new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
-        type: 'Leave' as const,
+        disputeId: item.id,
+        itemId: item.itemId,
+        employee: employeeLabel(item.employeeId),
+        message: item.subject?.trim() || `Payroll dispute for payslip item #${item.itemId ?? '-'}`,
+        time: formatDateTime(item.createdAt),
+        type: 'Dispute' as const,
         source: 'dispute' as const,
         status: item.status || 'PENDING',
         reason: item.reason || '',
+        referenceLabel: 'Payslip Item',
+        referenceValue: typeof item.itemId === 'number' ? `#${item.itemId}` : 'Unavailable',
+        decisionSummary: item.statusReason || '',
+        sortStamp: item.createdAt ? Date.parse(item.createdAt) || 0 : 0,
       }));
 
       const overtimeRows = toArray<OvertimeDto>(overtimeRes).map((item, idx) => ({
         id: `overtime-${item.overtimeId ?? idx}`,
-        employee: `Employee #${item.employeeId ?? '-'}`,
-        message: `${item.overtimeType || 'Overtime'} request${item.workDate ? ` - ${item.workDate}` : ''}`,
-        time: item.requestAt ? new Date(item.requestAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-',
-        type: 'OT' as const,
+        employee: employeeLabel(item.employeeId),
+        message: `${item.overtimeType || 'Overtime'} request on ${formatDateOnly(item.workDate)}`,
+        time: formatDateTime(item.requestAt),
+        type: 'Overtime' as const,
         source: 'overtime' as const,
         status: item.requestStatus || 'PENDING',
         reason: item.reason || '',
+        referenceLabel: 'Work Date',
+        referenceValue: formatDateOnly(item.workDate),
+        decisionSummary: item.approveReason || '',
+        sortStamp: item.requestAt ? Date.parse(item.requestAt) || 0 : 0,
       }));
 
-      const merged = [...disputeRows, ...overtimeRows].sort((a, b) => (a.id < b.id ? 1 : -1));
+      const merged = [...disputeRows, ...overtimeRows].sort((a, b) => b.sortStamp - a.sortStamp || a.id.localeCompare(b.id));
       setRequests(merged);
     } catch (error) {
       setRequests([]);
@@ -104,6 +161,7 @@ export default function HrApprovals() {
     () => requests.find((request) => request.id === selectedId) ?? null,
     [selectedId, requests]
   );
+  const canReviewSelected = selected ? selected.status.toUpperCase() === 'PENDING' : false;
 
   useEffect(() => {
     setDecisionReason('');
@@ -121,6 +179,8 @@ export default function HrApprovals() {
     setSubmitError('');
     setIsSaving(true);
     try {
+      let correctionIntent: CorrectionIntent | null = null;
+
       if (selected.source === 'dispute') {
         const id = selected.id.replace('dispute-', '');
         await apiFetchJson(`/api/payroll/item/dispute/update/${id}`, {
@@ -130,6 +190,21 @@ export default function HrApprovals() {
             statusReason: trimmedReason,
           }),
         });
+
+        if (
+          nextStatus === 'APPROVED' &&
+          typeof selected.disputeId === 'number' &&
+          typeof selected.itemId === 'number'
+        ) {
+          correctionIntent = {
+            disputeId: selected.disputeId,
+            itemId: selected.itemId,
+            employee: selected.employee,
+            message: selected.message,
+            disputeReason: selected.reason,
+            decisionReason: trimmedReason,
+          };
+        }
       } else {
         const overtimeId = Number(selected.id.replace('overtime-', ''));
         await apiFetchJson('/api/overtime/update', {
@@ -144,6 +219,14 @@ export default function HrApprovals() {
 
       setSelectedId(null);
       await loadRequests();
+
+      if (correctionIntent) {
+        navigate('/hr/payslips', {
+          state: {
+            correctionIntent,
+          },
+        });
+      }
     } catch (error) {
       setSubmitError(getFriendlyErrorMessage(error, 'approval-decision'));
     } finally {
@@ -155,7 +238,7 @@ export default function HrApprovals() {
     <div className="hrAppr">
       <div className="hrAppr__head">
         <h1 className="hrAppr__title">
-          {selected ? 'Pending Approvals from Employees' : 'Requests from Employees'}
+          {selected ? 'Review Employee Request' : 'Requests from Employees'}
           <span className="hrAppr__tools">
             <FiSearch />
             <FiFilter />
@@ -186,14 +269,16 @@ export default function HrApprovals() {
               onClick={() => setSelectedId(request.id)}
             >
               <span className="hrApprRow__employee">{request.employee}</span>
-              <span className="hrApprRow__message">{request.message}</span>
+              <span className="hrApprRow__message">
+                {request.type} • {request.message}
+              </span>
               <span className="hrApprRow__time">{request.time}</span>
             </button>
           ))
         ) : (
           <div className="hrApprRow">
             <span className="hrApprRow__employee">No requests yet.</span>
-            <span className="hrApprRow__message">Waiting for backend data.</span>
+            <span className="hrApprRow__message">Waiting for overtime and dispute data.</span>
             <span className="hrApprRow__time">-</span>
           </div>
         )}
@@ -212,19 +297,30 @@ export default function HrApprovals() {
             </button>
 
             <h2 className="hrApprModal__title">
-              {selected.employee} - {selected.type === 'Leave' ? 'Dispute Form' : 'OT Application Form'}
+              {selected.employee} - {selected.type}
             </h2>
 
             <div className="hrApprModal__rule" />
 
             <div className="hrApprForm__row hrApprForm__row--2">
               <label>
-                <span>Department:</span>
-                <input value="From backend profile" readOnly />
+                <span>Reference:</span>
+                <input value={`${selected.referenceLabel}: ${selected.referenceValue}`} readOnly />
               </label>
               <label>
                 <span>Current Status:</span>
                 <input value={selected.status} readOnly />
+              </label>
+            </div>
+
+            <div className="hrApprForm__row hrApprForm__row--2">
+              <label>
+                <span>Requested At:</span>
+                <input value={selected.time} readOnly />
+              </label>
+              <label>
+                <span>Type:</span>
+                <input value={selected.type} readOnly />
               </label>
             </div>
 
@@ -242,6 +338,15 @@ export default function HrApprovals() {
               </label>
             </div>
 
+            {selected.decisionSummary && (
+              <div className="hrApprForm__row">
+                <label>
+                  <span>Latest Decision Note:</span>
+                  <textarea value={selected.decisionSummary} readOnly />
+                </label>
+              </div>
+            )}
+
             <div className="hrApprForm__row">
               <label>
                 <span>Reason for Approval / Denial:</span>
@@ -249,9 +354,19 @@ export default function HrApprovals() {
                   value={decisionReason}
                   onChange={(e) => setDecisionReason(e.target.value)}
                   placeholder="Type the reason for approving or denying this request"
+                  readOnly={!canReviewSelected}
                 />
               </label>
             </div>
+
+            {selected.source === 'dispute' && (
+              <p className="hrApprForm__hint">
+                Approving a payroll dispute opens the correction workspace so HR can stage the actual adjustment.
+              </p>
+            )}
+            {!canReviewSelected && (
+              <p className="hrApprForm__hint">This request already has a final decision recorded.</p>
+            )}
 
             {submitError && <p className="hrApprForm__error">{submitError}</p>}
 
@@ -261,10 +376,10 @@ export default function HrApprovals() {
               <label className="hrApprForm__inline">
                 <span>Administrative Approval:</span>
                 <div className="hrApprForm__actions">
-                  <button type="button" disabled={isSaving} onClick={() => void submitDecision('APPROVED')}>
+                  <button type="button" disabled={isSaving || !canReviewSelected} onClick={() => void submitDecision('APPROVED')}>
                     Approve
                   </button>
-                  <button type="button" disabled={isSaving} onClick={() => void submitDecision('REJECTED')}>
+                  <button type="button" disabled={isSaving || !canReviewSelected} onClick={() => void submitDecision('REJECTED')}>
                     Deny
                   </button>
                 </div>
