@@ -270,6 +270,15 @@ export default function EmployeeLogin() {
   return (
     <div className="elogin">
       <div className="elogin__left">
+        <button
+          className="eloginBack"
+          type="button"
+          onClick={() => navigate('/')}
+          aria-label="Back to landing page"
+        >
+          <span className="eloginBack__arrow" aria-hidden="true" />
+        </button>
+
         <div className="eloginCard">
           <form className="eloginForm" onSubmit={handleSubmit}>
             <div className="field">
@@ -332,11 +341,19 @@ export default function EmployeeLogin() {
 
       <div className="elogin__right">
         <div className="eloginHero">
-          <div className="eloginHero__img" aria-label="Login hero image" />
+          <img
+            className="eloginHero__img"
+            src="/images/product-login-page.png"
+            alt="Marid Industries product display"
+          />
+          <div className="eloginHero__shade" aria-hidden="true" />
 
           <div className="eloginHero__brand">
-            <img className="eloginHero__icon" src="/images/landing-logo.png" alt="MaridOne logo" />
-            <div className="eloginHero__name">MaridOne</div>
+            <img
+              className="eloginHero__icon"
+              src="/images/marid-logo-transparent.png"
+              alt="MaridOne logo"
+            />
           </div>
         </div>
       </div>

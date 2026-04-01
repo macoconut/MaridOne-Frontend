@@ -16,7 +16,7 @@ export default function Landing() {
         <nav className="landing__nav">
           <button className="brand" type="button" onClick={() => navigate('/')}>
             <img
-              src="/images/landing-logo.png"
+              src="/images/marid-logo-transparent.png"
               alt="MaridOne logo"
               className="brand__logo"
             />
@@ -43,24 +43,20 @@ export default function Landing() {
         <section className="hero">
           <div className="hero__left">
             <h1 className="hero__title">
-              Connect and
+              Welcome to the
               <br />
-              explore the
-              <br />
-              capabilities of
-              <br />
-              Marid Industries!
+              MaridOne Portal
             </h1>
 
             <p className="hero__desc">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam blandit turpis vel
-              sapien suscipit, ac rutrum ante iaculis. Nunc id diam sagittis, facilisis sapien ac,
-              efficitur enim. Maecenas sed ipsum rutrum, iaculis quam a, fermentum risus.
+              Your central hub for HR and payroll services at Marid Industries. Please log in to
+              securely access your employee profile, view digital payslips, manage your attendance,
+              and file leave requests.
             </p>
           </div>
 
           <div className="hero__image">
-            <img src="/images/landing-hero.jpg" alt="Marid Industries products" />
+            <img src="/images/product-landing-page.png" alt="Marid Industries products" />
           </div>
         </section>
       </main>

@@ -9,10 +9,40 @@
 
 /* LEFT SIDE */
 .elogin__left {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 40px 28px;
+}
+
+.eloginBack {
+  position: absolute;
+  top: 28px;
+  left: 28px;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(42, 18, 71, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #2a1247;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(42, 18, 71, 0.08);
+  display: grid;
+  place-items: center;
+}
+
+.eloginBack:hover {
+  background: #ffffff;
+}
+
+.eloginBack__arrow {
+  width: 12px;
+  height: 12px;
+  border-left: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  margin-left: 4px;
 }
 
 .eloginCard {
@@ -137,6 +167,7 @@
   overflow: hidden;
   border-top-left-radius: 140px;
   border-bottom-left-radius: 0px;
+  min-height: 0;
 }
 
 .eloginHero {
@@ -146,35 +177,35 @@
 }
 
 .eloginHero__img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
+  object-fit: cover;
+}
+
+.eloginHero__shade {
+  position:absolute;
+  inset:0;
   background:
-    linear-gradient(0deg, rgba(52, 24, 77, 0.65), rgba(52, 24, 77, 0.65)),
-    url('/images/login-hero.jpg') center / cover no-repeat;
+    linear-gradient(0deg, rgba(52, 24, 77, 0.34), rgba(52, 24, 77, 0.34)),
+    radial-gradient(circle at center, rgba(255,255,255,0.02), rgba(255,255,255,0) 55%);
 }
 
 /* Brand overlay (logo + MaridOne) */
 .eloginHero__brand {
   position: absolute;
-  left: 50%;
-  top: 54%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  align-items: center;
-  gap: 16px;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
 }
 
 .eloginHero__icon {
-  width: 72px;
-  height: 72px;
+  width: clamp(140px, 18vw, 220px);
+  height: clamp(140px, 18vw, 220px);
   object-fit: contain;
-}
-
-.eloginHero__name {
-  font-size: 58px;
-  font-weight: 800;
-  color: #ffffff;
-  letter-spacing: -0.02em;
+  filter: drop-shadow(0 12px 24px rgba(42, 18, 71, 0.28));
 }
 
 /* RESPONSIVE */
@@ -188,8 +219,9 @@
     border-top-left-radius: 80px;
   }
 
-  .eloginHero__name {
-    font-size: 42px;
+  .eloginBack {
+    top: 20px;
+    left: 20px;
   }
 }
 

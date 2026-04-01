@@ -394,9 +394,8 @@ export default function ManagerLayout() {
           )}
           <Outlet />
         </main>
-      </div>
 
-      <footer className="eFooter">
+        <footer className="eFooter">
         <div className="eFooter__inner">
           <div className="eFooter__brand">
             <div className="eFooter__brandRow">
@@ -427,7 +426,8 @@ export default function ManagerLayout() {
             </div>
           </div>
         </div>
-      </footer>
+        </footer>
+      </div>
     </div>
   );
 }
