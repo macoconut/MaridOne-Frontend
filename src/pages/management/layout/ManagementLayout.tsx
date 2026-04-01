@@ -5,6 +5,7 @@ import '../../employee/layout/EmployeeLayout.css';
 import { getUserEmail } from '../../../lib/session';
 import { BACKEND_TEST_MODE } from '../../../config/flags';
 import { apiFetchRaw, expireCurrentSession, getApiBaseUrl } from '../../../lib/api';
+import { resolveHeaderTitle } from '../../../lib/headerProfile';
 import { mapNotificationItem, type NotificationItem } from '../../../lib/notificationRouting';
 import {
   applyBodyPlaceholders,
@@ -66,6 +67,7 @@ export default function ManagementLayout() {
   const [isLoading, setIsLoading] = useState(false);
   const bellRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const unreadOnOpenRef = useRef<string[]>([]);
 
   useEffect(() => {
     function handleClick(event: MouseEvent) {
@@ -73,11 +75,11 @@ export default function ManagementLayout() {
 
       const target = event.target as Node;
       if (panelRef.current?.contains(target) || bellRef.current?.contains(target)) return;
-      setNotifOpen(false);
+      closeNotificationBell();
     }
 
     function handleKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') setNotifOpen(false);
+      if (event.key === 'Escape') closeNotificationBell();
     }
 
     document.addEventListener('mousedown', handleClick);
@@ -99,48 +101,7 @@ export default function ManagementLayout() {
 
   async function loadHeaderAndNotifications() {
     try {
-      const username = getUserEmail();
-      if (!username) {
-        setHeaderTitle('Management');
-      } else {
-        const detailsResponse = await apiFetchRaw(`/api/user/details/${encodeURIComponent(username)}`, {
-          method: 'GET',
-        });
-
-        if (!detailsResponse.ok) {
-          setHeaderTitle('Management');
-        } else {
-          const payload = (await detailsResponse.json()) as Record<string, unknown>;
-          const employeeId =
-            extractFirstId(payload, ['employeeId', 'id']) ??
-            extractFirstId(
-              payload.employee && typeof payload.employee === 'object'
-                ? (payload.employee as Record<string, unknown>)
-                : null,
-              ['employeeId', 'id']
-            );
-
-          if (!employeeId) {
-            setHeaderTitle(username);
-          } else {
-            const employeeResponse = await apiFetchRaw(`/api/employees/${employeeId}`, {
-              method: 'GET',
-            });
-
-            if (!employeeResponse.ok) {
-              setHeaderTitle(`Management#${employeeId}`);
-            } else {
-              const employee = (await employeeResponse.json()) as Record<string, unknown>;
-              const firstName =
-                typeof employee.firstName === 'string' ? employee.firstName.trim() : '';
-              const lastName =
-                typeof employee.lastName === 'string' ? employee.lastName.trim() : '';
-              const fullName = [firstName, lastName].filter(Boolean).join(' ');
-              setHeaderTitle(fullName || `Management#${employeeId}`);
-            }
-          }
-        }
-      }
+      setHeaderTitle(await resolveHeaderTitle(getUserEmail(), 'Management'));
 
       const notifResponse = await apiFetchRaw('/api/notifications?page=0&size=20', { method: 'GET' });
       if (!notifResponse.ok) {
@@ -168,20 +129,65 @@ export default function ManagementLayout() {
     navigate('/management/attendance', { replace: true });
   }
 
-  async function markNotificationRead(id: string) {
-    const numericId = Number(id);
-    if (!Number.isFinite(numericId)) return;
-    try {
-      await apiFetchRaw(`/api/notifications?notificationId=${numericId}`, { method: 'PATCH' });
-      setNotifications((prev) => prev.map((item) => (item.id === id ? { ...item, isRead: true } : item)));
-    } catch {
-      // no-op
+  async function markNotificationsRead(ids: string[]) {
+    const numericIds = ids
+      .map((id) => ({ id, numericId: Number(id) }))
+      .filter((item) => Number.isFinite(item.numericId));
+
+    if (numericIds.length === 0) return;
+
+    const pendingIds = new Set(numericIds.map((item) => item.id));
+    setNotifications((prev) =>
+      prev.map((item) => (pendingIds.has(item.id) ? { ...item, isRead: true } : item))
+    );
+
+    const results = await Promise.allSettled(
+      numericIds.map(async ({ numericId }) => {
+        const response = await apiFetchRaw(`/api/notifications?notificationId=${numericId}`, {
+          method: 'PATCH',
+        });
+        if (!response.ok) {
+          throw new Error(`Unable to mark notification ${numericId} as read.`);
+        }
+      })
+    );
+
+    const failedIds = new Set<string>();
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        failedIds.add(numericIds[index].id);
+      }
+    });
+
+    if (failedIds.size > 0) {
+      setNotifications((prev) =>
+        prev.map((item) => (failedIds.has(item.id) ? { ...item, isRead: false } : item))
+      );
     }
   }
 
-  async function handleNotificationClick(notification: NotificationItem) {
-    await markNotificationRead(notification.id);
+  function closeNotificationBell() {
+    if (!notifOpen) return;
+
+    const unreadIds = unreadOnOpenRef.current;
+    unreadOnOpenRef.current = [];
     setNotifOpen(false);
+    void markNotificationsRead(unreadIds);
+  }
+
+  function handleNotificationBellClick() {
+    if (notifOpen) {
+      closeNotificationBell();
+      return;
+    }
+
+    const unreadIds = notifications.filter((item) => !item.isRead).map((item) => item.id);
+    unreadOnOpenRef.current = unreadIds;
+    setNotifOpen(true);
+  }
+
+  async function handleNotificationClick(notification: NotificationItem) {
+    closeNotificationBell();
     navigate(notification.destination);
   }
 
@@ -347,7 +353,7 @@ export default function ManagementLayout() {
               type="button"
               aria-label="Notifications"
               aria-expanded={notifOpen}
-              onClick={() => setNotifOpen((value) => !value)}
+              onClick={handleNotificationBellClick}
             >
               <FiBell />
               {unreadCount > 0 && <span className="notif__badge">{unreadCount}</span>}
@@ -364,21 +370,25 @@ export default function ManagementLayout() {
                 <div className="notifPanel__list">
                   {notifications.length > 0 ? (
                     notifications.map((item) => (
-                      <button
+                      <div
                         key={item.id}
-                        type="button"
-                        className="notifItem"
-                        onClick={() => void handleNotificationClick(item)}
+                        className={`notifItem ${item.isRead ? 'notifItem--read' : 'notifItem--unread'}`}
                       >
                         <div className="notifItem__icon">
                           <FiCheckCircle />
                         </div>
-                        <div className="notifItem__body">
-                          <div className="notifItem__title">{item.title}</div>
-                          {item.description && <div className="notifItem__msg">{item.description}</div>}
-                        </div>
-                        <div className="notifItem__time">{item.time}</div>
-                      </button>
+                        <button
+                          type="button"
+                          className="notifItem__main"
+                          onClick={() => void handleNotificationClick(item)}
+                        >
+                          <div className="notifItem__body">
+                            <div className="notifItem__title">{item.title}</div>
+                            {item.description && <div className="notifItem__msg">{item.description}</div>}
+                          </div>
+                          <div className="notifItem__time">{item.time}</div>
+                        </button>
+                      </div>
                     ))
                   ) : (
                     <div className="notifItem">

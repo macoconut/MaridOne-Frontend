@@ -12,6 +12,34 @@ export type NotificationItem = {
   rawMessage: string;
 };
 
+function isSameCalendarDay(left: Date, right: Date) {
+  return (
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate()
+  );
+}
+
+export function formatNotificationTime(createdAt: Date | null) {
+  if (!createdAt || Number.isNaN(createdAt.getTime())) {
+    return 'Now';
+  }
+
+  const now = new Date();
+  if (isSameCalendarDay(createdAt, now)) {
+    return createdAt.toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  }
+
+  return createdAt.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: createdAt.getFullYear() === now.getFullYear() ? undefined : 'numeric',
+  });
+}
+
 function defaultDestination(role: NotificationRole) {
   if (role === 'management') return '/management/dashboard';
   return role === 'hr' ? '/hr/dashboard' : '/employee/dashboard';
@@ -94,8 +122,8 @@ export function mapNotificationItem(
     id,
     title: rawMessage,
     rawMessage,
-    description: typeof row.importance === 'string' ? `Importance: ${row.importance}` : undefined,
-    time: createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt.toLocaleString() : 'Now',
+    description: undefined,
+    time: formatNotificationTime(createdAt),
     isRead: Boolean(row.readStatus),
     destination: resolveDestination(role, rawMessage),
   };

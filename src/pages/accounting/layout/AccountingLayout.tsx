@@ -5,6 +5,7 @@ import '../../employee/layout/EmployeeLayout.css';
 import { getUserEmail } from '../../../lib/session';
 import { BACKEND_TEST_MODE } from '../../../config/flags';
 import { apiFetchRaw, expireCurrentSession, getApiBaseUrl } from '../../../lib/api';
+import { resolveHeaderTitle } from '../../../lib/headerProfile';
 import {
   applyBodyPlaceholders,
   applyPathPlaceholders,
@@ -68,45 +69,7 @@ export default function AccountingLayout() {
 
   async function loadHeaderProfile() {
     try {
-      const username = getUserEmail();
-      if (!username) {
-        setHeaderTitle('Accounting');
-        return;
-      }
-
-      const userDetails = await fetchJsonWithAuth(`/api/user/details/${encodeURIComponent(username)}`);
-      const employeeId =
-        extractFirstId(userDetails, ['employeeId', 'id']) ??
-        extractFirstId(
-          userDetails && typeof userDetails === 'object'
-            ? (userDetails as Record<string, unknown>).employee
-            : null,
-          ['employeeId', 'id']
-        );
-
-      if (!employeeId) {
-        setHeaderTitle(username);
-        return;
-      }
-
-      const employeeDetails = await fetchJsonWithAuth(`/api/employees/${employeeId}`);
-      const employeeRecord =
-        employeeDetails && typeof employeeDetails === 'object'
-          ? (employeeDetails as Record<string, unknown>)
-          : null;
-
-      const firstName =
-        typeof employeeRecord?.firstName === 'string' ? employeeRecord.firstName.trim() : '';
-      const lastName =
-        typeof employeeRecord?.lastName === 'string' ? employeeRecord.lastName.trim() : '';
-      const fullName = [firstName, lastName].filter(Boolean).join(' ');
-
-      if (fullName) {
-        setHeaderTitle(fullName);
-        return;
-      }
-
-      setHeaderTitle(`Accounting#${employeeId}`);
+      setHeaderTitle(await resolveHeaderTitle(getUserEmail(), 'Accounting'));
     } catch {
       setHeaderTitle('Accounting');
     }

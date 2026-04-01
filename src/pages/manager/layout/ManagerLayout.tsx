@@ -5,6 +5,8 @@ import '../../employee/layout/EmployeeLayout.css';
 import { getUserEmail } from '../../../lib/session';
 import { BACKEND_TEST_MODE } from '../../../config/flags';
 import { apiFetchRaw, expireCurrentSession, getApiBaseUrl } from '../../../lib/api';
+import { resolveHeaderTitle } from '../../../lib/headerProfile';
+import { formatNotificationTime } from '../../../lib/notificationRouting';
 import {
   applyBodyPlaceholders,
   applyPathPlaceholders,
@@ -46,6 +48,7 @@ export default function ManagerLayout() {
   const [isLoading, setIsLoading] = useState(false);
   const bellRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const unreadOnOpenRef = useRef<string[]>([]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -53,11 +56,11 @@ export default function ManagerLayout() {
 
       const target = e.target as Node;
       if (panelRef.current?.contains(target) || bellRef.current?.contains(target)) return;
-      setNotifOpen(false);
+      closeNotificationBell();
     }
 
     function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setNotifOpen(false);
+      if (e.key === 'Escape') closeNotificationBell();
     }
 
     document.addEventListener('mousedown', handleClick);
@@ -71,22 +74,7 @@ export default function ManagerLayout() {
   useEffect(() => {
     void (async () => {
       try {
-        const username = getUserEmail();
-        if (!username) {
-          setHeaderTitle('Manager');
-          return;
-        }
-
-        const detailsResponse = await apiFetchRaw(`/api/user/details/${encodeURIComponent(username)}`, {
-          method: 'GET',
-        });
-        if (!detailsResponse.ok) {
-          setHeaderTitle('Manager');
-        } else {
-          const payload = (await detailsResponse.json()) as Record<string, unknown>;
-          const empId = extractFirstId(payload, ['employeeId', 'id']);
-          setHeaderTitle(empId ? `Manager#${empId}` : 'Manager');
-        }
+        setHeaderTitle(await resolveHeaderTitle(getUserEmail(), 'Manager'));
 
         const notifResponse = await apiFetchRaw('/api/notifications?page=0&size=20', { method: 'GET' });
         if (!notifResponse.ok) {
@@ -103,8 +91,8 @@ export default function ManagerLayout() {
               return {
                 id,
                 title: typeof row.message === 'string' ? row.message : 'Notification',
-                description: typeof row.importance === 'string' ? `Importance: ${row.importance}` : undefined,
-                time: createdAt && !Number.isNaN(createdAt.getTime()) ? createdAt.toLocaleString() : 'Now',
+                description: undefined,
+                time: formatNotificationTime(createdAt),
                 isRead: Boolean(row.readStatus),
               } as NotificationItem;
             })
@@ -126,15 +114,61 @@ export default function ManagerLayout() {
     navigate('/manager/dashboard', { replace: true });
   }
 
-  async function markNotificationRead(id: string) {
-    const numericId = Number(id);
-    if (!Number.isFinite(numericId)) return;
-    try {
-      await apiFetchRaw(`/api/notifications?notificationId=${numericId}`, { method: 'PATCH' });
-      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
-    } catch {
-      // no-op
+  async function markNotificationsRead(ids: string[]) {
+    const numericIds = ids
+      .map((id) => ({ id, numericId: Number(id) }))
+      .filter((item) => Number.isFinite(item.numericId));
+
+    if (numericIds.length === 0) return;
+
+    const pendingIds = new Set(numericIds.map((item) => item.id));
+    setNotifications((prev) =>
+      prev.map((item) => (pendingIds.has(item.id) ? { ...item, isRead: true } : item))
+    );
+
+    const results = await Promise.allSettled(
+      numericIds.map(async ({ numericId }) => {
+        const response = await apiFetchRaw(`/api/notifications?notificationId=${numericId}`, {
+          method: 'PATCH',
+        });
+        if (!response.ok) {
+          throw new Error(`Unable to mark notification ${numericId} as read.`);
+        }
+      })
+    );
+
+    const failedIds = new Set<string>();
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        failedIds.add(numericIds[index].id);
+      }
+    });
+
+    if (failedIds.size > 0) {
+      setNotifications((prev) =>
+        prev.map((item) => (failedIds.has(item.id) ? { ...item, isRead: false } : item))
+      );
     }
+  }
+
+  function closeNotificationBell() {
+    if (!notifOpen) return;
+
+    const unreadIds = unreadOnOpenRef.current;
+    unreadOnOpenRef.current = [];
+    setNotifOpen(false);
+    void markNotificationsRead(unreadIds);
+  }
+
+  function handleNotificationBellClick() {
+    if (notifOpen) {
+      closeNotificationBell();
+      return;
+    }
+
+    const unreadIds = notifications.filter((item) => !item.isRead).map((item) => item.id);
+    unreadOnOpenRef.current = unreadIds;
+    setNotifOpen(true);
   }
 
   async function fetchJsonWithAuth(path: string) {
@@ -292,7 +326,7 @@ export default function ManagerLayout() {
               type="button"
               aria-label="Notifications"
               aria-expanded={notifOpen}
-              onClick={() => setNotifOpen((v) => !v)}
+              onClick={handleNotificationBellClick}
             >
               <FiBell />
               {unreadCount > 0 && <span className="notif__badge">{unreadCount}</span>}
@@ -309,16 +343,25 @@ export default function ManagerLayout() {
                 <div className="notifPanel__list">
                   {notifications.length > 0 ? (
                     notifications.map((n) => (
-                      <button key={n.id} type="button" className="notifItem" onClick={() => void markNotificationRead(n.id)}>
+                      <div
+                        key={n.id}
+                        className={`notifItem ${n.isRead ? 'notifItem--read' : 'notifItem--unread'}`}
+                      >
                         <div className="notifItem__icon">
                           <FiCheckCircle />
                         </div>
-                        <div className="notifItem__body">
-                          <div className="notifItem__title">{n.title}</div>
-                          {n.description && <div className="notifItem__msg">{n.description}</div>}
-                        </div>
-                        <div className="notifItem__time">{n.time}</div>
-                      </button>
+                        <button
+                          type="button"
+                          className="notifItem__main"
+                          onClick={closeNotificationBell}
+                        >
+                          <div className="notifItem__body">
+                            <div className="notifItem__title">{n.title}</div>
+                            {n.description && <div className="notifItem__msg">{n.description}</div>}
+                          </div>
+                          <div className="notifItem__time">{n.time}</div>
+                        </button>
+                      </div>
                     ))
                   ) : (
                     <div className="notifItem">

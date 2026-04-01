@@ -15,6 +15,7 @@ import './EmployeeLayout.css';
 import { getUserEmail } from '../../../lib/session';
 import { BACKEND_TEST_MODE } from '../../../config/flags';
 import { apiFetchRaw, expireCurrentSession, getApiBaseUrl } from '../../../lib/api';
+import { resolveHeaderTitle } from '../../../lib/headerProfile';
 import { mapNotificationItem, type NotificationItem } from '../../../lib/notificationRouting';
 import {
   applyBodyPlaceholders,
@@ -192,6 +193,7 @@ export default function EmployeeLayout() {
 
   const bellRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const unreadOnOpenRef = useRef<string[]>([]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -200,11 +202,11 @@ export default function EmployeeLayout() {
       const target = e.target as Node;
       if (panelRef.current?.contains(target) || bellRef.current?.contains(target)) return;
 
-      setNotifOpen(false);
+      closeNotificationBell();
     }
 
     function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setNotifOpen(false);
+      if (e.key === 'Escape') closeNotificationBell();
     }
 
     document.addEventListener('mousedown', handleClick);
@@ -217,23 +219,8 @@ export default function EmployeeLayout() {
 
   useEffect(() => {
     void (async () => {
-      const username = getUserEmail();
-      if (!username) {
-        setHeaderTitle('Employee');
-        return;
-      }
-
       try {
-        const userDetails = await fetchJsonWithAuth(`/api/user/details/${encodeURIComponent(username)}`);
-        const directEmpId = extractFirstId(userDetails, ['employeeId', 'id', 'empId']);
-        const nestedEmpId = extractFirstId(
-          userDetails && typeof userDetails === 'object'
-            ? (userDetails as Record<string, unknown>).employee
-            : null,
-          ['employeeId', 'id', 'empId']
-        );
-        const empId = directEmpId ?? nestedEmpId;
-        setHeaderTitle(empId ? `Employee#${empId}` : 'Employee');
+        setHeaderTitle(await resolveHeaderTitle(getUserEmail(), 'Employee'));
       } catch {
         setHeaderTitle('Employee');
       }
@@ -276,23 +263,65 @@ export default function EmployeeLayout() {
     navigate('/employee/dashboard', { replace: true });
   }
 
-  async function markNotificationRead(id: string) {
-    const numericId = Number(id);
-    if (!Number.isFinite(numericId)) return;
+  async function markNotificationsRead(ids: string[]) {
+    const numericIds = ids
+      .map((id) => ({ id, numericId: Number(id) }))
+      .filter((item) => Number.isFinite(item.numericId));
 
-    try {
-      await apiFetchRaw(`/api/notifications?notificationId=${numericId}`, { method: 'PATCH' });
+    if (numericIds.length === 0) return;
+
+    const pendingIds = new Set(numericIds.map((item) => item.id));
+    setNotifications((prev) =>
+      prev.map((item) => (pendingIds.has(item.id) ? { ...item, isRead: true } : item))
+    );
+
+    const results = await Promise.allSettled(
+      numericIds.map(async ({ numericId }) => {
+        const response = await apiFetchRaw(`/api/notifications?notificationId=${numericId}`, {
+          method: 'PATCH',
+        });
+        if (!response.ok) {
+          throw new Error(`Unable to mark notification ${numericId} as read.`);
+        }
+      })
+    );
+
+    const failedIds = new Set<string>();
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        failedIds.add(numericIds[index].id);
+      }
+    });
+
+    if (failedIds.size > 0) {
       setNotifications((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, isRead: true } : item))
+        prev.map((item) => (failedIds.has(item.id) ? { ...item, isRead: false } : item))
       );
-    } catch {
-      // Keep UI state unchanged if backend mark-read fails.
     }
   }
 
-  async function handleNotificationClick(notification: NotificationItem) {
-    await markNotificationRead(notification.id);
+  function closeNotificationBell() {
+    if (!notifOpen) return;
+
+    const unreadIds = unreadOnOpenRef.current;
+    unreadOnOpenRef.current = [];
     setNotifOpen(false);
+    void markNotificationsRead(unreadIds);
+  }
+
+  function handleNotificationBellClick() {
+    if (notifOpen) {
+      closeNotificationBell();
+      return;
+    }
+
+    const unreadIds = notifications.filter((item) => !item.isRead).map((item) => item.id);
+    unreadOnOpenRef.current = unreadIds;
+    setNotifOpen(true);
+  }
+
+  async function handleNotificationClick(notification: NotificationItem) {
+    closeNotificationBell();
     navigate(notification.destination);
   }
 
@@ -476,7 +505,7 @@ export default function EmployeeLayout() {
               type="button"
               aria-label="Notifications"
               aria-expanded={notifOpen}
-              onClick={() => setNotifOpen((v) => !v)}
+              onClick={handleNotificationBellClick}
             >
               <FiBell />
               {unreadCount > 0 && <span className="notif__badge">{unreadCount}</span>}
@@ -494,23 +523,26 @@ export default function EmployeeLayout() {
                 <div className="notifPanel__list">
                   {notifications.length > 0 ? (
                     notifications.map((n) => (
-                      <button
+                      <div
                         key={n.id}
-                        type="button"
-                        className="notifItem"
-                        onClick={() => void handleNotificationClick(n)}
+                        className={`notifItem ${n.isRead ? 'notifItem--read' : 'notifItem--unread'}`}
                       >
                         <div className="notifItem__icon">
                           <FiCheckCircle />
                         </div>
 
-                        <div className="notifItem__body">
-                          <div className="notifItem__title">{n.title}</div>
-                          {n.description && <div className="notifItem__msg">{n.description}</div>}
-                        </div>
-
-                        <div className="notifItem__time">{n.time}</div>
-                      </button>
+                        <button
+                          type="button"
+                          className="notifItem__main"
+                          onClick={() => void handleNotificationClick(n)}
+                        >
+                          <div className="notifItem__body">
+                            <div className="notifItem__title">{n.title}</div>
+                            {n.description && <div className="notifItem__msg">{n.description}</div>}
+                          </div>
+                          <div className="notifItem__time">{n.time}</div>
+                        </button>
+                      </div>
                     ))
                   ) : (
                     <div className="notifItem">
