@@ -20,6 +20,13 @@ type LeaveRequest = {
   isPaid?: boolean;
 };
 
+type EmployeeRow = {
+  id: number;
+  name: string;
+  status: string;
+  position: string;
+};
+
 type FeedItem = {
   id: string;
   name: string;
@@ -34,6 +41,13 @@ type LeaveCardItem = {
   summary: string;
   detail: string;
   period: string;
+};
+
+type AttendanceOverviewDashboardProps = {
+  audience?: string;
+  logsUrl?: string;
+  leavesUrl?: string;
+  rosterUrl?: string;
 };
 
 function localDateKey(value?: string) {
@@ -68,13 +82,40 @@ function isTodayWithin(start?: string, end?: string, today = new Date()) {
   return startDate.getTime() <= dayEnd && endDate.getTime() >= dayStart;
 }
 
+function withPaging(path: string, page: number, size: number) {
+  const separator = path.includes('?') ? '&' : '?';
+  return `${path}${separator}page=${page}&size=${size}`;
+}
+
+function employeeName(employee: EmployeeRow | undefined, employeeId?: number) {
+  return employee?.name || (typeof employeeId === 'number' ? `Employee ID ${employeeId}` : 'Employee unavailable');
+}
+
+function rosterRows(payload: unknown) {
+  return toArray<Record<string, unknown>>(payload).map((row, idx) => ({
+    id: Number(row.employeeId ?? row.id ?? idx + 1),
+    name:
+      [row.firstName, row.middleName, row.lastName]
+        .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+        .join(' ') || `Employee #${row.employeeId ?? row.id ?? idx + 1}`,
+    status: String(row.employmentStatus ?? '-'),
+    position: String(row.position ?? '-'),
+  }));
+}
+
 export default function HrDashboard() {
   return <AttendanceOverviewDashboard audience="HR" />;
 }
 
-export function AttendanceOverviewDashboard({ audience = 'HR' }: { audience?: string }) {
+export function AttendanceOverviewDashboard({
+  audience = 'HR',
+  logsUrl = '/api/logs/attendance',
+  leavesUrl = '/api/leave/request',
+  rosterUrl = '/api/employees',
+}: AttendanceOverviewDashboardProps) {
   const [logs, setLogs] = useState<AttendanceLog[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [employees, setEmployees] = useState<EmployeeRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [deptPage, setDeptPage] = useState(0);
@@ -87,9 +128,10 @@ export function AttendanceOverviewDashboard({ audience = 'HR' }: { audience?: st
       if (!silent) setIsLoading(true);
       setLoadError(null);
 
-      const [logsResult, leavesResult] = await Promise.allSettled([
-        apiFetchJson<unknown>('/api/logs/attendance?page=0&size=400'),
-        apiFetchJson<unknown>('/api/leave/request?page=0&size=200'),
+      const [logsResult, leavesResult, rosterResult] = await Promise.allSettled([
+        apiFetchJson<unknown>(withPaging(logsUrl, 0, 400)),
+        apiFetchJson<unknown>(withPaging(leavesUrl, 0, 200)),
+        rosterUrl ? apiFetchJson<unknown>(withPaging(rosterUrl, 0, 500)) : Promise.resolve([]),
       ]);
 
       if (cancelled) return;
@@ -107,6 +149,12 @@ export function AttendanceOverviewDashboard({ audience = 'HR' }: { audience?: st
         setLeaveRequests([]);
       }
 
+      if (rosterResult.status === 'fulfilled') {
+        setEmployees(rosterRows(rosterResult.value).filter((row) => Number.isFinite(row.id)));
+      } else {
+        setEmployees([]);
+      }
+
       if (!silent) setIsLoading(false);
     }
 
@@ -119,7 +167,15 @@ export function AttendanceOverviewDashboard({ audience = 'HR' }: { audience?: st
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [refreshTick]);
+  }, [leavesUrl, logsUrl, refreshTick, rosterUrl]);
+
+  const employeeById = useMemo(() => {
+    const map = new Map<number, EmployeeRow>();
+    for (const employee of employees) {
+      map.set(employee.id, employee);
+    }
+    return map;
+  }, [employees]);
 
   const now = new Date();
   const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
@@ -171,7 +227,7 @@ export function AttendanceOverviewDashboard({ audience = 'HR' }: { audience?: st
         const direction = typeof log.direction === 'string' ? log.direction : 'Attendance log';
         return {
           id: String(log.attendanceId ?? idx),
-          name: `Employee ID ${log.employeeId ?? '-'}`,
+          name: employeeName(employeeById.get(log.employeeId ?? -1), log.employeeId),
           summary: direction,
           detail: date
             ? date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
@@ -179,7 +235,7 @@ export function AttendanceOverviewDashboard({ audience = 'HR' }: { audience?: st
           time: date ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A',
         };
       });
-  }, [logs]);
+  }, [employeeById, logs]);
 
   const lateToday = useMemo(() => {
     return [...todayLogs]
@@ -189,32 +245,36 @@ export function AttendanceOverviewDashboard({ audience = 'HR' }: { audience?: st
         const time = log.timestamp
           ? new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           : 'N/A';
+        const employee = employeeById.get(log.employeeId ?? -1);
 
         return {
           id: String(log.attendanceId ?? idx),
-          name: `Employee ID ${log.employeeId ?? '-'}`,
-          summary: 'Late attendance entry',
+          name: employeeName(employee, log.employeeId),
+          summary: employee?.position ? `${employee.position} • Late attendance entry` : 'Late attendance entry',
           detail: `Direction: ${String(log.direction ?? 'UNKNOWN')}`,
           timeIn: time,
           duration: lateSet.has(log.employeeId ?? -1) ? 'Late flag active' : 'Under review',
           period: 'Today',
         };
       });
-  }, [lateSet, todayLogs]);
+  }, [employeeById, lateSet, todayLogs]);
 
   const onLeave: LeaveCardItem[] = useMemo(() => {
     return leaveRequests
       .filter((request) => String(request.requestStatus ?? '').toUpperCase() === 'APPROVED')
       .filter((request) => isTodayWithin(request.startDateTime, request.endDateTime, now))
       .slice(0, 6)
-      .map((request, idx) => ({
-        id: String(request.requestId ?? idx),
-        name: `Employee ID ${request.empId ?? '-'}`,
-        summary: request.isPaid ? 'Paid leave' : 'Unpaid leave',
-        detail: request.reason?.trim() || 'Approved leave request',
-        period: formatPeriodLabel(request.startDateTime, request.endDateTime),
-      }));
-  }, [leaveRequests, now]);
+      .map((request, idx) => {
+        const employee = employeeById.get(request.empId ?? -1);
+        return {
+          id: String(request.requestId ?? idx),
+          name: employeeName(employee, request.empId),
+          summary: request.isPaid ? 'Paid leave' : 'Unpaid leave',
+          detail: request.reason?.trim() || 'Approved leave request',
+          period: formatPeriodLabel(request.startDateTime, request.endDateTime),
+        };
+      });
+  }, [employeeById, leaveRequests, now]);
 
   const activityLeaders = useMemo(() => {
     const activity = new Map<number, { logCount: number; lateCount: number }>();
@@ -231,11 +291,11 @@ export function AttendanceOverviewDashboard({ audience = 'HR' }: { audience?: st
       .sort((a, b) => b[1].logCount - a[1].logCount || b[1].lateCount - a[1].lateCount)
       .map(([employeeId, counts]) => ({
         id: String(employeeId),
-        name: `Employee ID ${employeeId}`,
+        name: employeeName(employeeById.get(employeeId), employeeId),
         logCount: counts.logCount,
         lateCount: counts.lateCount,
       }));
-  }, [todayLogs]);
+  }, [employeeById, todayLogs]);
 
   const maxDeptPage = Math.max(Math.ceil(activityLeaders.length / 3) - 1, 0);
   const activeDeptPage = Math.min(deptPage, maxDeptPage);
