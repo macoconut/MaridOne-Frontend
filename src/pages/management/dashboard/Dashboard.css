@@ -4,6 +4,17 @@
   gap: 12px;
 }
 
+.mDash__status {
+  margin: 0;
+  color: #5f5178;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.mDash__status.is-error {
+  color: #a14254;
+}
+
 .mDash__grid {
   display: grid;
   grid-template-columns: 1.05fr 1fr;
@@ -221,6 +232,15 @@
   color: #343142;
   padding: 8px 10px;
   border-bottom: 1px solid rgba(63, 43, 104, 0.14);
+}
+
+.mCal__navBtn {
+  border: 0;
+  background: transparent;
+  color: #493b62;
+  display: grid;
+  place-items: center;
+  padding: 0;
 }
 
 .mCal__grid {

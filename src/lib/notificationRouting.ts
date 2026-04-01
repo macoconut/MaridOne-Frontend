@@ -1,4 +1,4 @@
-export type NotificationRole = 'employee' | 'hr';
+export type NotificationRole = 'employee' | 'hr' | 'management';
 
 type NotificationPayload = Record<string, unknown>;
 
@@ -13,6 +13,7 @@ export type NotificationItem = {
 };
 
 function defaultDestination(role: NotificationRole) {
+  if (role === 'management') return '/management/dashboard';
   return role === 'hr' ? '/hr/dashboard' : '/employee/dashboard';
 }
 
@@ -38,6 +39,20 @@ function resolveDestination(role: NotificationRole, message: string) {
 
     if (normalized.includes('employee')) {
       return '/hr/manage-emp';
+    }
+  }
+
+  if (role === 'management') {
+    if (normalized.includes('pay run') || normalized.includes('payroll') || normalized.includes('payslip')) {
+      return '/management/payroll-dashboard';
+    }
+
+    if (normalized.includes('attendance')) {
+      return '/management/attendance';
+    }
+
+    if (normalized.includes('calendar') || normalized.includes('event')) {
+      return '/management/dashboard';
     }
   }
 

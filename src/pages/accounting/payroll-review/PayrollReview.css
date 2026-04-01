@@ -12,6 +12,17 @@
   letter-spacing: -0.03em;
 }
 
+.aReviewPay__status {
+  margin: 0;
+  color: #5f5178;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.aReviewPay__status.is-error {
+  color: #a14254;
+}
+
 .aReviewPay__filters {
   display: grid;
   grid-template-columns: 1.3fr 220px auto;
@@ -146,6 +157,100 @@
   color: #2f2050;
 }
 
+.aReviewPayRow--empty {
+  color: #6c5d84;
+}
+
+.aReviewPayModalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(32, 18, 50, 0.46);
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  z-index: 50;
+}
+
+.aReviewPayModal {
+  position: relative;
+  width: min(720px, 100%);
+  border-radius: 16px;
+  background: #fff;
+  border: 1.5px solid #dacde7;
+  box-shadow: 0 18px 48px rgba(52, 30, 76, 0.2);
+  padding: 22px;
+  display: grid;
+  gap: 14px;
+}
+
+.aReviewPayModal h2 {
+  margin: 0;
+  color: #2f2050;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.aReviewPayModal p {
+  margin: 0;
+  color: #65597c;
+  font-size: 14px;
+}
+
+.aReviewPayModal__close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  border: 0;
+  background: transparent;
+  color: #7b4a8f;
+  font-size: 24px;
+}
+
+.aReviewPayModal__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.aReviewPayModal__grid label {
+  display: grid;
+  gap: 4px;
+}
+
+.aReviewPayModal__grid span {
+  color: #5b4f72;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.aReviewPayModal__grid input {
+  height: 38px;
+  border-radius: 8px;
+  border: 1px solid #b7a5cc;
+  background: #f7f2fb;
+  color: #564570;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 0 12px;
+}
+
+.aReviewPayModal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.aReviewPayModal__actions button {
+  border: 0;
+  border-radius: 8px;
+  background: #7b4a8f;
+  color: #fff;
+  height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
 @media (max-width: 1100px) {
   .aReviewPay__filters {
     grid-template-columns: 1fr;
@@ -154,5 +259,9 @@
   .aReviewPayTable__head,
   .aReviewPayRow {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .aReviewPayModal__grid {
+    grid-template-columns: 1fr;
   }
 }

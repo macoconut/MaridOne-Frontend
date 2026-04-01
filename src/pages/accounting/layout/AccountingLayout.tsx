@@ -29,32 +29,88 @@ const backendActions: BackendTestAction[] = [
     path: '/api/notifications',
   },
   {
+    label: 'Get Runs',
+    method: 'GET',
+    path: '/api/payroll/run',
+  },
+  {
+    label: 'Get Run Details',
+    method: 'GET',
+    path: '/api/payroll/run/{payId}',
+  },
+  {
     label: 'Get Run Items',
     method: 'GET',
     path: '/api/payroll/run/{payId}/items?page=0&size=20',
   },
   {
-    label: 'Get Disputes',
+    label: 'Get Run Summary',
     method: 'GET',
-    path: '/api/payroll/item/dispute/all?page=0&size=20',
-  },
-  {
-    label: 'Get Payroll Item',
-    method: 'GET',
-    path: '/api/payroll/item/{empId}',
+    path: '/api/payroll/run/summary/{payId}',
   },
 ];
 
 export default function AccountingLayout() {
   const navigate = useNavigate();
+  const [headerTitle, setHeaderTitle] = useState('Accounting');
   const [backendAction, setBackendAction] = useState<string>('None');
   const [backendResult, setBackendResult] = useState<string>('Waiting for backend test.');
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
+    void loadHeaderProfile();
+  }, []);
+
+  useEffect(() => {
     if (!BACKEND_TEST_MODE) return;
     void handleBackendTest(backendActions[0]);
   }, []);
+
+  async function loadHeaderProfile() {
+    try {
+      const username = getUserEmail();
+      if (!username) {
+        setHeaderTitle('Accounting');
+        return;
+      }
+
+      const userDetails = await fetchJsonWithAuth(`/api/user/details/${encodeURIComponent(username)}`);
+      const employeeId =
+        extractFirstId(userDetails, ['employeeId', 'id']) ??
+        extractFirstId(
+          userDetails && typeof userDetails === 'object'
+            ? (userDetails as Record<string, unknown>).employee
+            : null,
+          ['employeeId', 'id']
+        );
+
+      if (!employeeId) {
+        setHeaderTitle(username);
+        return;
+      }
+
+      const employeeDetails = await fetchJsonWithAuth(`/api/employees/${employeeId}`);
+      const employeeRecord =
+        employeeDetails && typeof employeeDetails === 'object'
+          ? (employeeDetails as Record<string, unknown>)
+          : null;
+
+      const firstName =
+        typeof employeeRecord?.firstName === 'string' ? employeeRecord.firstName.trim() : '';
+      const lastName =
+        typeof employeeRecord?.lastName === 'string' ? employeeRecord.lastName.trim() : '';
+      const fullName = [firstName, lastName].filter(Boolean).join(' ');
+
+      if (fullName) {
+        setHeaderTitle(fullName);
+        return;
+      }
+
+      setHeaderTitle(`Accounting#${employeeId}`);
+    } catch {
+      setHeaderTitle('Accounting');
+    }
+  }
 
   async function handleLogout() {
     await expireCurrentSession();
@@ -77,6 +133,13 @@ export default function AccountingLayout() {
 
   async function buildContext(username: string | null): Promise<PlaceholderContext> {
     const context: PlaceholderContext = { username: username ?? undefined };
+    const runs = await fetchJsonWithAuth('/api/payroll/run');
+    const firstRun = firstFromCollection(runs);
+    const payId = extractFirstId(firstRun, ['payId', 'id']);
+    if (payId) {
+      context.payId = payId;
+    }
+
     if (!username) return context;
     const userDetails = await fetchJsonWithAuth(`/api/user/details/${encodeURIComponent(username)}`);
     const empId =
@@ -89,10 +152,6 @@ export default function AccountingLayout() {
       );
     if (empId) {
       context.empId = empId;
-      const items = await fetchJsonWithAuth(`/api/payroll/item/${empId}`);
-      const firstItem = firstFromCollection(items);
-      const payId = extractFirstId(firstItem, ['payId', 'payrollRunId']);
-      if (payId) context.payId = payId;
     }
     return context;
   }
@@ -199,7 +258,7 @@ export default function AccountingLayout() {
       <div className="eMain">
         <header className="eTop">
           <div className="eTop__left">
-            <div className="eTop__title">Accountant#67</div>
+            <div className="eTop__title">{headerTitle}</div>
             <span className="eTop__badge">Accounting</span>
           </div>
         </header>
@@ -273,7 +332,7 @@ export default function AccountingLayout() {
                 <div className="eFooter__brandTitle">Corporation</div>
               </div>
             </div>
-            <div className="eFooter__slogan">insert slogan of Marid Industries here</div>
+            <div className="eFooter__slogan">Smart packaging solutions for modern food service.</div>
             <div className="eFooter__copy">© 2026 Marid Industries Corporation</div>
           </div>
 

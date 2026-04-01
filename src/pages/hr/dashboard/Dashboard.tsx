@@ -69,6 +69,10 @@ function isTodayWithin(start?: string, end?: string, today = new Date()) {
 }
 
 export default function HrDashboard() {
+  return <AttendanceOverviewDashboard audience="HR" />;
+}
+
+export function AttendanceOverviewDashboard({ audience = 'HR' }: { audience?: string }) {
   const [logs, setLogs] = useState<AttendanceLog[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -262,7 +266,7 @@ export default function HrDashboard() {
           </button>
         </div>
       </div>
-      {isLoading && <p className="hrDash__subtitle">Loading HR dashboard data...</p>}
+      {isLoading && <p className="hrDash__subtitle">Loading {audience.toLowerCase()} dashboard data...</p>}
       {!isLoading && loadError && <p className="hrDash__subtitle">Failed to load attendance logs: {loadError}</p>}
 
       <div className="hrDash__grid">

@@ -19,7 +19,6 @@ import HrPayslips from './pages/hr/payslips/Payslips';
 import HrManageEmp from './pages/hr/manage-emp/manage-emp';
 import HrPayRunReporting from './pages/hr/pay-run-reporting/PayRunReporting';
 import ManagementLayout from './pages/management/layout/ManagementLayout';
-import ManagementDashboard from './pages/management/dashboard/Dashboard';
 import ManagementAttendance from './pages/management/attendance/Attendance';
 import ManagementPayrollCosts from './pages/management/payroll/PayrollCosts';
 import ManagementPayRunReporting from './pages/management/pay-run-reporting/PayRunReporting';
@@ -116,7 +115,7 @@ export default function App() {
         {/* Management (FRAME) */}
         <Route path="/management" element={<RequireRole role="management"><ManagementLayout /></RequireRole>}>
           <Route index element={<Navigate to="attendance" replace />} />
-          <Route path="dashboard" element={<ManagementDashboard />} />
+          <Route path="dashboard" element={<ManagementAttendance />} />
           <Route path="attendance" element={<ManagementAttendance />} />
           <Route path="payroll-dashboard" element={<ManagementPayrollCosts />} />
           <Route path="pay-run-reporting" element={<ManagementPayRunReporting />} />

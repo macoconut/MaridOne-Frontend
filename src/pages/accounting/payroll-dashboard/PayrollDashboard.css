@@ -21,6 +21,9 @@
 
 .aDashPay__controls {
   margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .aDashPay__dateSelect {
@@ -47,6 +50,28 @@
   font-weight: 800;
   line-height: 1.1;
   box-shadow: 0 6px 12px rgba(123, 74, 143, 0.22);
+}
+
+.aDashPay__refreshBtn {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #b7a5cc;
+  border-radius: 999px;
+  background: #fff;
+  color: #6d5f85;
+  display: grid;
+  place-items: center;
+}
+
+.aDashPay__status {
+  margin: 0;
+  color: #5f5178;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.aDashPay__status.is-error {
+  color: #a14254;
 }
 
 .aDashPaySummaryGrid {
@@ -143,6 +168,23 @@
   font-weight: 700;
 }
 
+.aDashPayHistory__barWrap strong {
+  color: #47395f;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.aDashPayHistory__empty {
+  grid-column: 1 / -1;
+  align-self: center;
+  justify-self: center;
+  color: #6d5f85;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
 .aDashPayDonutBlock {
   padding: 16px 14px;
   display: grid;
@@ -173,6 +215,12 @@
   font-size: 11px;
 }
 
+.aDashPayLegend__empty {
+  color: #6d5f85;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .aDashPayLegend .t1 {
   background: #b83573;
 }
@@ -198,6 +246,11 @@
       #ef9aa8 73% 89%,
       #f3b6c3 89% 100%
     );
+}
+
+.aDashPayDonut--empty {
+  background: radial-gradient(circle at center, #fff 0 60px, transparent 62px), #f3edf8;
+  border: 1px dashed #d5c7e2;
 }
 
 @media (max-width: 1200px) {
