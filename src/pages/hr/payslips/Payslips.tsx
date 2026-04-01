@@ -12,6 +12,7 @@ type DisputeDto = {
   createdAt?: string;
   itemId?: number;
   employeeId?: number;
+  employeeName?: string;
   statusReason?: string;
 };
 
@@ -31,6 +32,7 @@ type DisputeRow = {
   id: number;
   itemId?: number;
   employeeId?: number;
+  employeeName?: string;
   employee: string;
   department: string;
   payrollPeriod: string;
@@ -136,7 +138,9 @@ function toOptionalText(value: unknown) {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 }
 
-function employeeLabel(employeeId?: number) {
+function employeeLabel(employeeName?: string, employeeId?: number) {
+  const trimmedName = typeof employeeName === 'string' ? employeeName.trim() : '';
+  if (trimmedName) return trimmedName;
   return typeof employeeId === 'number' ? `Employee ID ${employeeId}` : 'Employee unavailable';
 }
 
@@ -287,7 +291,8 @@ export default function HrPayslips() {
         id: item.id ?? idx + 1,
         itemId: item.itemId,
         employeeId: item.employeeId,
-        employee: employeeLabel(item.employeeId),
+        employeeName: item.employeeName,
+        employee: employeeLabel(item.employeeName, item.employeeId),
         department: 'Payroll',
         payrollPeriod: item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'No date',
         status: mapStatus(item.status),

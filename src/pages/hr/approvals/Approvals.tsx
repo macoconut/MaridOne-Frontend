@@ -15,6 +15,7 @@ type DisputeDto = {
   statusReason?: string;
   itemId?: number;
   employeeId?: number;
+  employeeName?: string;
 };
 
 type OvertimeDto = {
@@ -81,7 +82,9 @@ function formatDateOnly(value?: string) {
   });
 }
 
-function employeeLabel(employeeId?: number) {
+function employeeLabel(employeeName?: string, employeeId?: number) {
+  const trimmedName = typeof employeeName === 'string' ? employeeName.trim() : '';
+  if (trimmedName) return trimmedName;
   return typeof employeeId === 'number' ? `Employee ID ${employeeId}` : 'Employee unavailable';
 }
 
@@ -106,7 +109,7 @@ export default function HrApprovals() {
         id: `dispute-${item.id ?? idx}`,
         disputeId: item.id,
         itemId: item.itemId,
-        employee: employeeLabel(item.employeeId),
+        employee: employeeLabel(item.employeeName, item.employeeId),
         message: item.subject?.trim() || `Payroll dispute for payslip item #${item.itemId ?? '-'}`,
         time: formatDateTime(item.createdAt),
         type: 'Dispute' as const,
@@ -121,7 +124,7 @@ export default function HrApprovals() {
 
       const overtimeRows = toArray<OvertimeDto>(overtimeRes).map((item, idx) => ({
         id: `overtime-${item.overtimeId ?? idx}`,
-        employee: employeeLabel(item.employeeId),
+        employee: employeeLabel(undefined, item.employeeId),
         message: `${item.overtimeType || 'Overtime'} request on ${formatDateOnly(item.workDate)}`,
         time: formatDateTime(item.requestAt),
         type: 'Overtime' as const,
