@@ -1,20 +1,32 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { expireCurrentSession } from '../../lib/api';
 import './Landing.css';
 
 export default function Landing() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    void expireCurrentSession();
+    document.body.classList.add('landing-page');
+
+    return () => {
+      document.body.classList.remove('landing-page');
+    };
   }, []);
 
+  function scrollToSection(id: string) {
+    if (id === 'landing-home') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   return (
-    <div className="landing">
+    <div className="landing" id="landing-home">
       <header className="landing__header">
         <nav className="landing__nav">
-          <button className="brand" type="button" onClick={() => navigate('/')}>
+          <button className="brand" type="button" onClick={() => scrollToSection('landing-home')}>
             <img
               src="/images/marid-logo-transparent.png"
               alt="MaridOne logo"
@@ -24,8 +36,20 @@ export default function Landing() {
           </button>
 
           <div className="nav-actions">
-            <button className="nav-btn nav-btn--ghost" type="button">
-              About us
+            <button
+              className="nav-btn nav-btn--ghost"
+              type="button"
+              onClick={() => scrollToSection('landing-home')}
+            >
+              Home
+            </button>
+
+            <button
+              className="nav-btn nav-btn--ghost"
+              type="button"
+              onClick={() => scrollToSection('about-us')}
+            >
+              About Us
             </button>
 
             <button
@@ -60,6 +84,58 @@ export default function Landing() {
           </div>
         </section>
       </main>
+
+      <section className="aboutSection" id="about-us">
+        <div className="aboutSection__inner">
+          <div className="aboutSection__top">
+            <h2 className="aboutSection__title">About Marid Industries</h2>
+            <p className="aboutSection__intro">
+              Marid Industries is a growing manufacturing company that specializes in producing and
+              exporting self-heating packaging to international markets, with a particular focus on
+              Kuwait. As a starting enterprise, our operations heavily involve research and
+              development, production, and shipping. Our commitment to serving customers and to
+              providing quality products at competitive prices is unwavering. We continuously aim
+              to optimize our internal workflows to sustain growth and ensure competitiveness as we
+              prepare for expansion across the Middle East.
+            </p>
+          </div>
+
+          <div className="aboutSection__grid">
+            <article className="aboutFeature">
+              <div className="aboutFeature__icon" aria-hidden="true">
+                M
+              </div>
+              <h3>Our Mission</h3>
+              <p>
+                To ignite a culinary revolution with our self-heating packaging solutions.
+              </p>
+            </article>
+
+            <article className="aboutFeature">
+              <div className="aboutFeature__icon" aria-hidden="true">
+                V
+              </div>
+              <h3>Our Vision</h3>
+              <p>
+                To be the trailblazer of the self-heating food packaging industry, setting a new
+                standard for quality and innovation across the globe.
+              </p>
+            </article>
+
+            <article className="aboutFeature">
+              <div className="aboutFeature__icon" aria-hidden="true">
+                C
+              </div>
+              <h3>Our Commitment</h3>
+              <p>
+                Our Corporate Social Responsibility (CSR) initiatives are designed to create a
+                profound and lasting impact in three key areas: sustainability, community
+                empowerment, and ethical stewardship.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

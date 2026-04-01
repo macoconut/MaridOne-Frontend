@@ -114,7 +114,7 @@ export default function AccountingLayout() {
 
   async function handleLogout() {
     await expireCurrentSession();
-    navigate('/login', { replace: true });
+    navigate('/', { replace: true });
   }
 
   function handleBrandClick() {

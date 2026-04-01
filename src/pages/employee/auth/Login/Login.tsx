@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { clearSession, setSession } from '../../../../lib/session';
-import { expireCurrentSession } from '../../../../lib/api';
 import './Login.css';
 
 type UserRole = 'employee' | 'hr' | 'manager' | 'management' | 'accounting';
@@ -164,10 +163,6 @@ export default function EmployeeLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-
-  useEffect(() => {
-    void expireCurrentSession();
-  }, []);
 
   function mapLoginError(status: number, payload: unknown) {
     const message =
