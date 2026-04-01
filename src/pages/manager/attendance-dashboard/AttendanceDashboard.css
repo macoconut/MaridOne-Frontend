@@ -66,7 +66,7 @@
 .mgrAttRow__time,
 .mgrAttList__empty {
   color: #5c546d;
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.45;
 }
 
@@ -95,7 +95,7 @@
 .mgrAttStats span,
 .mgrAttDay__meta {
   color: #65587e;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 700;
 }
 
@@ -129,7 +129,7 @@
 
 .mgrAttDay__label {
   color: #4b3d66;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 800;
 }
 
@@ -139,7 +139,7 @@
   flex-direction: column;
   gap: 6px;
   color: #4b445a;
-  font-size: 12px;
+  font-size: 16px;
 }
 
 .mgrAttGrid {
@@ -175,7 +175,7 @@
   border-radius: 14px;
   background: linear-gradient(135deg, #6a3f88, #9f78ba);
   color: #fff;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 900;
 }
 
@@ -198,7 +198,7 @@
 
 .mgrAttLeader span {
   display: block;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .mgrAttLeader strong {
@@ -234,3 +234,4 @@
     grid-column: 2;
   }
 }
+

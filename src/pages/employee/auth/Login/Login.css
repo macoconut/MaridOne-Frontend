@@ -40,7 +40,7 @@
 }
 
 .field__label {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: #2a202f;
 }
@@ -50,7 +50,7 @@
   border: 1.6px solid rgba(0, 0, 0, 0.5);
   border-radius: 8px;
   padding: 0 12px;
-  font-size: 13px;
+  font-size: 15px;
   background: #fffdfb;
   outline: none;
 }
@@ -94,7 +94,7 @@
   background: #f8f1fa;
   border-radius: 8px;
   padding: 8px 10px;
-  font-size: 11px;
+  font-size: 15px;
   color: #40254e;
   display: flex;
   flex-direction: column;
@@ -103,7 +103,7 @@
 
 .eloginError {
   color: #b73045;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 600;
 }
 
@@ -111,7 +111,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: 16px;
   color: #2a202f;
 }
 
@@ -121,7 +121,7 @@
   border: none;
   background: #7b4a8f;
   color: #fff;
-  font-size: 12px;
+  font-size: 16px;
   cursor: pointer;
   box-shadow: 0 6px 12px rgba(123, 74, 143, 0.25);
 }
@@ -192,3 +192,4 @@
     font-size: 42px;
   }
 }
+

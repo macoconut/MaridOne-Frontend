@@ -23,7 +23,7 @@
   background: #fff;
   color: var(--hr-primary-dark);
   font-weight: 800;
-  font-size: 13px;
+  font-size: 15px;
   padding: 10px 14px;
   cursor: pointer;
 }
@@ -39,7 +39,7 @@
 .hrDash__subtitle {
   margin: 4px 0 0;
   color: #3e3a47;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .hrDash__exportBtn {
@@ -48,7 +48,7 @@
   background: var(--hr-primary);
   color: #fff;
   font-weight: 800;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.1;
   padding: 10px 16px;
   min-width: 160px;
@@ -104,13 +104,13 @@
 
 .hrStatCard__label {
   color: #2f2050;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 800;
 }
 
 .hrStatCard__value {
   color: #2f2050;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .hrPanel {
@@ -124,7 +124,7 @@
 .hrPanel__header {
   border-bottom: 1px solid var(--hr-line);
   padding: 8px 12px;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 900;
   color: var(--hr-primary-dark);
 }
@@ -176,7 +176,7 @@
 
 .hrDonutCard__name {
   margin-top: 6px;
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 700;
   color: #2f2050;
   text-align: center;
@@ -184,7 +184,7 @@
 
 .hrDonutCard__meta {
   margin-top: 4px;
-  font-size: 10px;
+  font-size: 16px;
   font-weight: 700;
   color: #54496b;
   text-align: center;
@@ -220,13 +220,13 @@
 }
 
 .hrLegend__note {
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 700;
   color: #554c69;
 }
 
 .hrLegend__item {
-  font-size: 9px;
+  font-size: 15px;
   color: #4a3e5e;
   display: inline-flex;
   align-items: center;
@@ -262,7 +262,7 @@
 
 .hrFeedPanel .hrPanel__header,
 .hrListPanel .hrPanel__header {
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .hrPeopleList {
@@ -292,18 +292,18 @@
 
 .hrPerson__name {
   color: #1e1d2d;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 800;
 }
 
 .hrPerson__meta {
   color: #3f3e46;
-  font-size: 9px;
+  font-size: 15px;
   line-height: 1.2;
 }
 
 .hrPerson__time {
-  font-size: 10px;
+  font-size: 16px;
   color: #444;
   white-space: nowrap;
 }
@@ -316,7 +316,7 @@
 }
 
 .hrPerson__infoRow span {
-  font-size: 9px;
+  font-size: 15px;
   color: #4a4a56;
   display: inline-flex;
   align-items: center;
@@ -353,7 +353,7 @@
   }
 
   .hrDash__subtitle {
-    font-size: 13px;
+    font-size: 15px;
   }
 
   .hrDash__top {
@@ -377,14 +377,15 @@
   .hrPanel__header,
   .hrFeedPanel .hrPanel__header,
   .hrListPanel .hrPanel__header {
-    font-size: 13px;
+    font-size: 15px;
   }
 
   .hrStatCard__label {
-    font-size: 12px;
+    font-size: 16px;
   }
 
   .hrPerson__name {
-    font-size: 12px;
+    font-size: 16px;
   }
 }
+

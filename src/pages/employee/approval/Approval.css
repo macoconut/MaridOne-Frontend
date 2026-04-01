@@ -66,12 +66,12 @@ body.modal-open{
 
 .apprCard__label{
   font-weight:800;
-  font-size:12px;
+  font-size: 16px;
   color:#2b2036;
 }
 
 .apprCard__value{
-  font-size:11px;
+  font-size: 15px;
   color:rgba(0,0,0,0.6);
 }
 
@@ -87,7 +87,7 @@ body.modal-open{
   background:#3b2257;
   color:#fff;
   font-weight:800;
-  font-size:12px;
+  font-size: 16px;
   display:grid;
   grid-template-columns: 1.2fr 1fr 1fr 1.2fr 0.8fr 0.8fr 0.8fr;
   gap:0;
@@ -103,7 +103,7 @@ body.modal-open{
   display:grid;
   grid-template-columns: 1.2fr 1fr 1fr 1.2fr 0.8fr 0.8fr 0.8fr;
   padding:12px 16px;
-  font-size:12px;
+  font-size: 16px;
   border-bottom:1px solid rgba(0,0,0,0.08);
   background:#fff;
 }
@@ -171,7 +171,7 @@ body.modal-open{
 
 .apprModal__eyebrow{
   color:#77538b;
-  font-size:11px;
+  font-size: 15px;
   font-weight:800;
   text-transform:uppercase;
   letter-spacing:.08em;
@@ -210,7 +210,7 @@ body.modal-open{
 }
 
 .apprModal__heroLabel{
-  font-size:11px;
+  font-size: 15px;
   text-transform:uppercase;
   letter-spacing:.08em;
   opacity:.78;
@@ -222,7 +222,7 @@ body.modal-open{
   align-items:center;
   padding:8px 14px;
   border-radius:999px;
-  font-size:12px;
+  font-size: 16px;
   font-weight:900;
   letter-spacing:.04em;
   text-transform:uppercase;
@@ -256,7 +256,7 @@ body.modal-open{
 
 .apprModal__heroMeta span{
   display:block;
-  font-size:10px;
+  font-size: 16px;
   text-transform:uppercase;
   letter-spacing:.08em;
   opacity:.76;
@@ -265,7 +265,7 @@ body.modal-open{
 
 .apprModal__heroMeta strong{
   display:block;
-  font-size:13px;
+  font-size: 15px;
   line-height:1.35;
 }
 
@@ -294,7 +294,7 @@ body.modal-open{
 
 .apprModal__card span{
   color:#4d415b;
-  font-size:11px;
+  font-size: 15px;
   font-weight:800;
   text-transform:uppercase;
   letter-spacing:.04em;
@@ -303,7 +303,7 @@ body.modal-open{
 .apprModal__card strong{
   margin:0;
   color:#2b2036;
-  font-size:13px;
+  font-size: 15px;
   line-height:1.4;
 }
 
@@ -327,7 +327,7 @@ body.modal-open{
 
 .apprModal__sectionTitle{
   color:#5f2f78;
-  font-size:12px;
+  font-size: 16px;
   font-weight:900;
   text-transform:uppercase;
   letter-spacing:.06em;
@@ -337,7 +337,7 @@ body.modal-open{
 .apprModal__sectionBody{
   margin:0;
   color:#2b2036;
-  font-size:13px;
+  font-size: 15px;
   line-height:1.6;
   white-space:pre-wrap;
 }
@@ -352,7 +352,7 @@ body.modal-open{
   border:none;
   background:linear-gradient(135deg, #6a3f81 0%, #8455a0 100%);
   color:#fff;
-  font-size:12px;
+  font-size: 16px;
   font-weight:800;
   padding:11px 16px;
   border-radius:12px;
@@ -393,3 +393,4 @@ body.modal-open{
     grid-template-columns: 1fr;
   }
 }
+

@@ -212,8 +212,8 @@ export default function ManagerDashboard() {
   const eventDays = useMemo(() => new Set(events.map((event) => new Date(event.startDate ?? '').getDate()).filter((day) => Number.isFinite(day))), [events]);
   const firstDay = new Date(year, monthIndex, 1);
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
-  const mondayStart = (firstDay.getDay() + 6) % 7;
-  const totalCells = Math.ceil((mondayStart + daysInMonth) / 7) * 7;
+  const sundayStart = firstDay.getDay();
+  const totalCells = Math.ceil((sundayStart + daysInMonth) / 7) * 7;
 
   return (
     <div className="mgrDash">
@@ -302,9 +302,9 @@ export default function ManagerDashboard() {
             <button type="button" onClick={() => { const next = new Date(year, monthIndex + 1, 1); setYear(next.getFullYear()); setMonthIndex(next.getMonth()); }}>›</button>
           </div>
           <div className="mgrDashCalendar">
-            {['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'].map((day) => <div key={day} className="mgrDashCalendar__dow">{day}</div>)}
+            {['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'].map((day) => <div key={day} className="mgrDashCalendar__dow">{day}</div>)}
             {Array.from({ length: totalCells }).map((_, index) => {
-              const day = index - mondayStart + 1;
+              const day = index - sundayStart + 1;
               const valid = day > 0 && day <= daysInMonth;
               return <div key={index} className={`mgrDashCalendar__cell ${!valid ? 'is-empty' : ''} ${valid && eventDays.has(day) ? 'is-event' : ''}`}>{valid ? day : ''}</div>;
             })}

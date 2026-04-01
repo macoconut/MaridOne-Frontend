@@ -30,7 +30,7 @@
   border-radius: 8px;
   background: #f8f3fc;
   color: #372a52;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   padding: 0 12px;
 }
@@ -43,7 +43,7 @@
   height: 38px;
   min-width: 170px;
   padding: 0 14px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 800;
   line-height: 1.1;
   box-shadow: 0 6px 12px rgba(80, 47, 109, 0.2);
@@ -86,7 +86,7 @@
 .mPaySummaryCard p {
   margin: 10px 0 0;
   color: #4f3a72;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .mPayChartsGrid {
@@ -99,7 +99,7 @@
   border-bottom: 1px solid rgba(63, 43, 104, 0.2);
   padding: 10px 12px;
   color: #2f2050;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 900;
 }
 
@@ -139,7 +139,7 @@
 
 .mPayHistory__barWrap span {
   color: #5d5868;
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 700;
 }
 
@@ -170,7 +170,7 @@
 
 .mPayLegend__item span {
   color: #3f3951;
-  font-size: 11px;
+  font-size: 15px;
 }
 
 .mPayLegend .t1 {
@@ -233,3 +233,4 @@
     height: 220px;
   }
 }
+

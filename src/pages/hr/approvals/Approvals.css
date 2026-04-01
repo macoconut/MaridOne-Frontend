@@ -57,13 +57,13 @@
 }
 
 .hrApprCard__label {
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 800;
   color: #2f2050;
 }
 
 .hrApprCard__value {
-  font-size: 12px;
+  font-size: 16px;
   color: #2f2050;
 }
 
@@ -109,7 +109,7 @@
 }
 
 .hrApprRow__time {
-  font-size: 14px;
+  font-size: 16px;
   color: #2f2c39;
   text-align: right;
 }
@@ -175,7 +175,7 @@
 }
 
 .hrApprForm__row span {
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 800;
   color: #241b34;
 }
@@ -186,7 +186,7 @@
   background: #f8f8f8;
   border-radius: 3px;
   padding: 4px 8px;
-  font-size: 12px;
+  font-size: 16px;
   color: #2f2b38;
 }
 
@@ -198,14 +198,14 @@
 .hrApprForm__error {
   margin: 4px 0 0;
   color: #b24651;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 700;
 }
 
 .hrApprForm__hint {
   margin: 2px 0 0;
   color: #5a4b77;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 600;
   line-height: 1.5;
 }
@@ -225,7 +225,7 @@
   border-radius: 9px;
   min-width: 84px;
   height: 28px;
-  font-size: 12px;
+  font-size: 16px;
   cursor: pointer;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
@@ -271,3 +271,4 @@
     grid-template-columns: 1fr;
   }
 }
+

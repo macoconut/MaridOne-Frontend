@@ -31,7 +31,7 @@ body.modal-open {
   min-height: 40px;
   padding: 0 16px;
   border-radius: 10px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 800;
   cursor: pointer;
   box-shadow: var(--hr-button-shadow);
@@ -45,7 +45,7 @@ body.modal-open {
 
 .hrPay__message {
   margin: 0;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   color: #9e3e51;
 }
@@ -74,13 +74,13 @@ body.modal-open {
 
 .hrPayNotice__copy strong {
   color: #1e6a46;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 900;
 }
 
 .hrPayNotice__copy span {
   color: #4a5b52;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 600;
 }
 
@@ -89,7 +89,7 @@ body.modal-open {
   align-items: center;
   gap: 12px;
   color: #2c3b34;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 800;
 }
 
@@ -100,7 +100,7 @@ body.modal-open {
   min-height: 34px;
   padding: 0 12px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 800;
   cursor: pointer;
 }
@@ -141,7 +141,7 @@ body.modal-open {
 .hrPayPeriod p {
   margin: 0;
   color: #383245;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
 }
 
@@ -161,13 +161,13 @@ body.modal-open {
 
 .hrPayPeriod__runId {
   color: #5a506d;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 700;
 }
 
 .hrPayPeriod__runCount {
   color: #4b5b4f;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 800;
 }
 
@@ -176,7 +176,7 @@ body.modal-open {
   padding: 8px 14px;
   background: rgba(123, 74, 143, 0.12);
   color: var(--hr-primary-dark);
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 900;
 }
 
@@ -216,7 +216,7 @@ body.modal-open {
   padding: 9px 14px;
   background: var(--hr-primary);
   color: #fff;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 900;
   text-align: center;
 }
@@ -233,7 +233,7 @@ body.modal-open {
   background: transparent;
   text-align: center;
   color: var(--hr-text);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
   cursor: pointer;
 }
@@ -287,7 +287,7 @@ body.modal-open {
 .hrPayModal__intro {
   margin: 0 0 14px;
   color: #544a69;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   line-height: 1.5;
 }
@@ -321,7 +321,7 @@ body.modal-open {
 
 .hrPayModal__summaryRow strong {
   color: var(--hr-primary-dark);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 900;
 }
 
@@ -347,7 +347,7 @@ body.modal-open {
 
 .hrPayCorrectionSummary__row strong {
   color: var(--hr-primary-dark);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 900;
 }
 
@@ -360,7 +360,7 @@ body.modal-open {
 }
 
 .hrPayModal span {
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 800;
   color: #2e2445;
 }
@@ -372,7 +372,7 @@ body.modal-open {
   border-radius: 8px;
   background: #f8f8fb;
   color: #2e2939;
-  font-size: 13px;
+  font-size: 15px;
   padding: 0 12px;
   min-height: 38px;
   width: 100%;
@@ -420,7 +420,7 @@ body.modal-open {
   justify-content: space-between;
   gap: 12px;
   color: #473a63;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 800;
 }
 
@@ -463,7 +463,7 @@ body.modal-open {
 
 .hrPayCorrectionLine__main strong {
   color: #221739;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 900;
 }
 
@@ -476,7 +476,7 @@ body.modal-open {
   flex-wrap: wrap;
   gap: 8px 12px;
   color: #5d5470;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 600;
 }
 
@@ -557,3 +557,4 @@ body.modal-open {
     align-items: flex-start;
   }
 }
+

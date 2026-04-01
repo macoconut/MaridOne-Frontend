@@ -59,7 +59,7 @@ body.modal-open {
   background: #7b4a8f;
   color: #fff;
   font-weight: 800;
-  font-size: 13px;
+  font-size: 15px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -108,7 +108,7 @@ body.modal-open {
 }
 
 .hrAttCard__monthLabel {
-  font-weight: 800;
+  font-weight: 600;
   color: #2b2036;
 }
 
@@ -119,8 +119,8 @@ body.modal-open {
 
 .hrCal__dow {
   padding: 8px 8px;
-  font-size: 10px;
-  font-weight: 800;
+  font-size: 16px;
+  font-weight: 600;
   color: rgba(0, 0, 0, 0.45);
   text-align: center;
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
@@ -181,8 +181,8 @@ body.modal-open {
 }
 
 .hrCal__day {
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 15px;
+  font-weight: 600;
   color: rgba(0, 0, 0, 0.7);
 }
 
@@ -202,14 +202,15 @@ body.modal-open {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  font-size: 10px;
+  font-size: 16px;
   color: #312640;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .hrCal__stat strong {
-  font-size: 12px;
+  font-size: 16px;
   color: #2b2036;
+  font-weight: 600;
 }
 
 .hrAttModalBackdrop {
@@ -241,7 +242,7 @@ body.modal-open {
 }
 
 .hrAttModal__eyebrow {
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -287,7 +288,7 @@ body.modal-open {
 }
 
 .hrAttSummary__card span {
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 700;
   color: #5d4b73;
 }
@@ -386,7 +387,7 @@ body.modal-open {
 
 .hrAttPerson__meta,
 .hrAttPerson__times {
-  font-size: 12px;
+  font-size: 16px;
   color: #5b4d6d;
   font-weight: 600;
 }
@@ -404,7 +405,7 @@ body.modal-open {
   min-height: 26px;
   padding: 0 10px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 800;
 }
 
@@ -471,3 +472,4 @@ body.modal-open {
     padding: 20px;
   }
 }
+

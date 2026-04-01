@@ -37,7 +37,7 @@ body.modal-open{
 .infoCardX__title{
   font-weight: 800;
   color: var(--ink);
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .infoCardX__edit{
@@ -45,7 +45,7 @@ body.modal-open{
   background: var(--purple);
   color:#fff;
   font-weight:700;
-  font-size:10px;
+  font-size: 16px;
   padding: 5px 10px;
   border-radius: 999px;
   cursor:pointer;
@@ -93,7 +93,7 @@ body.modal-open{
   flex-direction:column;
   gap: 12px;
   color: var(--ink);
-  font-size: 12px;
+  font-size: 16px;
 }
 
 .infoRow{
@@ -106,7 +106,7 @@ body.modal-open{
   width: 22px;
   text-align:center;
   opacity:.85;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .infoRow__link{
@@ -119,7 +119,7 @@ body.modal-open{
   display:flex;
   flex-direction:column;
   gap: 10px;
-  font-size: 11px;
+  font-size: 15px;
   color: var(--ink);
 }
 
@@ -132,7 +132,7 @@ body.modal-open{
 }
 .statBlock__sub{
   opacity:.7;
-  font-size:10px;
+  font-size: 16px;
   margin-top:2px;
 }
 
@@ -156,7 +156,7 @@ body.modal-open{
   box-shadow: 0 8px 16px rgba(123,74,143,.28);
   cursor:pointer;
   font-weight:700;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .actionBtnX__arrow{
@@ -188,7 +188,7 @@ body.modal-open{
 
 .cardX__title{
   font-weight: 900;
-  font-size: 12px;
+  font-size: 16px;
   color: var(--ink);
   margin-bottom: 10px;
 }
@@ -214,7 +214,7 @@ body.modal-open{
 }
 
 .miniFolder__body{
-  font-size: 11px;
+  font-size: 15px;
   color: var(--ink);
 }
 
@@ -234,7 +234,7 @@ body.modal-open{
   background: var(--purple);
   color:#fff;
   font-weight:800;
-  font-size:10px;
+  font-size: 16px;
   padding: 6px 10px;
   border-radius: 999px;
   cursor:pointer;
@@ -255,7 +255,7 @@ body.modal-open{
 }
 
 .handbookRow__body{
-  font-size: 11px;
+  font-size: 15px;
   color: var(--ink);
   flex: 1;
 }
@@ -282,7 +282,7 @@ body.modal-open{
   background: var(--purple);
   color:#fff;
   font-weight:800;
-  font-size:10px;
+  font-size: 16px;
   padding: 6px 12px;
   border-radius: 999px;
   cursor:pointer;
@@ -304,7 +304,7 @@ body.modal-open{
   display:flex;
   justify-content:space-between;
   align-items:center;
-  font-size: 11px;
+  font-size: 15px;
   color: var(--ink);
   margin-bottom: 10px;
 }
@@ -322,7 +322,7 @@ body.modal-open{
   display:grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 6px;
-  font-size: 10px;
+  font-size: 16px;
   text-align:center;
 }
 
@@ -354,7 +354,7 @@ body.modal-open{
   margin: -12px 0 0;
   color: #a63f4d;
   font-weight: 700;
-  font-size: 12px;
+  font-size: 16px;
 }
 
 .dashModalBackdrop{
@@ -422,7 +422,7 @@ body.modal-open{
 
 .dashModal__field span{
   color: var(--ink);
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 800;
 }
 
@@ -431,7 +431,7 @@ body.modal-open{
   border: 1px solid rgba(0,0,0,.16);
   border-radius: 10px;
   padding: 0 12px;
-  font-size: 12px;
+  font-size: 16px;
   color: var(--ink);
   background: #fff;
 }
@@ -439,7 +439,7 @@ body.modal-open{
 .dashModal__error{
   margin-top: 12px;
   color: #a63f4d;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 700;
 }
 
@@ -455,7 +455,7 @@ body.modal-open{
   background: var(--purple);
   color:#fff;
   font-weight:800;
-  font-size: 12px;
+  font-size: 16px;
   padding: 10px 14px;
   border-radius: 10px;
   cursor:pointer;
@@ -477,3 +477,4 @@ body.modal-open{
   .infoCardX__divider{ display:none; }
   .dashModal__grid{ grid-template-columns: 1fr; }
 }
+

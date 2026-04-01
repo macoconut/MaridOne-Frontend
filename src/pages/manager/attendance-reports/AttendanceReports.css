@@ -36,7 +36,7 @@
 .mgrRptRows__empty {
   margin: 6px 0 0;
   color: #5c546d;
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.45;
 }
 
@@ -92,7 +92,7 @@
 .mgrRpt__search input,
 .mgrRpt__month {
   color: #372a52;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .mgrRpt__search input,
@@ -115,7 +115,7 @@
   border-bottom: 1px solid rgba(123, 74, 143, 0.12);
   color: #2f2050;
   font-size: 18px;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .mgrRptCard__grid {
@@ -139,8 +139,8 @@
   text-align: center;
   background: #faf7fd;
   color: #5c4e78;
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .mgrRptCard__cell {
@@ -165,8 +165,8 @@
 
 .mgrRptCard__date {
   color: #302848;
-  font-size: 13px;
-  font-weight: 900;
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .mgrRptCard__stats {
@@ -175,7 +175,8 @@
   flex-direction: column;
   gap: 6px;
   color: #4f4960;
-  font-size: 11px;
+  font-size: 15px;
+  font-weight: 500;
 }
 
 .mgrRptBreakdown {
@@ -191,7 +192,7 @@
 
 .mgrRptBreakdown__eyebrow {
   color: #6d5a8e;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -208,7 +209,7 @@
 .mgrRptSummary span {
   display: block;
   color: #65587e;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 700;
 }
 
@@ -255,7 +256,7 @@
 .mgrRptRow__badge {
   border-radius: 999px;
   padding: 8px 12px;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 800;
 }
 
@@ -298,3 +299,4 @@
     justify-self: start;
   }
 }
+

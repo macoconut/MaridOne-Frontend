@@ -16,7 +16,7 @@
 
 *{ box-sizing:border-box; }
 html,body{ height:100%; }
-body{ margin:0; font-family: Inter, system-ui, sans-serif; background:var(--page); }
+body{ margin:0; background:var(--page); }
 
 /* frame layout */
 .employeeLayout{
@@ -67,7 +67,7 @@ body{ margin:0; font-family: Inter, system-ui, sans-serif; background:var(--page
 }
 .eSide__name{
   font-size:28px;
-  font-weight:800;
+  font-weight:700;
   letter-spacing:-.02em;
 }
 
@@ -91,7 +91,7 @@ body{ margin:0; font-family: Inter, system-ui, sans-serif; background:var(--page
 
   text-decoration:none;
   color:rgba(255,255,255,.92);
-  font-weight:650;
+  font-weight:600;
   font-size:15px;
 
   transition: background .15s ease;
@@ -131,7 +131,7 @@ body{ margin:0; font-family: Inter, system-ui, sans-serif; background:var(--page
 
   background: rgba(0,0,0,.12);
   color:rgba(255,255,255,.95);
-  font-weight:650;
+  font-weight:600;
   font-size:15px;
   cursor:pointer;
 }
@@ -164,17 +164,17 @@ body{ margin:0; font-family: Inter, system-ui, sans-serif; background:var(--page
 
 .eTop__title{
   font-size:18px;
-  font-weight:800;
+  font-weight:700;
   color:var(--ink);
 }
 
 .eTop__badge{
   background: var(--purple-1);
   color:#fff;
-  padding:5px 12px;
+  padding:4px 10px;
   border-radius:12px;
-  font-size:10px;
-  font-weight:800;
+  font-size: 11px;
+  font-weight:600;
   letter-spacing:.06em;
   text-transform:uppercase;
 }
@@ -211,7 +211,7 @@ body{ margin:0; font-family: Inter, system-ui, sans-serif; background:var(--page
 }
 
 .backendTest__head span{
-  font-size:12px;
+  font-size: 16px;
   color:rgba(0,0,0,.62);
 }
 
@@ -253,13 +253,13 @@ body{ margin:0; font-family: Inter, system-ui, sans-serif; background:var(--page
 
 .backendTest__card p{
   margin:0;
-  font-size:13px;
+  font-size: 15px;
   color:#444;
   line-height:1.35;
 }
 
 .backendTest__card code{
-  font-size:12px;
+  font-size: 16px;
   color:#222;
   background:#f5f5f5;
   border:1px solid #e5e5e5;
@@ -275,7 +275,7 @@ body{ margin:0; font-family: Inter, system-ui, sans-serif; background:var(--page
   border-radius:8px;
   background:#fafafa;
   padding:10px;
-  font-size:12px;
+  font-size: 16px;
   white-space:pre-wrap;
   color:#2b2b2b;
 }
@@ -319,7 +319,7 @@ body{ margin:0; font-family: Inter, system-ui, sans-serif; background:var(--page
 
 .eFooter__brandTitle{
   font-size:34px;
-  font-weight:900;
+  font-weight:800;
   line-height:1.05;
 }
 
@@ -332,13 +332,13 @@ body{ margin:0; font-family: Inter, system-ui, sans-serif; background:var(--page
 .eFooter__copy{
   margin-top:40px;
   opacity:.75;
-  font-size:14px;
+  font-size: 16px;
 }
 
 .eFooter__col h4{
   margin:0 0 12px;
   font-size:22px;
-  font-weight:900;
+  font-weight:800;
 }
 .eFooter__col p{
   margin:0;
@@ -350,7 +350,7 @@ body{ margin:0; font-family: Inter, system-ui, sans-serif; background:var(--page
   margin-top:26px;
   text-align:right;
 }
-.eFooter__contactLabel{ font-weight:900; }
+.eFooter__contactLabel{ font-weight:800; }
 .eFooter__contactValue{ opacity:.95; }
 
 /* responsive */
@@ -378,16 +378,17 @@ body{ margin:0; font-family: Inter, system-ui, sans-serif; background:var(--page
   top:-6px;
   right:-6px;
   
-    min-width:18px;
-    height:18px;
-    padding:0 5px;
+    min-width:20px;
+    height:20px;
+    padding:0 6px;
   
     border-radius:999px;
     background: var(--purple-1);
     color:#fff;
   
-    font-size:11px;
-    font-weight:900;
+    font-size: 11px;
+    font-weight:700;
+    line-height:1;
     display:grid;
     place-items:center;
   
@@ -425,14 +426,14 @@ body{ margin:0; font-family: Inter, system-ui, sans-serif; background:var(--page
   }
   
   .notifPanel__title{
-    font-size: 14px;
-    font-weight: 900;
+    font-size: 16px;
+    font-weight: 700;
     color: var(--ink);
   }
   
   .notifPanel__date{
     margin-top: 4px;
-    font-size: 12px;
+    font-size: 16px;
     color: rgba(0,0,0,0.55);
   }
   
@@ -472,21 +473,21 @@ body{ margin:0; font-family: Inter, system-ui, sans-serif; background:var(--page
   }
   
   .notifItem__title{
-    font-size: 12px;
-    font-weight: 800;
+    font-size: 16px;
+    font-weight: 600;
     color: var(--ink);
     line-height: 1.25;
   }
   
   .notifItem__msg{
     margin-top: 2px;
-    font-size: 12px;
+    font-size: 16px;
     color: rgba(0,0,0,0.62);
     line-height: 1.35;
   }
   
   .notifItem__time{
-    font-size: 11px;
+    font-size: 15px;
     color: rgba(0,0,0,0.45);
     white-space: nowrap;
   }
@@ -497,3 +498,4 @@ body{ margin:0; font-family: Inter, system-ui, sans-serif; background:var(--page
     z-index: 60;
   }
   
+

@@ -26,7 +26,7 @@
   background: var(--hr-surface-soft);
   padding: 0 10px;
   color: var(--hr-text);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
 }
 
@@ -44,7 +44,7 @@
 }
 
 .hrRunFilters__field label {
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--hr-muted);
 }
@@ -56,7 +56,7 @@
   border-radius: 4px;
   background: var(--hr-surface-soft);
   padding: 0 10px;
-  font-size: 13px;
+  font-size: 15px;
   color: #3f3a4c;
 }
 
@@ -80,7 +80,7 @@
 .hrRunFilters__searchWrap input {
   border: 0;
   background: transparent;
-  font-size: 13px;
+  font-size: 15px;
   color: #3f3a4c;
   width: 100%;
 }
@@ -111,7 +111,7 @@
 .hrRun__status {
   margin: -2px 0 0;
   color: #4b4460;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 700;
 }
 
@@ -135,7 +135,7 @@
   grid-template-columns: 1fr auto;
   align-items: center;
   color: var(--hr-primary-dark);
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 900;
 }
 
@@ -152,13 +152,13 @@
 }
 
 .hrRunEmployee__name {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 800;
   color: var(--hr-text);
 }
 
 .hrRunEmployee__sub {
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--hr-muted);
 }
@@ -167,7 +167,7 @@
   grid-column: 2;
   grid-row: 1 / span 2;
   align-self: end;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 800;
   color: var(--hr-text);
 }
@@ -179,7 +179,7 @@
   gap: 10px;
   padding: 9px 0;
   border-bottom: 1px solid var(--hr-line);
-  font-size: 13px;
+  font-size: 15px;
   color: var(--hr-text);
 }
 
@@ -191,7 +191,7 @@
 .hrRunEmpty {
   padding: 18px 0 12px;
   color: #554f63;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
 }
 
@@ -208,7 +208,7 @@
   background: var(--hr-primary);
   min-width: 170px;
   height: 38px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 800;
   color: #fff;
   box-shadow: var(--hr-button-shadow);
@@ -221,7 +221,7 @@
   }
 
   .hrRun__top select {
-    font-size: 12px;
+    font-size: 16px;
   }
 
   .hrRunFilters {
@@ -229,29 +229,29 @@
   }
 
   .hrRunFilters__field label {
-    font-size: 11px;
+    font-size: 15px;
   }
 
   .hrRunFilters__field select,
   .hrRunFilters__searchWrap input {
-    font-size: 12px;
+    font-size: 16px;
   }
 
   .hrRunTable__head {
-    font-size: 13px;
+    font-size: 15px;
   }
 
   .hrRunEmployee__name,
   .hrRunEmployee__sub,
   .hrRunEmployee__value,
   .hrRunTypeRow {
-    font-size: 12px;
+    font-size: 16px;
   }
 
   .hrRunActions button {
     min-width: 132px;
     height: 34px;
-    font-size: 12px;
+    font-size: 16px;
   }
 }
 
@@ -274,3 +274,4 @@
     align-items: stretch;
   }
 }
+

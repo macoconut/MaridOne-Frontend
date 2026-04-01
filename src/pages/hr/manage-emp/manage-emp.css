@@ -31,14 +31,14 @@
   background: var(--hr-primary-soft);
   border-bottom: 1px solid var(--hr-line);
   color: var(--hr-primary-dark);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 800;
   padding: 10px 14px;
 }
 
 .hrEmpRow {
   padding: 10px 14px;
-  font-size: 12px;
+  font-size: 16px;
   color: var(--hr-text);
   border-top: 1px solid var(--hr-line);
 }
@@ -75,7 +75,7 @@ button.hrEmpRow:hover {
   min-width: 140px;
   height: 38px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 800;
   cursor: pointer;
   box-shadow: var(--hr-button-shadow);
@@ -164,14 +164,14 @@ button.hrEmpRow:hover {
 
 .hrEmpPicker__primary strong {
   color: var(--hr-primary-dark);
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .hrEmpPicker__primary span,
 .hrEmpPicker__secondary span,
 .hrEmpPicker__empty {
   color: var(--hr-text);
-  font-size: 12px;
+  font-size: 16px;
 }
 
 .hrEmpPicker__secondary {
@@ -200,7 +200,7 @@ button.hrEmpRow:hover {
 
 .hrEmpForm__sectionTitle {
   color: var(--hr-primary-dark);
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -226,7 +226,7 @@ button.hrEmpRow:hover {
 
 .hrEmpField label {
   color: var(--hr-text);
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -238,7 +238,7 @@ button.hrEmpRow:hover {
   border: 1px solid rgba(61, 38, 90, 0.16);
   border-radius: 10px;
   background: #fcfbfe;
-  font-size: 13px;
+  font-size: 15px;
   color: var(--hr-text);
   min-height: 40px;
   padding: 0 12px;
@@ -293,7 +293,7 @@ button.hrEmpRow:hover {
 .hrEmpForm__error,
 .hrEmpForm__success {
   margin: 4px 0 0;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 700;
 }
 
@@ -347,3 +347,4 @@ button.hrEmpRow:hover {
     align-items: flex-start;
   }
 }
+

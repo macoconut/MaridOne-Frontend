@@ -29,7 +29,7 @@
 .mgrDashHero__eyebrow,
 .mgrDashPanel__eyebrow {
   color: #6d5a8e;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -51,7 +51,7 @@
   border-radius: 12px;
   background: #7b4a8f;
   color: #fff;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 800;
   cursor: pointer;
 }
@@ -100,7 +100,7 @@
 .mgrDashIdentity p {
   margin: 8px 0 0;
   color: #56496f;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .mgrDashBadges {
@@ -115,7 +115,7 @@
   background: rgba(123, 74, 143, 0.12);
   color: #4d2d6d;
   padding: 7px 12px;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 800;
 }
 
@@ -128,7 +128,7 @@
 .mgrDashDetails p {
   margin: 0;
   color: #372d4d;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.4;
 }
 
@@ -184,7 +184,7 @@
 .mgrDashStats span {
   display: block;
   color: #61557b;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 700;
 }
 
@@ -237,7 +237,7 @@
 .mgrDash__error,
 .mgrDashNote li {
   color: #5f5670;
-  font-size: 13px;
+  font-size: 15px;
   line-height: 1.45;
 }
 
@@ -290,13 +290,13 @@
 .mgrDashCalendar__dow {
   background: #faf7fd;
   color: #5c4e78;
-  font-size: 11px;
+  font-size: 15px;
   font-weight: 800;
 }
 
 .mgrDashCalendar__cell {
   color: #33284e;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   background: #fff;
 }
@@ -369,3 +369,4 @@
     grid-column: 2;
   }
 }
+

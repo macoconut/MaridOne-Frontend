@@ -257,8 +257,8 @@ export default function Dashboard() {
   const monthIndex = calendarMonthIndex;
   const firstDay = new Date(year, monthIndex, 1);
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
-  const mondayBasedStart = (firstDay.getDay() + 6) % 7;
-  const totalCells = Math.ceil((mondayBasedStart + daysInMonth) / 7) * 7;
+  const sundayBasedStart = firstDay.getDay();
+  const totalCells = Math.ceil((sundayBasedStart + daysInMonth) / 7) * 7;
 
   const employeeName = useMemo(() => {
     const emp = employee;
@@ -483,11 +483,11 @@ export default function Dashboard() {
             </div>
 
             <div className="calendarGrid">
-              <div className="calHead">MO</div><div className="calHead">TU</div><div className="calHead">WE</div>
-              <div className="calHead">TH</div><div className="calHead">FR</div><div className="calHead">SA</div><div className="calHead">SU</div>
+              <div className="calHead">SU</div><div className="calHead">MO</div><div className="calHead">TU</div>
+              <div className="calHead">WE</div><div className="calHead">TH</div><div className="calHead">FR</div><div className="calHead">SA</div>
 
               {Array.from({ length: totalCells }).map((_, i) => {
-                const dayNumber = i - mondayBasedStart + 1;
+                const dayNumber = i - sundayBasedStart + 1;
                 const value = dayNumber > 0 && dayNumber <= daysInMonth ? dayNumber : '';
 
                 return (

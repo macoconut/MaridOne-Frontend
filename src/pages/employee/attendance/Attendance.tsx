@@ -194,13 +194,13 @@ export default function Attendance() {
           const cachedLeaveEntries = readCachedLeaveRequests(resolvedEmpId);
           const shifts = await apiFetchJson<unknown>(`/api/employee/schedule/${resolvedEmpId}`);
           const weekdayMap: Record<string, number> = {
-            MONDAY: 0,
-            TUESDAY: 1,
-            WEDNESDAY: 2,
-            THURSDAY: 3,
-            FRIDAY: 4,
-            SATURDAY: 5,
-            SUNDAY: 6,
+            SUNDAY: 0,
+            MONDAY: 1,
+            TUESDAY: 2,
+            WEDNESDAY: 3,
+            THURSDAY: 4,
+            FRIDAY: 5,
+            SATURDAY: 6,
           };
           const days = toArray<ShiftRow>(shifts)
             .map((row) => row.dayOfWeek?.toUpperCase() ?? '')
@@ -308,24 +308,21 @@ export default function Attendance() {
   const isClockOutAction = Boolean(todayAttendance.in && !todayAttendance.out);
 
   const calendarCells = useMemo(() => {
-    // Build a Sunday-last calendar (MO..SU) like your screenshot
+    // Build a Sunday-first calendar (SU..SA)
     const first = new Date(year, monthIndex, 1);
     const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
 
-    // JS getDay(): 0=Sun..6=Sat
-    // We want Monday-based: MO=0..SU=6
-    const jsDay = first.getDay();
-    const mondayBased = (jsDay + 6) % 7; // convert so Mon=0
+    const sundayBased = first.getDay();
 
     const cells: DayCell[] = [];
     // leading blanks
-    for (let i = 0; i < mondayBased; i++) cells.push({ day: null });
+    for (let i = 0; i < sundayBased; i++) cells.push({ day: null });
 
     // actual days
     for (let d = 1; d <= daysInMonth; d++) {
       const date = new Date(year, monthIndex, d);
-      const mondayBasedWeekday = (date.getDay() + 6) % 7;
-      const hasShift = shiftWeekdays.has(mondayBasedWeekday);
+      const sundayBasedWeekday = date.getDay();
+      const hasShift = shiftWeekdays.has(sundayBasedWeekday);
       const hasEvent = eventDays.has(d);
       const dateKey = toISODate(year, monthIndex, d);
       const dayRequests = requestEntries.filter((entry) => entry.dateKey === dateKey);
@@ -671,13 +668,13 @@ export default function Attendance() {
         </div>
 
         <div className="cal">
+          <div className="cal__dow">SU</div>
           <div className="cal__dow">MO</div>
           <div className="cal__dow">TU</div>
           <div className="cal__dow">WE</div>
           <div className="cal__dow">TH</div>
           <div className="cal__dow">FR</div>
           <div className="cal__dow">SA</div>
-          <div className="cal__dow">SU</div>
 
           {calendarCells.map((c, idx) => {
             const dateKey = c.day ? toISODate(year, monthIndex, c.day) : '';

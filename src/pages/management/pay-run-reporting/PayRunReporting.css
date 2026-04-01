@@ -26,7 +26,7 @@
   background: #f8f3fc;
   padding: 0 10px;
   color: #372a52;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
 }
 
@@ -45,7 +45,7 @@
 
 .mRunFilters__field label {
   color: #3f3951;
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 700;
 }
 
@@ -56,7 +56,7 @@
   border-radius: 6px;
   background: #f8f3fc;
   color: #372a52;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   padding: 0 10px;
 }
@@ -75,14 +75,14 @@
 
 .mRunFilters__search svg {
   color: #5b3f7f;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .mRunFilters__search input {
   border: 0;
   background: transparent;
   color: #372a52;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .mRunFilters__search button,
@@ -119,7 +119,7 @@
   background: rgba(123, 74, 143, 0.3);
   border-radius: 8px;
   color: #2f2050;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 900;
 }
 
@@ -138,13 +138,13 @@
 .mRunRow__name,
 .mRunRow__value {
   color: #1f1b2b;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 800;
 }
 
 .mRunRow__meta {
   color: #565165;
-  font-size: 11px;
+  font-size: 15px;
 }
 
 .mRunRow__value {
@@ -160,7 +160,7 @@
   padding: 8px 0;
   border-bottom: 1px solid rgba(0, 0, 0, 0.4);
   color: #2a2734;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .mRunTypeRow--total {
@@ -181,7 +181,7 @@
   min-width: 180px;
   height: 38px;
   color: #fff;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 900;
 }
 
@@ -205,3 +205,4 @@
     flex-direction: column;
   }
 }
+

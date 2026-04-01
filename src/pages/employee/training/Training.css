@@ -46,7 +46,7 @@
 }
 
 .tmCard__title{
-  font-size:34px;
+  font-size:26px;
   font-weight:900;
   line-height:1;
   text-align:left;
@@ -98,7 +98,7 @@
 
 .tmRow__label{
   color:#222;
-  font-size:29px;
+  font-size:20px;
   line-height:1.2;
 }
 
@@ -112,11 +112,11 @@
   }
 
   .tmCard__title{
-    font-size:26px;
+    font-size:22px;
   }
 
   .tmRow__label{
-    font-size:22px;
+    font-size:18px;
   }
 }
 
@@ -138,14 +138,14 @@
   }
 
   .tmCard__title{
-    font-size:20px;
+    font-size:18px;
     line-height:1.15;
   }
 
   .tmCard__chevron{
     width:24px;
     height:24px;
-    font-size:14px;
+    font-size: 16px;
   }
 
   .tmRow{
@@ -159,6 +159,7 @@
   }
 
   .tmRow__label{
-    font-size:16px;
+    font-size:15px;
   }
 }
+

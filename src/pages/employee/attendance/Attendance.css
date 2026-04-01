@@ -63,7 +63,7 @@ body.modal-open{
 }
 
 .attCard__monthLabel {
-  font-weight: 800;
+  font-weight: 600;
   color: #2b2036;
 }
 
@@ -75,8 +75,8 @@ body.modal-open{
 
 .cal__dow {
   padding: 8px 8px;
-  font-size: 10px;
-  font-weight: 800;
+  font-size: 16px;
+  font-weight: 600;
   color: rgba(0,0,0,0.45);
   text-align: center;
   border-bottom: 1px solid rgba(0,0,0,0.08);
@@ -122,8 +122,8 @@ body.modal-open{
 }
 
 .cal__day {
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 15px;
+  font-weight: 600;
   color: rgba(0,0,0,0.7);
   position: relative;
   z-index: 2;
@@ -149,8 +149,8 @@ body.modal-open{
 }
 
 .cal__note {
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 500;
   letter-spacing: 0.01em;
   opacity: 0.95;
   line-height: 1.2;
@@ -175,10 +175,10 @@ body.modal-open{
 }
 
 .cal__detail {
-  font-size: 10px;
+  font-size: 16px;
   line-height: 1.2;
   color: rgba(23, 18, 35, 0.9);
-  font-weight: 700;
+  font-weight: 500;
   white-space: normal;
 }
 
@@ -212,7 +212,7 @@ body.modal-open{
 }
 .cal__cell--pending .cal__note {
   color: #4a2e63;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .cal__cell--denied {
@@ -222,26 +222,26 @@ body.modal-open{
 
 .cal__cell--denied .cal__note {
   color: #7a2033;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .cal__note:first-child {
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .cal__note--approved {
   color: #ffffff;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .cal__note--pending {
   color: #4a2e63;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .cal__note--denied {
   color: #7a2033;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 @media (max-width: 900px) {
@@ -271,7 +271,7 @@ body.modal-open{
   background: #7b4a8f;
   color: #fff;
   font-weight: 800;
-  font-size: 13px;
+  font-size: 15px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -368,7 +368,7 @@ body.modal-open{
   font-weight: 800;
   color: #3b2257;
   padding-top: 6px;
-  font-size: 13px;
+  font-size: 15px;
 }
 
 .input,
@@ -482,3 +482,4 @@ input[type='time'] {
   color: #4a2e63;
   font-weight: 600;
 }
+

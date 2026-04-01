@@ -24,7 +24,7 @@ type DailyEmployeeRecord = {
   totalLogs: number;
 };
 
-const DAYS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
+const DAYS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
 
 function pad2(value: number) {
   return String(value).padStart(2, '0');
@@ -54,10 +54,10 @@ function isOut(direction?: string) {
 function buildMonthCells(year: number, monthIndex: number) {
   const first = new Date(year, monthIndex, 1);
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
-  const mondayStart = (first.getDay() + 6) % 7;
+  const sundayStart = first.getDay();
   const cells: DayCell[] = [];
 
-  for (let index = 0; index < mondayStart; index += 1) {
+  for (let index = 0; index < sundayStart; index += 1) {
     cells.push({ day: null, activeCount: 0, openCount: 0, totalLogs: 0 });
   }
   for (let day = 1; day <= daysInMonth; day += 1) {
