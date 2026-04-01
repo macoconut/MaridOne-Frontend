@@ -85,7 +85,24 @@ export default function ManagerLayout() {
         } else {
           const payload = (await detailsResponse.json()) as Record<string, unknown>;
           const empId = extractFirstId(payload, ['employeeId', 'id']);
-          setHeaderTitle(empId ? `Manager#${empId}` : 'Manager');
+          if (empId) {
+            try {
+              const employeeResponse = await apiFetchRaw(`/api/employees/${empId}`, { method: 'GET' });
+              if (employeeResponse.ok) {
+                const employeePayload = (await employeeResponse.json()) as Record<string, unknown>;
+                const fullName = [employeePayload.firstName, employeePayload.middleName, employeePayload.lastName]
+                  .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+                  .join(' ');
+                setHeaderTitle(fullName || `Manager#${empId}`);
+              } else {
+                setHeaderTitle(`Manager#${empId}`);
+              }
+            } catch {
+              setHeaderTitle(`Manager#${empId}`);
+            }
+          } else {
+            setHeaderTitle('Manager');
+          }
         }
 
         const notifResponse = await apiFetchRaw('/api/notifications?page=0&size=20', { method: 'GET' });

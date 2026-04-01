@@ -37,6 +37,12 @@ type DailyEmployeeRecord = {
   isIncomplete: boolean;
 };
 
+type AttendanceReportsBoardProps = {
+  audienceLabel?: string;
+  logsUrl?: string;
+  rosterUrl?: string;
+};
+
 const DAYS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
 
 function pad2(value: number) {
@@ -138,7 +144,33 @@ function buildDailyRecords(logs: AttendanceLog[], employeeById: Map<number, Empl
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+function withParams(path: string, params: Record<string, string>) {
+  const query = new URLSearchParams(params).toString();
+  const separator = path.includes('?') ? '&' : '?';
+  return `${path}${separator}${query}`;
+}
+
+function rosterRows(payload: unknown) {
+  return toArray<Record<string, unknown>>(payload).map((row, idx) => ({
+    id: Number(row.employeeId ?? row.id ?? idx + 1),
+    name:
+      [row.firstName, row.middleName, row.lastName]
+        .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+        .join(' ') || `Employee #${row.employeeId ?? row.id ?? idx + 1}`,
+    status: String(row.employmentStatus ?? '-'),
+    position: String(row.position ?? '-'),
+  }));
+}
+
 export default function HrAttendanceReports() {
+  return <AttendanceReportsBoard audienceLabel="HR" />;
+}
+
+export function AttendanceReportsBoard({
+  audienceLabel = 'HR',
+  logsUrl = '/api/logs/attendance',
+  rosterUrl = '/api/employees',
+}: AttendanceReportsBoardProps) {
   const today = new Date();
   const currentYear = today.getFullYear();
   const [year, setYear] = useState(today.getFullYear());
@@ -191,27 +223,26 @@ export default function HrAttendanceReports() {
       setIsLoading(true);
       setLoadError('');
       try {
-        const logResponse = await apiFetchJson<unknown>('/api/logs/attendance?page=0&size=5000');
+        const start = new Date(year, monthIndex, 1, 0, 0, 0, 0);
+        const end = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+        const logResponse = await apiFetchJson<unknown>(
+          withParams(logsUrl, {
+            page: '0',
+            size: '5000',
+            timestampAfter: start.toISOString(),
+            timestampBefore: end.toISOString(),
+          })
+        );
         if (cancelled) return;
 
         const nextLogs = toArray<AttendanceLog>(logResponse);
         setLogs(nextLogs);
 
         try {
-          const employeeResponse = await apiFetchJson<unknown>('/api/employees?page=0&size=500');
+          const employeeResponse = await apiFetchJson<unknown>(withParams(rosterUrl, { page: '0', size: '500' }));
           if (cancelled) return;
 
-          const mappedEmployees = toArray<Record<string, unknown>>(employeeResponse).map((row, idx) => ({
-            id: Number(row.employeeId ?? row.id ?? idx + 1),
-            name:
-              [row.firstName, row.middleName, row.lastName]
-                .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
-                .join(' ') || `Employee #${row.employeeId ?? row.id ?? idx + 1}`,
-            status: String(row.employmentStatus ?? '-'),
-            position: String(row.position ?? '-'),
-          }));
-
-          setEmployees(mappedEmployees.filter((row) => Number.isFinite(row.id)));
+          setEmployees(rosterRows(employeeResponse).filter((row) => Number.isFinite(row.id)));
           setHasFullRoster(true);
           setRosterMessage('');
         } catch {
@@ -231,7 +262,7 @@ export default function HrAttendanceReports() {
           );
           setHasFullRoster(false);
           setRosterMessage(
-            'HR can load attendance logs, but full employee roster access is restricted. Present and late counts are accurate; absent counts are unavailable.'
+            `${audienceLabel} can load attendance logs, but the full employee roster is not available on this screen. Present and late counts are still based on real logs.`
           );
         }
       } catch (error) {
@@ -250,7 +281,7 @@ export default function HrAttendanceReports() {
     return () => {
       cancelled = true;
     };
-  }, [refreshTick]);
+  }, [audienceLabel, logsUrl, monthIndex, refreshTick, rosterUrl, year]);
 
   const employeeById = useMemo(() => {
     const map = new Map<number, EmployeeRow>();
@@ -490,7 +521,7 @@ export default function HrAttendanceReports() {
 
             {!hasFullRoster && (
               <p className="hrAtt__hint">
-                Absent counts are not shown because the backend does not currently expose a full employee roster to HR on this screen.
+                Absent counts are not shown because the full employee roster is not available on this screen.
               </p>
             )}
 
