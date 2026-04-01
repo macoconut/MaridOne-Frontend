@@ -14,7 +14,7 @@ body.modal-open{
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  max-width: 1100px;
+  width: 100%;
 }
 
 .att__titleWrap {
@@ -47,7 +47,6 @@ body.modal-open{
 /* Calendar card */
 .attCard {
   width: 100%;
-  max-width: 1100px;
   background: #fff;
   border-radius: 12px;
   border: 1px solid rgba(59, 34, 87, 0.18);
@@ -257,7 +256,6 @@ body.modal-open{
   gap: 14px;
   flex-wrap: wrap;
   padding: 18px 0 10px;
-  max-width: 1100px;
   width: 100%;
 }
 

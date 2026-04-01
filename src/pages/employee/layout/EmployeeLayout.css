@@ -8,7 +8,8 @@
   --line:rgba(0,0,0,.10);
 
   --sideW:300px;
-  --contentW:1200px;
+  --contentW:min(1680px, calc(100vw - var(--sideW) - 40px));
+  --contentPadX:clamp(24px, 3vw, 52px);
   --radius:26px;
   --shadow:0 10px 26px rgba(0,0,0,.10);
   --shadowSoft:0 10px 22px rgba(0,0,0,.08);
@@ -163,7 +164,7 @@ body{ margin:0; background:var(--page); overflow:hidden; }
 .eTop{
   width:100%;
   max-width: var(--contentW);
-  padding:26px 52px 8px;
+  padding:26px var(--contentPadX) 8px;
   display:flex;
   align-items:center;
   justify-content:space-between;
@@ -298,14 +299,14 @@ body{ margin:0; background:var(--page); overflow:hidden; }
   width:100%;
   max-width: var(--contentW);
   margin: 0 auto;
-  padding: 8px 52px 40px;
+  padding: 8px var(--contentPadX) 40px;
 }
 
 /* footer */
 .eFooter{
   background: linear-gradient(90deg, var(--purple-2) 0%, var(--purple-1) 100%);
   color:#fff;
-  padding: 64px 56px;
+  padding: 64px var(--contentPadX);
   width:100%;
   margin-top:auto;
 }
