@@ -443,47 +443,55 @@ export default function EmployeeLayout() {
           <div className="eSide__name">MaridOne</div>
         </button>
 
-        <nav className="eSide__nav">
-          <NavLink
-            to="/employee/dashboard"
-            className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
-          >
-            <FiGrid className="eSide__icon" />
-            <span>Dashboard</span>
-          </NavLink>
+        <div className="eSide__navWrap">
+          <div className="eSide__navSection is-open">
+            <div className="eSide__sectionHeader">
+              <span className="eSide__navLabel">Self-Service</span>
+            </div>
 
-          <NavLink
-            to="/employee/attendance"
-            className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
-          >
-            <FiCalendar className="eSide__icon" />
-            <span>Attendance</span>
-          </NavLink>
+            <nav className="eSide__nav eSide__navPanel" aria-label="Employee navigation">
+              <NavLink
+                to="/employee/dashboard"
+                className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
+              >
+                <FiGrid className="eSide__icon" />
+                <span>User Dashboard</span>
+              </NavLink>
 
-          <NavLink
-            to="/employee/approvals"
-            className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
-          >
-            <FiClock className="eSide__icon" />
-            <span>View Approvals</span>
-          </NavLink>
+              <NavLink
+                to="/employee/attendance"
+                className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
+              >
+                <FiCalendar className="eSide__icon" />
+                <span>Attendance</span>
+              </NavLink>
 
-          <NavLink
-            to="/employee/payslip"
-            className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
-          >
-            <FiFileText className="eSide__icon" />
-            <span>Payslip</span>
-          </NavLink>
+              <NavLink
+                to="/employee/approvals"
+                className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
+              >
+                <FiClock className="eSide__icon" />
+                <span>View Approvals</span>
+              </NavLink>
 
-          <NavLink
-            to="/employee/training"
-            className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
-          >
-            <FiBookOpen className="eSide__icon" />
-            <span>Training Materials</span>
-          </NavLink>
-        </nav>
+              <NavLink
+                to="/employee/payslip"
+                className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
+              >
+                <FiFileText className="eSide__icon" />
+                <span>View Payslip</span>
+              </NavLink>
+
+              <NavLink
+                to="/employee/training"
+                className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
+              >
+                <FiBookOpen className="eSide__icon" />
+                <span>Training Materials</span>
+              </NavLink>
+            </nav>
+          </div>
+        </div>
 
         <button className="eSide__logout" type="button" onClick={handleLogout}>
           <FiLogOut className="eSide__icon" />

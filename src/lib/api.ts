@@ -126,6 +126,15 @@ function extractErrorDetails(data: unknown): string[] {
   return [...new Set(details)];
 }
 
+function throwApiErrorIfNeeded(response: Response, text: string) {
+  if (response.ok) return;
+
+  const data = parseJsonSafely(text);
+  const message = extractErrorMessage(data, response.status, text);
+  const details = extractErrorDetails(data);
+  throw new ApiError(response.status, message, message, details);
+}
+
 async function refreshAccessToken(): Promise<boolean> {
   const refreshToken = getRefreshToken();
   if (!refreshToken) return false;
@@ -195,17 +204,18 @@ export async function apiFetchRaw(path: string, init: RequestInit = {}, allowRet
 
 export async function apiFetchJson<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await apiFetchRaw(path, init);
-
   const text = await response.text();
+  throwApiErrorIfNeeded(response, text);
   const data = parseJsonSafely(text);
 
-  if (!response.ok) {
-    const message = extractErrorMessage(data, response.status, text);
-    const details = extractErrorDetails(data);
-    throw new ApiError(response.status, message, message, details);
-  }
-
   return data as T;
+}
+
+export async function apiFetchText(path: string, init: RequestInit = {}): Promise<string> {
+  const response = await apiFetchRaw(path, init);
+  const text = await response.text();
+  throwApiErrorIfNeeded(response, text);
+  return text;
 }
 
 export function toArray<T>(input: unknown): T[] {

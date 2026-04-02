@@ -2,10 +2,43 @@
 :root {
   --font-body: 'Hedvig Letters Sans', 'Segoe UI', sans-serif;
   --font-heading: 'Instrument Sans', 'Segoe UI', sans-serif;
+  --scrollbar-size: 12px;
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: linear-gradient(180deg, rgba(123, 74, 143, 0.82), rgba(42, 18, 71, 0.88));
+  --scrollbar-thumb-hover: linear-gradient(180deg, rgba(123, 74, 143, 0.95), rgba(42, 18, 71, 0.98));
 }
 
 * {
   box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(92, 54, 117, 0.72) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  min-height: 32px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 html,

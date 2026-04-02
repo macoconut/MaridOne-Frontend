@@ -3,6 +3,7 @@ import type { ReactElement } from 'react';
 import { getAuthToken, getUserRole, type UserRole } from './lib/session';
 
 import Landing from './pages/Public/Landing';
+import VerifyEmail from './pages/Public/VerifyEmail';
 import EmployeeLogin from './pages/employee/auth/Login/Login';
 
 import EmployeeLayout from './pages/employee/layout/EmployeeLayout';
@@ -89,6 +90,7 @@ export default function App() {
         {/* Public */}
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<LoginRoute />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/employee/login" element={<LoginRoute />} />
         <Route path="/hr/login" element={<LoginRoute />} />
         <Route path="/manager/login" element={<LoginRoute />} />
@@ -116,6 +118,14 @@ export default function App() {
           <Route path="payslips" element={<HrPayslips />} />
           <Route path="pay-run-reporting" element={<HrPayRunReporting />} />
           <Route path="manage-emp" element={<HrManageEmp />} />
+          <Route path="self-service">
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="attendance" element={<Attendance />} />
+            <Route path="approvals" element={<Approval />} />
+            <Route path="payslip" element={<Payslip />} />
+            <Route path="training" element={<Training />} />
+          </Route>
           <Route path="employees" element={<Navigate to="/hr/manage-emp" replace />} />
         </Route>
 
@@ -127,6 +137,14 @@ export default function App() {
           <Route path="payroll-dashboard" element={<ManagementPayrollCosts />} />
           <Route path="pay-run-reporting" element={<ManagementPayRunReporting />} />
           <Route path="payroll-costs" element={<ManagementPayrollCosts />} />
+          <Route path="self-service">
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="attendance" element={<Attendance />} />
+            <Route path="approvals" element={<Approval />} />
+            <Route path="payslip" element={<Payslip />} />
+            <Route path="training" element={<Training />} />
+          </Route>
         </Route>
 
         {/* Manager (FRAME) */}
@@ -136,6 +154,14 @@ export default function App() {
           <Route path="attendance-dashboard" element={<ManagerAttendanceDashboard />} />
           <Route path="attendance-reports" element={<ManagerAttendanceReports />} />
           <Route path="pending-approvals" element={<ManagerPendingApprovals />} />
+          <Route path="self-service">
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="attendance" element={<Attendance />} />
+            <Route path="approvals" element={<Approval />} />
+            <Route path="payslip" element={<Payslip />} />
+            <Route path="training" element={<Training />} />
+          </Route>
         </Route>
 
         {/* Accounting (FRAME) */}

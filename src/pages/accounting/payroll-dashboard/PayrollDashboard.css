@@ -186,11 +186,12 @@
 }
 
 .aDashPayDonutBlock {
+  --donut-size: clamp(180px, 28vw, 240px);
   padding: 16px 14px;
   display: grid;
-  grid-template-columns: 1fr 180px;
+  grid-template-columns: minmax(0, 1fr) var(--donut-size);
   align-items: center;
-  gap: 12px;
+  gap: 16px;
 }
 
 .aDashPayLegend {
@@ -235,21 +236,57 @@
 }
 
 .aDashPayDonut {
-  width: 180px;
-  height: 180px;
+  width: var(--donut-size);
+  height: var(--donut-size);
   border-radius: 50%;
-  background:
-    radial-gradient(circle at center, #fff 0 60px, transparent 62px),
-    conic-gradient(
-      #b83573 0 55%,
-      #f06f9b 55% 73%,
-      #ef9aa8 73% 89%,
-      #f3b6c3 89% 100%
-    );
+  background: conic-gradient(
+    #b83573 0 55%,
+    #f06f9b 55% 73%,
+    #ef9aa8 73% 89%,
+    #f3b6c3 89% 100%
+  );
+  position: relative;
+  display: grid;
+  place-items: center;
+  box-shadow:
+    inset 0 0 0 1px rgba(123, 74, 143, 0.08),
+    0 10px 22px rgba(47, 32, 80, 0.1);
+}
+
+.aDashPayDonut__label {
+  position: absolute;
+  z-index: 1;
+  transform: translate(-50%, -50%);
+  min-width: 46px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
+  box-shadow: 0 6px 14px rgba(47, 32, 80, 0.18);
+  white-space: nowrap;
+}
+
+.aDashPayDonut__label--t1 {
+  background: #b83573;
+}
+
+.aDashPayDonut__label--t2 {
+  background: #f06f9b;
+}
+
+.aDashPayDonut__label--t3 {
+  background: #d98597;
+}
+
+.aDashPayDonut__label--t4 {
+  background: #c98d9b;
 }
 
 .aDashPayDonut--empty {
-  background: radial-gradient(circle at center, #fff 0 60px, transparent 62px), #f3edf8;
+  background: #f3edf8;
   border: 1px dashed #d5c7e2;
 }
 
@@ -280,6 +317,12 @@
   .aDashPayDonutBlock {
     grid-template-columns: 1fr;
     justify-items: center;
+  }
+
+  .aDashPayDonut__label {
+    font-size: 10px;
+    min-width: 40px;
+    padding: 4px 7px;
   }
 
   .aDashPayHistory {

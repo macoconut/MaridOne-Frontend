@@ -86,6 +86,104 @@ body{ margin:0; background:var(--page); overflow:hidden; }
   margin-top:6px;
 }
 
+.eSide__navWrap{
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+  margin-top:6px;
+  padding-right:10px;
+  margin-right:-10px;
+  padding-bottom:16px;
+}
+
+.eSide__navWrap{
+  scrollbar-width:thin;
+  scrollbar-color:rgba(255,255,255,.24) transparent;
+}
+
+.eSide__navWrap::-webkit-scrollbar{
+  width:10px;
+}
+
+.eSide__navWrap::-webkit-scrollbar-track{
+  background:transparent;
+}
+
+.eSide__navWrap::-webkit-scrollbar-thumb{
+  background:linear-gradient(180deg, rgba(255,255,255,.32), rgba(255,255,255,.16));
+  border-radius:999px;
+  border:2px solid transparent;
+  background-clip:padding-box;
+}
+
+.eSide__navSection + .eSide__navSection{
+  margin-top:20px;
+}
+
+.eSide__sectionToggle{
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:8px 2px 10px;
+  border:none;
+  border-bottom:1px solid rgba(255,255,255,.18);
+  border-radius:0;
+  background:transparent;
+  color:inherit;
+  cursor:pointer;
+  transition:border-color .15s ease, opacity .15s ease;
+}
+
+.eSide__sectionHeader{
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:8px 2px 10px;
+  border-bottom:1px solid rgba(255,255,255,.18);
+}
+
+.eSide__sectionToggle:hover{
+  border-bottom-color:rgba(255,255,255,.34);
+}
+
+.eSide__sectionToggle:focus-visible{
+  outline:2px solid rgba(255,255,255,.72);
+  outline-offset:2px;
+}
+
+.eSide__navLabel{
+  padding:0;
+  margin:0;
+  color:rgba(255,255,255,.7);
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+}
+
+.eSide__sectionChevron{
+  font-size:16px;
+  color:rgba(255,255,255,.64);
+  transition:transform .18s ease, color .15s ease;
+}
+
+.eSide__sectionToggle:hover .eSide__sectionChevron{
+  color:rgba(255,255,255,.9);
+}
+
+.eSide__navSection.is-open .eSide__sectionChevron{
+  transform:rotate(180deg);
+}
+
+.eSide__navPanel{
+  margin-top:12px;
+}
+
 /* navlink */
 .eSide__item{
   display:flex;
@@ -155,7 +253,6 @@ body{ margin:0; background:var(--page); overflow:hidden; }
   align-items:center;
   overflow-y:auto;
   overflow-x:hidden;
-  scrollbar-gutter:stable;
   position:relative;
   z-index:1;
 }

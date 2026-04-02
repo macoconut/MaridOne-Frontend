@@ -157,7 +157,6 @@ function buildDonutBackground(points: BreakdownPoint[]) {
   }
 
   return [
-    'radial-gradient(circle at center, #fff 0 60px, transparent 62px)',
     `conic-gradient(${segments.join(', ')})`,
   ].join(', ');
 }
@@ -325,6 +324,27 @@ export default function AccountingPayrollDashboard() {
   );
 
   const donutBackground = useMemo(() => buildDonutBackground(breakdownPoints), [breakdownPoints]);
+  const donutLabels = useMemo(() => {
+    let cursor = 0;
+
+    return breakdownPoints.map((point) => {
+      const sweep = point.share * 360;
+      const midpoint = cursor + sweep / 2;
+      cursor += sweep;
+
+      const radians = ((midpoint - 90) * Math.PI) / 180;
+      const radius = point.share < 0.12 ? 34 : 28;
+
+      return {
+        ...point,
+        percentLabel: `${Math.round(point.share * 100)}%`,
+        style: {
+          left: `calc(50% + ${Math.cos(radians) * radius}%)`,
+          top: `calc(50% + ${Math.sin(radians) * radius}%)`,
+        },
+      };
+    });
+  }, [breakdownPoints]);
 
   return (
     <section className="aDashPay">
@@ -447,9 +467,24 @@ export default function AccountingPayrollDashboard() {
             </div>
             <div
               className={`aDashPayDonut${breakdownPoints.length === 0 ? ' aDashPayDonut--empty' : ''}`}
-              aria-hidden="true"
+              aria-label={
+                breakdownPoints.length > 0
+                  ? 'Pay type cost breakdown with percentage labels for each segment'
+                  : 'No pay type breakdown data available'
+              }
+              role="img"
               style={donutBackground ? { background: donutBackground } : undefined}
-            />
+            >
+              {donutLabels.map((item) => (
+                <div
+                  key={`${item.label}-${item.percentLabel}`}
+                  className={`aDashPayDonut__label aDashPayDonut__label--${item.tone}`}
+                  style={item.style}
+                >
+                  {item.percentLabel}
+                </div>
+              ))}
+            </div>
           </div>
         </article>
       </section>

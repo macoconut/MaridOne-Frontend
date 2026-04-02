@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import AccountSecuritySection from '../../../components/AccountSecuritySection';
+import {
+  beginTwoFactorSetup,
+  confirmTwoFactorSetup,
+  disableTwoFactor,
+  sendEmailVerification,
+  type TwoFactorSetupResponse,
+} from '../../../lib/accountSecurity';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getAuthToken, getUserEmail } from '../../../lib/session';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
@@ -8,6 +16,7 @@ import './Dashboard.css';
 type UserDetails = {
   username?: string;
   employeeId?: number;
+  twoFactorEnabled?: boolean;
   employee?: {
     employeeId?: number;
     fullName?: string;
@@ -34,6 +43,29 @@ type CalendarEvent = {
 type AttendanceLog = {
   timestamp?: string;
 };
+
+function createEditDraft(source: UserDetails['employee'] | null | undefined) {
+  const rawAddress =
+    source && typeof source.address === 'object' && source.address
+      ? (source.address as Record<string, unknown>)
+      : {};
+
+  return {
+    email: typeof source?.email === 'string' ? source.email : '',
+    phoneNumber:
+      typeof source?.phoneNumber === 'string'
+        ? source.phoneNumber
+        : typeof source?.contactNumber === 'string'
+          ? source.contactNumber
+          : '',
+    permanentAddress: typeof rawAddress.permanentAddress === 'string' ? rawAddress.permanentAddress : '',
+    temporaryAddress: typeof rawAddress.temporaryAddress === 'string' ? rawAddress.temporaryAddress : '',
+    city: typeof rawAddress.city === 'string' ? rawAddress.city : '',
+    state: typeof rawAddress.state === 'string' ? rawAddress.state : '',
+    country: typeof rawAddress.country === 'string' ? rawAddress.country : '',
+    zipCode: typeof rawAddress.zipCode === 'string' ? rawAddress.zipCode : '',
+  };
+}
 
 function formatAddress(value: unknown) {
   if (typeof value === 'string') return value.trim() || 'Address not available';
@@ -73,6 +105,7 @@ function formatJwtIssuedAt(token: string | null) {
 }
 
 export default function Dashboard() {
+  const location = useLocation();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<UserDetails | null>(null);
   const [employee, setEmployee] = useState<UserDetails['employee'] | null>(null);
@@ -87,6 +120,15 @@ export default function Dashboard() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState('');
   const [editOpen, setEditOpen] = useState(false);
+  const [securityOpen, setSecurityOpen] = useState(false);
+  const [securityMessage, setSecurityMessage] = useState('');
+  const [securityError, setSecurityError] = useState('');
+  const [sendingVerification, setSendingVerification] = useState(false);
+  const [startingTwoFactor, setStartingTwoFactor] = useState(false);
+  const [confirmingTwoFactor, setConfirmingTwoFactor] = useState(false);
+  const [disablingTwoFactor, setDisablingTwoFactor] = useState(false);
+  const [twoFactorSetup, setTwoFactorSetup] = useState<TwoFactorSetupResponse | null>(null);
+  const [twoFactorCode, setTwoFactorCode] = useState('');
   const [editDraft, setEditDraft] = useState({
     email: '',
     phoneNumber: '',
@@ -103,11 +145,11 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (editOpen) document.body.classList.add('modal-open');
+    if (editOpen || securityOpen) document.body.classList.add('modal-open');
     else document.body.classList.remove('modal-open');
 
     return () => document.body.classList.remove('modal-open');
-  }, [editOpen]);
+  }, [editOpen, securityOpen]);
 
   useEffect(() => {
     const username = getUserEmail();
@@ -130,21 +172,7 @@ export default function Dashboard() {
 
         if (fromUser) {
           setEmployee(fromUser);
-          setEditDraft({
-            email: typeof fromUser.email === 'string' ? fromUser.email : '',
-            phoneNumber:
-              typeof fromUser.phoneNumber === 'string'
-                ? fromUser.phoneNumber
-                : typeof fromUser.contactNumber === 'string'
-                  ? fromUser.contactNumber
-                  : '',
-            permanentAddress: '',
-            temporaryAddress: '',
-            city: '',
-            state: '',
-            country: '',
-            zipCode: '',
-          });
+          setEditDraft(createEditDraft(fromUser));
           const empId = typeof fromUser.employeeId === 'number' ? fromUser.employeeId : resolvedEmpId;
           if (empId) {
             try {
@@ -167,25 +195,7 @@ export default function Dashboard() {
             `/api/employees/${resolvedEmpId}`
           );
           setEmployee(selfEmployee);
-          const rawAddress =
-            selfEmployee && typeof selfEmployee.address === 'object' && selfEmployee.address
-              ? (selfEmployee.address as Record<string, unknown>)
-              : {};
-          setEditDraft({
-            email: typeof selfEmployee?.email === 'string' ? selfEmployee.email : '',
-            phoneNumber:
-              typeof selfEmployee?.phoneNumber === 'string'
-                ? selfEmployee.phoneNumber
-                : typeof selfEmployee?.contactNumber === 'string'
-                  ? selfEmployee.contactNumber
-                  : '',
-            permanentAddress: typeof rawAddress.permanentAddress === 'string' ? rawAddress.permanentAddress : '',
-            temporaryAddress: typeof rawAddress.temporaryAddress === 'string' ? rawAddress.temporaryAddress : '',
-            city: typeof rawAddress.city === 'string' ? rawAddress.city : '',
-            state: typeof rawAddress.state === 'string' ? rawAddress.state : '',
-            country: typeof rawAddress.country === 'string' ? rawAddress.country : '',
-            zipCode: typeof rawAddress.zipCode === 'string' ? rawAddress.zipCode : '',
-          });
+          setEditDraft(createEditDraft(selfEmployee));
           try {
             const attendance = await apiFetchJson<unknown>(`/api/logs/attendance/self/${resolvedEmpId}?page=0&size=1`);
             const first = toArray<AttendanceLog>(attendance)[0];
@@ -268,6 +278,22 @@ export default function Dashboard() {
     return emp?.fullName || fromParts || 'Employee Name';
   }, [employee]);
 
+  function selfServicePath(page: 'dashboard' | 'attendance' | 'approvals' | 'payslip' | 'training') {
+    if (location.pathname.startsWith('/hr/')) {
+      return `/hr/self-service/${page}`;
+    }
+
+    if (location.pathname.startsWith('/manager/')) {
+      return `/manager/self-service/${page}`;
+    }
+
+    if (location.pathname.startsWith('/management/')) {
+      return `/management/self-service/${page}`;
+    }
+
+    return `/employee/${page}`;
+  }
+
   function shiftCalendarMonth(offset: number) {
     const next = new Date(calendarYear, calendarMonthIndex + offset, 1);
     setCalendarYear(next.getFullYear());
@@ -276,17 +302,37 @@ export default function Dashboard() {
 
   function openEditModal() {
     setEditError('');
+    setEditDraft(createEditDraft(employee));
     setEditOpen(true);
+  }
+
+  function openSecurityModal(preserveFeedback = false) {
+    if (!preserveFeedback) {
+      setSecurityError('');
+      setSecurityMessage('');
+    }
+    setSecurityOpen(true);
   }
 
   function closeEditModal() {
     if (savingEdit) return;
     setEditOpen(false);
     setEditError('');
+    setEditDraft(createEditDraft(employee));
+  }
+
+  function closeSecurityModal() {
+    if (sendingVerification || startingTwoFactor || confirmingTwoFactor || disablingTwoFactor) return;
+    setSecurityOpen(false);
   }
 
   function setEditField<K extends keyof typeof editDraft>(key: K, value: (typeof editDraft)[K]) {
     setEditDraft((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function clearSecurityFeedback() {
+    setSecurityError('');
+    setSecurityMessage('');
   }
 
   async function submitEditInfo() {
@@ -298,6 +344,9 @@ export default function Dashboard() {
     setEditError('');
     setSavingEdit(true);
     try {
+      const originalEmail = employee?.email?.trim().toLowerCase() ?? '';
+      const nextEmail = editDraft.email.trim().toLowerCase();
+      const emailChanged = Boolean(nextEmail && nextEmail !== originalEmail);
       await apiFetchJson(`/api/employees/${employeeId}`, {
         method: 'PATCH',
         body: JSON.stringify({
@@ -315,11 +364,86 @@ export default function Dashboard() {
       });
       const refreshed = await apiFetchJson<UserDetails['employee']>(`/api/employees/${employeeId}`);
       setEmployee(refreshed);
-      setEditOpen(false);
+      setEditDraft(createEditDraft(refreshed));
+      if (emailChanged) {
+        setEditOpen(false);
+        setSecurityError('');
+        setSecurityMessage('Profile updated. Send a new verification email for your saved address.');
+        setSecurityOpen(true);
+      } else {
+        setEditOpen(false);
+      }
     } catch (error) {
       setEditError(getFriendlyErrorMessage(error, 'profile-update'));
     } finally {
       setSavingEdit(false);
+    }
+  }
+
+  async function handleSendEmailVerification() {
+    clearSecurityFeedback();
+    setSendingVerification(true);
+    try {
+      await sendEmailVerification();
+      setSecurityMessage('Verification email sent. Check your inbox and open the link to finish.');
+    } catch (error) {
+      setSecurityError(getFriendlyErrorMessage(error, 'generic'));
+    } finally {
+      setSendingVerification(false);
+    }
+  }
+
+  async function handleStartTwoFactorSetup() {
+    clearSecurityFeedback();
+    setStartingTwoFactor(true);
+    try {
+      const setup = await beginTwoFactorSetup();
+      setTwoFactorSetup(setup);
+      setTwoFactorCode('');
+      setSecurityMessage('Scan the QR code, then enter the current 6-digit code to finish enabling 2FA.');
+    } catch (error) {
+      setSecurityError(getFriendlyErrorMessage(error, 'generic'));
+    } finally {
+      setStartingTwoFactor(false);
+    }
+  }
+
+  async function handleConfirmTwoFactor() {
+    const code = twoFactorCode.trim();
+    if (!/^\d{6}$/.test(code)) {
+      setSecurityMessage('');
+      setSecurityError('Enter the current 6-digit code from your authenticator app.');
+      return;
+    }
+
+    clearSecurityFeedback();
+    setConfirmingTwoFactor(true);
+    try {
+      const message = await confirmTwoFactorSetup(code);
+      setTwoFactorSetup(null);
+      setTwoFactorCode('');
+      setProfile((prev) => (prev ? { ...prev, twoFactorEnabled: true } : prev));
+      setSecurityMessage(message || 'Two-factor authentication successfully enabled.');
+    } catch (error) {
+      setSecurityError(getFriendlyErrorMessage(error, 'generic'));
+    } finally {
+      setConfirmingTwoFactor(false);
+    }
+  }
+
+  async function handleDisableTwoFactor() {
+    clearSecurityFeedback();
+    setDisablingTwoFactor(true);
+    try {
+      await disableTwoFactor();
+      setTwoFactorSetup(null);
+      setTwoFactorCode('');
+      setProfile((prev) => (prev ? { ...prev, twoFactorEnabled: false } : prev));
+      setSecurityMessage('Two-factor authentication has been disabled.');
+    } catch (error) {
+      setSecurityError(getFriendlyErrorMessage(error, 'generic'));
+    } finally {
+      setDisablingTwoFactor(false);
     }
   }
 
@@ -329,9 +453,14 @@ export default function Dashboard() {
       <section className="infoCardX">
         <div className="infoCardX__header">
           <div className="infoCardX__title">Your Information</div>
-          <button className="infoCardX__edit" type="button" onClick={openEditModal} disabled={savingEdit}>
-            Edit Info
-          </button>
+          <div className="infoCardX__headerActions">
+            <button className="infoCardX__edit infoCardX__edit--secondary" type="button" onClick={() => openSecurityModal()}>
+              Security
+            </button>
+            <button className="infoCardX__edit" type="button" onClick={openEditModal} disabled={savingEdit}>
+              Edit Info
+            </button>
+          </div>
         </div>
 
         <div className="infoCardX__grid">
@@ -387,19 +516,19 @@ export default function Dashboard() {
 
       {/* ACTION BUTTONS */}
       <section className="actionRowX">
-        <button className="actionBtnX" type="button" onClick={() => navigate('/employee/payslip')}>
+        <button className="actionBtnX" type="button" onClick={() => navigate(selfServicePath('payslip'))}>
           <span>View Payslip</span>
           <span className="actionBtnX__arrow">→</span>
         </button>
-        <button className="actionBtnX" type="button" onClick={() => navigate('/employee/attendance')}>
+        <button className="actionBtnX" type="button" onClick={() => navigate(selfServicePath('attendance'))}>
           <span>View Attendance</span>
           <span className="actionBtnX__arrow">→</span>
         </button>
-        <button className="actionBtnX" type="button" onClick={() => navigate('/employee/attendance')}>
+        <button className="actionBtnX" type="button" onClick={() => navigate(selfServicePath('attendance'))}>
           <span>Request OT</span>
           <span className="actionBtnX__arrow">→</span>
         </button>
-        <button className="actionBtnX" type="button" onClick={() => navigate('/employee/attendance')}>
+        <button className="actionBtnX" type="button" onClick={() => navigate(selfServicePath('attendance'))}>
           <span>Request Leave</span>
           <span className="actionBtnX__arrow">→</span>
         </button>
@@ -423,7 +552,7 @@ export default function Dashboard() {
                       <li key={item}>{item}</li>
                     ))}
                   </ul>
-                  <button className="miniFolder__btn" type="button" onClick={() => navigate('/employee/training')}>
+                  <button className="miniFolder__btn" type="button" onClick={() => navigate(selfServicePath('training'))}>
                     View Updates
                   </button>
                 </div>
@@ -438,7 +567,7 @@ export default function Dashboard() {
                       <li key={item}>{item}</li>
                     ))}
                   </ul>
-                  <button className="miniFolder__btn" type="button" onClick={() => navigate('/employee/training')}>
+                  <button className="miniFolder__btn" type="button" onClick={() => navigate(selfServicePath('training'))}>
                     View Events
                   </button>
                 </div>
@@ -460,10 +589,10 @@ export default function Dashboard() {
                 </ul>
 
                 <div className="handbookRow__actions">
-                  <button className="handbookBtn" type="button" onClick={() => navigate('/employee/payslip')}>
+                  <button className="handbookBtn" type="button" onClick={() => navigate(selfServicePath('payslip'))}>
                     View Payslip
                   </button>
-                  <button className="handbookBtn" type="button" onClick={() => navigate('/employee/attendance')}>
+                  <button className="handbookBtn" type="button" onClick={() => navigate(selfServicePath('attendance'))}>
                     View Attendance
                   </button>
                 </div>
@@ -576,6 +705,43 @@ export default function Dashboard() {
                 {savingEdit ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {securityOpen && (
+        <div className="dashModalBackdrop" role="dialog" aria-modal="true" aria-label="Account security">
+          <div className="dashModal dashModal--security">
+            <div className="dashModal__top">
+              <div>
+                <div className="dashModal__title">ACCOUNT SECURITY</div>
+                <div className="dashModal__subtitle">Manage email verification and two-factor authentication.</div>
+              </div>
+              <button type="button" className="dashModal__close" onClick={closeSecurityModal} disabled={sendingVerification || startingTwoFactor || confirmingTwoFactor || disablingTwoFactor}>
+                x
+              </button>
+            </div>
+
+            <div className="dashModal__rule" />
+
+            <AccountSecuritySection
+              savedEmail={employee?.email || ''}
+              emailDirty={(employee?.email || '').trim() !== editDraft.email.trim()}
+              twoFactorEnabled={Boolean(profile?.twoFactorEnabled)}
+              twoFactorCode={twoFactorCode}
+              setup={twoFactorSetup}
+              statusMessage={securityMessage}
+              errorMessage={securityError}
+              sendingVerification={sendingVerification}
+              startingTwoFactor={startingTwoFactor}
+              confirmingTwoFactor={confirmingTwoFactor}
+              disablingTwoFactor={disablingTwoFactor}
+              onTwoFactorCodeChange={(value) => setTwoFactorCode(value.replace(/\D/g, '').slice(0, 6))}
+              onSendVerification={() => void handleSendEmailVerification()}
+              onStartTwoFactor={() => void handleStartTwoFactorSetup()}
+              onConfirmTwoFactor={() => void handleConfirmTwoFactor()}
+              onDisableTwoFactor={() => void handleDisableTwoFactor()}
+            />
           </div>
         </div>
       )}

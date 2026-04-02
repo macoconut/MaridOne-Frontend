@@ -1,5 +1,17 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { FiBell, FiCalendar, FiCheckCircle, FiDollarSign, FiGrid, FiLogOut } from 'react-icons/fi';
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import type { IconType } from 'react-icons';
+import {
+  FiBell,
+  FiBookOpen,
+  FiCalendar,
+  FiCheckCircle,
+  FiClock,
+  FiDollarSign,
+  FiFileText,
+  FiGrid,
+  FiLogOut,
+  FiChevronDown,
+} from 'react-icons/fi';
 import { useEffect, useRef, useState } from 'react';
 import '../../employee/layout/EmployeeLayout.css';
 import { getUserEmail } from '../../../lib/session';
@@ -16,6 +28,17 @@ import {
 } from '../../../lib/backendTest';
 
 const API_BASE_URL = getApiBaseUrl();
+
+type NavSection = {
+  id: string;
+  label: string;
+  defaultOpen: boolean;
+  items: Array<{
+    to: string;
+    label: string;
+    icon: IconType;
+  }>;
+};
 
 type BackendTestAction = {
   label: string;
@@ -57,7 +80,33 @@ const backendActions: BackendTestAction[] = [
   },
 ];
 
+const navSections: NavSection[] = [
+  {
+    id: 'employee',
+    label: 'Self-Service',
+    defaultOpen: false,
+    items: [
+      { to: '/management/self-service/dashboard', label: 'User Dashboard', icon: FiGrid },
+      { to: '/management/self-service/attendance', label: 'Attendance', icon: FiCalendar },
+      { to: '/management/self-service/approvals', label: 'View Approvals', icon: FiClock },
+      { to: '/management/self-service/payslip', label: 'View Payslip', icon: FiFileText },
+      { to: '/management/self-service/training', label: 'Training Materials', icon: FiBookOpen },
+    ],
+  },
+  {
+    id: 'management',
+    label: 'Executive Dashboard',
+    defaultOpen: true,
+    items: [
+      { to: '/management/attendance', label: 'Attendance Dashboard', icon: FiCalendar },
+      { to: '/management/payroll-dashboard', label: 'Payroll Dashboard', icon: FiGrid },
+      { to: '/management/pay-run-reporting', label: 'Pay Run Reporting', icon: FiDollarSign },
+    ],
+  },
+];
+
 export default function ManagementLayout() {
+  const location = useLocation();
   const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -65,6 +114,9 @@ export default function ManagementLayout() {
   const [backendAction, setBackendAction] = useState<string>('None');
   const [backendResult, setBackendResult] = useState<string>('Waiting for backend test.');
   const [isLoading, setIsLoading] = useState(false);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(navSections.map((section) => [section.id, section.defaultOpen]))
+  );
   const bellRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const unreadOnOpenRef = useRef<string[]>([]);
@@ -93,6 +145,16 @@ export default function ManagementLayout() {
   useEffect(() => {
     void loadHeaderAndNotifications();
   }, []);
+
+  useEffect(() => {
+    const activeSection = navSections.find((section) =>
+      section.items.some((item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`))
+    );
+
+    if (!activeSection) return;
+
+    setOpenSections((prev) => (prev[activeSection.id] ? prev : { ...prev, [activeSection.id]: true }));
+  }, [location.pathname]);
 
   useEffect(() => {
     if (!BACKEND_TEST_MODE) return;
@@ -127,6 +189,10 @@ export default function ManagementLayout() {
 
   function handleBrandClick() {
     navigate('/management/attendance', { replace: true });
+  }
+
+  function toggleSection(sectionId: string) {
+    setOpenSections((prev) => ({ ...prev, [sectionId]: !prev[sectionId] }));
   }
 
   async function markNotificationsRead(ids: string[]) {
@@ -307,31 +373,43 @@ export default function ManagementLayout() {
           <div className="eSide__name">MaridOne</div>
         </button>
 
-        <nav className="eSide__nav">
-          <NavLink
-            to="/management/attendance"
-            className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
-          >
-            <FiCalendar className="eSide__icon" />
-            <span>Attendance Dashboard</span>
-          </NavLink>
+        <div className="eSide__navWrap">
+          {navSections.map((section) => (
+            <div
+              key={section.id}
+              className={`eSide__navSection ${openSections[section.id] ? 'is-open' : ''}`}
+            >
+              <button
+                type="button"
+                className="eSide__sectionToggle"
+                onClick={() => toggleSection(section.id)}
+                aria-expanded={openSections[section.id]}
+              >
+                <span className="eSide__navLabel">{section.label}</span>
+                <FiChevronDown className="eSide__sectionChevron" />
+              </button>
 
-          <NavLink
-            to="/management/payroll-dashboard"
-            className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
-          >
-            <FiGrid className="eSide__icon" />
-            <span>Payroll Dashboard</span>
-          </NavLink>
+              {openSections[section.id] && (
+                <nav className="eSide__nav eSide__navPanel" aria-label={`${section.label} navigation`}>
+                  {section.items.map((item) => {
+                    const Icon = item.icon;
 
-          <NavLink
-            to="/management/pay-run-reporting"
-            className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
-          >
-            <FiDollarSign className="eSide__icon" />
-            <span>Pay Run Reporting</span>
-          </NavLink>
-        </nav>
+                    return (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
+                      >
+                        <Icon className="eSide__icon" />
+                        <span>{item.label}</span>
+                      </NavLink>
+                    );
+                  })}
+                </nav>
+              )}
+            </div>
+          ))}
+        </div>
 
         <button className="eSide__logout" type="button" onClick={handleLogout}>
           <FiLogOut className="eSide__icon" />

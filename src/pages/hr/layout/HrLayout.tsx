@@ -1,6 +1,8 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
+import type { IconType } from 'react-icons';
 import {
+  FiBookOpen,
   FiGrid,
   FiLogOut,
   FiBell,
@@ -10,6 +12,7 @@ import {
   FiFileText,
   FiUsers,
   FiCreditCard,
+  FiChevronDown,
 } from 'react-icons/fi';
 import '../../employee/layout/EmployeeLayout.css';
 import '../shared/hr-theme.css';
@@ -35,6 +38,17 @@ type BackendTestAction = {
 };
 
 const API_BASE_URL = getApiBaseUrl();
+
+type NavSection = {
+  id: string;
+  label: string;
+  defaultOpen: boolean;
+  items: Array<{
+    to: string;
+    label: string;
+    icon: IconType;
+  }>;
+};
 
 const backendActions: BackendTestAction[] = [
   {
@@ -290,7 +304,36 @@ const backendActions: BackendTestAction[] = [
   },
 ];
 
+const navSections: NavSection[] = [
+  {
+    id: 'employee',
+    label: 'Self-Service',
+    defaultOpen: false,
+    items: [
+      { to: '/hr/self-service/dashboard', label: 'User Dashboard', icon: FiGrid },
+      { to: '/hr/self-service/attendance', label: 'Attendance', icon: FiCalendar },
+      { to: '/hr/self-service/approvals', label: 'View Approvals', icon: FiClock },
+      { to: '/hr/self-service/payslip', label: 'View Payslip', icon: FiFileText },
+      { to: '/hr/self-service/training', label: 'Training Materials', icon: FiBookOpen },
+    ],
+  },
+  {
+    id: 'hr',
+    label: 'People Operations',
+    defaultOpen: true,
+    items: [
+      { to: '/hr/dashboard', label: 'Attendance Dashboard', icon: FiGrid },
+      { to: '/hr/attendance-reports', label: 'Attendance Reports', icon: FiCalendar },
+      { to: '/hr/approvals', label: 'Pending Approvals', icon: FiClock },
+      { to: '/hr/payslips', label: 'Manage Payslips', icon: FiFileText },
+      { to: '/hr/pay-run-reporting', label: 'Pay Run Reporting', icon: FiCreditCard },
+      { to: '/hr/manage-emp', label: 'Manage Employees', icon: FiUsers },
+    ],
+  },
+];
+
 export default function HrLayout() {
+  const location = useLocation();
   const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -298,6 +341,9 @@ export default function HrLayout() {
   const [backendAction, setBackendAction] = useState<string>('None');
   const [backendResult, setBackendResult] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(navSections.map((section) => [section.id, section.defaultOpen]))
+  );
   const bellRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const unreadOnOpenRef = useRef<string[]>([]);
@@ -347,6 +393,16 @@ export default function HrLayout() {
     })();
   }, []);
 
+  useEffect(() => {
+    const activeSection = navSections.find((section) =>
+      section.items.some((item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`))
+    );
+
+    if (!activeSection) return;
+
+    setOpenSections((prev) => (prev[activeSection.id] ? prev : { ...prev, [activeSection.id]: true }));
+  }, [location.pathname]);
+
   const unreadCount = notifications.filter((item) => !item.isRead).length;
   const todayLabel = new Date().toLocaleDateString(undefined, {
     month: 'long',
@@ -360,6 +416,10 @@ export default function HrLayout() {
 
   function handleBrandClick() {
     navigate('/hr/dashboard', { replace: true });
+  }
+
+  function toggleSection(sectionId: string) {
+    setOpenSections((prev) => ({ ...prev, [sectionId]: !prev[sectionId] }));
   }
 
   async function markNotificationsRead(ids: string[]) {
@@ -554,50 +614,43 @@ export default function HrLayout() {
           <div className="eSide__name">MaridOne</div>
         </button>
 
-        <nav className="eSide__nav">
-          <NavLink
-            to="/hr/dashboard"
-            className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
-          >
-            <FiGrid className="eSide__icon" />
-            <span>Dashboard</span>
-          </NavLink>
-          <NavLink
-            to="/hr/attendance-reports"
-            className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
-          >
-            <FiCalendar className="eSide__icon" />
-            <span>Attendance Reports</span>
-          </NavLink>
-          <NavLink
-            to="/hr/approvals"
-            className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
-          >
-            <FiClock className="eSide__icon" />
-            <span>Approvals</span>
-          </NavLink>
-          <NavLink
-            to="/hr/payslips"
-            className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
-          >
-            <FiFileText className="eSide__icon" />
-            <span>Manage Payslips</span>
-          </NavLink>
-          <NavLink
-            to="/hr/pay-run-reporting"
-            className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
-          >
-            <FiCreditCard className="eSide__icon" />
-            <span>Pay Run Reporting</span>
-          </NavLink>
-          <NavLink
-            to="/hr/manage-emp"
-            className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
-          >
-            <FiUsers className="eSide__icon" />
-            <span>Manage Employees</span>
-          </NavLink>
-        </nav>
+        <div className="eSide__navWrap">
+          {navSections.map((section) => (
+            <div
+              key={section.id}
+              className={`eSide__navSection ${openSections[section.id] ? 'is-open' : ''}`}
+            >
+              <button
+                type="button"
+                className="eSide__sectionToggle"
+                onClick={() => toggleSection(section.id)}
+                aria-expanded={openSections[section.id]}
+              >
+                <span className="eSide__navLabel">{section.label}</span>
+                <FiChevronDown className="eSide__sectionChevron" />
+              </button>
+
+              {openSections[section.id] && (
+                <nav className="eSide__nav eSide__navPanel" aria-label={`${section.label} navigation`}>
+                  {section.items.map((item) => {
+                    const Icon = item.icon;
+
+                    return (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
+                      >
+                        <Icon className="eSide__icon" />
+                        <span>{item.label}</span>
+                      </NavLink>
+                    );
+                  })}
+                </nav>
+              )}
+            </div>
+          ))}
+        </div>
 
         <button className="eSide__logout" type="button" onClick={handleLogout}>
           <FiLogOut className="eSide__icon" />
