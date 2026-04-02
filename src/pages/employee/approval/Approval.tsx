@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import type { CSSProperties } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getUserEmail } from '../../../lib/session';
 import './Approval.css';
 
 type ApprovalItem = {
   id: string;
+  sortStamp: number;
   dateOfRequest: string;
   requestType: string;
   category: string;
@@ -15,6 +17,18 @@ type ApprovalItem = {
   requestReason: string;
   decisionReason: string;
   decisionDate: string;
+};
+
+type LeaveRow = {
+  requestId?: number;
+  startDateTime?: string;
+  endDateTime?: string;
+  requestStatus?: string;
+  reason?: string;
+  leaveType?: string;
+  approverReason?: string;
+  paid?: boolean;
+  isPaid?: boolean;
 };
 
 type OvertimeRow = {
@@ -50,19 +64,45 @@ function extractApprover(statusReason?: string) {
 function formatDateTime(value?: string) {
   if (!value) return '-';
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleString(undefined, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      });
 }
 
 function formatDate(value?: string) {
   if (!value) return '-';
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
 }
 
 function formatTime(value?: string) {
   if (!value) return '-';
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+function formatLeaveType(value?: string) {
+  if (!value) return 'Leave';
+  if (value.toUpperCase() === 'OT') return 'OT';
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 export default function Approval() {
@@ -98,10 +138,36 @@ export default function Approval() {
                 : null;
 
         if (!empId) throw new Error('Missing employee ID');
-        const [otResponse, disputeResponse] = await Promise.all([
+        const [leaveResponse, otResponse, disputeResponse] = await Promise.all([
+          apiFetchJson<unknown>(`/api/leave/request/${empId}?page=0&size=20`),
           apiFetchJson<unknown>(`/api/overtime/all/${empId}?page=0&size=20`),
           apiFetchJson<unknown>(`/api/payroll/item/dispute/self?empId=${empId}&page=0&size=20`),
         ]);
+
+        const leaveItems = toArray<LeaveRow>(leaveResponse).map((row, index) => {
+          const statusRaw = String(row.requestStatus ?? '').toUpperCase();
+          const status: ApprovalItem['status'] =
+            statusRaw === 'APPROVED'
+              ? 'Approved'
+              : statusRaw === 'REJECTED' || statusRaw === 'DENIED'
+                ? 'Denied'
+                : 'Pending';
+          const requestStamp = row.startDateTime ? Date.parse(row.startDateTime) || 0 : 0;
+          return {
+            id: `leave-${String(row.requestId ?? index)}`,
+            sortStamp: requestStamp,
+            dateOfRequest: formatDate(row.startDateTime),
+            requestType: 'Leave',
+            category: `${formatLeaveType(row.leaveType)}${(row.paid ?? row.isPaid) === false ? ' • Unpaid' : ''}`,
+            startOfRequest: `${formatDate(row.startDateTime)} to ${formatDate(row.endDateTime)}`,
+            status,
+            approvedBy: status === 'Pending' ? '-' : extractApprover(row.approverReason),
+            remarks: row.approverReason ?? row.reason ?? '-',
+            requestReason: row.reason ?? '-',
+            decisionReason: row.approverReason ?? '-',
+            decisionDate: '-',
+          };
+        });
 
         const overtimeItems = toArray<OvertimeRow>(otResponse).map((row) => {
           const statusRaw = String(row.requestStatus ?? '').toUpperCase();
@@ -113,12 +179,13 @@ export default function Approval() {
                 : 'Pending';
           return {
             id: String(row.overtimeId ?? Math.random()),
+            sortStamp: row.requestAt ? Date.parse(row.requestAt) || 0 : 0,
             dateOfRequest: formatDateTime(row.requestAt),
             requestType: 'Overtime',
-            category: row.overtimeType || 'OT',
+            category: formatLeaveType(row.overtimeType || 'OT'),
             startOfRequest:
               row.startTime
-                ? `${formatDate(row.workDate)} ${formatTime(row.startTime)}`
+                ? `${formatDate(row.workDate)} at ${formatTime(row.startTime)}`
                 : formatDate(row.workDate),
             status,
             approvedBy: row.approver ?? '-',
@@ -139,6 +206,7 @@ export default function Approval() {
                 : 'Pending';
           return {
             id: `dispute-${String(row.id ?? Math.random())}`,
+            sortStamp: row.createdAt ? Date.parse(row.createdAt) || 0 : 0,
             dateOfRequest: formatDateTime(row.createdAt),
             requestType: 'Payslip Dispute',
             category: row.subject || 'Dispute',
@@ -152,12 +220,9 @@ export default function Approval() {
           };
         });
 
-        const merged = [...overtimeItems, ...disputeItems].sort((a, b) => {
-          const aTime = Date.parse(a.dateOfRequest);
-          const bTime = Date.parse(b.dateOfRequest);
-          if (Number.isNaN(aTime) || Number.isNaN(bTime)) return 0;
-          return bTime - aTime;
-        });
+        const merged = [...leaveItems, ...overtimeItems, ...disputeItems].sort(
+          (a, b) => b.sortStamp - a.sortStamp || a.id.localeCompare(b.id)
+        );
 
         setApprovals(merged);
       } catch {
@@ -169,23 +234,34 @@ export default function Approval() {
   const approvedCount = approvals.filter((item) => item.status === 'Approved').length;
   const deniedCount = approvals.filter((item) => item.status === 'Denied').length;
   const pendingCount = approvals.filter((item) => item.status === 'Pending').length;
-  const cards = [
-    { label: 'Approved', value: approvedCount, cls: 'approved' },
-    { label: 'Denied', value: deniedCount, cls: 'denied' },
-    { label: 'Pending', value: pendingCount, cls: 'pending' },
-  ] as const;
+  const totalCount = approvals.length;
+  const cards = useMemo(
+    () =>
+      [
+        { label: 'Approved', value: approvedCount, cls: 'approved' },
+        { label: 'Denied', value: deniedCount, cls: 'denied' },
+        { label: 'Pending', value: pendingCount, cls: 'pending' },
+      ].map((card) => ({
+        ...card,
+        progress: totalCount > 0 ? Math.max((card.value / totalCount) * 100, card.value > 0 ? 8 : 0) : 0,
+      })),
+    [approvedCount, deniedCount, pendingCount, totalCount]
+  );
 
   return (
     <div className="appr">
       <div className="appr__head">
-        <h1 className="appr__title">Approvals</h1>
+        <h1 className="appr__title">View Approvals</h1>
       </div>
 
       <div className="appr__stats">
         {cards.map((card) => (
           <div key={card.label} className="apprCard">
             {card.value > 0 ? (
-              <div className={`apprCard__ring apprCard__ring--${card.cls}`} />
+              <div
+                className={`apprCard__ring apprCard__ring--${card.cls}`}
+                style={{ '--appr-ring-progress': `${card.progress}%` } as CSSProperties}
+              />
             ) : (
               <div className="apprCard__empty" aria-hidden="true">
                 -

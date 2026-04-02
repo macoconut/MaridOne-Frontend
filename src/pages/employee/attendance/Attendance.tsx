@@ -1,6 +1,7 @@
+import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import './Attendance.css';
-import { FiPlusSquare, FiX, FiUpload, FiCalendar } from 'react-icons/fi';
+import { FiCalendar, FiChevronLeft, FiChevronRight, FiPlusSquare, FiUpload, FiX } from 'react-icons/fi';
 import { ApiError, apiFetchJson, apiFetchRaw, toArray } from '../../../lib/api';
 import { getUserEmail } from '../../../lib/session';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
@@ -30,21 +31,18 @@ type DayCell = {
   day: number | null;
   statusNotes?: string[];
   detailNotes?: string[];
-  variant?: 'approved' | 'pending' | 'denied' | 'holiday';
+  variant?: 'leave' | 'ot';
   clickable?: boolean;
-};
-
-type ShiftRow = {
-  dayOfWeek?: string;
-};
-
-type CalendarEvent = {
-  day?: number;
 };
 
 type AttendanceLog = {
   timestamp?: string;
   direction?: string;
+};
+
+type AttendanceSession = {
+  in?: string;
+  out?: string;
 };
 
 const LEAVE_CACHE_PREFIX = 'employee-leave-requests';
@@ -114,6 +112,13 @@ function dateKeysBetween(start: string, end: string) {
   return out;
 }
 
+function formatAttendanceSession(session: AttendanceSession) {
+  if (session.in && session.out) return `${session.in} - ${session.out}`;
+  if (session.in) return `In ${session.in}`;
+  if (session.out) return `Out ${session.out}`;
+  return 'Attendance logged';
+}
+
 export default function Attendance() {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
@@ -124,6 +129,18 @@ export default function Attendance() {
   });
 
   const [monthValue, setMonthValue] = useState(monthLabel);
+  const monthOptions = useMemo(() => {
+    const startYear = Math.min(today.getFullYear(), year) - 5;
+    const endYear = Math.max(today.getFullYear(), year) + 5;
+    const totalMonths = (endYear - startYear + 1) * 12;
+
+    return Array.from({ length: totalMonths }, (_, index) =>
+      new Date(startYear, index, 1).toLocaleDateString(undefined, {
+        month: 'long',
+        year: 'numeric',
+      })
+    );
+  }, [today.getFullYear(), year]);
 
   // Leave modal state
   const [leaveOpen, setLeaveOpen] = useState(false);
@@ -135,10 +152,8 @@ export default function Attendance() {
   const [file, setFile] = useState<File | null>(null);
   const [submitError, setSubmitError] = useState('');
   const [employeeId, setEmployeeId] = useState<number | null>(null);
-  const [shiftWeekdays, setShiftWeekdays] = useState<Set<number>>(new Set());
-  const [eventDays, setEventDays] = useState<Set<number>>(new Set());
   const [requestEntries, setRequestEntries] = useState<RequestEntry[]>([]);
-  const [attendanceByDate, setAttendanceByDate] = useState<Record<string, { in?: string; out?: string }>>({});
+  const [attendanceByDate, setAttendanceByDate] = useState<Record<string, AttendanceSession[]>>({});
   const [otOpen, setOtOpen] = useState(false);
   const [otDate, setOtDate] = useState<string>('');
   const [otStartTime, setOtStartTime] = useState<string>('18:00');
@@ -192,22 +207,6 @@ export default function Attendance() {
 
         if (resolvedEmpId) {
           const cachedLeaveEntries = readCachedLeaveRequests(resolvedEmpId);
-          const shifts = await apiFetchJson<unknown>(`/api/employee/schedule/${resolvedEmpId}`);
-          const weekdayMap: Record<string, number> = {
-            SUNDAY: 0,
-            MONDAY: 1,
-            TUESDAY: 2,
-            WEDNESDAY: 3,
-            THURSDAY: 4,
-            FRIDAY: 5,
-            SATURDAY: 6,
-          };
-          const days = toArray<ShiftRow>(shifts)
-            .map((row) => row.dayOfWeek?.toUpperCase() ?? '')
-            .map((key) => weekdayMap[key])
-            .filter((n): n is number => typeof n === 'number');
-          setShiftWeekdays(new Set(days));
-
           const myOt = await apiFetchJson<unknown>(`/api/overtime/all/${resolvedEmpId}?page=0&size=200`);
           const otEntries = toArray<Record<string, unknown>>(myOt)
             .map((row) => {
@@ -239,40 +238,56 @@ export default function Attendance() {
             const logs = await apiFetchJson<unknown>(
               `/api/logs/attendance/self/${resolvedEmpId}?page=0&size=500`
             );
-            const next: Record<string, { in?: string; out?: string }> = {};
-            for (const row of toArray<AttendanceLog>(logs)) {
-              if (typeof row.timestamp !== 'string') continue;
-              const date = new Date(row.timestamp);
-              if (Number.isNaN(date.getTime())) continue;
-              const dateKey = `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
-              const timeLabel = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-              const direction = (row.direction || '').toUpperCase();
-              const current = next[dateKey] ?? {};
+            const parsedLogs = toArray<AttendanceLog>(logs)
+              .map((row) => {
+                if (typeof row.timestamp !== 'string') return null;
+                const date = new Date(row.timestamp);
+                if (Number.isNaN(date.getTime())) return null;
 
-              if (direction.includes('IN')) {
-                current.in = current.in ?? timeLabel;
-              } else if (direction.includes('OUT')) {
-                current.out = timeLabel;
+                return {
+                  date,
+                  direction: String(row.direction ?? '').toUpperCase(),
+                };
+              })
+              .filter(
+                (entry): entry is { date: Date; direction: string } =>
+                  entry !== null
+              )
+              .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+            const next: Record<string, AttendanceSession[]> = {};
+            for (const entry of parsedLogs) {
+              const dateKey = `${entry.date.getFullYear()}-${pad2(entry.date.getMonth() + 1)}-${pad2(entry.date.getDate())}`;
+              const timeLabel = entry.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              const current = next[dateKey] ?? [];
+              const lastSession = current[current.length - 1];
+
+              if (entry.direction.includes('IN')) {
+                next[dateKey] = [...current, { in: timeLabel }];
+                continue;
               }
-              next[dateKey] = current;
+
+              if (entry.direction.includes('OUT')) {
+                if (lastSession && lastSession.in && !lastSession.out) {
+                  next[dateKey] = [
+                    ...current.slice(0, -1),
+                    {
+                      ...lastSession,
+                      out: timeLabel,
+                    },
+                  ];
+                } else {
+                  next[dateKey] = [...current, { out: timeLabel }];
+                }
+              }
             }
             setAttendanceByDate(next);
           } catch {
             setAttendanceByDate({});
           }
         }
-
-        const month = monthIndex + 1;
-        const yearValue = year;
-        const events = await apiFetchJson<unknown>(`/api/calendar/events?month=${month}&year=${yearValue}`);
-        const eventDayNumbers = toArray<CalendarEvent>(events)
-          .map((item) => item.day)
-          .filter((day): day is number => typeof day === 'number');
-        setEventDays(new Set(eventDayNumbers));
       } catch {
         setEmployeeId(null);
-        setShiftWeekdays(new Set());
-        setEventDays(new Set());
         setRequestEntries([]);
         setAttendanceByDate({});
       }
@@ -286,8 +301,12 @@ export default function Attendance() {
     return () => document.body.classList.remove('modal-open');
   }, [leaveOpen, otOpen, requestViewOpen]);
 
-  const requestDateKeys = useMemo(() => {
-    return new Set(requestEntries.map((entry) => entry.dateKey));
+  const approvedRequestDateKeys = useMemo(() => {
+    return new Set(
+      requestEntries
+        .filter((entry) => entry.status.toUpperCase() === 'APPROVED')
+        .map((entry) => entry.dateKey)
+    );
   }, [requestEntries]);
 
   const hasApprovedTodayLeave = useMemo(() => {
@@ -302,74 +321,54 @@ export default function Attendance() {
 
   const todayAttendance = useMemo(() => {
     const todayKey = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
-    return attendanceByDate[todayKey] ?? {};
+    return attendanceByDate[todayKey] ?? [];
   }, [attendanceByDate, today]);
-
-  const isClockOutAction = Boolean(todayAttendance.in && !todayAttendance.out);
+  const latestTodaySession = todayAttendance[todayAttendance.length - 1];
+  const isClockOutAction = Boolean(latestTodaySession?.in && !latestTodaySession.out);
+  const firstDay = new Date(year, monthIndex, 1);
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const sundayBasedStart = firstDay.getDay();
+  const calendarWeekRows = Math.ceil((sundayBasedStart + daysInMonth) / 7);
+  const calendarGridStyle = { '--calendar-week-rows': calendarWeekRows } as CSSProperties;
 
   const calendarCells = useMemo(() => {
     // Build a Sunday-first calendar (SU..SA)
-    const first = new Date(year, monthIndex, 1);
-    const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
-
-    const sundayBased = first.getDay();
-
     const cells: DayCell[] = [];
     // leading blanks
-    for (let i = 0; i < sundayBased; i++) cells.push({ day: null });
+    for (let i = 0; i < sundayBasedStart; i++) cells.push({ day: null });
 
     // actual days
     for (let d = 1; d <= daysInMonth; d++) {
-      const date = new Date(year, monthIndex, d);
-      const sundayBasedWeekday = date.getDay();
-      const hasShift = shiftWeekdays.has(sundayBasedWeekday);
-      const hasEvent = eventDays.has(d);
       const dateKey = toISODate(year, monthIndex, d);
       const dayRequests = requestEntries.filter((entry) => entry.dateKey === dateKey);
-      const hasRequest = dayRequests.length > 0;
-      const attendance = attendanceByDate[dateKey];
+      const approvedDayRequests = dayRequests.filter((entry) => entry.status.toUpperCase() === 'APPROVED');
+      const attendance = attendanceByDate[dateKey] ?? [];
       const statusNotes: string[] = [];
       const detailNotes: string[] = [];
       let variant: DayCell['variant'] | undefined;
       let clickable = false;
 
-      if (hasRequest) {
-        const statuses = dayRequests.map((entry) => entry.status.toUpperCase());
-        const hasApproved = statuses.includes('APPROVED');
-        const hasDenied = statuses.includes('REJECTED') || statuses.includes('DENIED');
-        variant = hasApproved ? 'approved' : hasDenied ? 'denied' : 'pending';
-        for (const entry of dayRequests) {
-          const rawStatus = entry.status.toUpperCase();
-          const status =
-            rawStatus === 'APPROVED'
-              ? 'Approved'
-              : rawStatus === 'REJECTED' || rawStatus === 'DENIED'
-                ? 'Denied'
-                : 'Pending';
-          if (entry.kind === 'OT') {
-            statusNotes.push(`${status} OT (${String(entry.overtimeType ?? 'OT')})`);
-          } else {
-            statusNotes.push(`${status} Leave`);
-          }
+      if (approvedDayRequests.length > 0) {
+        variant = approvedDayRequests.some((entry) => entry.kind === 'LEAVE') ? 'leave' : 'ot';
+        for (const entry of approvedDayRequests) {
+          statusNotes.push(entry.kind === 'OT' ? 'Overtime' : 'Leave');
         }
         clickable = true;
       }
 
-      const hasApprovedLeave = dayRequests.some(
-        (entry) => entry.kind === 'LEAVE' && entry.status.toUpperCase() === 'APPROVED'
+      const hasApprovedLeave = approvedDayRequests.some(
+        (entry) => entry.kind === 'LEAVE'
       );
 
-      if (!hasApprovedLeave && (attendance?.in || attendance?.out)) {
-        detailNotes.push(`Time In: ${attendance?.in ?? 'N/A'}`);
-        detailNotes.push(`Time Out: ${attendance?.out ?? 'N/A'}`);
-      }
-
-      if (!hasRequest && hasShift && hasEvent) {
-        detailNotes.push('Shift • Event');
-      } else if (hasShift) {
-        detailNotes.push('Shift');
-      } else if (hasEvent) {
-        detailNotes.push('Event');
+      if (!hasApprovedLeave && attendance.length > 0) {
+        if (attendance.length === 1) {
+          const [session] = attendance;
+          detailNotes.push(formatAttendanceSession(session));
+        } else {
+          detailNotes.push(`${attendance.length} attendance sessions`);
+          detailNotes.push(formatAttendanceSession(attendance[0]));
+          detailNotes.push(`+${attendance.length - 1} more session${attendance.length - 1 === 1 ? '' : 's'}`);
+        }
       }
 
       cells.push({
@@ -385,7 +384,7 @@ export default function Attendance() {
     while (cells.length % 7 !== 0) cells.push({ day: null });
 
     return cells;
-  }, [attendanceByDate, eventDays, monthIndex, requestDateKeys, requestEntries, shiftWeekdays, year]);
+  }, [attendanceByDate, daysInMonth, requestEntries, sundayBasedStart, year]);
 
   function openLeaveForToday() {
     const now = new Date();
@@ -403,6 +402,12 @@ export default function Attendance() {
     if (Number.isNaN(date.getTime())) return;
     setMonthIndex(date.getMonth());
     setYear(date.getFullYear());
+  }
+
+  function shiftCalendarMonth(offset: number) {
+    const next = new Date(year, monthIndex + offset, 1);
+    setMonthIndex(next.getMonth());
+    setYear(next.getFullYear());
   }
 
   function closeLeave() {
@@ -464,12 +469,19 @@ export default function Attendance() {
       const dateKey = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
       const timeLabel = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       setAttendanceByDate((prev) => {
-        const current = prev[dateKey] ?? {};
-        const next =
-          current.in && !current.out
-            ? { ...current, out: timeLabel }
-            : { ...current, in: timeLabel };
-        return { ...prev, [dateKey]: next };
+        const current = prev[dateKey] ?? [];
+        const lastSession = current[current.length - 1];
+        const nextSessions =
+          lastSession?.in && !lastSession.out
+            ? [
+                ...current.slice(0, -1),
+                {
+                  ...lastSession,
+                  out: timeLabel,
+                },
+              ]
+            : [...current, { in: timeLabel }];
+        return { ...prev, [dateKey]: nextSessions };
       });
 
       setClockMessage('Attendance log submitted.');
@@ -637,6 +649,7 @@ export default function Attendance() {
       <div className="att__head">
         <div className="att__titleWrap">
           <h1 className="att__title">Attendance</h1>
+          <p className="att__subtitle">Review your work logs, requests, shifts, and events in one monthly calendar.</p>
 
           <div className="att__monthSelectWrap">
             <select
@@ -647,9 +660,7 @@ export default function Attendance() {
                 parseMonthValue(e.target.value);
               }}
             >
-              {Array.from({ length: 12 }).map((_, i) => {
-                const d = new Date(today.getFullYear(), i, 1);
-                const label = d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+              {monthOptions.map((label) => {
                 return (
                   <option key={label} value={label}>
                     {label}
@@ -663,83 +674,118 @@ export default function Attendance() {
 
       {/* Calendar card */}
       <section className="attCard">
-        <div className="attCard__monthBar">
-          <div className="attCard__monthLabel">{monthValue}</div>
-        </div>
+        <div className="attCalendarShell" aria-label="Attendance calendar">
+          <div className="attCalendarShell__top">
+            <button
+              type="button"
+              className="attCalendarShell__navBtn"
+              onClick={() => shiftCalendarMonth(-1)}
+              aria-label="Previous month"
+            >
+              <FiChevronLeft aria-hidden="true" />
+            </button>
+            <strong className="attCalendarShell__month">{monthLabel}</strong>
+            <button
+              type="button"
+              className="attCalendarShell__navBtn"
+              onClick={() => shiftCalendarMonth(1)}
+              aria-label="Next month"
+            >
+              <FiChevronRight aria-hidden="true" />
+            </button>
+          </div>
 
-        <div className="cal">
-          <div className="cal__dow">SU</div>
-          <div className="cal__dow">MO</div>
-          <div className="cal__dow">TU</div>
-          <div className="cal__dow">WE</div>
-          <div className="cal__dow">TH</div>
-          <div className="cal__dow">FR</div>
-          <div className="cal__dow">SA</div>
+          <div className="attCalendarShell__legend" aria-hidden="true">
+            <span className="attCalendarShell__legendItem">
+              <span className="attCalendarShell__legendSwatch attCalendarShell__legendSwatch--leave" />
+              Leave
+            </span>
+            <span className="attCalendarShell__legendItem">
+              <span className="attCalendarShell__legendSwatch attCalendarShell__legendSwatch--ot" />
+              Overtime
+            </span>
+          </div>
 
-          {calendarCells.map((c, idx) => {
-            const dateKey = c.day ? toISODate(year, monthIndex, c.day) : '';
-            const todayKey = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
-            const isToday = c.day !== null && dateKey === todayKey;
-            const isSelected = c.day !== null && dateKey === selectedDateKey;
-            const hasRequest = c.day !== null && requestDateKeys.has(dateKey);
-            const clickable = c.day !== null;
-            const cls = [
-              'cal__cell',
-              clickable ? 'cal__cell--click' : 'cal__cell--disabled',
-              isToday ? 'cal__cell--today' : '',
-              isSelected ? 'cal__cell--selected' : '',
-              c.variant ? `cal__cell--${c.variant}` : '',
-            ]
-              .filter(Boolean)
-              .join(' ');
+          <div className="cal" style={calendarGridStyle}>
+            <div className="cal__dow">SU</div>
+            <div className="cal__dow">MO</div>
+            <div className="cal__dow">TU</div>
+            <div className="cal__dow">WE</div>
+            <div className="cal__dow">TH</div>
+            <div className="cal__dow">FR</div>
+            <div className="cal__dow">SA</div>
 
-            return (
-              <button
-                key={idx}
-                type="button"
-                className={cls}
-                disabled={c.day === null}
-                onClick={() => {
-                  if (!c.day) return;
-                  setSelectedDateKey(dateKey);
-                  if (hasRequest) openRequestForDay(c.day);
-                }}
-                aria-label={c.day ? `Date ${monthValue} ${c.day}${isToday ? ', today' : ''}` : 'Empty'}
-                aria-current={isToday ? 'date' : undefined}
-              >
-                {c.day && <div className="cal__day">{c.day}</div>}
-                {c.statusNotes && (
-                  <div className="cal__statusNotes">
-                    {c.statusNotes.slice(0, 2).map((line, lineIdx) => (
-                      <div
-                        key={`${line}-${lineIdx}`}
-                        className={`cal__note ${
-                          line.toLowerCase().includes('approved')
-                            ? 'cal__note--approved'
-                            : line.toLowerCase().includes('pending')
-                              ? 'cal__note--pending'
-                              : line.toLowerCase().includes('denied')
-                                ? 'cal__note--denied'
-                                : ''
-                        }`}
-                      >
-                        {line}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {c.detailNotes && (
-                  <div className="cal__detailNotes">
-                    {c.detailNotes.slice(0, 3).map((line, lineIdx) => (
-                      <div key={`${line}-${lineIdx}`} className="cal__detail">
-                        {line}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </button>
-            );
-          })}
+            {calendarCells.map((c, idx) => {
+              const dateKey = c.day ? toISODate(year, monthIndex, c.day) : '';
+              const todayKey = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
+              const isToday = c.day !== null && dateKey === todayKey;
+              const isSelected = c.day !== null && dateKey === selectedDateKey;
+              const hasRequest = c.day !== null && approvedRequestDateKeys.has(dateKey);
+              const clickable = c.day !== null;
+              const hasContent = Boolean((c.statusNotes?.length ?? 0) || (c.detailNotes?.length ?? 0));
+              const cellTitle = [...(c.statusNotes ?? []), ...(c.detailNotes ?? [])].join(' | ');
+              const cls = [
+                'cal__cell',
+                clickable ? 'cal__cell--click' : 'cal__cell--disabled',
+                hasContent ? 'cal__cell--active' : '',
+                isToday ? 'cal__cell--today' : '',
+                isSelected ? 'cal__cell--selected' : '',
+                c.variant ? `cal__cell--${c.variant}` : '',
+              ]
+                .filter(Boolean)
+                .join(' ');
+
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  className={cls}
+                  disabled={c.day === null}
+                  title={cellTitle || undefined}
+                  onClick={() => {
+                    if (!c.day) return;
+                    setSelectedDateKey(dateKey);
+                    if (hasRequest) openRequestForDay(c.day);
+                  }}
+                  aria-label={c.day ? `Date ${monthLabel} ${c.day}${isToday ? ', today' : ''}` : 'Empty'}
+                  aria-current={isToday ? 'date' : undefined}
+                >
+                  {c.day ? (
+                    <div className="cal__cellTop">
+                      <div className="cal__day">{c.day}</div>
+                    </div>
+                  ) : null}
+                  {c.statusNotes && (
+                    <div className="cal__statusNotes">
+                      {c.statusNotes.slice(0, 2).map((line, lineIdx) => (
+                        <span
+                          key={`${line}-${lineIdx}`}
+                          className={`cal__note ${
+                            line.toLowerCase().includes('leave')
+                              ? 'cal__note--leave'
+                              : line.toLowerCase().includes('ot')
+                                ? 'cal__note--ot'
+                                  : ''
+                          }`}
+                        >
+                          {line}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {c.detailNotes && (
+                    <div className="cal__detailNotes">
+                      {c.detailNotes.slice(0, 3).map((line, lineIdx) => (
+                        <span key={`${line}-${lineIdx}`} className="cal__detail">
+                          {line}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </section>
 
@@ -770,7 +816,6 @@ export default function Attendance() {
           </span>
         </button>
       </div>
-      {selectedDateKey && <p className="field__hint">Selected date: {selectedDateKey}</p>}
       {clockMessage && <p className="field__ok">{clockMessage}</p>}
       {clockError && <p className="field__error">{clockError}</p>}
 

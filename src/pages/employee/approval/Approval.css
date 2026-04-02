@@ -25,6 +25,7 @@ body.modal-open{
   display:flex;
   gap:18px;
   align-items:center;
+  flex-wrap:wrap;
 }
 
 .apprCard{
@@ -40,22 +41,30 @@ body.modal-open{
 }
 
 .apprCard__ring{
-  width:34px;
-  height:34px;
+  --appr-ring-color: #7b4a8f;
+  width:40px;
+  height:40px;
   border-radius:50%;
-  border:6px solid #7b4a8f;
-  border-right-color: transparent;
-  border-bottom-color: transparent;
-  transform: rotate(-40deg);
+  position:relative;
+  background:
+    conic-gradient(var(--appr-ring-color) var(--appr-ring-progress, 0%), rgba(123, 74, 143, 0.12) 0);
 }
 
-.apprCard__ring--approved{ border-color:#7b4a8f; border-right-color:transparent; border-bottom-color:transparent; }
-.apprCard__ring--denied{ border-color:#b24c4c; border-right-color:transparent; border-bottom-color:transparent; }
-.apprCard__ring--pending{ border-color:#8a6bb0; border-right-color:transparent; border-bottom-color:transparent; }
+.apprCard__ring::after{
+  content:"";
+  position:absolute;
+  inset:6px;
+  border-radius:50%;
+  background:#fff;
+}
+
+.apprCard__ring--approved{ --appr-ring-color:#7b4a8f; }
+.apprCard__ring--denied{ --appr-ring-color:#b24c4c; }
+.apprCard__ring--pending{ --appr-ring-color:#8a6bb0; }
 
 .apprCard__empty{
-  width:34px;
-  height:34px;
+  width:40px;
+  height:40px;
   border-radius:50%;
   border:1.5px dashed rgba(43, 32, 54, 0.28);
   color:rgba(43, 32, 54, 0.45);
