@@ -10,11 +10,11 @@ function roleHome(role: ReturnType<typeof getUserRole>) {
     case 'employee':
       return '/employee/dashboard';
     case 'hr':
-      return '/hr/dashboard';
+      return '/hr/self-service/dashboard';
     case 'manager':
-      return '/manager/dashboard';
+      return '/manager/self-service/dashboard';
     case 'management':
-      return '/management/attendance';
+      return '/management/self-service/dashboard';
     case 'accounting':
       return '/accounting/payroll-dashboard';
     default:

@@ -4,6 +4,7 @@ import type { TwoFactorSetupResponse } from '../lib/accountSecurity';
 type AccountSecuritySectionProps = {
   savedEmail: string;
   emailDirty: boolean;
+  emailVerified: boolean;
   twoFactorEnabled: boolean;
   twoFactorCode: string;
   setup: TwoFactorSetupResponse | null;
@@ -23,6 +24,7 @@ type AccountSecuritySectionProps = {
 export default function AccountSecuritySection({
   savedEmail,
   emailDirty,
+  emailVerified,
   twoFactorEnabled,
   twoFactorCode,
   setup,
@@ -41,6 +43,21 @@ export default function AccountSecuritySection({
   const emailReady = savedEmail.trim().length > 0 && !emailDirty;
   const isBusy = sendingVerification || startingTwoFactor || confirmingTwoFactor || disablingTwoFactor;
   const [showManualSecret, setShowManualSecret] = useState(false);
+  const emailStatusClass = !savedEmail.trim()
+    ? 'is-neutral'
+    : emailVerified
+      ? 'is-success'
+      : 'is-warning';
+  const emailStatusLabel = !savedEmail.trim()
+    ? 'No Email'
+    : emailVerified
+      ? 'Verified'
+      : 'Not Verified';
+  const verificationButtonLabel = sendingVerification
+    ? 'Sending...'
+    : emailVerified
+      ? 'Resend Verification Email'
+      : 'Send Verification Email';
 
   useEffect(() => {
     if (!setup) {
@@ -71,11 +88,15 @@ export default function AccountSecuritySection({
               <h3>Email Verification</h3>
               <p>{savedEmail || 'No saved email yet.'}</p>
             </div>
-            <span className="dashSecurityPill is-neutral">Available</span>
+            <span className={`dashSecurityPill ${emailStatusClass}`}>{emailStatusLabel}</span>
           </div>
 
           <p className="dashSecurityCard__copy">
-            Verification emails are sent to your currently saved address. The actual verified status is not exposed by the backend yet.
+            {!savedEmail.trim()
+              ? 'Add and save an email address first so we know where to send the verification link.'
+              : emailVerified
+                ? 'This email address is already verified. If you change it later, the new address will need to be verified again.'
+                : 'This email address is not verified yet. We can send a verification link to your currently saved address.'}
           </p>
 
           {emailDirty && (
@@ -91,7 +112,7 @@ export default function AccountSecuritySection({
               onClick={onSendVerification}
               disabled={!emailReady || isBusy}
             >
-              {sendingVerification ? 'Sending...' : 'Send Verification Email'}
+              {verificationButtonLabel}
             </button>
           </div>
         </article>

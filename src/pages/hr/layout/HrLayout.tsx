@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { IconType } from 'react-icons';
 import {
   FiBookOpen,
@@ -13,6 +13,7 @@ import {
   FiUsers,
   FiCreditCard,
   FiChevronDown,
+  FiActivity,
 } from 'react-icons/fi';
 import '../../employee/layout/EmployeeLayout.css';
 import '../shared/hr-theme.css';
@@ -312,7 +313,7 @@ const navSections: NavSection[] = [
   {
     id: 'employee',
     label: 'Self-Service',
-    defaultOpen: false,
+    defaultOpen: true,
     items: [
       { to: '/hr/self-service/dashboard', label: 'User Dashboard', icon: FiGrid },
       { to: '/hr/self-service/attendance', label: 'Attendance', icon: FiCalendar },
@@ -332,6 +333,7 @@ const navSections: NavSection[] = [
       { to: '/hr/payslips', label: 'Manage Payslips', icon: FiFileText },
       { to: '/hr/pay-run-reporting', label: 'Pay Run Reporting', icon: FiCreditCard },
       { to: '/hr/manage-emp', label: 'Manage Employees', icon: FiUsers },
+      { to: '/hr/audit-logs', label: 'Audit Logs', icon: FiActivity },
     ],
   },
 ];
@@ -351,28 +353,6 @@ export default function HrLayout() {
   const bellRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const unreadOnOpenRef = useRef<string[]>([]);
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (!notifOpen) return;
-
-      const target = e.target as Node;
-      if (panelRef.current?.contains(target) || bellRef.current?.contains(target)) return;
-
-      closeNotificationBell();
-    }
-
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') closeNotificationBell();
-    }
-
-    document.addEventListener('mousedown', handleClick);
-    document.addEventListener('keydown', handleKey);
-    return () => {
-      document.removeEventListener('mousedown', handleClick);
-      document.removeEventListener('keydown', handleKey);
-    };
-  }, [notifOpen]);
 
   useEffect(() => {
     void (async () => {
@@ -419,14 +399,14 @@ export default function HrLayout() {
   }
 
   function handleBrandClick() {
-    navigate('/hr/dashboard', { replace: true });
+    navigate('/hr/self-service/dashboard', { replace: true });
   }
 
   function toggleSection(sectionId: string) {
     setOpenSections((prev) => ({ ...prev, [sectionId]: !prev[sectionId] }));
   }
 
-  async function markNotificationsRead(ids: string[]) {
+  const markNotificationsRead = useCallback(async (ids: string[]) => {
     const numericIds = ids
       .map((id) => ({ id, numericId: Number(id) }))
       .filter((item) => Number.isFinite(item.numericId));
@@ -461,16 +441,38 @@ export default function HrLayout() {
         prev.map((item) => (failedIds.has(item.id) ? { ...item, isRead: false } : item))
       );
     }
-  }
+  }, []);
 
-  function closeNotificationBell() {
+  const closeNotificationBell = useCallback(() => {
     if (!notifOpen) return;
 
     const unreadIds = unreadOnOpenRef.current;
     unreadOnOpenRef.current = [];
     setNotifOpen(false);
     void markNotificationsRead(unreadIds);
-  }
+  }, [markNotificationsRead, notifOpen]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (!notifOpen) return;
+
+      const target = e.target as Node;
+      if (panelRef.current?.contains(target) || bellRef.current?.contains(target)) return;
+
+      closeNotificationBell();
+    }
+
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') closeNotificationBell();
+    }
+
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [closeNotificationBell, notifOpen]);
 
   function handleNotificationBellClick() {
     if (notifOpen) {
@@ -656,10 +658,12 @@ export default function HrLayout() {
           ))}
         </div>
 
-        <button className="eSide__logout" type="button" onClick={handleLogout}>
-          <FiLogOut className="eSide__icon" />
-          <span>Logout</span>
-        </button>
+        <div className="eSide__footer">
+          <button className="eSide__logout" type="button" onClick={handleLogout}>
+            <FiLogOut className="eSide__icon" />
+            <span>Logout</span>
+          </button>
+        </div>
       </aside>
 
       <div className="eMain">

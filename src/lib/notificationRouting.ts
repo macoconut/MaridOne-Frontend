@@ -41,8 +41,8 @@ export function formatNotificationTime(createdAt: Date | null) {
 }
 
 function defaultDestination(role: NotificationRole) {
-  if (role === 'management') return '/management/dashboard';
-  return role === 'hr' ? '/hr/dashboard' : '/employee/dashboard';
+  if (role === 'management') return '/management/self-service/dashboard';
+  return role === 'hr' ? '/hr/self-service/dashboard' : '/employee/dashboard';
 }
 
 function resolveDestination(role: NotificationRole, message: string) {
@@ -80,7 +80,7 @@ function resolveDestination(role: NotificationRole, message: string) {
     }
 
     if (normalized.includes('calendar') || normalized.includes('event')) {
-      return '/management/dashboard';
+      return '/management/self-service/dashboard';
     }
   }
 

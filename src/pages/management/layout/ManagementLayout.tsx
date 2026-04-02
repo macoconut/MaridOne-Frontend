@@ -84,7 +84,7 @@ const navSections: NavSection[] = [
   {
     id: 'employee',
     label: 'Self-Service',
-    defaultOpen: false,
+    defaultOpen: true,
     items: [
       { to: '/management/self-service/dashboard', label: 'User Dashboard', icon: FiGrid },
       { to: '/management/self-service/attendance', label: 'Attendance', icon: FiCalendar },
@@ -188,7 +188,7 @@ export default function ManagementLayout() {
   }
 
   function handleBrandClick() {
-    navigate('/management/attendance', { replace: true });
+    navigate('/management/self-service/dashboard', { replace: true });
   }
 
   function toggleSection(sectionId: string) {
@@ -411,10 +411,12 @@ export default function ManagementLayout() {
           ))}
         </div>
 
-        <button className="eSide__logout" type="button" onClick={handleLogout}>
-          <FiLogOut className="eSide__icon" />
-          <span>Logout</span>
-        </button>
+        <div className="eSide__footer">
+          <button className="eSide__logout" type="button" onClick={handleLogout}>
+            <FiLogOut className="eSide__icon" />
+            <span>Logout</span>
+          </button>
+        </div>
       </aside>
 
       <div className="eMain">

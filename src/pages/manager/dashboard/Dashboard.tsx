@@ -27,6 +27,7 @@ type UserDetails = {
     contactNumber?: string;
     phoneNumber?: string;
     email?: string;
+    isVerified?: boolean | string;
     address?: string | Record<string, unknown>;
     employmentDateStart?: string;
     employmentDate?: string;
@@ -86,6 +87,19 @@ function createEditDraft(source: UserDetails['employee'] | null | undefined) {
     country: typeof rawAddress.country === 'string' ? rawAddress.country : '',
     zipCode: typeof rawAddress.zipCode === 'string' ? rawAddress.zipCode : '',
   };
+}
+
+function isEmailVerified(value: UserDetails['employee'] | null | undefined) {
+  const rawValue = value?.isVerified;
+
+  if (typeof rawValue === 'boolean') return rawValue;
+  if (typeof rawValue === 'string') {
+    const normalized = rawValue.trim().toLowerCase();
+    if (normalized === 'true' || normalized === 'verified') return true;
+    if (normalized === 'false' || normalized === 'unverified') return false;
+  }
+
+  return false;
 }
 
 function formatAddress(value: unknown) {
@@ -359,6 +373,12 @@ export default function ManagerDashboard() {
     () => teamOvertime.filter((request) => String(request.requestStatus ?? '').toUpperCase() === 'PENDING').length,
     [teamOvertime]
   );
+  const savedEmailNormalized = employee?.email?.trim().toLowerCase() ?? '';
+  const draftEmailNormalized = editDraft.email.trim().toLowerCase();
+  const emailDirty = (employee?.email || '').trim() !== editDraft.email.trim();
+  const emailChanged = Boolean(draftEmailNormalized && draftEmailNormalized !== savedEmailNormalized);
+  const emailVerified = isEmailVerified(employee);
+  const emailVerificationWillReset = emailVerified && emailChanged;
 
   function shiftCalendarMonth(offset: number) {
     const next = new Date(calendarYear, calendarMonthIndex + offset, 1);
@@ -405,12 +425,16 @@ export default function ManagerDashboard() {
       return;
     }
 
+    if (emailVerificationWillReset) {
+      const shouldContinue = window.confirm(
+        'Changing your verified email will remove its verified status until you verify the new address. Continue?'
+      );
+      if (!shouldContinue) return;
+    }
+
     setEditError('');
     setSavingEdit(true);
     try {
-      const originalEmail = employee?.email?.trim().toLowerCase() ?? '';
-      const nextEmail = editDraft.email.trim().toLowerCase();
-      const emailChanged = Boolean(nextEmail && nextEmail !== originalEmail);
       await apiFetchJson(`/api/employees/${employeeId}`, {
         method: 'PATCH',
         body: JSON.stringify({
@@ -432,7 +456,11 @@ export default function ManagerDashboard() {
       if (emailChanged) {
         setEditOpen(false);
         setSecurityError('');
-        setSecurityMessage('Profile updated. Send a new verification email for your saved address.');
+        setSecurityMessage(
+          emailVerified
+            ? 'Profile updated. Your email is now unverified because the address changed. Send a new verification email for your saved address.'
+            : 'Profile updated. Send a new verification email for your saved address.'
+        );
         setSecurityOpen(true);
       } else {
         setEditOpen(false);
@@ -742,6 +770,12 @@ export default function ManagerDashboard() {
               </label>
             </div>
 
+            {emailVerificationWillReset && (
+              <div className="dashModal__helper dashModal__helper--warning">
+                Changing this verified email will reset its verification status until the new address is verified.
+              </div>
+            )}
+
             {editError && <div className="dashModal__error">{editError}</div>}
 
             <div className="dashModal__actions">
@@ -783,7 +817,8 @@ export default function ManagerDashboard() {
 
             <AccountSecuritySection
               savedEmail={employee?.email || ''}
-              emailDirty={(employee?.email || '').trim() !== editDraft.email.trim()}
+              emailDirty={emailDirty}
+              emailVerified={emailVerified}
               twoFactorEnabled={Boolean(profile?.twoFactorEnabled)}
               twoFactorCode={twoFactorCode}
               setup={twoFactorSetup}

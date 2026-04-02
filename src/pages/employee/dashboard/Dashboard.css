@@ -216,6 +216,35 @@ body.modal-open{
   margin-bottom: 0;
 }
 
+.cardX__titleBar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(0,0,0,.12);
+}
+
+.cardX__titleBar .cardX__title{
+  padding: 0;
+  border-bottom: none;
+}
+
+.cardX__manageBtn{
+  border:none;
+  background: var(--purple);
+  color:#fff;
+  font-weight:800;
+  font-size: 12px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  gap: 8px;
+  box-shadow: 0 8px 16px rgba(123,74,143,.18);
+}
+
 /* training mini folders */
 .miniFolders{
   display:grid;
@@ -276,6 +305,7 @@ body.modal-open{
   cursor:pointer;
   align-self:center;
   margin-top: 4px;
+  box-shadow: 0 8px 16px rgba(123,74,143,.22);
 }
 
 /* handbook */
@@ -335,6 +365,7 @@ body.modal-open{
   padding: 7px 12px;
   border-radius: 999px;
   cursor:pointer;
+  box-shadow: 0 8px 16px rgba(123,74,143,.22);
 }
 
 /* calendar */
@@ -895,6 +926,17 @@ body.modal-open{
   background: #fff;
 }
 
+.dashModal__field textarea{
+  border: 1px solid rgba(0,0,0,.16);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 16px;
+  color: var(--ink);
+  background: #fff;
+  min-height: 128px;
+  resize: vertical;
+}
+
 .dashSecurity__status,
 .dashSecurity__error{
   margin-top: 14px;
@@ -919,6 +961,17 @@ body.modal-open{
   color: #a63f4d;
   font-size: 16px;
   font-weight: 700;
+}
+
+.dashModal__helper{
+  margin-top: 14px;
+  color: rgba(43, 32, 54, 0.74);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dashModal__helper--warning{
+  color: #8d5c1c;
 }
 
 .dashModal__actions{
@@ -966,6 +1019,10 @@ body.modal-open{
   .infoCardX__divider{ display:none; }
   .miniFolders,
   .handbookRow{ height: auto; }
+  .cardX__titleBar{
+    align-items:flex-start;
+    flex-direction:column;
+  }
 }
 
 @media (max-width: 700px){

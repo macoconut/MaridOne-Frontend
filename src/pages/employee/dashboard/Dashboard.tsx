@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { FiTrash2 } from 'react-icons/fi';
+import { FiPlus, FiTrash2 } from 'react-icons/fi';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AccountSecuritySection from '../../../components/AccountSecuritySection';
 import {
@@ -27,6 +27,7 @@ type UserDetails = {
     contactNumber?: string;
     phoneNumber?: string;
     email?: string;
+    isVerified?: boolean | string;
     address?: string | Record<string, unknown>;
     employmentDateStart?: string;
     employmentDate?: string;
@@ -69,6 +70,13 @@ type AttendanceLog = {
   timestamp?: string;
 };
 
+type AnnouncementDraft = {
+  title: string;
+  description: string;
+  startDateTime: string;
+  endDateTime: string;
+};
+
 const trainingMaterialCards = [
   {
     id: 'training',
@@ -97,6 +105,35 @@ const handbookHighlights = [
 
 const handbookFileHref = '/docs/employee-handbook.txt';
 
+function padDateTimePart(value: number) {
+  return String(value).padStart(2, '0');
+}
+
+function toDateTimeLocalValue(value: Date) {
+  return `${value.getFullYear()}-${padDateTimePart(value.getMonth() + 1)}-${padDateTimePart(value.getDate())}T${padDateTimePart(value.getHours())}:${padDateTimePart(value.getMinutes())}`;
+}
+
+function createAnnouncementDraft(baseDate = new Date()): AnnouncementDraft {
+  const start = new Date(baseDate);
+  start.setSeconds(0, 0);
+
+  const roundedMinutes = start.getMinutes() <= 30 ? 30 : 60;
+  if (roundedMinutes === 60) {
+    start.setHours(start.getHours() + 1, 0, 0, 0);
+  } else {
+    start.setMinutes(30, 0, 0);
+  }
+
+  const end = new Date(start.getTime() + 60 * 60 * 1000);
+
+  return {
+    title: '',
+    description: '',
+    startDateTime: toDateTimeLocalValue(start),
+    endDateTime: toDateTimeLocalValue(end),
+  };
+}
+
 function createEditDraft(source: UserDetails['employee'] | null | undefined) {
   const rawAddress =
     source && typeof source.address === 'object' && source.address
@@ -118,6 +155,19 @@ function createEditDraft(source: UserDetails['employee'] | null | undefined) {
     country: typeof rawAddress.country === 'string' ? rawAddress.country : '',
     zipCode: typeof rawAddress.zipCode === 'string' ? rawAddress.zipCode : '',
   };
+}
+
+function isEmailVerified(value: UserDetails['employee'] | null | undefined) {
+  const rawValue = value?.isVerified;
+
+  if (typeof rawValue === 'boolean') return rawValue;
+  if (typeof rawValue === 'string') {
+    const normalized = rawValue.trim().toLowerCase();
+    if (normalized === 'true' || normalized === 'verified') return true;
+    if (normalized === 'false' || normalized === 'unverified') return false;
+  }
+
+  return false;
 }
 
 function formatAddress(value: unknown) {
@@ -305,6 +355,9 @@ export default function Dashboard() {
   const [editError, setEditError] = useState('');
   const [editOpen, setEditOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
+  const [createAnnouncementOpen, setCreateAnnouncementOpen] = useState(false);
+  const [creatingAnnouncement, setCreatingAnnouncement] = useState(false);
+  const [createAnnouncementError, setCreateAnnouncementError] = useState('');
   const [selectedAnnouncementDay, setSelectedAnnouncementDay] = useState<SelectedAnnouncementDay | null>(null);
   const [announcementActionError, setAnnouncementActionError] = useState('');
   const [deletingAnnouncementId, setDeletingAnnouncementId] = useState<number | null>(null);
@@ -316,6 +369,7 @@ export default function Dashboard() {
   const [disablingTwoFactor, setDisablingTwoFactor] = useState(false);
   const [twoFactorSetup, setTwoFactorSetup] = useState<TwoFactorSetupResponse | null>(null);
   const [twoFactorCode, setTwoFactorCode] = useState('');
+  const [announcementDraft, setAnnouncementDraft] = useState<AnnouncementDraft>(() => createAnnouncementDraft());
   const [editDraft, setEditDraft] = useState({
     email: '',
     phoneNumber: '',
@@ -332,11 +386,11 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (editOpen || securityOpen || selectedAnnouncementDay) document.body.classList.add('modal-open');
+    if (editOpen || securityOpen || createAnnouncementOpen || selectedAnnouncementDay) document.body.classList.add('modal-open');
     else document.body.classList.remove('modal-open');
 
     return () => document.body.classList.remove('modal-open');
-  }, [editOpen, securityOpen, selectedAnnouncementDay]);
+  }, [createAnnouncementOpen, editOpen, securityOpen, selectedAnnouncementDay]);
 
   useEffect(() => {
     const username = getUserEmail();
@@ -450,6 +504,12 @@ export default function Dashboard() {
   const announcementHeaderEvent = selectedAnnouncementDay?.events[0] ?? null;
   const canManageAnnouncements =
     location.pathname.startsWith('/hr/') || location.pathname.startsWith('/management/');
+  const savedEmailNormalized = employee?.email?.trim().toLowerCase() ?? '';
+  const draftEmailNormalized = editDraft.email.trim().toLowerCase();
+  const emailDirty = (employee?.email || '').trim() !== editDraft.email.trim();
+  const emailChanged = Boolean(draftEmailNormalized && draftEmailNormalized !== savedEmailNormalized);
+  const emailVerified = isEmailVerified(employee);
+  const emailVerificationWillReset = emailVerified && emailChanged;
 
   function selfServicePath(page: 'dashboard' | 'attendance' | 'approvals' | 'payslip' | 'training') {
     if (location.pathname.startsWith('/hr/')) {
@@ -491,6 +551,89 @@ export default function Dashboard() {
     setAnnouncementActionError('');
     setDeletingAnnouncementId(null);
     setSelectedAnnouncementDay(null);
+  }
+
+  function openCreateAnnouncementModal() {
+    setCreateAnnouncementError('');
+    setAnnouncementDraft(createAnnouncementDraft());
+    setCreateAnnouncementOpen(true);
+  }
+
+  function closeCreateAnnouncementModal() {
+    if (creatingAnnouncement) return;
+    setCreateAnnouncementOpen(false);
+    setCreateAnnouncementError('');
+    setAnnouncementDraft(createAnnouncementDraft());
+  }
+
+  function setAnnouncementDraftField<K extends keyof AnnouncementDraft>(key: K, value: AnnouncementDraft[K]) {
+    setAnnouncementDraft((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function submitAnnouncement() {
+    const title = announcementDraft.title.trim();
+    const description = announcementDraft.description.trim();
+    const startDate = announcementDraft.startDateTime ? new Date(announcementDraft.startDateTime) : null;
+    const endDate = announcementDraft.endDateTime ? new Date(announcementDraft.endDateTime) : null;
+
+    if (!title) {
+      setCreateAnnouncementError('Announcement title is required.');
+      return;
+    }
+
+    if (title.length > 120) {
+      setCreateAnnouncementError('Announcement title must be 120 characters or fewer.');
+      return;
+    }
+
+    if (description.length > 500) {
+      setCreateAnnouncementError('Announcement description must be 500 characters or fewer.');
+      return;
+    }
+
+    if (!startDate || Number.isNaN(startDate.getTime())) {
+      setCreateAnnouncementError('Start date and time are required.');
+      return;
+    }
+
+    if (!endDate || Number.isNaN(endDate.getTime())) {
+      setCreateAnnouncementError('End date and time are required.');
+      return;
+    }
+
+    if (endDate < startDate) {
+      setCreateAnnouncementError('End date and time must be after the start date and time.');
+      return;
+    }
+
+    setCreateAnnouncementError('');
+    setCreatingAnnouncement(true);
+
+    try {
+      const createdAnnouncement = await apiFetchJson<CalendarEvent>('/api/calendar/events/create', {
+        method: 'POST',
+        body: JSON.stringify({
+          title,
+          description: description || undefined,
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          isActive: true,
+        }),
+      });
+
+      setCalendarEvents((prev) => {
+        const next = prev.filter((event) => event.calendarId !== createdAnnouncement.calendarId);
+        next.push(createdAnnouncement);
+        return next;
+      });
+
+      setCreateAnnouncementOpen(false);
+      setAnnouncementDraft(createAnnouncementDraft());
+    } catch (error) {
+      setCreateAnnouncementError(getFriendlyErrorMessage(error, 'generic'));
+    } finally {
+      setCreatingAnnouncement(false);
+    }
   }
 
   async function handleDeleteAnnouncement(event: CalendarDayEvent) {
@@ -574,12 +717,16 @@ export default function Dashboard() {
       return;
     }
 
+    if (emailVerificationWillReset) {
+      const shouldContinue = window.confirm(
+        'Changing your verified email will remove its verified status until you verify the new address. Continue?'
+      );
+      if (!shouldContinue) return;
+    }
+
     setEditError('');
     setSavingEdit(true);
     try {
-      const originalEmail = employee?.email?.trim().toLowerCase() ?? '';
-      const nextEmail = editDraft.email.trim().toLowerCase();
-      const emailChanged = Boolean(nextEmail && nextEmail !== originalEmail);
       await apiFetchJson(`/api/employees/${employeeId}`, {
         method: 'PATCH',
         body: JSON.stringify({
@@ -601,7 +748,11 @@ export default function Dashboard() {
       if (emailChanged) {
         setEditOpen(false);
         setSecurityError('');
-        setSecurityMessage('Profile updated. Send a new verification email for your saved address.');
+        setSecurityMessage(
+          emailVerified
+            ? 'Profile updated. Your email is now unverified because the address changed. Send a new verification email for your saved address.'
+            : 'Profile updated. Send a new verification email for your saved address.'
+        );
         setSecurityOpen(true);
       } else {
         setEditOpen(false);
@@ -824,7 +975,15 @@ export default function Dashboard() {
 
         {/* right calendar */}
         <div className="cardX cardX--calendar">
-          <div className="cardX__title">Company Events</div>
+          <div className="cardX__titleBar">
+            <div className="cardX__title">Company Events</div>
+            {canManageAnnouncements ? (
+              <button type="button" className="cardX__manageBtn" onClick={openCreateAnnouncementModal}>
+                <FiPlus aria-hidden="true" />
+                <span>Create Announcement</span>
+              </button>
+            ) : null}
+          </div>
           <div className="calendarShell" aria-label="Company events calendar">
             <div className="calendarShell__top">
               <button type="button" className="calendarShell__navBtn" onClick={() => shiftCalendarMonth(-1)} aria-label="Previous month">‹</button>
@@ -948,6 +1107,92 @@ export default function Dashboard() {
         </div>
       )}
 
+      {createAnnouncementOpen && (
+        <div className="dashModalBackdrop" role="dialog" aria-modal="true" aria-label="Create announcement">
+          <div className="dashModal">
+            <div className="dashModal__top">
+              <div>
+                <div className="dashModal__title">CREATE ANNOUNCEMENT</div>
+                <div className="dashModal__subtitle">Share a company-wide announcement on the calendar.</div>
+              </div>
+              <button
+                type="button"
+                className="dashModal__close"
+                onClick={closeCreateAnnouncementModal}
+                disabled={creatingAnnouncement}
+              >
+                x
+              </button>
+            </div>
+
+            <div className="dashModal__rule" />
+
+            <div className="dashModal__grid">
+              <label className="dashModal__field dashModal__field--full">
+                <span>Announcement Title</span>
+                <input
+                  value={announcementDraft.title}
+                  maxLength={120}
+                  onChange={(event) => setAnnouncementDraftField('title', event.target.value)}
+                />
+              </label>
+              <label className="dashModal__field">
+                <span>Start Date and Time</span>
+                <input
+                  type="datetime-local"
+                  value={announcementDraft.startDateTime}
+                  onChange={(event) => setAnnouncementDraftField('startDateTime', event.target.value)}
+                />
+              </label>
+              <label className="dashModal__field">
+                <span>End Date and Time</span>
+                <input
+                  type="datetime-local"
+                  value={announcementDraft.endDateTime}
+                  onChange={(event) => setAnnouncementDraftField('endDateTime', event.target.value)}
+                />
+              </label>
+              <label className="dashModal__field dashModal__field--full">
+                <span>Description</span>
+                <textarea
+                  value={announcementDraft.description}
+                  maxLength={500}
+                  rows={6}
+                  onChange={(event) => setAnnouncementDraftField('description', event.target.value)}
+                />
+              </label>
+            </div>
+
+            <div className="dashModal__helper">
+              {announcementDraft.title.trim().length}/120 title characters
+              {' · '}
+              {announcementDraft.description.trim().length}/500 description characters
+            </div>
+
+            {createAnnouncementError && <div className="dashModal__error">{createAnnouncementError}</div>}
+
+            <div className="dashModal__actions">
+              <button
+                type="button"
+                className="dashModal__btn dashModal__btn--ghost"
+                onClick={closeCreateAnnouncementModal}
+                disabled={creatingAnnouncement}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="dashModal__btn"
+                onClick={() => void submitAnnouncement()}
+                disabled={creatingAnnouncement}
+              >
+                {creatingAnnouncement ? 'Creating...' : 'Publish Announcement'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {editOpen && (
         <div className="dashModalBackdrop" role="dialog" aria-modal="true" aria-label="Edit employee info">
           <div className="dashModal">
@@ -1001,6 +1246,12 @@ export default function Dashboard() {
               </label>
             </div>
 
+            {emailVerificationWillReset && (
+              <div className="dashModal__helper dashModal__helper--warning">
+                Changing this verified email will reset its verification status until the new address is verified.
+              </div>
+            )}
+
             {editError && <div className="dashModal__error">{editError}</div>}
 
             <div className="dashModal__actions">
@@ -1042,7 +1293,8 @@ export default function Dashboard() {
 
             <AccountSecuritySection
               savedEmail={employee?.email || ''}
-              emailDirty={(employee?.email || '').trim() !== editDraft.email.trim()}
+              emailDirty={emailDirty}
+              emailVerified={emailVerified}
               twoFactorEnabled={Boolean(profile?.twoFactorEnabled)}
               twoFactorCode={twoFactorCode}
               setup={twoFactorSetup}

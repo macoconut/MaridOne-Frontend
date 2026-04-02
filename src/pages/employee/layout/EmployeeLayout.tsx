@@ -493,10 +493,12 @@ export default function EmployeeLayout() {
           </div>
         </div>
 
-        <button className="eSide__logout" type="button" onClick={handleLogout}>
-          <FiLogOut className="eSide__icon" />
-          <span>Logout</span>
-        </button>
+        <div className="eSide__footer">
+          <button className="eSide__logout" type="button" onClick={handleLogout}>
+            <FiLogOut className="eSide__icon" />
+            <span>Logout</span>
+          </button>
+        </div>
       </aside>
 
       <div className="eMain">

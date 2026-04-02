@@ -19,6 +19,7 @@ import HrApprovals from './pages/hr/approvals/Approvals';
 import HrPayslips from './pages/hr/payslips/Payslips';
 import HrManageEmp from './pages/hr/manage-emp/manage-emp';
 import HrPayRunReporting from './pages/hr/pay-run-reporting/PayRunReporting';
+import HrAuditLogs from './pages/hr/audit-logs/AuditLogs';
 import ManagementLayout from './pages/management/layout/ManagementLayout';
 import ManagementAttendance from './pages/management/attendance/Attendance';
 import ManagementPayrollCosts from './pages/management/payroll/PayrollCosts';
@@ -37,11 +38,11 @@ function roleHome(role: UserRole) {
     case 'employee':
       return '/employee/dashboard';
     case 'hr':
-      return '/hr/dashboard';
+      return '/hr/self-service/dashboard';
     case 'manager':
-      return '/manager/dashboard';
+      return '/manager/self-service/dashboard';
     case 'management':
-      return '/management/attendance';
+      return '/management/self-service/dashboard';
     case 'accounting':
       return '/accounting/payroll-dashboard';
   }
@@ -111,13 +112,14 @@ export default function App() {
 
         {/* HR (FRAME) */}
         <Route path="/hr" element={<RequireRole role="hr"><HrLayout /></RequireRole>}>
-          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route index element={<Navigate to="self-service/dashboard" replace />} />
           <Route path="dashboard" element={<HrDashboard />} />
           <Route path="attendance-reports" element={<HrAttendanceReports />} />
           <Route path="approvals" element={<HrApprovals />} />
           <Route path="payslips" element={<HrPayslips />} />
           <Route path="pay-run-reporting" element={<HrPayRunReporting />} />
           <Route path="manage-emp" element={<HrManageEmp />} />
+          <Route path="audit-logs" element={<HrAuditLogs />} />
           <Route path="self-service">
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
@@ -131,7 +133,7 @@ export default function App() {
 
         {/* Management (FRAME) */}
         <Route path="/management" element={<RequireRole role="management"><ManagementLayout /></RequireRole>}>
-          <Route index element={<Navigate to="attendance" replace />} />
+          <Route index element={<Navigate to="self-service/dashboard" replace />} />
           <Route path="dashboard" element={<ManagementAttendance />} />
           <Route path="attendance" element={<ManagementAttendance />} />
           <Route path="payroll-dashboard" element={<ManagementPayrollCosts />} />
@@ -149,7 +151,7 @@ export default function App() {
 
         {/* Manager (FRAME) */}
         <Route path="/manager" element={<RequireRole role="manager"><ManagerLayout /></RequireRole>}>
-          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route index element={<Navigate to="self-service/dashboard" replace />} />
           <Route path="dashboard" element={<ManagerDashboard />} />
           <Route path="attendance-dashboard" element={<ManagerAttendanceDashboard />} />
           <Route path="attendance-reports" element={<ManagerAttendanceReports />} />

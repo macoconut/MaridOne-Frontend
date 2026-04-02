@@ -194,28 +194,32 @@ export default function AccountingLayout() {
           <div className="eSide__name">MaridOne</div>
         </button>
 
-        <nav className="eSide__nav">
-          <NavLink
-            to="/accounting/payroll-dashboard"
-            className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
-          >
-            <FiBarChart2 className="eSide__icon" />
-            <span>Payroll Dashboard</span>
-          </NavLink>
+        <div className="eSide__navWrap">
+          <nav className="eSide__nav" aria-label="Accounting navigation">
+            <NavLink
+              to="/accounting/payroll-dashboard"
+              className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
+            >
+              <FiBarChart2 className="eSide__icon" />
+              <span>Payroll Dashboard</span>
+            </NavLink>
 
-          <NavLink
-            to="/accounting/payroll-review"
-            className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
-          >
-            <FiClipboard className="eSide__icon" />
-            <span>Payroll Review</span>
-          </NavLink>
-        </nav>
+            <NavLink
+              to="/accounting/payroll-review"
+              className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
+            >
+              <FiClipboard className="eSide__icon" />
+              <span>Payroll Review</span>
+            </NavLink>
+          </nav>
+        </div>
 
-        <button className="eSide__logout" type="button" onClick={handleLogout}>
-          <FiLogOut className="eSide__icon" />
-          <span>Logout</span>
-        </button>
+        <div className="eSide__footer">
+          <button className="eSide__logout" type="button" onClick={handleLogout}>
+            <FiLogOut className="eSide__icon" />
+            <span>Logout</span>
+          </button>
+        </div>
       </aside>
 
       <div className="eMain">

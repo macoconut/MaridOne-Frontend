@@ -225,21 +225,36 @@ body{ margin:0; background:var(--page); overflow:hidden; }
   opacity:1;
 }
 
-.eSide__logout{
+.eSide__footer{
   margin-top:auto;
+  padding-top:18px;
+  border-top:1px solid rgba(255,255,255,.18);
+}
+
+.eSide__logout{
   display:flex;
   align-items:center;
   gap:14px;
-
-  padding:16px 18px;
-  border-radius:999px;
+  width:100%;
+  padding:14px 10px;
+  border-radius:16px;
   border:none;
-
-  background: rgba(0,0,0,.12);
+  background:transparent;
   color:rgba(255,255,255,.95);
   font-weight:600;
   font-size:15px;
   cursor:pointer;
+  text-align:left;
+  transition:background .15s ease, color .15s ease;
+}
+
+.eSide__logout:hover{
+  background:rgba(255,255,255,.12);
+}
+
+.eSide__logout:focus-visible{
+  outline:2px solid rgba(255,255,255,.72);
+  outline-offset:2px;
 }
 
 /* main */
