@@ -11,3 +11,38 @@
   --hr-shadow: 0 8px 14px rgba(0, 0, 0, 0.08);
   --hr-button-shadow: 0 6px 12px rgba(0, 0, 0, 0.14);
 }
+
+body.modal-open {
+  overflow: hidden;
+}
+
+body.modal-open .eSide {
+  z-index: 0;
+  pointer-events: none;
+}
+
+body.modal-open .eMain {
+  z-index: 4;
+}
+
+@media (min-width: 1100px) {
+  body.modal-open .hrEmpModalBackdrop,
+  body.modal-open .hrApprModalBackdrop,
+  body.modal-open .hrAttModalBackdrop,
+  body.modal-open .hrPayModalBackdrop {
+    padding-left: calc(var(--sideW) + 40px);
+    padding-right: 32px;
+  }
+
+  body.modal-open .hrEmpModal,
+  body.modal-open .hrApprModal,
+  body.modal-open .hrAttModal,
+  body.modal-open .hrPayModal {
+    max-width: calc(100vw - var(--sideW) - 96px);
+  }
+
+  body.modal-open .hrEmpModal--picker,
+  body.modal-open .hrPayModal--run {
+    max-width: calc(100vw - var(--sideW) - 96px);
+  }
+}

@@ -132,6 +132,16 @@ function employeeDirectoryLabel(row?: EmployeeDirectoryRow) {
   return fullName;
 }
 
+function resolvedEmployeeLabel(
+  employeeNameById: Map<number, string>,
+  employeeId?: number,
+  preferredLabel?: string
+) {
+  const mappedLabel = typeof employeeId === 'number' ? employeeNameById.get(employeeId) : '';
+  if (mappedLabel && mappedLabel.trim().length > 0) return mappedLabel.trim();
+  return employeeLabel(preferredLabel, employeeId);
+}
+
 function requestStatusPriority(status: string) {
   const normalized = toStatusCode(status);
   if (normalized === 'PENDING') return 0;
@@ -236,7 +246,7 @@ export default function HrApprovals() {
         disputeId: item.id,
         itemId: item.itemId,
         employeeId: item.employeeId,
-        employee: employeeLabel(item.employeeName, item.employeeId),
+        employee: resolvedEmployeeLabel(employeeNameById, item.employeeId, item.employeeName),
         message: item.subject?.trim() || `Payroll dispute for payslip item #${item.itemId ?? '-'}`,
         time: formatDateTime(item.createdAt),
         type: 'Dispute' as const,
@@ -252,10 +262,7 @@ export default function HrApprovals() {
       const overtimeRows = toArray<OvertimeDto>(overtimeRes.value).map((item, idx) => ({
         id: `overtime-${item.overtimeId ?? idx}`,
         employeeId: item.employeeId,
-        employee: employeeLabel(
-          typeof item.employeeId === 'number' ? employeeNameById.get(item.employeeId) : undefined,
-          item.employeeId
-        ),
+        employee: resolvedEmployeeLabel(employeeNameById, item.employeeId),
         message: `${item.overtimeType || 'Overtime'} request on ${formatDateOnly(item.workDate)}`,
         time: formatDateTime(item.requestAt),
         type: 'Overtime' as const,
@@ -273,10 +280,7 @@ export default function HrApprovals() {
         id: `leave-${item.requestId ?? idx}`,
         leaveRequestId: item.requestId,
         employeeId: item.empId,
-        employee: employeeLabel(
-          typeof item.empId === 'number' ? employeeNameById.get(item.empId) : undefined,
-          item.empId
-        ),
+        employee: resolvedEmployeeLabel(employeeNameById, item.empId),
         message: `Leave request from ${formatDateOnly(item.startDateTime)} to ${formatDateOnly(item.endDateTime)}`,
         time: formatDateTime(item.startDateTime),
         type: 'Leave' as const,
@@ -384,6 +388,13 @@ export default function HrApprovals() {
     setDecisionReason('');
     setSubmitError('');
   }, [selectedId]);
+
+  useEffect(() => {
+    if (selected) document.body.classList.add('modal-open');
+    else document.body.classList.remove('modal-open');
+
+    return () => document.body.classList.remove('modal-open');
+  }, [selected]);
 
   function handleTypeFilterChange(nextType: RequestTypeFilter) {
     setTypeFilter(nextType);

@@ -171,12 +171,15 @@ export function AttendanceReportsBoard({
   logsUrl = '/api/logs/attendance',
   rosterUrl = '/api/employees',
 }: AttendanceReportsBoardProps) {
-  const today = new Date();
+  const today = useMemo(() => new Date(), []);
   const currentYear = today.getFullYear();
-  const [year, setYear] = useState(today.getFullYear());
-  const [monthIndex, setMonthIndex] = useState(today.getMonth());
+  const todayYear = today.getFullYear();
+  const todayMonthIndex = today.getMonth();
+  const todayDateKey = toISODate(todayYear, todayMonthIndex, today.getDate());
+  const [year, setYear] = useState(todayYear);
+  const [monthIndex, setMonthIndex] = useState(todayMonthIndex);
   const [monthValue, setMonthValue] = useState(
-    new Date(today.getFullYear(), today.getMonth(), 1).toLocaleDateString(undefined, {
+    new Date(todayYear, todayMonthIndex, 1).toLocaleDateString(undefined, {
       month: 'long',
       year: 'numeric',
     })
@@ -188,7 +191,7 @@ export function AttendanceReportsBoard({
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [refreshTick, setRefreshTick] = useState(0);
-  const [selectedDateKey, setSelectedDateKey] = useState(toISODate(today.getFullYear(), today.getMonth(), today.getDate()));
+  const [selectedDateKey, setSelectedDateKey] = useState(todayDateKey);
   const [detailOpen, setDetailOpen] = useState(false);
 
   useEffect(() => {
@@ -208,13 +211,12 @@ export function AttendanceReportsBoard({
   }, [monthIndex, year]);
 
   useEffect(() => {
-    const todayKey = toISODate(today.getFullYear(), today.getMonth(), today.getDate());
-    if (year === today.getFullYear() && monthIndex === today.getMonth()) {
-      setSelectedDateKey(todayKey);
+    if (year === todayYear && monthIndex === todayMonthIndex) {
+      setSelectedDateKey(todayDateKey);
     } else {
       setSelectedDateKey('');
     }
-  }, [monthIndex, today, year]);
+  }, [monthIndex, todayDateKey, todayMonthIndex, todayYear, year]);
 
   useEffect(() => {
     let cancelled = false;
@@ -262,7 +264,7 @@ export function AttendanceReportsBoard({
           );
           setHasFullRoster(false);
           setRosterMessage(
-            `${audienceLabel} can load attendance logs, but the full employee roster is not available on this screen. Present and late counts are still based on real logs.`
+            `${audienceLabel} can load attendance logs, but full employee roster access is restricted.`
           );
         }
       } catch (error) {
@@ -314,11 +316,12 @@ export function AttendanceReportsBoard({
     return cells.map((cell) => {
       if (cell.day === null) return cell;
       const dateKey = toISODate(year, monthIndex, cell.day);
+      const isFutureDate = dateKey > todayDateKey;
       const records = buildDailyRecords(logsByDate.get(dateKey) ?? [], employeeById);
       const presentCount = records.length;
       const lateCount = records.filter((record) => record.isLate).length;
       const incompleteCount = records.filter((record) => record.isIncomplete).length;
-      const absentCount = hasFullRoster ? Math.max(activeEmployeeIds.length - presentCount, 0) : null;
+      const absentCount = hasFullRoster && !isFutureDate ? Math.max(activeEmployeeIds.length - presentCount, 0) : null;
 
       return {
         day: cell.day,
@@ -328,21 +331,25 @@ export function AttendanceReportsBoard({
         absentCount,
       } satisfies DayCell;
     });
-  }, [activeEmployeeIds.length, employeeById, hasFullRoster, logsByDate, monthIndex, year]);
+  }, [activeEmployeeIds.length, employeeById, hasFullRoster, logsByDate, monthIndex, todayDateKey, year]);
 
   const selectedRecords = useMemo(() => {
     if (!selectedDateKey) return [];
     return buildDailyRecords(logsByDate.get(selectedDateKey) ?? [], employeeById);
   }, [employeeById, logsByDate, selectedDateKey]);
 
+  const selectedIsFuture = useMemo(() => {
+    return Boolean(selectedDateKey) && selectedDateKey > todayDateKey;
+  }, [selectedDateKey, todayDateKey]);
+
   const selectedAbsent = useMemo(() => {
-    if (!hasFullRoster) return [];
+    if (!hasFullRoster || selectedIsFuture) return [];
     const presentIds = new Set(selectedRecords.map((record) => record.employeeId));
     return employees
       .filter((employee) => employee.status.toUpperCase() !== 'TERMINATED')
       .filter((employee) => !presentIds.has(employee.id))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [employees, hasFullRoster, selectedRecords]);
+  }, [employees, hasFullRoster, selectedIsFuture, selectedRecords]);
 
   const selectedSummary = useMemo(() => {
     const late = selectedRecords.filter((record) => record.isLate).length;
@@ -351,10 +358,10 @@ export function AttendanceReportsBoard({
       present: selectedRecords.length,
       late,
       incomplete,
-      absent: hasFullRoster ? selectedAbsent.length : null,
+      absent: hasFullRoster && !selectedIsFuture ? selectedAbsent.length : null,
       totalLogs: (logsByDate.get(selectedDateKey) ?? []).length,
     };
-  }, [hasFullRoster, logsByDate, selectedAbsent.length, selectedDateKey, selectedRecords]);
+  }, [hasFullRoster, logsByDate, selectedAbsent.length, selectedDateKey, selectedIsFuture, selectedRecords]);
 
   const monthOptions = useMemo(() => {
     return Array.from({ length: 12 }).map((_, index) =>
@@ -565,6 +572,8 @@ export function AttendanceReportsBoard({
                         </div>
                       </article>
                     ))
+                  ) : selectedIsFuture ? (
+                    <div className="hrAttBreakdown__empty">This date has not happened yet.</div>
                   ) : (
                     <div className="hrAttBreakdown__empty">No attendance logs recorded for this day.</div>
                   )}
@@ -596,6 +605,8 @@ export function AttendanceReportsBoard({
                           </div>
                         </article>
                       ))
+                    ) : selectedIsFuture ? (
+                      <div className="hrAttBreakdown__empty">Absent employees will only be shown after this date passes.</div>
                     ) : (
                       <div className="hrAttBreakdown__empty">All active employees recorded attendance for this day.</div>
                     )}

@@ -88,6 +88,23 @@ function getSummaryAdjustmentKind(row: PayTypeSummaryRow) {
   return row.adjustment ?? row.adjustmentKind;
 }
 
+function escapeHtml(value: unknown) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function toCsvValue(value: unknown) {
+  const text = String(value ?? '');
+  if (/[",\r\n]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
 function getEmptyRunMessage(run: PayrollRunRow | null, view: ReportView) {
   if (!run) {
     return view === 'employee'
@@ -219,8 +236,7 @@ export default function HrPayRunReporting() {
 
     return employeeRows.filter((row) => {
       const name = formatEmployeeName(row).toLowerCase();
-      const employeeId = typeof row.empId === 'number' ? String(row.empId) : '';
-      return name.includes(normalizedFilter) || employeeId.includes(normalizedFilter);
+      return name.includes(normalizedFilter);
     });
   }, [employeeRows, normalizedFilter]);
 
@@ -254,6 +270,112 @@ export default function HrPayRunReporting() {
     [visibleDeductionRows]
   );
 
+  const reportLabel = useMemo(() => {
+    if (!selectedRun) return 'Payroll Run Report';
+    return (
+      selectedRun.periodDescription ||
+      `${formatDate(selectedRun.periodStart)} to ${formatDate(selectedRun.periodEnd)}`
+    );
+  }, [selectedRun]);
+
+  const reportFileStem = useMemo(() => {
+    return reportLabel
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'payroll-run-report';
+  }, [reportLabel]);
+
+  const currentReportRows = useMemo(() => {
+    return (
+      view === 'employee'
+        ? [
+            ['Report', reportLabel],
+            ['Status', selectedRun?.payrollStatus || 'Unknown status'],
+            [''],
+            ['Employee Name', 'Gross Pay', 'Net Pay'],
+            ...visibleEmployeeRows.map((row) => [
+              formatEmployeeName(row),
+              formatCurrency(row.grossPay),
+              formatCurrency(row.netPay),
+            ]),
+          ]
+        : [
+            ['Report', reportLabel],
+            ['Status', selectedRun?.payrollStatus || 'Unknown status'],
+            [''],
+            ['Category', 'Type', 'Total'],
+            ...visibleEarningRows.map((row) => ['Earnings', formatSummaryLabel(row.payType), formatCurrency(row.total)]),
+            ['Earnings Total', '', formatCurrency(earningsTotal)],
+            ...visibleDeductionRows.map((row) => ['Deductions', formatSummaryLabel(row.payType), formatCurrency(row.total)]),
+            ['Deductions Total', '', formatCurrency(deductionsTotal)],
+          ]
+    );
+  }, [
+    deductionsTotal,
+    earningsTotal,
+    reportLabel,
+    selectedRun?.payrollStatus,
+    view,
+    visibleDeductionRows,
+    visibleEarningRows,
+    visibleEmployeeRows,
+  ]);
+
+  const currentReportCsv = useMemo(() => {
+    return currentReportRows.map((row) => row.map(toCsvValue).join(',')).join('\r\n');
+  }, [currentReportRows]);
+
+  function downloadCurrentReport() {
+    const blob = new Blob([currentReportCsv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${reportFileStem}-${view}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function printCurrentReport() {
+    const reportWindow = window.open('', '_blank', 'noopener,noreferrer,width=980,height=720');
+    if (!reportWindow) {
+      window.print();
+      return;
+    }
+
+    reportWindow.document.write(`
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>${escapeHtml(reportLabel)}</title>
+          <style>
+            body { font-family: Consolas, "Courier New", monospace; margin: 24px; color: #231934; }
+            h1 { margin: 0 0 12px; font-size: 24px; }
+            pre {
+              margin: 0;
+              padding: 16px;
+              border: 1px solid #d8d0e4;
+              background: #faf8ff;
+              white-space: pre-wrap;
+              word-break: break-word;
+              line-height: 1.6;
+            }
+          </style>
+        </head>
+        <body>
+          <h1>${escapeHtml(reportLabel)}</h1>
+          <pre>${escapeHtml(currentReportCsv.replace(/\r\n/g, '\n'))}</pre>
+        </body>
+      </html>
+    `);
+    reportWindow.document.close();
+    reportWindow.focus();
+    reportWindow.print();
+    reportWindow.close();
+  }
+
   return (
     <div className="hrRun">
       <div className="hrRun__top">
@@ -272,7 +394,7 @@ export default function HrPayRunReporting() {
             <input
               value={filterValue}
               onChange={(e) => setFilterValue(e.target.value)}
-              placeholder={view === 'employee' ? 'Search by employee name or ID' : 'Search by earnings or deductions type'}
+              placeholder={view === 'employee' ? 'Search by employee name' : 'Search by earnings or deductions type'}
             />
             <button type="button" aria-label="Clear filter" onClick={() => setFilterValue('')}>
               <FiXCircle />
@@ -419,10 +541,10 @@ export default function HrPayRunReporting() {
       )}
 
       <div className="hrRunActions">
-        <button type="button" onClick={() => window.print()}>
+        <button type="button" onClick={downloadCurrentReport}>
           Download Report
         </button>
-        <button type="button" onClick={() => window.print()}>
+        <button type="button" onClick={printCurrentReport}>
           Print Report
         </button>
       </div>
