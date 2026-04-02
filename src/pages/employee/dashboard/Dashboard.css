@@ -13,9 +13,9 @@ body.modal-open{
 }
 
 .dashPage{
-  display:flex;
-  flex-direction:column;
-  gap:24px;
+  display:grid;
+  grid-template-rows:auto auto minmax(0, 1fr);
+  gap:16px;
 }
 
 /* ================== INFO CARD ================== */
@@ -151,7 +151,7 @@ body.modal-open{
 .actionRowX{
   display:grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
+  gap: 12px;
 }
 
 .actionBtnX{
@@ -159,7 +159,7 @@ body.modal-open{
   background: var(--purple);
   color:#fff;
   border-radius: 10px;
-  height: 62px;
+  height: 56px;
   padding: 0 18px;
   display:flex;
   align-items:center;
@@ -178,15 +178,21 @@ body.modal-open{
 /* ================== LOWER GRID ================== */
 .lowerGridX{
   display:grid;
-  grid-template-columns: 1.1fr 1fr;
-  gap: 22px;
-  align-items:start;
+  grid-template-columns: minmax(320px, 0.84fr) minmax(0, 1.16fr);
+  gap: 16px;
+  align-items:stretch;
+  min-height: clamp(390px, calc(100dvh - 470px), 520px);
 }
 
 .lowerColX{
-  display:flex;
-  flex-direction:column;
-  gap: 18px;
+  display:grid;
+  grid-template-rows: auto auto;
+  gap: 14px;
+  min-height: 0;
+}
+
+.lowerColX > .cardX{
+  height: auto;
 }
 
 .cardX{
@@ -194,39 +200,57 @@ body.modal-open{
   border: 1.5px solid rgba(0,0,0,.14);
   border-radius: 12px;
   box-shadow: var(--shadow-soft);
-  padding: 12px 14px 14px;
+  overflow: hidden;
+  min-height: 0;
+  display:flex;
+  flex-direction:column;
 }
 
 .cardX__title{
   font-weight: 900;
   font-size: 16px;
+  line-height: 1.2;
   color: var(--ink);
-  margin-bottom: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(0,0,0,.12);
+  margin-bottom: 0;
 }
 
 /* training mini folders */
 .miniFolders{
   display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+  padding: 10px 14px 12px;
+  flex: 1;
+  min-height: 0;
+  align-content: stretch;
 }
 
 .miniFolder{
   display:flex;
-  gap: 12px;
-  align-items:flex-start;
+  gap: 10px;
+  align-items:center;
+  min-width: 0;
+  min-height: 0;
 }
 
 .miniFolder__icon{
-  width: 46px;
-  height: 34px;
+  width: 52px;
+  height: 40px;
   border-radius: 10px;
   border: 2px solid rgba(42,18,71,.55);
+  flex: 0 0 auto;
 }
 
 .miniFolder__body{
-  font-size: 15px;
+  font-size: 14px;
   color: var(--ink);
+  min-width: 0;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  min-height: 0;
 }
 
 .miniFolder__name{
@@ -238,6 +262,7 @@ body.modal-open{
   margin: 0 0 8px 16px;
   padding:0;
   opacity:.9;
+  line-height: 1.35;
 }
 
 .miniFolder__btn{
@@ -245,30 +270,41 @@ body.modal-open{
   background: var(--purple);
   color:#fff;
   font-weight:800;
-  font-size: 16px;
-  padding: 6px 10px;
+  font-size: 12px;
+  padding: 7px 12px;
   border-radius: 999px;
   cursor:pointer;
+  align-self:center;
+  margin-top: 4px;
 }
 
 /* handbook */
 .handbookRow{
   display:flex;
   gap: 12px;
-  align-items:flex-start;
+  align-items:center;
+  padding: 10px 14px 12px;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
 }
 
 .handbookRow__icon{
-  width: 46px;
-  height: 34px;
+  width: 52px;
+  height: 40px;
   border-radius: 10px;
   border: 2px solid rgba(42,18,71,.55);
+  flex: 0 0 auto;
 }
 
 .handbookRow__body{
-  font-size: 15px;
+  font-size: 14px;
   color: var(--ink);
   flex: 1;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  min-height: 0;
 }
 
 .handbookRow__name{
@@ -277,15 +313,17 @@ body.modal-open{
 }
 
 .handbookRow ul{
-  margin: 0 0 10px 16px;
+  margin: 0 0 8px 16px;
   padding:0;
   opacity:.9;
+  line-height: 1.35;
 }
 
 .handbookRow__actions{
   display:flex;
   gap: 10px;
   justify-content:center;
+  flex-wrap: wrap;
 }
 
 .handbookBtn{
@@ -293,22 +331,29 @@ body.modal-open{
   background: var(--purple);
   color:#fff;
   font-weight:800;
-  font-size: 16px;
-  padding: 6px 12px;
+  font-size: 12px;
+  padding: 7px 12px;
   border-radius: 999px;
   cursor:pointer;
 }
 
 /* calendar */
 .cardX--calendar{
-  padding: 12px 14px 14px;
+  padding-bottom: 10px;
+  display:flex;
+  flex-direction:column;
 }
 
 .calendarShell{
-  border: 1px solid rgba(0,0,0,.10);
-  border-radius: 10px;
-  padding: 10px;
+  border: none;
+  border-radius: 0;
+  padding: 8px 10px 0;
   background:#fff;
+  display:flex;
+  flex-direction:column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .calendarShell__top{
@@ -317,7 +362,7 @@ body.modal-open{
   align-items:center;
   font-size: 15px;
   color: var(--ink);
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .calendarShell__navBtn{
@@ -332,26 +377,52 @@ body.modal-open{
 .calendarGrid{
   display:grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
-  font-size: 16px;
-  text-align:center;
+  grid-template-rows: 24px repeat(var(--calendar-week-rows, 6), minmax(0, 1fr));
+  gap: 4px;
+  font-size: 14px;
+  align-content: stretch;
+  flex: 1;
+  min-height: 0;
 }
 
 .calHead{
   opacity:.55;
   font-weight:800;
-  padding: 6px 0;
+  padding: 4px 0;
+  font-size: 11px;
+  text-align:center;
 }
 
 .calCell{
-  min-height: 34px;
+  min-height: 0;
   border: 1px solid rgba(0,0,0,.06);
   border-radius: 6px;
   display:flex;
-  align-items:flex-start;
+  flex-direction: column;
+  align-items:stretch;
   justify-content:flex-start;
-  padding: 6px;
+  gap: 4px;
+  padding: 5px;
   opacity:.75;
+  overflow: hidden;
+}
+
+.calCell--button{
+  appearance:none;
+  width:100%;
+  background:#fff;
+  font: inherit;
+  text-align:left;
+  cursor:pointer;
+}
+
+.calCell--button:hover{
+  box-shadow: inset 0 0 0 1px rgba(95,47,120,.2);
+}
+
+.calCell--button:focus-visible{
+  outline: 2px solid rgba(95,47,120,.8);
+  outline-offset: -2px;
 }
 
 .calCell.is-event{
@@ -359,6 +430,60 @@ body.modal-open{
   color:#fff;
   opacity:1;
   border-color: transparent;
+}
+
+.calCell__day{
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--ink);
+  text-align: left;
+}
+
+.calCell.is-event .calCell__day{
+  color:#fff;
+}
+
+.calCell__events{
+  display:flex;
+  flex-direction:column;
+  gap: 4px;
+  align-items:flex-start;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.calCell__event,
+.calCell__more{
+  max-width: 100%;
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.calCell__event{
+  display:block;
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: rgba(123,74,143,.12);
+  color: var(--purple-dark);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.calCell.is-event .calCell__event{
+  background: rgba(255,255,255,.18);
+  color:#fff;
+}
+
+.calCell__more{
+  font-weight: 800;
+  color: rgba(43, 32, 54, 0.76);
+  text-align: left;
+}
+
+.calCell.is-event .calCell__more{
+  color: rgba(255,255,255,.86);
 }
 
 .dashEditError{
@@ -392,6 +517,10 @@ body.modal-open{
 
 .dashModal--security{
   width: min(920px, 96vw);
+}
+
+.dashModal--announcement{
+  width: min(720px, 94vw);
 }
 
 .dashModal__top{
@@ -458,6 +587,84 @@ body.modal-open{
   font-size: 16px;
   color: var(--ink);
   background: #fff;
+}
+
+.announcementModal__list{
+  display:grid;
+  gap: 12px;
+}
+
+.announcementModal__card{
+  padding: 0 0 16px;
+  background: transparent;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  min-height: clamp(150px, 22vh, 190px);
+}
+
+.announcementModal__card + .announcementModal__card{
+  border-top: 1px solid rgba(0,0,0,.12);
+  padding-top: 16px;
+}
+
+.announcementModal__titleRow{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.announcementModal__title{
+  margin: 0;
+  color: var(--ink);
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1.3;
+}
+
+.announcementModal__dates{
+  color: rgba(43, 32, 54, 0.72);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.announcementModal__card p{
+  margin: 10px 0 0;
+  color: rgba(43, 32, 54, 0.82);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.announcementModal__delete{
+  border: none;
+  background: transparent;
+  color: #9b2f45;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  flex: 0 0 auto;
+  padding: 0;
+}
+
+.announcementModal__deleteRow{
+  display:flex;
+  justify-content:flex-end;
+  margin-top: auto;
+  padding-top: 28px;
+}
+
+.announcementModal__delete svg{
+  width: 20px;
+  height: 20px;
+}
+
+.announcementModal__delete:disabled{
+  opacity:.6;
+  cursor:not-allowed;
 }
 
 .dashSecurity{
@@ -741,14 +948,37 @@ body.modal-open{
 
 /* responsive */
 @media (max-width: 1400px){
-  .actionRowX{ grid-template-columns: 1fr 1fr; }
-  .lowerGridX{ grid-template-columns: 1fr; }
-  .miniFolders{ grid-template-columns: 1fr; }
-  .infoCardX__grid{ grid-template-columns: 1fr; }
-  .infoCardX__divider{ display:none; }
   .dashModal__grid{ grid-template-columns: 1fr; }
   .dashSecurity__grid{ grid-template-columns: 1fr; }
   .dashTwoFactorSetup__media{ grid-template-columns: 1fr; }
   .infoCardX__headerActions{ flex-wrap: wrap; justify-content:flex-end; }
+  .lowerGridX{
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+  .lowerColX{ grid-template-rows: auto auto; }
+}
+
+@media (max-width: 1180px){
+  .actionRowX{ grid-template-columns: 1fr 1fr; }
+  .miniFolders{ grid-template-columns: 1fr; }
+  .infoCardX__grid{ grid-template-columns: 1fr; }
+  .infoCardX__divider{ display:none; }
+  .miniFolders,
+  .handbookRow{ height: auto; }
+}
+
+@media (max-width: 700px){
+  .actionRowX{ grid-template-columns: 1fr; }
+  .calendarGrid{ grid-template-rows: 22px repeat(var(--calendar-week-rows, 6), 56px); }
+  .calCell{
+    min-height: 56px;
+    padding: 5px;
+  }
+
+  .calCell__event,
+  .calCell__more{
+    font-size: 10px;
+  }
 }
 

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { FiTrash2 } from 'react-icons/fi';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AccountSecuritySection from '../../../components/AccountSecuritySection';
 import {
@@ -36,13 +37,65 @@ type UserDetails = {
 };
 
 type CalendarEvent = {
+  calendarId?: number;
   day?: number;
   title?: string;
+  description?: string;
+  startDate?: string;
+  endDate?: string;
+  createdAt?: string;
+  employeeId?: number;
+  employeeName?: string;
+};
+
+type CalendarDayEvent = {
+  key: string;
+  calendarId?: number;
+  title: string;
+  description: string;
+  startDate?: string;
+  endDate?: string;
+  createdAt?: string;
+  employeeId?: number;
+  employeeName: string;
+};
+
+type SelectedAnnouncementDay = {
+  label: string;
+  events: CalendarDayEvent[];
 };
 
 type AttendanceLog = {
   timestamp?: string;
 };
+
+const trainingMaterialCards = [
+  {
+    id: 'training',
+    title: 'Updated Training v1.5',
+    items: [
+      'Review the refreshed safety and compliance walkthrough.',
+      'Complete the updated learning checklist before your next shift.',
+    ],
+    buttonLabel: 'View Training Materials',
+  },
+  {
+    id: 'onboarding',
+    title: 'Updated Onboarding v1.5',
+    items: [
+      'See the revised first-week orientation flow for new hires.',
+      'Review the latest onboarding forms and account setup steps.',
+    ],
+    buttonLabel: 'View Onboarding Materials',
+  },
+] as const;
+
+const handbookHighlights = [
+  'Review company policies, attendance rules, and leave guidance.',
+  'Keep the latest handbook version ready for quick reference.',
+] as const;
+
+const handbookFileHref = '/docs/employee-handbook.txt';
 
 function createEditDraft(source: UserDetails['employee'] | null | undefined) {
   const rawAddress =
@@ -104,15 +157,146 @@ function formatJwtIssuedAt(token: string | null) {
   }
 }
 
+function getCalendarEventTitle(event: CalendarEvent) {
+  return typeof event.title === 'string' && event.title.trim().length > 0
+    ? event.title.trim()
+    : 'Company event';
+}
+
+function getCalendarEventDescription(event: CalendarEvent) {
+  return typeof event.description === 'string' ? event.description.trim() : '';
+}
+
+function getCalendarEventEmployeeName(event: CalendarEvent) {
+  return typeof event.employeeName === 'string' && event.employeeName.trim().length > 0
+    ? event.employeeName.trim()
+    : 'MaridOne Staff';
+}
+
+function getCalendarEventKey(event: CalendarEvent) {
+  if (typeof event.calendarId === 'number') return `calendar-${event.calendarId}`;
+
+  return [
+    getCalendarEventTitle(event),
+    event.startDate ?? '',
+    event.endDate ?? '',
+    typeof event.day === 'number' ? String(event.day) : '',
+  ].join('|');
+}
+
+function formatCalendarEventDateRange(startDate?: string, endDate?: string) {
+  if (!startDate) return 'Date not available';
+
+  const start = new Date(startDate);
+  if (Number.isNaN(start.getTime())) return 'Date not available';
+
+  const formattedStart = start.toLocaleDateString(undefined, {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  if (!endDate) return formattedStart;
+
+  const end = new Date(endDate);
+  if (Number.isNaN(end.getTime())) return formattedStart;
+
+  const formattedEnd = end.toLocaleDateString(undefined, {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  return formattedStart === formattedEnd ? formattedStart : `${formattedStart} - ${formattedEnd}`;
+}
+
+function formatAnnouncementCreatedAt(value?: string) {
+  if (!value) return 'Created date not available';
+
+  const createdAt = new Date(value);
+  if (Number.isNaN(createdAt.getTime())) return 'Created date not available';
+
+  return createdAt.toLocaleString(undefined, {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function getCalendarEventsByDay(events: CalendarEvent[], year: number, monthIndex: number) {
+  const monthStart = new Date(year, monthIndex, 1);
+  const monthEnd = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+  const eventsByDay = new Map<number, Map<string, CalendarDayEvent>>();
+
+  for (const event of events) {
+    const eventItem: CalendarDayEvent = {
+      key: getCalendarEventKey(event),
+      calendarId: event.calendarId,
+      title: getCalendarEventTitle(event),
+      description: getCalendarEventDescription(event),
+      startDate: event.startDate,
+      endDate: event.endDate,
+      createdAt: event.createdAt,
+      employeeId: event.employeeId,
+      employeeName: getCalendarEventEmployeeName(event),
+    };
+
+    function addEventToDay(day: number) {
+      const existing = eventsByDay.get(day) ?? new Map<string, CalendarDayEvent>();
+      existing.set(eventItem.key, eventItem);
+      eventsByDay.set(day, existing);
+    }
+
+    if (!event.startDate && typeof event.day === 'number') {
+      addEventToDay(event.day);
+      continue;
+    }
+
+    if (!event.startDate) continue;
+
+    const rawStart = new Date(event.startDate);
+    if (Number.isNaN(rawStart.getTime())) continue;
+
+    const rawEnd = event.endDate ? new Date(event.endDate) : rawStart;
+    const safeEnd = Number.isNaN(rawEnd.getTime()) ? rawStart : rawEnd;
+    const visibleStart = rawStart > monthStart ? rawStart : monthStart;
+    const visibleEnd = safeEnd < monthEnd ? safeEnd : monthEnd;
+
+    if (visibleStart > visibleEnd) continue;
+
+    const cursor = new Date(
+      visibleStart.getFullYear(),
+      visibleStart.getMonth(),
+      visibleStart.getDate()
+    );
+    const endDay = new Date(
+      visibleEnd.getFullYear(),
+      visibleEnd.getMonth(),
+      visibleEnd.getDate()
+    );
+
+    while (cursor <= endDay) {
+      if (cursor.getFullYear() === year && cursor.getMonth() === monthIndex) {
+        addEventToDay(cursor.getDate());
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+  }
+
+  return new Map(
+    Array.from(eventsByDay.entries())
+      .sort(([left], [right]) => left - right)
+      .map(([day, dayEvents]) => [day, Array.from(dayEvents.values())])
+  );
+}
+
 export default function Dashboard() {
   const location = useLocation();
   const navigate = useNavigate();
   const [profile, setProfile] = useState<UserDetails | null>(null);
   const [employee, setEmployee] = useState<UserDetails['employee'] | null>(null);
   const [employeeId, setEmployeeId] = useState<number | null>(null);
-  const [eventDays, setEventDays] = useState<number[]>([]);
-  const [updateItems, setUpdateItems] = useState<string[]>([]);
-  const [eventHighlights, setEventHighlights] = useState<string[]>([]);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [lastLoginLabel, setLastLoginLabel] = useState<string>('Not available');
   const [lastAttendanceLabel, setLastAttendanceLabel] = useState<string>('Not available');
   const [calendarMonthIndex, setCalendarMonthIndex] = useState(new Date().getMonth());
@@ -121,6 +305,9 @@ export default function Dashboard() {
   const [editError, setEditError] = useState('');
   const [editOpen, setEditOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
+  const [selectedAnnouncementDay, setSelectedAnnouncementDay] = useState<SelectedAnnouncementDay | null>(null);
+  const [announcementActionError, setAnnouncementActionError] = useState('');
+  const [deletingAnnouncementId, setDeletingAnnouncementId] = useState<number | null>(null);
   const [securityMessage, setSecurityMessage] = useState('');
   const [securityError, setSecurityError] = useState('');
   const [sendingVerification, setSendingVerification] = useState(false);
@@ -145,11 +332,11 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (editOpen || securityOpen) document.body.classList.add('modal-open');
+    if (editOpen || securityOpen || selectedAnnouncementDay) document.body.classList.add('modal-open');
     else document.body.classList.remove('modal-open');
 
     return () => document.body.classList.remove('modal-open');
-  }, [editOpen, securityOpen]);
+  }, [editOpen, securityOpen, selectedAnnouncementDay]);
 
   useEffect(() => {
     const username = getUserEmail();
@@ -223,38 +410,14 @@ export default function Dashboard() {
     const month = calendarMonthIndex + 1;
     const year = calendarYear;
     void (async () => {
-      const [eventsResponse, notificationsResponse] = await Promise.allSettled([
-        apiFetchJson<unknown>(`/api/calendar/events?month=${month}&year=${year}`),
-        apiFetchJson<unknown>('/api/notifications?page=0&size=8'),
-      ]);
+      const eventsResponse = await apiFetchJson<unknown>(`/api/calendar/events?month=${month}&year=${year}`)
+        .then((value) => ({ status: 'fulfilled' as const, value }))
+        .catch(() => ({ status: 'rejected' as const }));
 
       if (eventsResponse.status === 'fulfilled') {
-        const eventRows = toArray<CalendarEvent>(eventsResponse.value);
-        setEventDays(
-          eventRows
-            .map((item) => item.day)
-            .filter((day): day is number => typeof day === 'number')
-        );
-        setEventHighlights(
-          eventRows
-            .map((item) => String(item.title ?? '').trim())
-            .filter((title) => title.length > 0)
-            .slice(0, 3)
-        );
+        setCalendarEvents(toArray<CalendarEvent>(eventsResponse.value));
       } else {
-        setEventDays([]);
-        setEventHighlights([]);
-      }
-
-      if (notificationsResponse.status === 'fulfilled') {
-        setUpdateItems(
-          toArray<Record<string, unknown>>(notificationsResponse.value)
-            .map((item) => String(item.message ?? '').trim())
-            .filter((message) => message.length > 0)
-            .slice(0, 3)
-        );
-      } else {
-        setUpdateItems([]);
+        setCalendarEvents([]);
       }
     })();
   }, [calendarMonthIndex, calendarYear]);
@@ -268,7 +431,9 @@ export default function Dashboard() {
   const firstDay = new Date(year, monthIndex, 1);
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
   const sundayBasedStart = firstDay.getDay();
-  const totalCells = Math.ceil((sundayBasedStart + daysInMonth) / 7) * 7;
+  const calendarWeekRows = Math.ceil((sundayBasedStart + daysInMonth) / 7);
+  const totalCells = calendarWeekRows * 7;
+  const calendarGridStyle = { '--calendar-week-rows': calendarWeekRows } as CSSProperties;
 
   const employeeName = useMemo(() => {
     const emp = employee;
@@ -277,6 +442,14 @@ export default function Dashboard() {
       .join(' ');
     return emp?.fullName || fromParts || 'Employee Name';
   }, [employee]);
+
+  const calendarEventsByDay = useMemo(
+    () => getCalendarEventsByDay(calendarEvents, calendarYear, calendarMonthIndex),
+    [calendarEvents, calendarMonthIndex, calendarYear]
+  );
+  const announcementHeaderEvent = selectedAnnouncementDay?.events[0] ?? null;
+  const canManageAnnouncements =
+    location.pathname.startsWith('/hr/') || location.pathname.startsWith('/management/');
 
   function selfServicePath(page: 'dashboard' | 'attendance' | 'approvals' | 'payslip' | 'training') {
     if (location.pathname.startsWith('/hr/')) {
@@ -296,8 +469,68 @@ export default function Dashboard() {
 
   function shiftCalendarMonth(offset: number) {
     const next = new Date(calendarYear, calendarMonthIndex + offset, 1);
+    setAnnouncementActionError('');
+    setDeletingAnnouncementId(null);
+    setSelectedAnnouncementDay(null);
     setCalendarYear(next.getFullYear());
     setCalendarMonthIndex(next.getMonth());
+  }
+
+  function openAnnouncementDay(dayNumber: number, events: CalendarDayEvent[]) {
+    const label = new Date(calendarYear, calendarMonthIndex, dayNumber).toLocaleDateString(undefined, {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    });
+
+    setAnnouncementActionError('');
+    setSelectedAnnouncementDay({ label, events });
+  }
+
+  function closeAnnouncementDay() {
+    setAnnouncementActionError('');
+    setDeletingAnnouncementId(null);
+    setSelectedAnnouncementDay(null);
+  }
+
+  async function handleDeleteAnnouncement(event: CalendarDayEvent) {
+    if (!canManageAnnouncements || typeof event.calendarId !== 'number') return;
+
+    const confirmed = window.confirm(`Delete "${event.title}" from the company announcements?`);
+    if (!confirmed) return;
+
+    setAnnouncementActionError('');
+    setDeletingAnnouncementId(event.calendarId);
+
+    try {
+      await apiFetchJson(`/api/calendar/events/delete/${event.calendarId}`, {
+        method: 'PATCH',
+      });
+
+      setCalendarEvents((prev) => prev.filter((item) => item.calendarId !== event.calendarId));
+      setSelectedAnnouncementDay((prev) => {
+        if (!prev) return prev;
+        const remainingEvents = prev.events.filter((item) => item.calendarId !== event.calendarId);
+        return remainingEvents.length > 0 ? { ...prev, events: remainingEvents } : null;
+      });
+    } catch (error) {
+      setAnnouncementActionError(getFriendlyErrorMessage(error, 'generic'));
+    } finally {
+      setDeletingAnnouncementId(null);
+    }
+  }
+
+  function openHandbook() {
+    window.open(handbookFileHref, '_blank', 'noopener,noreferrer');
+  }
+
+  function downloadHandbook() {
+    const link = document.createElement('a');
+    link.href = handbookFileHref;
+    link.download = 'employee-handbook.txt';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   }
 
   function openEditModal() {
@@ -540,60 +773,48 @@ export default function Dashboard() {
         <div className="lowerColX">
           {/* training */}
           <div className="cardX">
-            <div className="cardX__title">Latest HR Updates & Events</div>
+            <div className="cardX__title">Training and Onboarding Materials</div>
 
             <div className="miniFolders">
-              <div className="miniFolder">
-                <div className="miniFolder__icon" />
-                <div className="miniFolder__body">
-                  <div className="miniFolder__name">{updateItems[0] || 'No HR updates in your notification feed yet.'}</div>
-                  <ul>
-                    {(updateItems.length > 1 ? updateItems.slice(1) : ['Check your notifications to see the latest HR announcements.']).map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                  <button className="miniFolder__btn" type="button" onClick={() => navigate(selfServicePath('training'))}>
-                    View Updates
-                  </button>
+              {trainingMaterialCards.map((material) => (
+                <div key={material.id} className="miniFolder">
+                  <div className="miniFolder__icon" />
+                  <div className="miniFolder__body">
+                    <div className="miniFolder__name">{material.title}</div>
+                    <ul>
+                      {material.items.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                    <button className="miniFolder__btn" type="button" onClick={() => navigate(selfServicePath('training'))}>
+                      {material.buttonLabel}
+                    </button>
+                  </div>
                 </div>
-              </div>
-
-              <div className="miniFolder">
-                <div className="miniFolder__icon" />
-                <div className="miniFolder__body">
-                  <div className="miniFolder__name">{eventHighlights[0] || 'No company events scheduled this month.'}</div>
-                  <ul>
-                    {(eventHighlights.length > 1 ? eventHighlights.slice(1) : ['Upcoming company events will appear here when the calendar is updated.']).map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                  <button className="miniFolder__btn" type="button" onClick={() => navigate(selfServicePath('training'))}>
-                    View Events
-                  </button>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
 
           {/* handbook */}
           <div className="cardX">
-            <div className="cardX__title">Employee Snapshot</div>
+            <div className="cardX__title">Employee Handbook</div>
 
             <div className="handbookRow">
               <div className="handbookRow__icon" />
               <div className="handbookRow__body">
-                <div className="handbookRow__name">Your current work profile</div>
+                <div className="handbookRow__name">Updated Handbook v2.1</div>
                 <ul>
-                  <li>Position: {employee?.position || 'Not available'}</li>
-                  <li>Employment Status: {employee?.employmentStatus || 'Not available'}</li>
+                  {handbookHighlights.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
                 </ul>
 
                 <div className="handbookRow__actions">
-                  <button className="handbookBtn" type="button" onClick={() => navigate(selfServicePath('payslip'))}>
-                    View Payslip
+                  <button className="handbookBtn" type="button" onClick={openHandbook}>
+                    View Handbook
                   </button>
-                  <button className="handbookBtn" type="button" onClick={() => navigate(selfServicePath('attendance'))}>
-                    View Attendance
+                  <button className="handbookBtn" type="button" onClick={downloadHandbook}>
+                    Download Handbook
                   </button>
                 </div>
               </div>
@@ -611,18 +832,61 @@ export default function Dashboard() {
               <button type="button" className="calendarShell__navBtn" onClick={() => shiftCalendarMonth(1)} aria-label="Next month">›</button>
             </div>
 
-            <div className="calendarGrid">
+            <div className="calendarGrid" style={calendarGridStyle}>
               <div className="calHead">SU</div><div className="calHead">MO</div><div className="calHead">TU</div>
               <div className="calHead">WE</div><div className="calHead">TH</div><div className="calHead">FR</div><div className="calHead">SA</div>
 
               {Array.from({ length: totalCells }).map((_, i) => {
                 const dayNumber = i - sundayBasedStart + 1;
                 const value = dayNumber > 0 && dayNumber <= daysInMonth ? dayNumber : '';
+                const dayEvents = typeof value === 'number' ? calendarEventsByDay.get(value) ?? [] : [];
+                const primaryDayEvent = dayEvents[0];
+                const dayLabel =
+                  typeof value === 'number'
+                    ? new Date(calendarYear, calendarMonthIndex, value).toLocaleDateString(undefined, {
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })
+                    : '';
+                const cellTitle =
+                  dayEvents.length > 0
+                    ? `${dayEvents.map((event) => event.title).join(' • ')}. Click to view announcement details.`
+                    : undefined;
+                const cellContent = (
+                  <>
+                    {typeof value === 'number' ? <span className="calCell__day">{value}</span> : null}
+                    {primaryDayEvent ? (
+                      <div className="calCell__events">
+                        <span className="calCell__event">{primaryDayEvent.title}</span>
+                        {dayEvents.length > 1 ? (
+                          <span className="calCell__more">+{dayEvents.length - 1} more</span>
+                        ) : (
+                          <span className="calCell__more">View details</span>
+                        )}
+                      </div>
+                    ) : null}
+                  </>
+                );
+
+                if (dayEvents.length > 0 && typeof value === 'number') {
+                  return (
+                  <button
+                    key={i}
+                    type="button"
+                    className="calCell calCell--button is-event"
+                    title={cellTitle}
+                    aria-label={`View ${dayEvents.length} company announcement${dayEvents.length === 1 ? '' : 's'} for ${dayLabel}`}
+                    onClick={() => openAnnouncementDay(value, dayEvents)}
+                  >
+                    {cellContent}
+                  </button>
+                  );
+                }
 
                 return (
-                  <div key={i} className="calCell">
-                    {value}
-                    {typeof value === 'number' && eventDays.includes(value) ? ' *' : ''}
+                  <div key={i} className="calCell" title={cellTitle}>
+                    {cellContent}
                   </div>
                 );
               })}
@@ -631,6 +895,58 @@ export default function Dashboard() {
         </div>
       </section>
       {editError && <p className="dashEditError">{editError}</p>}
+
+      {selectedAnnouncementDay && (
+        <div className="dashModalBackdrop" role="dialog" aria-modal="true" aria-label="Company announcements">
+          <div className="dashModal dashModal--announcement">
+            <div className="dashModal__top">
+              <div>
+                <div className="dashModal__title">{announcementHeaderEvent?.employeeName || 'MaridOne Staff'}</div>
+                <div className="dashModal__subtitle">{formatAnnouncementCreatedAt(announcementHeaderEvent?.createdAt)}</div>
+              </div>
+              <button type="button" className="dashModal__close" onClick={closeAnnouncementDay}>
+                x
+              </button>
+            </div>
+
+            <div className="dashModal__rule" />
+
+            {announcementActionError && <div className="dashModal__error">{announcementActionError}</div>}
+
+            <div className="announcementModal__list">
+              {selectedAnnouncementDay.events.map((event) => {
+                const isDeleting = deletingAnnouncementId === event.calendarId;
+
+                return (
+                  <article key={event.key} className="announcementModal__card">
+                    <div className="announcementModal__titleRow">
+                      <h3 className="announcementModal__title">{event.title}</h3>
+                      <div className="announcementModal__dates">
+                        {formatCalendarEventDateRange(event.startDate, event.endDate)}
+                      </div>
+                    </div>
+                    <p>{event.description || 'No description provided for this announcement yet.'}</p>
+                    {canManageAnnouncements && typeof event.calendarId === 'number' ? (
+                      <div className="announcementModal__deleteRow">
+                        <button
+                          type="button"
+                          className="announcementModal__delete"
+                          onClick={() => void handleDeleteAnnouncement(event)}
+                          disabled={isDeleting}
+                          aria-label={`Delete announcement ${event.title}`}
+                          title="Delete announcement"
+                        >
+                          <FiTrash2 aria-hidden="true" />
+                        </button>
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {editOpen && (
         <div className="dashModalBackdrop" role="dialog" aria-modal="true" aria-label="Edit employee info">

@@ -194,10 +194,10 @@ const backendActions: BackendTestAction[] = [
     path: '/api/calendar/events/create',
     body: {
       title: 'Backend Test Event',
-      month: 4,
-      day: 10,
-      year: 2026,
-      isHoliday: false,
+      description: 'Backend test announcement created through the HR tools panel.',
+      startDate: '2026-04-10T09:00:00Z',
+      endDate: '2026-04-10T17:00:00Z',
+      isActive: true,
     },
   },
   {
@@ -208,6 +208,10 @@ const backendActions: BackendTestAction[] = [
     body: {
       calendarId: '{calendarId}',
       title: 'Updated Backend Test Event',
+      description: 'Updated backend test announcement description.',
+      startDate: '2026-04-10T09:00:00Z',
+      endDate: '2026-04-10T18:00:00Z',
+      isActive: true,
     },
   },
   {

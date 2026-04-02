@@ -92,25 +92,38 @@ html {
 }
   
 .nav-btn {
-  padding: 10px 14px;
-  border-radius: 8px;
+  padding: 8px 4px;
+  border-radius: 0;
   font-size: 16px;
   border: none;
   background: transparent;
   color: #ffffff;
   cursor: pointer;
   font-weight: 600;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
   
 .nav-btn--ghost {
   opacity: 0.9;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  background: transparent;
 }
   
 .nav-btn--solid {
   opacity: 0.95;
-  background: rgba(255, 255, 255, 0.18);
+  border: none;
+  background: transparent;
+}
+
+.nav-btn:hover,
+.nav-btn:focus-visible {
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
+.nav-btn:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.55);
+  outline-offset: 6px;
 }
   
   /* ---- MAIN / HERO ---- */
