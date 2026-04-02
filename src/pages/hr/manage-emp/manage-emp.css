@@ -81,6 +81,15 @@ button.hrEmpRow:hover {
   box-shadow: var(--hr-button-shadow);
 }
 
+body.modal-open .eSide {
+  z-index: 0;
+  pointer-events: none;
+}
+
+body.modal-open .eMain {
+  z-index: 4;
+}
+
 .hrEmpModalBackdrop {
   position: fixed;
   inset: 0;
@@ -94,6 +103,7 @@ button.hrEmpRow:hover {
 
 .hrEmpModal {
   width: min(880px, 94vw);
+  position: relative;
   background:
     radial-gradient(circle at top right, rgba(123, 74, 143, 0.08), transparent 26%),
     linear-gradient(180deg, #ffffff 0%, #fbf8fe 100%);
@@ -259,6 +269,17 @@ button.hrEmpRow:hover {
   color: #9a9aa1;
 }
 
+.hrEmpField__hint {
+  color: var(--hr-muted);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.hrEmpField__hint.is-error {
+  color: #b24651;
+}
+
 .hrEmpField--full {
   grid-column: 1 / -1;
 }
@@ -288,6 +309,61 @@ button.hrEmpRow:hover {
   margin-top: 12px;
   border-top: 1px solid rgba(61, 38, 90, 0.10);
   flex-shrink: 0;
+}
+
+.hrEmpConfirmLayer {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(16, 12, 24, 0.4);
+  border-radius: 20px;
+}
+
+.hrEmpConfirmCard {
+  width: min(460px, 100%);
+  border: 1px solid rgba(61, 38, 90, 0.12);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.18);
+  padding: 22px 22px 18px;
+}
+
+.hrEmpConfirmCard h3 {
+  margin: 0;
+  color: var(--hr-primary-dark);
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.hrEmpConfirmCard p {
+  margin: 10px 0 0;
+  color: var(--hr-text);
+  font-size: 15px;
+  line-height: 1.5;
+  font-weight: 700;
+}
+
+.hrEmpConfirmCard__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.hrEmpConfirmCard__actions button {
+  border: 0;
+  background: var(--hr-primary);
+  color: #fff;
+  min-width: 140px;
+  height: 38px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: var(--hr-button-shadow);
 }
 
 .hrEmpForm__error,

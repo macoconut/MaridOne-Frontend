@@ -143,6 +143,11 @@
   padding: 8px 14px;
 }
 
+.hrRunTable__body--split {
+  display: grid;
+  gap: 14px;
+}
+
 .hrRunEmployee {
   padding: 10px 0 8px;
   border-bottom: 1px solid var(--hr-line);
@@ -188,11 +193,36 @@
   color: #251c38;
 }
 
+.hrRunGroup {
+  border: 1px solid var(--hr-line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--hr-surface-soft);
+}
+
+.hrRunGroup__head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.68);
+  border-bottom: 1px solid var(--hr-line);
+  color: var(--hr-primary-dark);
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
 .hrRunEmpty {
   padding: 18px 0 12px;
   color: #554f63;
   font-size: 15px;
   font-weight: 700;
+}
+
+.hrRunEmpty--group {
+  padding: 14px 12px;
 }
 
 .hrRunActions {

@@ -4,6 +4,8 @@ import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './manage-emp.css';
 
 type ModalType = 'add' | 'edit-pick' | 'edit' | 'delete' | null;
+type SubmitModal = Exclude<ModalType, null | 'edit-pick'>;
+type ConfirmAction = 'edit' | 'delete';
 
 type EmployeeRow = {
   id: string;
@@ -14,6 +16,27 @@ type EmployeeRow = {
   position: string;
 };
 
+type EmployeeDetails = {
+  id?: number;
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  birthDate?: string;
+  employmentStatus?: string;
+  employmentDateStart?: string;
+  email?: string;
+  phoneNumber?: string;
+  position?: string;
+  address?: {
+    permanentAddress?: string;
+    temporaryAddress?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    zipCode?: string;
+  };
+};
+
 type FormState = {
   employeeId: string;
   firstName: string;
@@ -21,6 +44,7 @@ type FormState = {
   lastName: string;
   birthDate: string;
   employmentStatus: string;
+  employmentDateStart: string;
   email: string;
   password: string;
   phoneNumber: string;
@@ -41,6 +65,7 @@ const emptyForm: FormState = {
   lastName: '',
   birthDate: '',
   employmentStatus: 'REGULAR',
+  employmentDateStart: '',
   email: '',
   password: '',
   phoneNumber: '',
@@ -56,6 +81,7 @@ const emptyForm: FormState = {
 
 export default function HrManageEmp() {
   const [modal, setModal] = useState<ModalType>(null);
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [employeeRows, setEmployeeRows] = useState<EmployeeRow[]>([]);
   const [loadMessage, setLoadMessage] = useState<string>('');
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -67,6 +93,29 @@ export default function HrManageEmp() {
     () => employeeRows.find((row) => row.id === form.employeeId) ?? null,
     [employeeRows, form.employeeId]
   );
+
+  function todayDateValue() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function sanitizePhoneNumber(value: string) {
+    return value.replace(/\D/g, '').slice(0, 11);
+  }
+
+  function getPhoneValidationMessage(value: string) {
+    const digits = sanitizePhoneNumber(value);
+    if (!digits) return 'Enter an 11-digit mobile number, for example 09171234567.';
+    if (digits.length !== 11) return 'Phone number must be exactly 11 digits.';
+    return 'Enter an 11-digit mobile number, for example 09171234567.';
+  }
+
+  function validatePhoneNumber(value: string) {
+    const digits = sanitizePhoneNumber(value);
+    if (digits.length !== 11) {
+      throw new Error('Phone number must be exactly 11 digits.');
+    }
+    return digits;
+  }
 
   async function loadEmployees() {
     try {
@@ -88,7 +137,7 @@ export default function HrManageEmp() {
       setEmployeeRows([]);
       const message = getFriendlyErrorMessage(error, 'employee-load');
       setLoadMessage(
-        `The employee roster endpoint is not available to the HR role yet. Enter an employee ID manually to edit or terminate a record. (${message})`
+        `Unable to load the employee roster right now. You can still enter an employee ID manually if needed. (${message})`
       );
     }
   }
@@ -107,11 +156,12 @@ export default function HrManageEmp() {
     setModal(type);
     setSubmitError('');
     setSubmitSuccess('');
-    setForm(emptyForm);
+    setForm(type === 'add' ? { ...emptyForm, employmentDateStart: todayDateValue() } : emptyForm);
   }
 
   function closeModal() {
     setModal(null);
+    setConfirmAction(null);
     setSubmitError('');
     setSubmitSuccess('');
     setForm(emptyForm);
@@ -132,26 +182,54 @@ export default function HrManageEmp() {
   }
 
   function beginEdit(row: EmployeeRow) {
-    populateFormFromRow(row);
-    setSubmitError('');
-    setSubmitSuccess('');
-    setModal('edit');
+    void loadEmployeeDetails(row.id);
   }
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  async function submit() {
-    if (!modal) return;
+  async function loadEmployeeDetails(employeeId: string) {
+    setSubmitError('');
+    setSubmitSuccess('');
+    try {
+      const payload = await apiFetchJson<EmployeeDetails>(`/api/employees/${employeeId}`);
+      setForm({
+        employeeId: String(payload.id ?? employeeId),
+        firstName: payload.firstName ?? '',
+        middleName: payload.middleName ?? '',
+        lastName: payload.lastName ?? '',
+        birthDate: payload.birthDate ?? '',
+        employmentStatus: payload.employmentStatus ?? 'REGULAR',
+        employmentDateStart: payload.employmentDateStart ?? '',
+        email: payload.email ?? '',
+        password: '',
+        phoneNumber: sanitizePhoneNumber(payload.phoneNumber ?? ''),
+        position: payload.position ?? 'EMPLOYEE',
+        permanentAddress: payload.address?.permanentAddress ?? '',
+        temporaryAddress: payload.address?.temporaryAddress ?? '',
+        city: payload.address?.city ?? '',
+        state: payload.address?.state ?? '',
+        country: payload.address?.country ?? '',
+        zipCode: payload.address?.zipCode ?? '',
+        reason: '',
+      });
+      setModal('edit');
+    } catch (error) {
+      setSubmitError(getFriendlyErrorMessage(error, 'employee-load'));
+    }
+  }
+
+  async function executeSubmit(targetModal: SubmitModal) {
     setSubmitError('');
     setSubmitSuccess('');
     setIsSaving(true);
     try {
-      if (modal === 'add') {
-        if (!form.firstName.trim() || !form.lastName.trim() || !form.email.trim()) {
-          throw new Error('First name, last name, and email are required.');
+      if (targetModal === 'add') {
+        if (!form.firstName.trim() || !form.lastName.trim() || !form.birthDate || !form.email.trim() || !form.phoneNumber.trim()) {
+          throw new Error('First name, last name, birth date, email, and phone number are required.');
         }
+        const sanitizedPhoneNumber = validatePhoneNumber(form.phoneNumber);
         await apiFetchJson('/api/employees/create', {
           method: 'POST',
           body: JSON.stringify({
@@ -160,8 +238,9 @@ export default function HrManageEmp() {
             lastName: form.lastName.trim(),
             birthDate: form.birthDate || undefined,
             employmentStatus: form.employmentStatus,
+            employmentDateStart: form.employmentDateStart || undefined,
             email: form.email.trim(),
-            phoneNumber: form.phoneNumber.trim() || undefined,
+            phoneNumber: sanitizedPhoneNumber,
             position: form.position,
             address: {
               permanentAddress: form.permanentAddress.trim() || undefined,
@@ -174,9 +253,12 @@ export default function HrManageEmp() {
           }),
         });
         setSubmitSuccess('Employee created successfully.');
-      } else if (modal === 'edit') {
+      } else if (targetModal === 'edit') {
         const id = Number(form.employeeId);
         if (!Number.isFinite(id)) throw new Error('Employee ID is required for edit.');
+        const sanitizedPhoneNumber = form.phoneNumber.trim()
+          ? validatePhoneNumber(form.phoneNumber)
+          : undefined;
         await apiFetchJson(`/api/employees/${id}`, {
           method: 'PATCH',
           body: JSON.stringify({
@@ -184,8 +266,10 @@ export default function HrManageEmp() {
             middleName: form.middleName.trim() || undefined,
             lastName: form.lastName.trim() || undefined,
             birthDate: form.birthDate || undefined,
+            employmentStatus: form.employmentStatus || undefined,
+            employmentDateStart: form.employmentDateStart || undefined,
             email: form.email.trim() || undefined,
-            phoneNumber: form.phoneNumber.trim() || undefined,
+            phoneNumber: sanitizedPhoneNumber,
             position: form.position || undefined,
             address: {
               permanentAddress: form.permanentAddress.trim() || undefined,
@@ -198,7 +282,7 @@ export default function HrManageEmp() {
           }),
         });
         setSubmitSuccess('Employee updated successfully.');
-      } else if (modal === 'delete') {
+      } else if (targetModal === 'delete') {
         const id = Number(form.employeeId);
         if (!Number.isFinite(id)) throw new Error('Employee ID is required for status update.');
         await apiFetchJson(`/api/employees/status/${id}`, {
@@ -212,12 +296,34 @@ export default function HrManageEmp() {
       await loadEmployees();
     } catch (error) {
       setSubmitError(
-        getFriendlyErrorMessage(error, modal === 'delete' ? 'employee-terminate' : 'employee-save')
+        getFriendlyErrorMessage(error, targetModal === 'delete' ? 'employee-terminate' : 'employee-save')
       );
     } finally {
       setIsSaving(false);
     }
   }
+
+  async function submit() {
+    if (!modal || modal === 'edit-pick') return;
+
+    if (modal === 'add') {
+      await executeSubmit('add');
+      return;
+    }
+
+    setConfirmAction(modal);
+  }
+
+  async function confirmAndSubmit() {
+    if (!confirmAction) return;
+    const nextAction = confirmAction;
+    setConfirmAction(null);
+    await executeSubmit(nextAction);
+  }
+
+  const phoneHelperMessage = modal !== 'delete' ? getPhoneValidationMessage(form.phoneNumber) : '';
+  const phoneHasError =
+    modal !== 'delete' && form.phoneNumber.trim().length > 0 && sanitizePhoneNumber(form.phoneNumber).length !== 11;
 
   return (
     <div className="hrEmp">
@@ -295,7 +401,7 @@ export default function HrManageEmp() {
                   >
                     <div className="hrEmpPicker__primary">
                       <strong>{row.name}</strong>
-                      <span>Employee #{row.id}</span>
+                      <span>Employee ID: {row.id}</span>
                     </div>
                     <div className="hrEmpPicker__secondary">
                       <span>{row.position}</span>
@@ -307,7 +413,7 @@ export default function HrManageEmp() {
                 <div className="hrEmpPicker__empty">
                   <div>{loadMessage || 'No employee records available yet.'}</div>
                   <button type="button" className="hrEmpPicker__row" onClick={() => setModal('edit')}>
-                    Enter employee ID manually
+                    Enter employee ID instead
                   </button>
                 </div>
               )}
@@ -336,25 +442,37 @@ export default function HrManageEmp() {
                   <div className="hrEmpField">
                     <label>Employee ID:</label>
                     <input
-                      placeholder="e.g. 67676767"
+                      placeholder="Enter employee ID number"
                       value={form.employeeId}
                       onChange={(e) => setField('employeeId', e.target.value)}
                     />
                   </div>
                 )}
-                <div className="hrEmpField">
-                  <label>Status:</label>
-                  <select
-                    value={form.employmentStatus}
-                    onChange={(e) => setField('employmentStatus', e.target.value)}
-                  >
-                    <option value="REGULAR">REGULAR</option>
-                    <option value="NEW_HIRE">NEW_HIRE</option>
-                    <option value="PART_TIME">PART_TIME</option>
-                    <option value="SUSPENDED">SUSPENDED</option>
-                    <option value="TERMINATED">TERMINATED</option>
-                  </select>
-                </div>
+                {modal !== 'delete' && (
+                  <>
+                    <div className="hrEmpField">
+                      <label>Status:</label>
+                      <select
+                        value={form.employmentStatus}
+                        onChange={(e) => setField('employmentStatus', e.target.value)}
+                      >
+                        <option value="REGULAR">REGULAR</option>
+                        <option value="NEW_HIRE">NEW_HIRE</option>
+                        <option value="PART_TIME">PART_TIME</option>
+                        <option value="SUSPENDED">SUSPENDED</option>
+                        <option value="TERMINATED">TERMINATED</option>
+                      </select>
+                    </div>
+                    <div className="hrEmpField">
+                      <label>Employment Start Date:</label>
+                      <input
+                        type="date"
+                        value={form.employmentDateStart}
+                        onChange={(e) => setField('employmentDateStart', e.target.value)}
+                      />
+                    </div>
+                  </>
+                )}
                 </div>
               </div>
 
@@ -385,7 +503,18 @@ export default function HrManageEmp() {
                     </div>
                     <div className="hrEmpField">
                       <label>Phone Number:</label>
-                      <input value={form.phoneNumber} onChange={(e) => setField('phoneNumber', e.target.value)} />
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        maxLength={11}
+                        placeholder="Enter 11-digit mobile number"
+                        aria-invalid={phoneHasError}
+                        value={form.phoneNumber}
+                        onChange={(e) => setField('phoneNumber', sanitizePhoneNumber(e.target.value))}
+                      />
+                      <span className={`hrEmpField__hint ${phoneHasError ? 'is-error' : ''}`}>
+                        {phoneHelperMessage}
+                      </span>
                     </div>
                     <div className="hrEmpField">
                       <label>Position:</label>
@@ -448,7 +577,7 @@ export default function HrManageEmp() {
                       value={selectedEmployee ? `${selectedEmployee.id} - ${selectedEmployee.name}` : form.employeeId}
                       onChange={(e) => setField('employeeId', e.target.value)}
                       readOnly={!!selectedEmployee}
-                      placeholder="Enter employee ID"
+                      placeholder="Enter employee ID number"
                     />
                   </div>
                   <div className="hrEmpField hrEmpField--full">
@@ -470,6 +599,27 @@ export default function HrManageEmp() {
                 {modal === 'add' ? 'Add Employee' : modal === 'edit' ? 'Edit Employee' : 'Terminate Employee'}
               </button>
             </div>
+
+            {confirmAction && (
+              <div className="hrEmpConfirmLayer" role="dialog" aria-modal="true">
+                <div className="hrEmpConfirmCard">
+                  <h3>{confirmAction === 'edit' ? 'Confirm Employee Update' : 'Confirm Termination'}</h3>
+                  <p>
+                    {confirmAction === 'edit'
+                      ? `Are you sure you want to save the changes for employee ID ${form.employeeId}?`
+                      : `Are you sure you want to mark employee ID ${form.employeeId}${selectedEmployee ? ` (${selectedEmployee.name})` : ''} as terminated?`}
+                  </p>
+                  <div className="hrEmpConfirmCard__actions">
+                    <button type="button" onClick={() => setConfirmAction(null)} disabled={isSaving}>
+                      Go Back
+                    </button>
+                    <button type="button" onClick={() => void confirmAndSubmit()} disabled={isSaving}>
+                      {confirmAction === 'edit' ? 'Confirm Edit' : 'Confirm Termination'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
