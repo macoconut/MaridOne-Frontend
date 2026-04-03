@@ -34,10 +34,14 @@ type OvertimeDto = {
 type LeaveDto = {
   requestId?: number;
   empId?: number;
+  firstName?: string;
+  lastName?: string;
   startDateTime?: string;
   endDateTime?: string;
   requestStatus?: string;
   reason?: string;
+  leaveType?: string;
+  approverReason?: string;
   paid?: boolean;
 };
 
@@ -83,6 +87,7 @@ type HrRequest = {
   decisionSummary?: string;
   isPaid?: boolean;
   overtimeType?: string;
+  leaveType?: string;
   sortStamp: number;
 };
 
@@ -128,6 +133,14 @@ function employeeLabel(employeeName?: string, employeeId?: number) {
 function employeeDirectoryLabel(row?: EmployeeDirectoryRow) {
   if (!row) return '';
   const fullName = [row.firstName, row.middleName, row.lastName]
+    .filter((value) => typeof value === 'string' && value.trim().length > 0)
+    .map((value) => value!.trim())
+    .join(' ');
+  return fullName;
+}
+
+function leaveEmployeeLabel(item: LeaveDto) {
+  const fullName = [item.firstName, item.lastName]
     .filter((value) => typeof value === 'string' && value.trim().length > 0)
     .map((value) => value!.trim())
     .join(' ');
@@ -284,7 +297,7 @@ export default function HrApprovals() {
         id: `leave-${item.requestId ?? idx}`,
         leaveRequestId: item.requestId,
         employeeId: item.empId,
-        employee: resolvedEmployeeLabel(employeeNameById, item.empId),
+        employee: resolvedEmployeeLabel(employeeNameById, item.empId, leaveEmployeeLabel(item)),
         message: `Leave request from ${formatDateOnly(item.startDateTime)} to ${formatDateOnly(item.endDateTime)}`,
         time: formatDateTime(item.startDateTime),
         type: 'Leave' as const,
@@ -293,8 +306,9 @@ export default function HrApprovals() {
         reason: item.reason || '',
         referenceLabel: 'Leave Period',
         referenceValue: `${formatDateOnly(item.startDateTime)} - ${formatDateOnly(item.endDateTime)}`,
-        decisionSummary: item.paid === false ? 'Unpaid leave request' : 'Paid leave request',
+        decisionSummary: item.approverReason || '',
         isPaid: item.paid,
+        leaveType: item.leaveType,
         sortStamp: item.startDateTime ? Date.parse(item.startDateTime) || 0 : 0,
       }));
 
@@ -386,8 +400,10 @@ export default function HrApprovals() {
     (value) => value !== 'all'
   ).length;
   const hasFinalDecision = selected ? toStatusCode(selected.status) !== 'PENDING' : false;
+  const leaveReadyForReview =
+    selected?.source !== 'leave' || (typeof selected.leaveType === 'string' && selected.leaveType.length > 0);
   const canReviewSelected =
-    selected ? toStatusCode(selected.status) === 'PENDING' && selected.source !== 'leave' : false;
+    selected ? toStatusCode(selected.status) === 'PENDING' && leaveReadyForReview : false;
 
   useEffect(() => {
     setDecisionReason('');
@@ -440,10 +456,16 @@ export default function HrApprovals() {
       let correctionIntent: CorrectionIntent | null = null;
 
       if (selected.source === 'leave') {
-        return;
-      }
-
-      if (selected.source === 'dispute') {
+        const leaveId = Number(selected.id.replace('leave-', ''));
+        await apiFetchJson(`/api/leave/update/${leaveId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            leaveType: selected.leaveType,
+            requestStatus: pendingDecision,
+            approverReason: trimmedReason,
+          }),
+        });
+      } else if (selected.source === 'dispute') {
         const id = selected.id.replace('dispute-', '');
         await apiFetchJson(`/api/payroll/item/dispute/update/${id}`, {
           method: 'PATCH',
@@ -744,11 +766,12 @@ export default function HrApprovals() {
                 Approving a payroll dispute opens the correction workspace so HR can stage the actual adjustment.
               </p>
             )}
+            {selected.source === 'leave' && !leaveReadyForReview && (
+              <p className="hrApprForm__hint">This leave request is missing the details needed to submit an HR decision.</p>
+            )}
             {hasFinalDecision && (
               <p className="hrApprForm__hint">This request already has a final decision recorded.</p>
             )}
-
-            {submitError && <p className="hrApprForm__error">{submitError}</p>}
 
             <div className="hrApprModal__rule" />
 
@@ -793,20 +816,24 @@ export default function HrApprovals() {
               </label>
             </div>
 
+            {submitError && <p className="hrApprForm__error">{submitError}</p>}
+
             <div className="hrApprModal__footer">
-              <button type="button" onClick={() => setSelectedId(null)} disabled={isSaving}>
-                Cancel
-              </button>
               {canReviewSelected ? (
-                <button type="button" onClick={requestDecisionConfirmation} disabled={isSaving || !pendingDecision}>
-                  {isSaving
-                    ? 'Saving...'
-                    : pendingDecision === 'APPROVED'
-                      ? 'Confirm Approval'
-                      : pendingDecision === 'REJECTED'
-                        ? 'Confirm Denial'
-                        : 'Confirm Decision'}
-                </button>
+                <>
+                  <button type="button" onClick={() => setSelectedId(null)} disabled={isSaving}>
+                    Cancel
+                  </button>
+                  <button type="button" onClick={requestDecisionConfirmation} disabled={isSaving || !pendingDecision}>
+                    {isSaving
+                      ? 'Saving...'
+                      : pendingDecision === 'APPROVED'
+                        ? 'Confirm Approval'
+                        : pendingDecision === 'REJECTED'
+                          ? 'Confirm Denial'
+                          : 'Confirm Decision'}
+                  </button>
+                </>
               ) : (
                 <button type="button" onClick={() => setSelectedId(null)} disabled={isSaving}>
                   Close
