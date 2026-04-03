@@ -587,6 +587,13 @@
   font-weight: 800;
 }
 
+.hrPerson__topLine {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
 .hrPerson__body {
   min-width: 0;
 }
@@ -653,6 +660,11 @@
   color: #444;
   white-space: nowrap;
   padding-top: 2px;
+}
+
+.hrPerson__time--panel {
+  padding-top: 0;
+  justify-self: end;
 }
 
 .hrPerson__infoRow {

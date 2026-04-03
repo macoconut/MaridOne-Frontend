@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FiChevronLeft, FiChevronRight, FiCalendar, FiClock } from 'react-icons/fi';
+import { FiChevronLeft, FiChevronRight, FiCalendar } from 'react-icons/fi';
 import PageHeader from '../../../components/layout/PageHeader';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
@@ -23,12 +23,22 @@ type LeaveRequest = {
   isPaid?: boolean;
 };
 
+type ShiftSchedule = {
+  shiftId?: number;
+  employeeId?: number;
+  startTime?: string;
+  endTime?: string;
+  dayOfWeek?: string;
+};
+
 type EmployeeRow = {
   id: number;
   name: string;
   status: string;
   position: string;
   department?: string;
+  shiftSchedules: ShiftSchedule[];
+  gracePeriodMinutes?: number;
 };
 
 type FeedItem = {
@@ -95,6 +105,8 @@ const STATUS_CONFIG: Record<
 
 const DEFAULT_WORKING_DAYS = new Set([1, 2, 3, 4, 5, 6]);
 const DEPARTMENTS_PER_PAGE = 3;
+const LATE_GRACE_MINUTES = 15;
+const DAY_NAMES = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
 
 function localDateKey(value?: string) {
   if (!value) return '';
@@ -113,6 +125,13 @@ function formatDateLabel(value?: string) {
 function dateFromKey(dateKey: string) {
   const [year, month, day] = dateKey.split('-').map(Number);
   return new Date(year, month - 1, day, 12, 0, 0, 0);
+}
+
+function parseTimeToMinutes(value?: string) {
+  if (!value) return null;
+  const match = value.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return null;
+  return Number(match[1]) * 60 + Number(match[2]);
 }
 
 function formatLongDateLabel(date: Date) {
@@ -162,10 +181,57 @@ function employeeName(employee: EmployeeRow | undefined) {
   return employee?.name || 'Employee record unavailable';
 }
 
+function isEmployeeScheduledOnDate(employee: EmployeeRow | undefined, dateKey?: string) {
+  if (!employee || !dateKey) return false;
+
+  const date = dateFromKey(dateKey);
+  if (Number.isNaN(date.getTime())) return true;
+
+  if (!employee.shiftSchedules.length) {
+    return DEFAULT_WORKING_DAYS.has(date.getDay());
+  }
+
+  const targetDay = DAY_NAMES[date.getDay()];
+  return employee.shiftSchedules.some((item) => String(item.dayOfWeek ?? '').toUpperCase() === targetDay);
+}
+
+function resolveScheduledStartMinutes(employee: EmployeeRow | undefined, dateKey?: string) {
+  if (!employee || !dateKey) return null;
+
+  const date = dateFromKey(dateKey);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const targetDay = DAY_NAMES[date.getDay()];
+  const schedule = employee.shiftSchedules.find((item) => String(item.dayOfWeek ?? '').toUpperCase() === targetDay);
+  return parseTimeToMinutes(schedule?.startTime);
+}
+
+function isInDirection(direction?: string) {
+  const value = String(direction ?? '').toUpperCase();
+  return value.includes('IN') || value.includes('LATE');
+}
+
 function isLateDirection(direction?: string) {
   return String(direction ?? '')
     .toUpperCase()
     .includes('LATE');
+}
+
+function isLateAfterGrace(timestamp?: string, employee?: EmployeeRow, dateKey?: string, direction?: string) {
+  if (!timestamp || !employee || !dateKey) return isLateDirection(direction);
+  if (!isEmployeeScheduledOnDate(employee, dateKey)) return false;
+
+  const scheduledStartMinutes = resolveScheduledStartMinutes(employee, dateKey);
+  if (scheduledStartMinutes === null) {
+    return isLateDirection(direction);
+  }
+
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return isLateDirection(direction);
+
+  const graceMinutes = Math.max(employee.gracePeriodMinutes ?? LATE_GRACE_MINUTES, 0);
+  const minutes = date.getHours() * 60 + date.getMinutes();
+  return minutes > scheduledStartMinutes + graceMinutes;
 }
 
 function directionIndicator(direction?: string): FeedItem['directionLabel'] {
@@ -200,6 +266,19 @@ function rosterRows(payload: unknown) {
     status: String(row.employmentStatus ?? '-'),
     position: String(row.position ?? '-'),
     department: typeof row.department === 'string' ? row.department.trim() : '',
+    shiftSchedules: toArray<Record<string, unknown>>(row.shiftSchedules).map((schedule) => ({
+      shiftId: typeof schedule.shiftId === 'number' ? schedule.shiftId : undefined,
+      employeeId: typeof schedule.employeeId === 'number' ? schedule.employeeId : undefined,
+      startTime: typeof schedule.startTime === 'string' ? schedule.startTime : undefined,
+      endTime: typeof schedule.endTime === 'string' ? schedule.endTime : undefined,
+      dayOfWeek: typeof schedule.dayOfWeek === 'string' ? schedule.dayOfWeek : undefined,
+    })),
+    gracePeriodMinutes:
+      typeof row.gracePeriodMinutes === 'number'
+        ? row.gracePeriodMinutes
+        : typeof row.gracePeriodMinutes === 'string'
+          ? Number(row.gracePeriodMinutes)
+          : undefined,
   }));
 }
 
@@ -224,7 +303,8 @@ function buildAttendanceSummary(
   presentSet: Set<number>,
   lateSet: Set<number>,
   onLeaveSet: Set<number>,
-  isWorkingDay: boolean
+  employeeById: Map<number, EmployeeRow>,
+  dateKey: string
 ) {
   const summary: AttendanceStatusSummary = {
     headcount: employeeIds.length,
@@ -236,6 +316,9 @@ function buildAttendanceSummary(
   };
 
   for (const employeeId of employeeIds) {
+    const employee = employeeById.get(employeeId);
+    const isScheduled = isEmployeeScheduledOnDate(employee, dateKey);
+
     if (lateSet.has(employeeId)) {
       summary.late += 1;
       continue;
@@ -251,7 +334,7 @@ function buildAttendanceSummary(
       continue;
     }
 
-    if (!isWorkingDay) {
+    if (!isScheduled) {
       summary.dayOff += 1;
       continue;
     }
@@ -323,7 +406,6 @@ export function AttendanceOverviewDashboard({
   const isSelectedDateToday = effectiveSelectedDateKey === todayKey;
   const selectedDateHeading = useMemo(() => formatLongDateLabel(selectedDate), [selectedDate]);
   const selectedDateShortLabel = useMemo(() => formatShortDateLabel(selectedDate), [selectedDate]);
-  const isWorkingDaySelected = DEFAULT_WORKING_DAYS.has(selectedDate.getDay());
   const handlePageRefresh = useCallback(() => {
     setRefreshTick((tick) => tick + 1);
   }, []);
@@ -427,8 +509,12 @@ export function AttendanceOverviewDashboard({
   }, [employees]);
 
   const selectedDateLogs = useMemo(() => {
-    return logs.filter((log) => localDateKey(log.timestamp) === effectiveSelectedDateKey);
-  }, [effectiveSelectedDateKey, logs]);
+    return logs.filter((log) => {
+      if (localDateKey(log.timestamp) !== effectiveSelectedDateKey) return false;
+      const employee = employeeById.get(log.employeeId ?? -1);
+      return String(employee?.status ?? '').toUpperCase() !== 'TERMINATED';
+    });
+  }, [effectiveSelectedDateKey, employeeById, logs]);
 
   const presentSet = useMemo(() => {
     const ids = new Set<number>();
@@ -437,21 +523,6 @@ export function AttendanceOverviewDashboard({
     }
     return ids;
   }, [selectedDateLogs]);
-
-  const lateSet = useMemo(() => {
-    const ids = new Set<number>();
-    for (const log of selectedDateLogs) {
-      if (typeof log.employeeId !== 'number') continue;
-      if (isLateDirection(log.direction)) ids.add(log.employeeId);
-    }
-    return ids;
-  }, [selectedDateLogs]);
-
-  const activeEmployees = useMemo(() => {
-    return employees.filter((employee) => employee.status.toUpperCase() !== 'TERMINATED');
-  }, [employees]);
-
-  const activeEmployeeIds = useMemo(() => activeEmployees.map((employee) => employee.id), [activeEmployees]);
 
   const lateClockInByEmployee = useMemo(() => {
     const map = new Map<number, string>();
@@ -462,8 +533,11 @@ export function AttendanceOverviewDashboard({
       return at - bt;
     })) {
       if (typeof log.employeeId !== 'number') continue;
-      if (!isLateDirection(log.direction)) continue;
+      if (!isInDirection(log.direction)) continue;
       if (map.has(log.employeeId)) continue;
+
+      const employee = employeeById.get(log.employeeId);
+      if (!isLateAfterGrace(log.timestamp, employee, effectiveSelectedDateKey, log.direction)) continue;
 
       const time = log.timestamp
         ? new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -472,7 +546,42 @@ export function AttendanceOverviewDashboard({
     }
 
     return map;
-  }, [selectedDateLogs]);
+  }, [effectiveSelectedDateKey, employeeById, selectedDateLogs]);
+
+  const lateSet = useMemo(() => {
+    return new Set(lateClockInByEmployee.keys());
+  }, [lateClockInByEmployee]);
+
+  const lateAttendanceIds = useMemo(() => {
+    const ids = new Set<number>();
+    const seen = new Set<number>();
+
+    for (const log of [...selectedDateLogs].sort((a, b) => {
+      const at = typeof a.timestamp === 'string' ? Date.parse(a.timestamp) : 0;
+      const bt = typeof b.timestamp === 'string' ? Date.parse(b.timestamp) : 0;
+      return at - bt;
+    })) {
+      if (typeof log.employeeId !== 'number') continue;
+      if (!isInDirection(log.direction)) continue;
+      if (seen.has(log.employeeId)) continue;
+      seen.add(log.employeeId);
+      const employee = employeeById.get(log.employeeId);
+      if (!isLateAfterGrace(log.timestamp, employee, effectiveSelectedDateKey, log.direction)) continue;
+      if (typeof log.attendanceId === 'number') ids.add(log.attendanceId);
+    }
+
+    return ids;
+  }, [effectiveSelectedDateKey, employeeById, selectedDateLogs]);
+
+  const activeEmployees = useMemo(() => {
+    return employees.filter((employee) => employee.status.toUpperCase() !== 'TERMINATED');
+  }, [employees]);
+
+  const activeEmployeeIds = useMemo(() => activeEmployees.map((employee) => employee.id), [activeEmployees]);
+  const scheduledEmployeeCountSelected = useMemo(
+    () => activeEmployees.filter((employee) => isEmployeeScheduledOnDate(employee, effectiveSelectedDateKey)).length,
+    [activeEmployees, effectiveSelectedDateKey]
+  );
 
   const attendanceFeed: FeedItem[] = useMemo(() => {
     return [...selectedDateLogs]
@@ -484,16 +593,17 @@ export function AttendanceOverviewDashboard({
       .map((log, idx) => {
         const date = typeof log.timestamp === 'string' ? new Date(log.timestamp) : null;
         const employee = employeeById.get(log.employeeId ?? -1);
+        const derivedLate = typeof log.attendanceId === 'number' && lateAttendanceIds.has(log.attendanceId);
         return {
           id: String(log.attendanceId ?? idx),
           name: employeeName(employee),
-          directionLabel: directionIndicator(log.direction),
-          directionTone: directionIndicatorTone(log.direction),
+          directionLabel: derivedLate ? 'LATE' : directionIndicator(log.direction),
+          directionTone: derivedLate ? 'late' : directionIndicatorTone(log.direction),
           position: employee?.position || 'Position unavailable',
           time: date ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A',
         };
       });
-  }, [employeeById, selectedDateLogs]);
+  }, [employeeById, lateAttendanceIds, selectedDateLogs]);
 
   const onLeave: LeaveCardItem[] = useMemo(() => {
     return leaveRequests
@@ -523,9 +633,8 @@ export function AttendanceOverviewDashboard({
   }, [leaveRequests, selectedDate]);
 
   const absentToday = useMemo(() => {
-    if (!isWorkingDaySelected) return [];
-
     return activeEmployees
+      .filter((employee) => isEmployeeScheduledOnDate(employee, effectiveSelectedDateKey))
       .filter((employee) => !lateSet.has(employee.id))
       .filter((employee) => !presentSet.has(employee.id))
       .filter((employee) => !employeesOnLeaveToday.has(employee.id))
@@ -536,7 +645,7 @@ export function AttendanceOverviewDashboard({
         summary: employee.position || 'No position assigned',
         detail: resolveDepartmentLabel(employee),
       }));
-  }, [activeEmployees, employeesOnLeaveToday, isWorkingDaySelected, lateSet, presentSet]);
+  }, [activeEmployees, effectiveSelectedDateKey, employeesOnLeaveToday, lateSet, presentSet]);
 
   const lateToday = useMemo(() => {
     return activeEmployees
@@ -552,8 +661,16 @@ export function AttendanceOverviewDashboard({
   }, [activeEmployees, lateClockInByEmployee, lateSet]);
 
   const overallSummary = useMemo(
-    () => buildAttendanceSummary(activeEmployeeIds, presentSet, lateSet, employeesOnLeaveToday, isWorkingDaySelected),
-    [activeEmployeeIds, employeesOnLeaveToday, isWorkingDaySelected, lateSet, presentSet]
+    () =>
+      buildAttendanceSummary(
+        activeEmployeeIds,
+        presentSet,
+        lateSet,
+        employeesOnLeaveToday,
+        employeeById,
+        effectiveSelectedDateKey
+      ),
+    [activeEmployeeIds, effectiveSelectedDateKey, employeeById, employeesOnLeaveToday, lateSet, presentSet]
   );
 
   const metricCards = useMemo(
@@ -604,7 +721,8 @@ export function AttendanceOverviewDashboard({
         presentSet,
         lateSet,
         employeesOnLeaveToday,
-        isWorkingDaySelected
+        employeeById,
+        effectiveSelectedDateKey
       );
 
       current.present += employeeSummary.present;
@@ -621,7 +739,7 @@ export function AttendanceOverviewDashboard({
         b.present + b.late - (a.present + a.late) ||
         a.name.localeCompare(b.name)
     );
-  }, [activeEmployees, employeesOnLeaveToday, isWorkingDaySelected, lateSet, presentSet]);
+  }, [activeEmployees, effectiveSelectedDateKey, employeeById, employeesOnLeaveToday, lateSet, presentSet]);
 
   const totalDeptPages = Math.max(Math.ceil(departmentBreakdown.length / DEPARTMENTS_PER_PAGE), 1);
   const activeDeptPage = Math.min(deptPage, totalDeptPages - 1);
@@ -820,10 +938,12 @@ export function AttendanceOverviewDashboard({
                 ) : (
                   <div className="hrEmptyState">
                     <div className="hrEmptyState__title">
-                      {isWorkingDaySelected ? 'Everyone is accounted for.' : 'No absences on scheduled day off.'}
+                      {scheduledEmployeeCountSelected > 0
+                        ? 'Everyone is accounted for.'
+                        : 'No absences on scheduled day off.'}
                     </div>
                     <div className="hrEmptyState__note">
-                      {isWorkingDaySelected
+                      {scheduledEmployeeCountSelected > 0
                         ? `No absences were recorded for ${selectedDateHeading}.`
                         : `${selectedDateHeading} is treated as a day off in the dashboard schedule.`}
                     </div>
@@ -842,14 +962,12 @@ export function AttendanceOverviewDashboard({
                   lateToday.map((item) => (
                     <article key={item.id} className="hrPerson">
                       <div className="hrPerson__body">
-                        <div className="hrPerson__name">{item.name}</div>
+                        <div className="hrPerson__topLine">
+                          <div className="hrPerson__name">{item.name}</div>
+                          <div className="hrPerson__time hrPerson__time--panel">{item.timeIn}</div>
+                        </div>
                         <div className="hrPerson__meta">{item.summary}</div>
                         <div className="hrPerson__meta">{item.detail}</div>
-                        <div className="hrPerson__infoRow">
-                          <span>
-                            <FiClock /> {item.timeIn}
-                          </span>
-                        </div>
                       </div>
                     </article>
                   ))
