@@ -686,20 +686,20 @@ body.modal-open{
 .announcementModal__list{
   display:grid;
   gap: 12px;
+  align-content: start;
 }
 
 .announcementModal__card{
-  padding: 0 0 16px;
-  background: transparent;
-  border: none;
-  display: flex;
-  flex-direction: column;
-  min-height: clamp(150px, 22vh, 190px);
+  padding: 18px 20px;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-height: 0;
 }
 
 .announcementModal__card + .announcementModal__card{
   border-top: 1px solid rgba(0,0,0,.12);
-  padding-top: 16px;
+  padding-top: 18px;
 }
 
 .announcementModal__titleRow{
@@ -707,7 +707,7 @@ body.modal-open{
   align-items:flex-start;
   justify-content:space-between;
   gap: 12px;
-  margin-top: 12px;
+  margin-top: 0;
 }
 
 .announcementModal__title{
@@ -723,10 +723,11 @@ body.modal-open{
   font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
+  text-align: right;
 }
 
 .announcementModal__card p{
-  margin: 10px 0 0;
+  margin: 0;
   color: rgba(43, 32, 54, 0.82);
   font-size: 15px;
   line-height: 1.45;
@@ -747,8 +748,8 @@ body.modal-open{
 .announcementModal__deleteRow{
   display:flex;
   justify-content:flex-end;
-  margin-top: auto;
-  padding-top: 28px;
+  margin-top: 2px;
+  padding-top: 0;
 }
 
 .announcementModal__delete svg{
@@ -1099,6 +1100,16 @@ body.modal-open{
   .calCell__event,
   .calCell__more{
     font-size: 10px;
+  }
+
+  .announcementModal__titleRow{
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .announcementModal__dates{
+    white-space: normal;
+    text-align: left;
   }
 }
 
