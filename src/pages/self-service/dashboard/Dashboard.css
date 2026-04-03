@@ -520,10 +520,10 @@ body.modal-open{
 }
 
 .calCell.is-event{
-  background: #8c55ff;
-  color:#fff;
+  background: linear-gradient(180deg, #e6dfea 0%, #d8cedf 100%);
+  color:#4f3b61;
   opacity:1;
-  border-color: transparent;
+  border-color: rgba(95, 72, 116, 0.22);
 }
 
 .calCell__day{
@@ -535,7 +535,7 @@ body.modal-open{
 }
 
 .calCell.is-event .calCell__day{
-  color:#fff;
+  color:#4f3b61;
 }
 
 .calCell__events{
@@ -566,8 +566,8 @@ body.modal-open{
 }
 
 .calCell.is-event .calCell__event{
-  background: rgba(255,255,255,.18);
-  color:#fff;
+  background: rgba(255,255,255,.72);
+  color:#4f3b61;
 }
 
 .calCell__more{
@@ -577,7 +577,7 @@ body.modal-open{
 }
 
 .calCell.is-event .calCell__more{
-  color: rgba(255,255,255,.86);
+  color: rgba(79, 59, 97, 0.82);
 }
 
 .dashEditError{

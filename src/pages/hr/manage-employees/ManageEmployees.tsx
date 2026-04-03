@@ -443,49 +443,79 @@ export default function HrManageEmp() {
             <div className="hrEmpModal__rule" />
 
             <div className="hrEmpForm">
-              <div className="hrEmpForm__section">
-                <div className="hrEmpForm__sectionTitle">Employment Details</div>
-                <div className="hrEmpForm__grid hrEmpForm__grid--meta">
-                {modal !== 'add' && (
-                  <div className="hrEmpField">
-                    <label>Employee ID:</label>
-                    <input
-                      placeholder="Enter employee ID number"
-                      value={form.employeeId}
-                      onChange={(e) => setField('employeeId', e.target.value)}
-                    />
+              {modal === 'delete' ? (
+                <div className="hrEmpForm__section hrEmpForm__section--danger">
+                  <div className="hrEmpForm__sectionTitle">Termination Details</div>
+                  <div className="hrEmpDelete">
+                    <div className="hrEmpDelete__summary">
+                      <span className="hrEmpDelete__summaryLabel">Employee on record</span>
+                      <strong>{selectedEmployee ? selectedEmployee.name : 'No employee selected yet'}</strong>
+                      <span>
+                        {selectedEmployee
+                          ? `Employee ID ${selectedEmployee.id} • ${selectedEmployee.position} • ${selectedEmployee.status}`
+                          : 'Choose an employee from the roster above or enter an employee ID below before terminating the record.'}
+                      </span>
+                    </div>
+                    <div className="hrEmpForm__grid hrEmpForm__grid--delete">
+                      <div className="hrEmpField">
+                        <label>Employee ID:</label>
+                        <input
+                          value={form.employeeId}
+                          onChange={(e) => setField('employeeId', e.target.value)}
+                          readOnly={!!selectedEmployee}
+                          placeholder="Enter employee ID number"
+                        />
+                      </div>
+                      <div className="hrEmpField hrEmpField--full">
+                        <label>Reason for Termination:</label>
+                        <textarea
+                          value={form.reason}
+                          onChange={(e) => setField('reason', e.target.value)}
+                          placeholder="Add internal notes for HR reference"
+                        />
+                      </div>
+                    </div>
                   </div>
-                )}
-                {modal !== 'delete' && (
-                  <>
-                    <div className="hrEmpField">
-                      <label>Status:</label>
-                      <select
-                        value={form.employmentStatus}
-                        onChange={(e) => setField('employmentStatus', e.target.value)}
-                      >
-                        <option value="REGULAR">REGULAR</option>
-                        <option value="NEW_HIRE">NEW_HIRE</option>
-                        <option value="PART_TIME">PART_TIME</option>
-                        <option value="SUSPENDED">SUSPENDED</option>
-                        <option value="TERMINATED">TERMINATED</option>
-                      </select>
-                    </div>
-                    <div className="hrEmpField">
-                      <label>Employment Start Date:</label>
-                      <input
-                        type="date"
-                        value={form.employmentDateStart}
-                        onChange={(e) => setField('employmentDateStart', e.target.value)}
-                      />
-                    </div>
-                  </>
-                )}
                 </div>
-              </div>
-
-              {modal !== 'delete' ? (
+              ) : (
                 <>
+                  <div className="hrEmpForm__section">
+                    <div className="hrEmpForm__sectionTitle">Employment Details</div>
+                    <div className="hrEmpForm__grid hrEmpForm__grid--meta">
+                    {modal !== 'add' && (
+                      <div className="hrEmpField">
+                        <label>Employee ID:</label>
+                        <input
+                          placeholder="Enter employee ID number"
+                          value={form.employeeId}
+                          onChange={(e) => setField('employeeId', e.target.value)}
+                        />
+                      </div>
+                    )}
+                      <div className="hrEmpField">
+                        <label>Status:</label>
+                        <select
+                          value={form.employmentStatus}
+                          onChange={(e) => setField('employmentStatus', e.target.value)}
+                        >
+                          <option value="REGULAR">REGULAR</option>
+                          <option value="NEW_HIRE">NEW_HIRE</option>
+                          <option value="PART_TIME">PART_TIME</option>
+                          <option value="SUSPENDED">SUSPENDED</option>
+                          <option value="TERMINATED">TERMINATED</option>
+                        </select>
+                      </div>
+                      <div className="hrEmpField">
+                        <label>Employment Start Date:</label>
+                        <input
+                          type="date"
+                          value={form.employmentDateStart}
+                          onChange={(e) => setField('employmentDateStart', e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="hrEmpForm__section">
                     <div className="hrEmpForm__sectionTitle">Personal Information</div>
                     <div className="hrEmpForm__grid">
@@ -544,7 +574,7 @@ export default function HrManageEmp() {
                         placeholder="Optional"
                       />
                     </div>
-                  </div>
+                    </div>
                   </div>
 
                   <div className="hrEmpForm__section">
@@ -577,22 +607,6 @@ export default function HrManageEmp() {
                   </div>
                   </div>
                 </>
-              ) : (
-                <div className="hrEmpDelete">
-                  <div className="hrEmpField">
-                    <label>Selected Employee:</label>
-                    <input
-                      value={selectedEmployee ? `${selectedEmployee.id} - ${selectedEmployee.name}` : form.employeeId}
-                      onChange={(e) => setField('employeeId', e.target.value)}
-                      readOnly={!!selectedEmployee}
-                      placeholder="Enter employee ID number"
-                    />
-                  </div>
-                  <div className="hrEmpField hrEmpField--full">
-                    <label>Reason for Termination:</label>
-                    <textarea value={form.reason} onChange={(e) => setField('reason', e.target.value)} />
-                  </div>
-                </div>
               )}
             </div>
 
