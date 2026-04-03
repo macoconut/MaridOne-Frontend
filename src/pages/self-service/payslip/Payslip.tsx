@@ -36,6 +36,14 @@ type DisputeRow = {
   status?: string;
 };
 
+type DocumentRow = {
+  pathId?: number;
+  filePath?: string;
+  fileName?: string;
+  fileType?: string;
+  username?: string;
+};
+
 type PayslipLine = {
   key: string;
   label: string;
@@ -91,6 +99,19 @@ function formatPeriodLabel(start?: string, end?: string) {
   return `${formatDisplayDate(start)} to ${formatDisplayDate(end)}`;
 }
 
+function matchesPayslipPeriod(document: DocumentRow, periodEnd?: string) {
+  const target = typeof periodEnd === 'string' ? periodEnd.trim().toLowerCase() : '';
+  if (!target) return true;
+
+  const searchableText = [document.filePath, document.fileName]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .join(' ')
+    .replace(/\\/g, '/')
+    .toLowerCase();
+
+  return searchableText.includes(target);
+}
+
 export default function Payslip() {
   const [employeeId, setEmployeeId] = useState<number | null>(null);
   const [payrollItems, setPayrollItems] = useState<PayrollItemRow[]>([]);
@@ -108,6 +129,8 @@ export default function Payslip() {
   const [disputeError, setDisputeError] = useState('');
   const [disputeSubmitting, setDisputeSubmitting] = useState(false);
   const [confirmDisputeSubmit, setConfirmDisputeSubmit] = useState(false);
+  const [printingPayslip, setPrintingPayslip] = useState(false);
+  const [payslipActionError, setPayslipActionError] = useState('');
 
   useEffect(() => {
     void (async () => {
@@ -293,6 +316,69 @@ export default function Payslip() {
     anchor.download = `payslip-summary-${selectedItemId ?? 'latest'}.txt`;
     anchor.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function handlePrintPayslip() {
+    setPayslipActionError('');
+    setPrintingPayslip(true);
+
+    try {
+      const username = getUserEmail();
+      if (!username) {
+        throw new Error('Missing username.');
+      }
+
+      const documents = await apiFetchJson<DocumentRow[]>(
+        `/api/user/documents/${encodeURIComponent(username)}?subDir=payslip`
+      );
+      const selectedDocument =
+        documents.find((document) => matchesPayslipPeriod(document, selectedRun?.periodEnd)) ?? documents[0];
+
+      if (!selectedDocument || typeof selectedDocument.pathId !== 'number') {
+        throw new Error('No saved payslip PDF was found for this pay period yet.');
+      }
+
+      const documentViewPaths = [
+        `/api/LOCAL/document/${selectedDocument.pathId}/view`,
+        `/api/document/${selectedDocument.pathId}/view`,
+      ];
+
+      let documentBlob: Blob | null = null;
+
+      for (const path of documentViewPaths) {
+        const response = await apiFetchRaw(path, { method: 'GET' });
+
+        if (response.ok) {
+          documentBlob = await response.blob();
+          break;
+        }
+
+        if (response.status !== 404) {
+          throw new Error(`Failed to open the saved payslip (${response.status}).`);
+        }
+      }
+
+      if (!documentBlob) {
+        throw new Error('The saved payslip document could not be opened.');
+      }
+
+      const documentUrl = URL.createObjectURL(documentBlob);
+      const openedWindow = window.open(documentUrl, '_blank', 'noopener,noreferrer');
+
+      if (!openedWindow) {
+        const anchor = document.createElement('a');
+        anchor.href = documentUrl;
+        anchor.target = '_blank';
+        anchor.rel = 'noopener noreferrer';
+        anchor.click();
+      }
+
+      window.setTimeout(() => URL.revokeObjectURL(documentUrl), 60_000);
+    } catch (error) {
+      setPayslipActionError(error instanceof Error ? error.message : 'Failed to open the saved payslip.');
+    } finally {
+      setPrintingPayslip(false);
+    }
   }
 
   function openDisputeForm() {
@@ -585,9 +671,12 @@ export default function Payslip() {
 
       <div className="payActions">
         <button className="payBtn" type="button" onClick={handleDownload}>Download Summary</button>
-        <button className="payBtn" type="button" onClick={() => window.print()}>Print Payslip</button>
+        <button className="payBtn" type="button" onClick={() => void handlePrintPayslip()} disabled={printingPayslip}>
+          {printingPayslip ? 'Opening Payslip...' : 'Print Payslip'}
+        </button>
         <button className="payBtn" type="button" onClick={openDisputeForm}>File Dispute</button>
       </div>
+      {payslipActionError && <p className="pay__actionError">{payslipActionError}</p>}
 
       {disputeOpen && (
         <div className="payModalBackdrop" role="dialog" aria-modal="true" aria-label="Payslip dispute form">
