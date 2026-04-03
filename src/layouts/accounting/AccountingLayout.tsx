@@ -2,6 +2,7 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { FiBarChart2, FiClipboard, FiLogOut } from 'react-icons/fi';
 import AppFooter from '../../components/layout/AppFooter';
+import HeaderRefreshButton from '../../components/navigation/HeaderRefreshButton';
 import SidebarBrand from '../../components/navigation/SidebarBrand';
 import SidebarNavSection, { type NavSection } from '../../components/navigation/SidebarNavSection';
 import '../shared/RoleLayout.css';
@@ -16,6 +17,7 @@ import {
   firstFromCollection,
   type PlaceholderContext,
 } from '../../lib/backendTest';
+import { PageRefreshProvider } from '../../lib/pageRefresh';
 
 type BackendTestAction = {
   label: string;
@@ -204,7 +206,8 @@ export default function AccountingLayout() {
   }
 
   return (
-    <div className="employeeLayout">
+    <PageRefreshProvider>
+      <div className="employeeLayout">
       <aside className="eSide">
         <SidebarBrand label="Go to dashboard" onClick={handleBrandClick} />
 
@@ -232,6 +235,10 @@ export default function AccountingLayout() {
           <div className="eTop__left">
             <div className="eTop__title">{headerTitle}</div>
             <span className="eTop__badge">Accounting</span>
+          </div>
+
+          <div className="eTop__actions">
+            <HeaderRefreshButton />
           </div>
         </header>
 
@@ -295,7 +302,8 @@ export default function AccountingLayout() {
 
         <AppFooter />
       </div>
-    </div>
+      </div>
+    </PageRefreshProvider>
   );
 }
 

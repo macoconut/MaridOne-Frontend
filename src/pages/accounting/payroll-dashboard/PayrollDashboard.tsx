@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
-import { FiRefreshCw } from 'react-icons/fi';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetchJson, toArray } from '../../../lib/api';
+import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './PayrollDashboard.css';
 
@@ -170,6 +170,11 @@ export default function AccountingPayrollDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [refreshTick, setRefreshTick] = useState(0);
+  const handlePageRefresh = useCallback(() => {
+    setRefreshTick((tick) => tick + 1);
+  }, []);
+
+  useRegisterPageRefresh(handlePageRefresh);
 
   useEffect(() => {
     let cancelled = false;
@@ -369,14 +374,6 @@ export default function AccountingPayrollDashboard() {
                 <option value="">No payroll runs yet</option>
               )}
             </select>
-            <button
-              type="button"
-              className="aDashPay__refreshBtn"
-              aria-label="Refresh dashboard"
-              onClick={() => setRefreshTick((tick) => tick + 1)}
-            >
-              <FiRefreshCw />
-            </button>
           </div>
         </div>
 

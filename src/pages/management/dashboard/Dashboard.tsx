@@ -1,7 +1,8 @@
 import { FiHome, FiMail, FiPhone, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetchJson, toArray } from '../../../lib/api';
+import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
 import { getAuthToken, getUserEmail } from '../../../lib/session';
 import { mapNotificationItem, type NotificationItem } from '../../../lib/notificationRouting';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
@@ -98,6 +99,11 @@ export default function ManagementDashboard() {
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
   const [refreshTick, setRefreshTick] = useState(0);
   const [loadError, setLoadError] = useState('');
+  const handlePageRefresh = useCallback(() => {
+    setRefreshTick((tick) => tick + 1);
+  }, []);
+
+  useRegisterPageRefresh(handlePageRefresh);
 
   useEffect(() => {
     setLastLoginLabel(formatJwtIssuedAt(getAuthToken()));
@@ -253,9 +259,6 @@ export default function ManagementDashboard() {
       <section className="mPanel mInfo">
         <div className="mPanel__head mPanel__head--inline">
           <span>Your Information</span>
-          <button type="button" onClick={() => setRefreshTick((tick) => tick + 1)}>
-            Refresh Info
-          </button>
         </div>
 
         <div className="mInfo__body">
@@ -304,10 +307,6 @@ export default function ManagementDashboard() {
         </button>
         <button type="button" className="mQuickCard" onClick={() => navigate('/management/pay-run-reporting')}>
           <span>Pay Run Reporting</span>
-          <i aria-hidden="true" />
-        </button>
-        <button type="button" className="mQuickCard" onClick={() => setRefreshTick((tick) => tick + 1)}>
-          <span>Refresh Dashboard</span>
           <i aria-hidden="true" />
         </button>
       </div>

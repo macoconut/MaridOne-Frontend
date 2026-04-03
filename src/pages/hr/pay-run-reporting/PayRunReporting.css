@@ -32,7 +32,7 @@
 
 .hrRunFilters {
   display: grid;
-  grid-template-columns: 1.4fr auto auto auto;
+  grid-template-columns: 1.4fr auto auto;
   gap: 8px 12px;
   align-items: end;
 }
@@ -94,18 +94,6 @@
   place-items: center;
   padding: 0;
   color: #676278;
-}
-
-.hrRunFilters__refresh {
-  align-self: center;
-  width: 30px;
-  height: 30px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: #4a4361;
-  font-size: 16px;
-  cursor: pointer;
 }
 
 .hrRun__status {

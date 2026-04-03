@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FiChevronLeft, FiChevronRight, FiClock, FiCalendar } from 'react-icons/fi';
 import { apiFetchJson, toArray } from '../../../lib/api';
+import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
 import './Dashboard.css';
 
 type AttendanceLog = {
@@ -120,6 +121,11 @@ export function AttendanceOverviewDashboard({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [deptPage, setDeptPage] = useState(0);
   const [refreshTick, setRefreshTick] = useState(0);
+  const handlePageRefresh = useCallback(() => {
+    setRefreshTick((tick) => tick + 1);
+  }, []);
+
+  useRegisterPageRefresh(handlePageRefresh);
 
   useEffect(() => {
     let cancelled = false;
@@ -316,9 +322,6 @@ export function AttendanceOverviewDashboard({
           </p>
         </div>
         <div className="hrDash__topActions">
-          <button className="hrDash__refreshBtn" type="button" onClick={() => setRefreshTick((t) => t + 1)}>
-            Refresh
-          </button>
           <button className="hrDash__exportBtn" type="button" onClick={() => window.print()}>
             Export Attendance
             <br />

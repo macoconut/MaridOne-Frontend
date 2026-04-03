@@ -14,6 +14,7 @@ import {
   FiActivity,
 } from 'react-icons/fi';
 import AppFooter from '../../components/layout/AppFooter';
+import HeaderRefreshButton from '../../components/navigation/HeaderRefreshButton';
 import SidebarBrand from '../../components/navigation/SidebarBrand';
 import SidebarNavSection, { type NavSection } from '../../components/navigation/SidebarNavSection';
 import '../shared/RoleLayout.css';
@@ -30,6 +31,7 @@ import {
   firstFromCollection,
   type PlaceholderContext,
 } from '../../lib/backendTest';
+import { PageRefreshProvider } from '../../lib/pageRefresh';
 
 type BackendTestAction = {
   label: string;
@@ -598,7 +600,8 @@ export default function HrLayout() {
   }
 
   return (
-    <div className="employeeLayout">
+    <PageRefreshProvider>
+      <div className="employeeLayout">
       <aside className="eSide">
         <SidebarBrand label="Go to dashboard" onClick={handleBrandClick} />
 
@@ -628,65 +631,69 @@ export default function HrLayout() {
             <span className="eTop__badge">Human Resources</span>
           </div>
 
-          <div className="notif">
-            <button
-              ref={bellRef}
-              className="eTop__bell"
-              type="button"
-              aria-label="Notifications"
-              aria-expanded={notifOpen}
-              onClick={handleNotificationBellClick}
-            >
-              <FiBell />
-              {unreadCount > 0 && <span className="notif__badge">{unreadCount}</span>}
-            </button>
+          <div className="eTop__actions">
+            <HeaderRefreshButton />
 
-            {notifOpen && <div className="notif__backdrop" />}
+            <div className="notif">
+              <button
+                ref={bellRef}
+                className="eTop__bell"
+                type="button"
+                aria-label="Notifications"
+                aria-expanded={notifOpen}
+                onClick={handleNotificationBellClick}
+              >
+                <FiBell />
+                {unreadCount > 0 && <span className="notif__badge">{unreadCount}</span>}
+              </button>
 
-            {notifOpen && (
-              <div ref={panelRef} className="notifPanel" role="dialog" aria-label="Notifications">
-                <div className="notifPanel__header">
-                  <div className="notifPanel__title">Notifications ({unreadCount})</div>
-                  <div className="notifPanel__date">Today, {todayLabel}</div>
-                </div>
+              {notifOpen && <div className="notif__backdrop" />}
 
-                <div className="notifPanel__list">
-                  {notifications.length > 0 ? (
-                    notifications.map((n) => (
-                      <div
-                        key={n.id}
-                        className={`notifItem ${n.isRead ? 'notifItem--read' : 'notifItem--unread'}`}
-                      >
+              {notifOpen && (
+                <div ref={panelRef} className="notifPanel" role="dialog" aria-label="Notifications">
+                  <div className="notifPanel__header">
+                    <div className="notifPanel__title">Notifications ({unreadCount})</div>
+                    <div className="notifPanel__date">Today, {todayLabel}</div>
+                  </div>
+
+                  <div className="notifPanel__list">
+                    {notifications.length > 0 ? (
+                      notifications.map((n) => (
+                        <div
+                          key={n.id}
+                          className={`notifItem ${n.isRead ? 'notifItem--read' : 'notifItem--unread'}`}
+                        >
+                          <div className="notifItem__icon">
+                            <FiCheckCircle />
+                          </div>
+                          <button
+                            type="button"
+                            className="notifItem__main"
+                            onClick={() => void handleNotificationClick(n)}
+                          >
+                            <div className="notifItem__body">
+                              <div className="notifItem__title">{n.title}</div>
+                              {n.description && <div className="notifItem__msg">{n.description}</div>}
+                            </div>
+                            <div className="notifItem__time">{n.time}</div>
+                          </button>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="notifItem">
                         <div className="notifItem__icon">
                           <FiCheckCircle />
                         </div>
-                        <button
-                          type="button"
-                          className="notifItem__main"
-                          onClick={() => void handleNotificationClick(n)}
-                        >
-                          <div className="notifItem__body">
-                            <div className="notifItem__title">{n.title}</div>
-                            {n.description && <div className="notifItem__msg">{n.description}</div>}
-                          </div>
-                          <div className="notifItem__time">{n.time}</div>
-                        </button>
+                        <div className="notifItem__body">
+                          <div className="notifItem__title">No new notifications.</div>
+                        </div>
+                        <div className="notifItem__time">Now</div>
                       </div>
-                    ))
-                  ) : (
-                    <div className="notifItem">
-                      <div className="notifItem__icon">
-                        <FiCheckCircle />
-                      </div>
-                      <div className="notifItem__body">
-                        <div className="notifItem__title">No new notifications.</div>
-                      </div>
-                      <div className="notifItem__time">Now</div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </header>
 
@@ -718,7 +725,8 @@ export default function HrLayout() {
 
         <AppFooter />
       </div>
-    </div>
+      </div>
+    </PageRefreshProvider>
   );
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AccountSecuritySection from '../../../components/account/AccountSecuritySection';
 import {
@@ -9,6 +9,7 @@ import {
   type TwoFactorSetupResponse,
 } from '../../../lib/accountSecurity';
 import { apiFetchJson, toArray } from '../../../lib/api';
+import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
 import { getAuthToken, getUserEmail } from '../../../lib/session';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import '../../self-service/dashboard/Dashboard.css';
@@ -197,6 +198,11 @@ export default function ManagerDashboard() {
     country: '',
     zipCode: '',
   });
+  const handlePageRefresh = useCallback(() => {
+    setRefreshTick((tick) => tick + 1);
+  }, []);
+
+  useRegisterPageRefresh(handlePageRefresh);
 
   useEffect(() => {
     setLastLoginLabel(formatJwtIssuedAt(getAuthToken()));
@@ -615,10 +621,6 @@ export default function ManagerDashboard() {
           <span>Review Approvals</span>
           <span className="actionBtnX__arrow">→</span>
         </button>
-        <button className="actionBtnX" type="button" onClick={() => setRefreshTick((tick) => tick + 1)}>
-          <span>Refresh Manager View</span>
-          <span className="actionBtnX__arrow">→</span>
-        </button>
       </section>
 
       <section className="lowerGridX">
@@ -636,9 +638,6 @@ export default function ManagerDashboard() {
                       <li key={item}>{item}</li>
                     ))}
                   </ul>
-                  <button className="miniFolder__btn" type="button" onClick={() => setRefreshTick((tick) => tick + 1)}>
-                    Refresh Updates
-                  </button>
                 </div>
               </div>
 

@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
-import { FiRefreshCw, FiSearch, FiXCircle } from 'react-icons/fi';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { FiSearch, FiXCircle } from 'react-icons/fi';
 import { apiFetchJson, toArray } from '../../../lib/api';
+import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './PayrollReview.css';
 
@@ -84,6 +85,11 @@ export default function AccountingPayrollReview() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [refreshTick, setRefreshTick] = useState(0);
+  const handlePageRefresh = useCallback(() => {
+    setRefreshTick((tick) => tick + 1);
+  }, []);
+
+  useRegisterPageRefresh(handlePageRefresh);
 
   useEffect(() => {
     let cancelled = false;
@@ -240,15 +246,6 @@ export default function AccountingPayrollReview() {
             )}
           </select>
         </div>
-
-        <button
-          type="button"
-          className="aReviewPay__refresh"
-          aria-label="Refresh"
-          onClick={() => setRefreshTick((tick) => tick + 1)}
-        >
-          <FiRefreshCw />
-        </button>
       </div>
 
       <p className={`aReviewPay__status${loadError ? ' is-error' : ''}`}>

@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
-import { FiCalendar, FiRefreshCw, FiUsers, FiX } from 'react-icons/fi';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { FiCalendar, FiUsers, FiX } from 'react-icons/fi';
 import { apiFetchJson, toArray } from '../../../lib/api';
+import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
 import './AttendanceReports.css';
 
 type AttendanceLog = {
@@ -193,6 +194,11 @@ export function AttendanceReportsBoard({
   const [refreshTick, setRefreshTick] = useState(0);
   const [selectedDateKey, setSelectedDateKey] = useState(todayDateKey);
   const [detailOpen, setDetailOpen] = useState(false);
+  const handlePageRefresh = useCallback(() => {
+    setRefreshTick((tick) => tick + 1);
+  }, []);
+
+  useRegisterPageRefresh(handlePageRefresh);
 
   useEffect(() => {
     if (detailOpen) document.body.classList.add('modal-open');
@@ -409,10 +415,6 @@ export function AttendanceReportsBoard({
         </div>
 
         <div className="hrAtt__topActions">
-          <button className="hrAtt__actionBtn hrAtt__actionBtn--ghost" type="button" onClick={() => setRefreshTick((tick) => tick + 1)}>
-            <FiRefreshCw />
-            Refresh
-          </button>
           <button className="hrAtt__actionBtn" type="button" onClick={() => window.print()}>
             <FiCalendar />
             Export Attendance

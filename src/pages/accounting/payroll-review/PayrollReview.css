@@ -25,7 +25,7 @@
 
 .aReviewPay__filters {
   display: grid;
-  grid-template-columns: 1.3fr 220px auto;
+  grid-template-columns: 1.3fr 220px;
   gap: 12px;
   align-items: end;
 }
@@ -66,8 +66,7 @@
   font-size: 15px;
 }
 
-.aReviewPay__search button,
-.aReviewPay__refresh {
+.aReviewPay__search button {
   border: 0;
   background: transparent;
   color: #6d5f85;
@@ -89,13 +88,6 @@
   font-size: 15px;
   font-weight: 700;
   padding: 0 10px;
-}
-
-.aReviewPay__refresh {
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  font-size: 18px;
 }
 
 .aReviewPayTable {
