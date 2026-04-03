@@ -1,5 +1,4 @@
-import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import type { IconType } from 'react-icons';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   FiBell,
   FiBookOpen,
@@ -10,35 +9,26 @@ import {
   FiFileText,
   FiGrid,
   FiLogOut,
-  FiChevronDown,
 } from 'react-icons/fi';
 import { useEffect, useRef, useState } from 'react';
-import '../../employee/layout/EmployeeLayout.css';
-import { getUserEmail } from '../../../lib/session';
-import { BACKEND_TEST_MODE } from '../../../config/flags';
-import { apiFetchRaw, expireCurrentSession, getApiBaseUrl } from '../../../lib/api';
-import { resolveHeaderTitle } from '../../../lib/headerProfile';
-import { mapNotificationItem, type NotificationItem } from '../../../lib/notificationRouting';
+import AppFooter from '../../components/layout/AppFooter';
+import SidebarBrand from '../../components/navigation/SidebarBrand';
+import SidebarNavSection, { type NavSection } from '../../components/navigation/SidebarNavSection';
+import '../shared/RoleLayout.css';
+import { getUserEmail } from '../../lib/session';
+import { BACKEND_TEST_MODE } from '../../config/flags';
+import { apiFetchRaw, expireCurrentSession, getApiBaseUrl } from '../../lib/api';
+import { resolveHeaderTitle } from '../../lib/headerProfile';
+import { mapNotificationItem, type NotificationItem } from '../../lib/notificationRouting';
 import {
   applyBodyPlaceholders,
   applyPathPlaceholders,
   extractFirstId,
   firstFromCollection,
   type PlaceholderContext,
-} from '../../../lib/backendTest';
+} from '../../lib/backendTest';
 
 const API_BASE_URL = getApiBaseUrl();
-
-type NavSection = {
-  id: string;
-  label: string;
-  defaultOpen: boolean;
-  items: Array<{
-    to: string;
-    label: string;
-    icon: IconType;
-  }>;
-};
 
 type BackendTestAction = {
   label: string;
@@ -363,51 +353,16 @@ export default function ManagementLayout() {
   return (
     <div className="employeeLayout">
       <aside className="eSide">
-        <button
-          type="button"
-          className="eSide__brand eSide__brand--link"
-          onClick={handleBrandClick}
-          aria-label="Go to dashboard"
-        >
-          <div className="eSide__logo" aria-hidden="true" />
-          <div className="eSide__name">MaridOne</div>
-        </button>
+        <SidebarBrand label="Go to dashboard" onClick={handleBrandClick} />
 
         <div className="eSide__navWrap">
           {navSections.map((section) => (
-            <div
+            <SidebarNavSection
               key={section.id}
-              className={`eSide__navSection ${openSections[section.id] ? 'is-open' : ''}`}
-            >
-              <button
-                type="button"
-                className="eSide__sectionToggle"
-                onClick={() => toggleSection(section.id)}
-                aria-expanded={openSections[section.id]}
-              >
-                <span className="eSide__navLabel">{section.label}</span>
-                <FiChevronDown className="eSide__sectionChevron" />
-              </button>
-
-              {openSections[section.id] && (
-                <nav className="eSide__nav eSide__navPanel" aria-label={`${section.label} navigation`}>
-                  {section.items.map((item) => {
-                    const Icon = item.icon;
-
-                    return (
-                      <NavLink
-                        key={item.to}
-                        to={item.to}
-                        className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
-                      >
-                        <Icon className="eSide__icon" />
-                        <span>{item.label}</span>
-                      </NavLink>
-                    );
-                  })}
-                </nav>
-              )}
-            </div>
+              section={section}
+              isOpen={openSections[section.id]}
+              onToggle={toggleSection}
+            />
           ))}
         </div>
 
@@ -545,39 +500,9 @@ export default function ManagementLayout() {
           <Outlet />
         </main>
 
-        <footer className="eFooter">
-        <div className="eFooter__inner">
-          <div className="eFooter__brand">
-            <div className="eFooter__brandRow">
-              <div className="eFooter__logo" aria-hidden="true" />
-              <div>
-                <div className="eFooter__brandTitle">Marid Industries</div>
-                <div className="eFooter__brandTitle">Corporation</div>
-              </div>
-            </div>
-            <div className="eFooter__slogan">Smart packaging solutions for modern food service.</div>
-            <div className="eFooter__copy">© 2026 Marid Industries Corporation</div>
-          </div>
-
-          <div className="eFooter__col">
-            <h4>Mission:</h4>
-            <p>To ignite a culinary revolution with our self-heating food packaging solutions.</p>
-          </div>
-
-          <div className="eFooter__col">
-            <h4>Vision:</h4>
-            <p>
-              To be the trailblazer of the self-heating food packaging industry, setting a new
-              standard for quality and innovation across the globe.
-            </p>
-            <div className="eFooter__contact">
-              <span className="eFooter__contactLabel">Contact Us:</span>
-              <span className="eFooter__contactValue"> marid@marid.com</span>
-            </div>
-          </div>
-        </div>
-        </footer>
+        <AppFooter />
       </div>
     </div>
   );
 }
+

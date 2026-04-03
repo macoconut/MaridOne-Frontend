@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import AccountSecuritySection from '../../../components/AccountSecuritySection';
+import AccountSecuritySection from '../../../components/account/AccountSecuritySection';
 import {
   beginTwoFactorSetup,
   confirmTwoFactorSetup,
@@ -11,7 +11,7 @@ import {
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getAuthToken, getUserEmail } from '../../../lib/session';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
-import '../../employee/dashboard/Dashboard.css';
+import '../../self-service/dashboard/Dashboard.css';
 import './Dashboard.css';
 
 type UserDetails = {

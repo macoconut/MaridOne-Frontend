@@ -1,25 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { verifyEmailToken } from '../../lib/accountSecurity';
+import { getRoleHomePath } from '../../lib/roleRoutes';
 import { getAuthToken, getUserRole } from '../../lib/session';
 import { getFriendlyErrorMessage } from '../../lib/uiErrors';
 import './VerifyEmail.css';
 
 function roleHome(role: ReturnType<typeof getUserRole>) {
-  switch (role) {
-    case 'employee':
-      return '/employee/dashboard';
-    case 'hr':
-      return '/hr/self-service/dashboard';
-    case 'manager':
-      return '/manager/self-service/dashboard';
-    case 'management':
-      return '/management/self-service/dashboard';
-    case 'accounting':
-      return '/accounting/payroll-dashboard';
-    default:
-      return '/login';
-  }
+  return role ? getRoleHomePath(role) : '/login';
 }
 
 export default function VerifyEmail() {

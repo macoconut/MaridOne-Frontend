@@ -11,19 +11,21 @@ import {
   FiCheckCircle,
 } from 'react-icons/fi';
 
-import './EmployeeLayout.css';
-import { getUserEmail } from '../../../lib/session';
-import { BACKEND_TEST_MODE } from '../../../config/flags';
-import { apiFetchRaw, expireCurrentSession, getApiBaseUrl } from '../../../lib/api';
-import { resolveHeaderTitle } from '../../../lib/headerProfile';
-import { mapNotificationItem, type NotificationItem } from '../../../lib/notificationRouting';
+import AppFooter from '../../components/layout/AppFooter';
+import SidebarBrand from '../../components/navigation/SidebarBrand';
+import '../shared/RoleLayout.css';
+import { getUserEmail } from '../../lib/session';
+import { BACKEND_TEST_MODE } from '../../config/flags';
+import { apiFetchRaw, expireCurrentSession, getApiBaseUrl } from '../../lib/api';
+import { resolveHeaderTitle } from '../../lib/headerProfile';
+import { mapNotificationItem, type NotificationItem } from '../../lib/notificationRouting';
 import {
   applyBodyPlaceholders,
   applyPathPlaceholders,
   extractFirstId,
   firstFromCollection,
   type PlaceholderContext,
-} from '../../../lib/backendTest';
+} from '../../lib/backendTest';
 
 type BackendTestAction = {
   label: string;
@@ -433,15 +435,7 @@ export default function EmployeeLayout() {
   return (
     <div className="employeeLayout">
       <aside className="eSide">
-        <button
-          type="button"
-          className="eSide__brand eSide__brand--link"
-          onClick={handleBrandClick}
-          aria-label="Go to dashboard"
-        >
-          <div className="eSide__logo" aria-hidden="true" />
-          <div className="eSide__name">MaridOne</div>
-        </button>
+        <SidebarBrand label="Go to dashboard" onClick={handleBrandClick} />
 
         <div className="eSide__navWrap">
           <div className="eSide__navSection is-open">
@@ -597,40 +591,8 @@ export default function EmployeeLayout() {
           )}
         </main>
 
-        <footer className="eFooter">
-        <div className="eFooter__inner">
-          <div className="eFooter__brand">
-            <div className="eFooter__brandRow">
-              <div className="eFooter__logo" aria-hidden="true" />
-              <div>
-                <div className="eFooter__brandTitle">Marid Industries</div>
-                <div className="eFooter__brandTitle">Corporation</div>
-              </div>
-            </div>
+        <AppFooter />
 
-            <div className="eFooter__slogan">Smart packaging solutions for modern food service.</div>
-            <div className="eFooter__copy">© 2026 Marid Industries Corporation</div>
-          </div>
-
-          <div className="eFooter__col">
-            <h4>Mission:</h4>
-            <p>To ignite a culinary revolution with our self-heating food packaging solutions.</p>
-          </div>
-
-          <div className="eFooter__col">
-            <h4>Vision:</h4>
-            <p>
-              To be the trailblazer of the self-heating food packaging industry, setting a new
-              standard for quality and innovation across the globe.
-            </p>
-
-            <div className="eFooter__contact">
-              <span className="eFooter__contactLabel">Contact Us:</span>
-              <span className="eFooter__contactValue"> marid@marid.com</span>
-            </div>
-          </div>
-        </div>
-        </footer>
       </div>
     </div>
   );

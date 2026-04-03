@@ -1,51 +1,41 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import type { ReactElement } from 'react';
 import { getAuthToken, getUserRole, type UserRole } from './lib/session';
+import { getRoleHomePath } from './lib/roleRoutes';
 
-import Landing from './pages/Public/Landing';
-import VerifyEmail from './pages/Public/VerifyEmail';
-import EmployeeLogin from './pages/employee/auth/Login/Login';
+import Landing from './pages/public/Landing';
+import VerifyEmail from './pages/public/VerifyEmail';
+import EmployeeLogin from './pages/auth/login/Login';
 
-import EmployeeLayout from './pages/employee/layout/EmployeeLayout';
-import Dashboard from './pages/employee/dashboard/Dashboard';
-import Attendance from './pages/employee/attendance/Attendance';
-import Approval from './pages/employee/approval/Approval';
-import Payslip from './pages/employee/payslip/Payslip';
-import Training from './pages/employee/training/Training';
-import HrLayout from './pages/hr/layout/HrLayout';
+import EmployeeLayout from './layouts/employee/EmployeeLayout';
+import Dashboard from './pages/self-service/dashboard/Dashboard';
+import Attendance from './pages/self-service/attendance/Attendance';
+import Approval from './pages/self-service/approvals/Approval';
+import Payslip from './pages/self-service/payslip/Payslip';
+import Training from './pages/self-service/training/Training';
+import HrLayout from './layouts/hr/HrLayout';
 import HrDashboard from './pages/hr/dashboard/Dashboard';
 import HrAttendanceReports from './pages/hr/attendance-reports/AttendanceReports';
 import HrApprovals from './pages/hr/approvals/Approvals';
 import HrPayslips from './pages/hr/payslips/Payslips';
-import HrManageEmp from './pages/hr/manage-emp/manage-emp';
+import HrManageEmployees from './pages/hr/manage-employees/ManageEmployees';
 import HrPayRunReporting from './pages/hr/pay-run-reporting/PayRunReporting';
 import HrAuditLogs from './pages/hr/audit-logs/AuditLogs';
-import ManagementLayout from './pages/management/layout/ManagementLayout';
+import ManagementLayout from './layouts/management/ManagementLayout';
 import ManagementAttendance from './pages/management/attendance/Attendance';
-import ManagementPayrollCosts from './pages/management/payroll/PayrollCosts';
+import ManagementPayrollCosts from './pages/management/payroll-costs/PayrollCosts';
 import ManagementPayRunReporting from './pages/management/pay-run-reporting/PayRunReporting';
-import ManagerLayout from './pages/manager/layout/ManagerLayout';
+import ManagerLayout from './layouts/manager/ManagerLayout';
 import ManagerDashboard from './pages/manager/dashboard/Dashboard';
 import ManagerAttendanceDashboard from './pages/manager/attendance-dashboard/AttendanceDashboard';
 import ManagerAttendanceReports from './pages/manager/attendance-reports/AttendanceReports';
 import ManagerPendingApprovals from './pages/manager/pending-approvals/PendingApprovals';
-import AccountingLayout from './pages/accounting/layout/AccountingLayout';
+import AccountingLayout from './layouts/accounting/AccountingLayout';
 import AccountingPayrollDashboard from './pages/accounting/payroll-dashboard/PayrollDashboard';
 import AccountingPayrollReview from './pages/accounting/payroll-review/PayrollReview';
 
 function roleHome(role: UserRole) {
-  switch (role) {
-    case 'employee':
-      return '/employee/dashboard';
-    case 'hr':
-      return '/hr/self-service/dashboard';
-    case 'manager':
-      return '/manager/self-service/dashboard';
-    case 'management':
-      return '/management/self-service/dashboard';
-    case 'accounting':
-      return '/accounting/payroll-dashboard';
-  }
+  return getRoleHomePath(role);
 }
 
 function RequireRole({
@@ -118,7 +108,8 @@ export default function App() {
           <Route path="approvals" element={<HrApprovals />} />
           <Route path="payslips" element={<HrPayslips />} />
           <Route path="pay-run-reporting" element={<HrPayRunReporting />} />
-          <Route path="manage-emp" element={<HrManageEmp />} />
+          <Route path="manage-employees" element={<HrManageEmployees />} />
+          <Route path="manage-emp" element={<Navigate to="/hr/manage-employees" replace />} />
           <Route path="audit-logs" element={<HrAuditLogs />} />
           <Route path="self-service">
             <Route index element={<Navigate to="dashboard" replace />} />
@@ -128,7 +119,7 @@ export default function App() {
             <Route path="payslip" element={<Payslip />} />
             <Route path="training" element={<Training />} />
           </Route>
-          <Route path="employees" element={<Navigate to="/hr/manage-emp" replace />} />
+          <Route path="employees" element={<Navigate to="/hr/manage-employees" replace />} />
         </Route>
 
         {/* Management (FRAME) */}

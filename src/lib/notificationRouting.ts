@@ -1,3 +1,5 @@
+import { getRoleHomePath, getSelfServicePath } from './roleRoutes';
+
 export type NotificationRole = 'employee' | 'hr' | 'management';
 
 type NotificationPayload = Record<string, unknown>;
@@ -41,8 +43,7 @@ export function formatNotificationTime(createdAt: Date | null) {
 }
 
 function defaultDestination(role: NotificationRole) {
-  if (role === 'management') return '/management/self-service/dashboard';
-  return role === 'hr' ? '/hr/self-service/dashboard' : '/employee/dashboard';
+  return role === 'employee' ? getRoleHomePath('employee') : getRoleHomePath(role);
 }
 
 function resolveDestination(role: NotificationRole, message: string) {
@@ -66,7 +67,7 @@ function resolveDestination(role: NotificationRole, message: string) {
     }
 
     if (normalized.includes('employee')) {
-      return '/hr/manage-emp';
+      return '/hr/manage-employees';
     }
   }
 
@@ -80,12 +81,12 @@ function resolveDestination(role: NotificationRole, message: string) {
     }
 
     if (normalized.includes('calendar') || normalized.includes('event')) {
-      return '/management/self-service/dashboard';
+      return getRoleHomePath('management');
     }
   }
 
   if (normalized.includes('pay run posted') || normalized.includes('payslip')) {
-    return '/employee/payslip';
+    return getSelfServicePath('employee', 'payslip');
   }
 
   if (
@@ -93,7 +94,7 @@ function resolveDestination(role: NotificationRole, message: string) {
     normalized.includes('overtime request') ||
     normalized.includes('dispute request')
   ) {
-    return '/employee/approvals';
+    return getSelfServicePath('employee', 'approvals');
   }
 
   if (
@@ -103,7 +104,7 @@ function resolveDestination(role: NotificationRole, message: string) {
     normalized.includes('calendar') ||
     normalized.includes('event')
   ) {
-    return '/employee/training';
+    return getSelfServicePath('employee', 'training');
   }
 
   return defaultDestination(role);

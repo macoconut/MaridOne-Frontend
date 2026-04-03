@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { FiPlus, FiTrash2 } from 'react-icons/fi';
 import { useLocation, useNavigate } from 'react-router-dom';
-import AccountSecuritySection from '../../../components/AccountSecuritySection';
+import AccountSecuritySection from '../../../components/account/AccountSecuritySection';
 import {
   beginTwoFactorSetup,
   confirmTwoFactorSetup,
@@ -10,6 +10,7 @@ import {
   type TwoFactorSetupResponse,
 } from '../../../lib/accountSecurity';
 import { apiFetchJson, toArray } from '../../../lib/api';
+import { getSelfServicePath } from '../../../lib/roleRoutes';
 import { getAuthToken, getUserEmail } from '../../../lib/session';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './Dashboard.css';
@@ -513,18 +514,18 @@ export default function Dashboard() {
 
   function selfServicePath(page: 'dashboard' | 'attendance' | 'approvals' | 'payslip' | 'training') {
     if (location.pathname.startsWith('/hr/')) {
-      return `/hr/self-service/${page}`;
+      return getSelfServicePath('hr', page);
     }
 
     if (location.pathname.startsWith('/manager/')) {
-      return `/manager/self-service/${page}`;
+      return getSelfServicePath('manager', page);
     }
 
     if (location.pathname.startsWith('/management/')) {
-      return `/management/self-service/${page}`;
+      return getSelfServicePath('management', page);
     }
 
-    return `/employee/${page}`;
+    return getSelfServicePath('employee', page);
   }
 
   function shiftCalendarMonth(offset: number) {

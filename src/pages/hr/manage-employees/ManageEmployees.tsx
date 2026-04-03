@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
-import './manage-emp.css';
+import './ManageEmployees.css';
 
 type ModalType = 'add' | 'edit-pick' | 'edit' | 'delete' | null;
 type SubmitModal = Exclude<ModalType, null | 'edit-pick'>;

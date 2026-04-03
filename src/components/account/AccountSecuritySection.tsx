@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { TwoFactorSetupResponse } from '../lib/accountSecurity';
+import type { TwoFactorSetupResponse } from '../../lib/accountSecurity';
 
 type AccountSecuritySectionProps = {
   savedEmail: string;
