@@ -169,6 +169,34 @@ function formatAddress(value: unknown) {
   return parts.length > 0 ? parts.join(', ') : 'Address not available';
 }
 
+function formatDashboardDate(value?: string) {
+  if (!value) return 'Not available';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Not available';
+
+  return date.toLocaleDateString(undefined, {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function formatDashboardDateTime(value?: string) {
+  if (!value) return 'Not available';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Not available';
+
+  return date.toLocaleString(undefined, {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
 function formatJwtIssuedAt(token: string | null) {
   if (!token || token === 'authenticated-session') return 'Not available';
   const parts = token.split('.');
@@ -181,7 +209,7 @@ function formatJwtIssuedAt(token: string | null) {
     const payload = JSON.parse(decoded) as Record<string, unknown>;
     if (typeof payload.iat !== 'number') return 'Not available';
     const issuedAt = new Date(payload.iat * 1000);
-    return issuedAt.toLocaleString();
+    return formatDashboardDateTime(issuedAt.toISOString());
   } catch {
     return 'Not available';
   }
@@ -402,7 +430,7 @@ export default function Dashboard() {
               const attendance = await apiFetchJson<unknown>(`/api/logs/attendance/self/${empId}?page=0&size=1`);
               const first = toArray<AttendanceLog>(attendance)[0];
               if (first?.timestamp) {
-                setLastAttendanceLabel(new Date(first.timestamp).toLocaleString());
+                setLastAttendanceLabel(formatDashboardDateTime(first.timestamp));
               } else {
                 setLastAttendanceLabel('Not available');
               }
@@ -423,7 +451,7 @@ export default function Dashboard() {
             const attendance = await apiFetchJson<unknown>(`/api/logs/attendance/self/${resolvedEmpId}?page=0&size=1`);
             const first = toArray<AttendanceLog>(attendance)[0];
             if (first?.timestamp) {
-              setLastAttendanceLabel(new Date(first.timestamp).toLocaleString());
+              setLastAttendanceLabel(formatDashboardDateTime(first.timestamp));
             } else {
               setLastAttendanceLabel('Not available');
             }
@@ -895,7 +923,7 @@ export default function Dashboard() {
             <div className="statBlock">
               <div className="statBlock__label">Part of Marid since:</div>
               <div className="statBlock__value">
-                {employee?.employmentDateStart || employee?.employmentDate || employee?.dateHired || 'Not available'}
+                {formatDashboardDate(employee?.employmentDateStart || employee?.employmentDate || employee?.dateHired)}
               </div>
             </div>
 
