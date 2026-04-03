@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FiCalendar, FiChevronLeft, FiChevronRight, FiUsers, FiX } from 'react-icons/fi';
+import PageHeader from '../../../components/layout/PageHeader';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
 import './AttendanceReports.css';
@@ -410,15 +411,18 @@ export function AttendanceReportsBoard({
     setDetailOpen(true);
   }
 
+  const attendanceReportDescription =
+    audienceLabel === 'Manager'
+      ? 'Review daily team attendance activity, late entries, incomplete logs, and gaps in one monthly calendar.'
+      : 'Review daily attendance activity, late entries, incomplete logs, and gaps in one monthly calendar.';
+
   return (
     <div className="hrAtt">
       <div className="hrAtt__head">
-        <div className="hrAtt__titleWrap">
-          <h1 className="hrAtt__title">Attendance Report</h1>
-          <p className="hrAtt__subtitle">
-            Review daily attendance activity, late entries, incomplete logs, and gaps in one monthly calendar.
-          </p>
-        </div>
+        <PageHeader
+          title="Attendance Report"
+          description={attendanceReportDescription}
+        />
 
         <div className="hrAtt__controls">
           <div className="hrAtt__monthSelectWrap">

@@ -623,6 +623,7 @@ body{ margin:0; background:var(--page); overflow:hidden; }
   .notifPanel__list{
     max-height: 280px;
     overflow: auto;
+    overscroll-behavior: contain;
   }
   
   /* item */

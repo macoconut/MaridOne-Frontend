@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { FiChevronDown, FiDownload, FiFileText } from 'react-icons/fi';
+import PageHeader from '../../../components/layout/PageHeader';
 import {
   downloadLibraryDocument,
   materialLibrarySections,
@@ -49,7 +50,10 @@ export default function Training() {
   return (
     <div className="trainingPage">
       <div className="trainingPage__head">
-        <h1 className="trainingPage__title">Training Materials</h1>
+        <PageHeader
+          title="Training Materials"
+          description="Open onboarding guides, policy references, and training documents assigned to employees."
+        />
       </div>
 
       <div className="trainingPage__stack">

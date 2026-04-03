@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
+import PageHeader from '../../../components/layout/PageHeader';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './Payslips.css';
 
@@ -753,7 +754,10 @@ export default function HrPayslips() {
   return (
     <div className="hrPay">
       <div className="hrPay__head">
-        <h1 className="hrPay__title">Manage Payslips</h1>
+        <PageHeader
+          title="Manage Payslips"
+          description="Manage payroll runs, review disputes, and publish finalized payslips."
+        />
       </div>
 
       <section className="hrPayPeriod">

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FiSearch, FiXCircle } from 'react-icons/fi';
+import PageHeader from '../../../components/layout/PageHeader';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
@@ -209,7 +210,10 @@ export default function AccountingPayrollReview() {
 
   return (
     <section className="aReviewPay">
-      <h1>Review Employees&apos; Payslips</h1>
+      <PageHeader
+        title="Review Employees' Payslips"
+        description="Inspect employee payroll items before printing or cross-checking posted values."
+      />
 
       <div className="aReviewPay__filters">
         <div className="aReviewPay__field">

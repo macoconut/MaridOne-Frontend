@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
+import PageHeader from '../../../components/layout/PageHeader';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getUserEmail } from '../../../lib/session';
 import './Approval.css';
@@ -314,9 +315,10 @@ export default function Approval() {
 
   return (
     <div className="appr">
-      <div className="appr__head">
-        <h1 className="appr__title">View Approvals</h1>
-      </div>
+      <PageHeader
+        title="View Approvals"
+        description="Track leave, overtime, and payslip dispute decisions from one place."
+      />
 
       <div className="appr__toolbar">
         <label className="apprSearch" aria-label="Search approvals">

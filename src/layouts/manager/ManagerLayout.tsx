@@ -20,6 +20,7 @@ import { BACKEND_TEST_MODE } from '../../config/flags';
 import { apiFetchRaw, expireCurrentSession, getApiBaseUrl } from '../../lib/api';
 import { resolveHeaderTitle } from '../../lib/headerProfile';
 import { formatNotificationTime } from '../../lib/notificationRouting';
+import { routeWheelToScrollableChild } from '../../lib/scrollContain';
 import {
   applyBodyPlaceholders,
   applyPathPlaceholders,
@@ -229,6 +230,10 @@ export default function ManagerLayout() {
     setNotifOpen(true);
   }
 
+  function handleNotificationPanelWheel(event: Parameters<typeof routeWheelToScrollableChild>[0]) {
+    routeWheelToScrollableChild(event, '.notifPanel__list');
+  }
+
   async function fetchJsonWithAuth(path: string) {
     const response = await apiFetchRaw(path, { method: 'GET' });
     if (!response.ok) return null;
@@ -368,7 +373,13 @@ export default function ManagerLayout() {
               {notifOpen && <div className="notif__backdrop" />}
 
               {notifOpen && (
-                <div ref={panelRef} className="notifPanel" role="dialog" aria-label="Notifications">
+                <div
+                  ref={panelRef}
+                  className="notifPanel"
+                  role="dialog"
+                  aria-label="Notifications"
+                  onWheel={handleNotificationPanelWheel}
+                >
                   <div className="notifPanel__header">
                     <div className="notifPanel__title">Notifications ({unreadCount})</div>
                     <div className="notifPanel__date">Today, {todayLabel}</div>

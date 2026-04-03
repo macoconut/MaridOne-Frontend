@@ -3,6 +3,7 @@ import { apiFetchJson, apiFetchRaw, toArray } from '../../../lib/api';
 import { getUserEmail } from '../../../lib/session';
 import { FiUpload, FiX } from 'react-icons/fi';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
+import PageHeader from '../../../components/layout/PageHeader';
 import './Payslip.css';
 
 type EmployeeDetails = {
@@ -398,7 +399,10 @@ export default function Payslip() {
   return (
     <div className="pay">
       <div className="pay__head">
-        <h1 className="pay__title">Payslips</h1>
+        <PageHeader
+          title="Payslips"
+          description="Review each pay period, download your summary, and file payroll disputes when needed."
+        />
         <div className="pay__selectWrap">
           <select
             className="pay__select"

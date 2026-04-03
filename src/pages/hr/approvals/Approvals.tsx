@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FiSearch, FiFilter, FiXCircle } from 'react-icons/fi';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
+import PageHeader from '../../../components/layout/PageHeader';
 import { useNavigate } from 'react-router-dom';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
@@ -513,13 +514,20 @@ export default function HrApprovals() {
   return (
     <div className="hrAppr">
       <div className="hrAppr__head">
-        <div className="hrAppr__titleRow">
-          <h1 className="hrAppr__title">{selected ? 'Review Employee Request' : 'Requests from Employees'}</h1>
-          <div className="hrAppr__summary">
-            Showing {visibleRequests.length} of {requests.length} request
-            {requests.length === 1 ? '' : 's'}
-          </div>
-        </div>
+        <PageHeader
+          title={selected ? 'Review Employee Request' : 'Requests from Employees'}
+          description={
+            selected
+              ? 'Review the selected employee request before recording an approval or denial.'
+              : 'Review leave, overtime, and dispute requests submitted by employees.'
+          }
+          meta={
+            <div className="hrAppr__summary">
+              Showing {visibleRequests.length} of {requests.length} request
+              {requests.length === 1 ? '' : 's'}
+            </div>
+          }
+        />
 
         <div className="hrAppr__toolbar">
           <label className="hrApprSearch" aria-label="Search approvals">

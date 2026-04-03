@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import PageHeader from '../../../components/layout/PageHeader';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
@@ -354,27 +355,29 @@ export default function AccountingPayrollDashboard() {
   return (
     <section className="aDashPay">
       <div className="aDashPay__top">
-        <div>
-          <h1>Overall Payroll Costs</h1>
-          <div className="aDashPay__controls">
-            <select
-              className="aDashPay__dateSelect"
-              value={selectedPayId ?? ''}
-              onChange={(event) => setSelectedPayId(event.target.value ? Number(event.target.value) : null)}
-              aria-label="Payroll run"
-              disabled={runs.length === 0}
-            >
-              {runs.length > 0 ? (
-                runs.map((run) => (
-                  <option key={run.payId ?? `run-${run.periodEnd}`} value={run.payId}>
-                    {describeRun(run)}
-                  </option>
-                ))
-              ) : (
-                <option value="">No payroll runs yet</option>
-              )}
-            </select>
-          </div>
+        <PageHeader
+          title="Overall Payroll Costs"
+          description="Compare payroll cost trends, pay-type breakdowns, and the current run at a glance."
+        />
+
+        <div className="aDashPay__controls">
+          <select
+            className="aDashPay__dateSelect"
+            value={selectedPayId ?? ''}
+            onChange={(event) => setSelectedPayId(event.target.value ? Number(event.target.value) : null)}
+            aria-label="Payroll run"
+            disabled={runs.length === 0}
+          >
+            {runs.length > 0 ? (
+              runs.map((run) => (
+                <option key={run.payId ?? `run-${run.periodEnd}`} value={run.payId}>
+                  {describeRun(run)}
+                </option>
+              ))
+            ) : (
+              <option value="">No payroll runs yet</option>
+            )}
+          </select>
         </div>
 
         <button className="aDashPay__exportBtn" type="button" onClick={() => window.print()}>

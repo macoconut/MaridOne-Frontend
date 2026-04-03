@@ -9,6 +9,7 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .aDashPay__top h1 {
@@ -20,7 +21,6 @@
 }
 
 .aDashPay__controls {
-  margin-top: 10px;
   display: flex;
   gap: 8px;
   align-items: center;

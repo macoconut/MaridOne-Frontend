@@ -15,6 +15,7 @@ body.modal-open{
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+  flex-wrap: wrap;
   width: 100%;
 }
 

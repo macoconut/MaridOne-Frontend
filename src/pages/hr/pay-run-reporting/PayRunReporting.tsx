@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FiSearch, FiXCircle } from 'react-icons/fi';
+import PageHeader from '../../../components/layout/PageHeader';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
@@ -422,7 +423,10 @@ export default function HrPayRunReporting() {
   return (
     <div className="hrRun">
       <div className="hrRun__top">
-        <h1>Pay Run Reporting</h1>
+        <PageHeader
+          title="Pay Run Reporting"
+          description="Analyze payroll totals by employee or pay type before exporting reports."
+        />
         <label className="hrRunSelect hrRunSelect--view" aria-label="Report view">
           <select value={view} onChange={(e) => setView(e.target.value as ReportView)}>
             <option value="employee">By Employee</option>

@@ -1,0 +1,43 @@
+.pageHeader {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.pageHeader .pageHeader__title {
+  margin: 0;
+  color: var(--page-header-title, #2b2036);
+  font-size: 32px;
+  line-height: 1.05;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.pageHeader .pageHeader__description {
+  margin: 8px 0 0;
+  max-width: 760px;
+  color: var(--page-header-description, rgba(43, 32, 54, 0.72));
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.pageHeader .pageHeader__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 10px;
+  color: var(--page-header-meta, #5b536d);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .pageHeader .pageHeader__title {
+    font-size: 28px;
+  }
+
+  .pageHeader .pageHeader__description {
+    font-size: 14px;
+  }
+}

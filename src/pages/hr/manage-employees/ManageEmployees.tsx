@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FiEdit2, FiFilter, FiPlus, FiSearch, FiUserX, FiXCircle } from 'react-icons/fi';
+import PageHeader from '../../../components/layout/PageHeader';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './ManageEmployees.css';
@@ -757,7 +758,10 @@ export default function HrManageEmp() {
   return (
     <div className="hrEmp">
       <div className="hrEmp__head">
-        <h1 className="hrEmp__title">Employee Management</h1>
+        <PageHeader
+          title="Employee Management"
+          description="Maintain employee records, accounts, and employment details from one directory."
+        />
         <button type="button" className="hrEmpTable__addBtn" onClick={openAddModal}>
           <FiPlus aria-hidden="true" />
           <span>Add Employee</span>

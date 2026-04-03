@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import './Attendance.css';
 import { FiCalendar, FiChevronLeft, FiChevronRight, FiPlusSquare, FiUpload, FiX } from 'react-icons/fi';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
+import PageHeader from '../../../components/layout/PageHeader';
 import { ApiError, apiFetchJson, apiFetchRaw, toArray } from '../../../lib/api';
 import { getUserEmail, getUserRole } from '../../../lib/session';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
@@ -731,10 +732,10 @@ export default function Attendance() {
     <div className="att">
       {/* Title row */}
       <div className="att__head">
-        <div className="att__titleWrap">
-          <h1 className="att__title">Attendance</h1>
-          <p className="att__subtitle">Review your work logs, requests, shifts, and events in one monthly calendar.</p>
-        </div>
+        <PageHeader
+          title="Attendance"
+          description="Review your work logs, requests, shifts, and events in one monthly calendar."
+        />
         <div className="att__controls">
           <div className="att__monthSelectWrap">
             <select

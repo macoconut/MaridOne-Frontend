@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FiChevronLeft, FiChevronRight, FiClock, FiCalendar } from 'react-icons/fi';
+import PageHeader from '../../../components/layout/PageHeader';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
 import './Dashboard.css';
@@ -394,21 +395,28 @@ export function AttendanceOverviewDashboard({
   const maxDeptPage = Math.max(departmentBreakdown.length - 1, 0);
   const activeDeptPage = Math.min(deptPage, maxDeptPage);
   const visibleDepartments = departmentBreakdown.slice(activeDeptPage, activeDeptPage + 1);
+  const attendanceDashboardDescription =
+    audience === 'Manager'
+      ? 'Track team attendance activity, late logs, and department trends from the latest records.'
+      : 'Track attendance activity, late logs, and department trends from the latest records.';
 
   return (
     <div className="hrDash">
       <div className="hrDash__top">
-        <div>
-          <h1 className="hrDash__title">Attendance Dashboard</h1>
-          <p className="hrDash__subtitle">
-            {new Date().toLocaleDateString(undefined, {
-              weekday: 'long',
-              month: 'long',
-              day: 'numeric',
-              year: 'numeric',
-            })}
-          </p>
-        </div>
+        <PageHeader
+          title="Attendance Dashboard"
+          description={attendanceDashboardDescription}
+          meta={
+            <span>
+              {new Date().toLocaleDateString(undefined, {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric',
+              })}
+            </span>
+          }
+        />
         <div className="hrDash__topActions">
           <button className="hrDash__exportBtn" type="button" onClick={() => window.print()}>
             Export Attendance

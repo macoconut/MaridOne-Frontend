@@ -1,5 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
+import PageHeader from '../../../components/layout/PageHeader';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './AuditLogs.css';
@@ -442,12 +443,15 @@ export default function HrAuditLogs() {
   return (
     <div className="hrAudit">
       <div className="hrAudit__head">
-        <div className="hrAudit__titleRow">
-          <h1 className="hrAudit__title">Audit Logs</h1>
-          <div className="hrAudit__summary">
-            Showing {visibleEntries.length} of {entries.length} change log{entries.length === 1 ? '' : 's'}
-          </div>
-        </div>
+        <PageHeader
+          title="Audit Logs"
+          description="Review create, update, and delete activity across the HR system."
+          meta={
+            <div className="hrAudit__summary">
+              Showing {visibleEntries.length} of {entries.length} change log{entries.length === 1 ? '' : 's'}
+            </div>
+          }
+        />
 
         <div className="hrAudit__toolbar">
           <label className="hrAuditSearch" aria-label="Search audit logs">

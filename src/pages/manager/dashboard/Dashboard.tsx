@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AccountSecuritySection from '../../../components/account/AccountSecuritySection';
+import PageHeader from '../../../components/layout/PageHeader';
 import {
   beginTwoFactorSetup,
   confirmTwoFactorSetup,
@@ -547,6 +548,11 @@ export default function ManagerDashboard() {
 
   return (
     <div className="dashPage">
+      <PageHeader
+        title="Manager Dashboard"
+        description="Monitor team activity, workforce totals, and company events from one dashboard."
+      />
+
       <section className="infoCardX">
         <div className="infoCardX__header">
           <div className="infoCardX__title">Your Information</div>

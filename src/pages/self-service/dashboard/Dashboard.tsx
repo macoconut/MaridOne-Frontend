@@ -3,6 +3,7 @@ import { FiPlus, FiTrash2 } from 'react-icons/fi';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AccountSecuritySection from '../../../components/account/AccountSecuritySection';
 import MaterialArt from '../../../components/document/MaterialArt';
+import PageHeader from '../../../components/layout/PageHeader';
 import {
   beginTwoFactorSetup,
   confirmTwoFactorSetup,
@@ -875,6 +876,11 @@ export default function Dashboard() {
 
   return (
     <div className="dashPage">
+      <PageHeader
+        title="Dashboard"
+        description="Review your profile, quick actions, and company events from one workspace."
+      />
+
       {/* INFO CARD */}
       <section className="infoCardX">
         <div className="infoCardX__header">

@@ -24,6 +24,7 @@ import { BACKEND_TEST_MODE } from '../../config/flags';
 import { apiFetchRaw, expireCurrentSession, getApiBaseUrl } from '../../lib/api';
 import { resolveHeaderTitle } from '../../lib/headerProfile';
 import { mapNotificationItem, type NotificationItem } from '../../lib/notificationRouting';
+import { routeWheelToScrollableChild } from '../../lib/scrollContain';
 import {
   applyBodyPlaceholders,
   applyPathPlaceholders,
@@ -477,6 +478,10 @@ export default function HrLayout() {
     setNotifOpen(true);
   }
 
+  function handleNotificationPanelWheel(event: Parameters<typeof routeWheelToScrollableChild>[0]) {
+    routeWheelToScrollableChild(event, '.notifPanel__list');
+  }
+
   async function handleNotificationClick(notification: NotificationItem) {
     closeNotificationBell();
     navigate(notification.destination);
@@ -650,7 +655,13 @@ export default function HrLayout() {
               {notifOpen && <div className="notif__backdrop" />}
 
               {notifOpen && (
-                <div ref={panelRef} className="notifPanel" role="dialog" aria-label="Notifications">
+                <div
+                  ref={panelRef}
+                  className="notifPanel"
+                  role="dialog"
+                  aria-label="Notifications"
+                  onWheel={handleNotificationPanelWheel}
+                >
                   <div className="notifPanel__header">
                     <div className="notifPanel__title">Notifications ({unreadCount})</div>
                     <div className="notifPanel__date">Today, {todayLabel}</div>
