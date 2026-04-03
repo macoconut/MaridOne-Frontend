@@ -1,5 +1,6 @@
+import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FiCalendar, FiUsers, FiX } from 'react-icons/fi';
+import { FiCalendar, FiChevronLeft, FiChevronRight, FiUsers, FiX } from 'react-icons/fi';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
 import './AttendanceReports.css';
@@ -173,12 +174,15 @@ export function AttendanceReportsBoard({
   rosterUrl = '/api/employees',
 }: AttendanceReportsBoardProps) {
   const today = useMemo(() => new Date(), []);
-  const currentYear = today.getFullYear();
   const todayYear = today.getFullYear();
   const todayMonthIndex = today.getMonth();
   const todayDateKey = toISODate(todayYear, todayMonthIndex, today.getDate());
   const [year, setYear] = useState(todayYear);
   const [monthIndex, setMonthIndex] = useState(todayMonthIndex);
+  const monthLabel = new Date(year, monthIndex, 1).toLocaleDateString(undefined, {
+    month: 'long',
+    year: 'numeric',
+  });
   const [monthValue, setMonthValue] = useState(
     new Date(todayYear, todayMonthIndex, 1).toLocaleDateString(undefined, {
       month: 'long',
@@ -370,19 +374,34 @@ export function AttendanceReportsBoard({
   }, [hasFullRoster, logsByDate, selectedAbsent.length, selectedDateKey, selectedIsFuture, selectedRecords]);
 
   const monthOptions = useMemo(() => {
-    return Array.from({ length: 12 }).map((_, index) =>
-      new Date(currentYear, index, 1).toLocaleDateString(undefined, {
+    const startYear = Math.min(todayYear, year) - 5;
+    const endYear = Math.max(todayYear, year) + 5;
+    const totalMonths = (endYear - startYear + 1) * 12;
+
+    return Array.from({ length: totalMonths }, (_, index) =>
+      new Date(startYear, index, 1).toLocaleDateString(undefined, {
         month: 'long',
         year: 'numeric',
       })
     );
-  }, [currentYear]);
+  }, [todayYear, year]);
+
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const sundayBasedStart = new Date(year, monthIndex, 1).getDay();
+  const calendarWeekRows = Math.ceil((sundayBasedStart + daysInMonth) / 7);
+  const calendarGridStyle = { '--calendar-week-rows': calendarWeekRows } as CSSProperties;
 
   function parseMonthValue(value: string) {
     const parsed = new Date(`1 ${value}`);
     if (Number.isNaN(parsed.getTime())) return;
     setMonthIndex(parsed.getMonth());
     setYear(parsed.getFullYear());
+  }
+
+  function shiftCalendarMonth(offset: number) {
+    const next = new Date(year, monthIndex + offset, 1);
+    setMonthIndex(next.getMonth());
+    setYear(next.getFullYear());
   }
 
   function openDayDetails(day: number) {
@@ -396,6 +415,12 @@ export function AttendanceReportsBoard({
       <div className="hrAtt__head">
         <div className="hrAtt__titleWrap">
           <h1 className="hrAtt__title">Attendance Report</h1>
+          <p className="hrAtt__subtitle">
+            Review daily attendance activity, late entries, incomplete logs, and gaps in one monthly calendar.
+          </p>
+        </div>
+
+        <div className="hrAtt__controls">
           <div className="hrAtt__monthSelectWrap">
             <select
               className="hrAtt__monthSelect"
@@ -412,13 +437,13 @@ export function AttendanceReportsBoard({
               ))}
             </select>
           </div>
-        </div>
 
-        <div className="hrAtt__topActions">
-          <button className="hrAtt__actionBtn" type="button" onClick={() => window.print()}>
-            <FiCalendar />
-            Export Attendance
-          </button>
+          <div className="hrAtt__topActions">
+            <button className="hrAtt__actionBtn" type="button" onClick={() => window.print()}>
+              <FiCalendar />
+              Export Attendance
+            </button>
+          </div>
         </div>
       </div>
 
@@ -427,11 +452,47 @@ export function AttendanceReportsBoard({
       {!isLoading && !loadError && rosterMessage && <p className="hrAtt__hint">{rosterMessage}</p>}
 
       <section className="hrAttCard">
-        <div className="hrAttCard__monthBar">
-          <div className="hrAttCard__monthLabel">{monthValue}</div>
-        </div>
+        <div className="hrAttCalendarShell" aria-label="Attendance report calendar">
+          <div className="hrAttCalendarShell__top">
+            <button
+              type="button"
+              className="hrAttCalendarShell__navBtn"
+              onClick={() => shiftCalendarMonth(-1)}
+              aria-label="Previous month"
+            >
+              <FiChevronLeft aria-hidden="true" />
+            </button>
+            <strong className="hrAttCalendarShell__month">{monthLabel}</strong>
+            <button
+              type="button"
+              className="hrAttCalendarShell__navBtn"
+              onClick={() => shiftCalendarMonth(1)}
+              aria-label="Next month"
+            >
+              <FiChevronRight aria-hidden="true" />
+            </button>
+          </div>
 
-        <div className="hrCal">
+          <div className="hrAttCalendarShell__legend" aria-hidden="true">
+            <span className="hrAttCalendarShell__legendItem">
+              <span className="hrAttCalendarShell__legendSwatch hrAttCalendarShell__legendSwatch--present" />
+              Present
+            </span>
+            <span className="hrAttCalendarShell__legendItem">
+              <span className="hrAttCalendarShell__legendSwatch hrAttCalendarShell__legendSwatch--late" />
+              Late
+            </span>
+            <span className="hrAttCalendarShell__legendItem">
+              <span className="hrAttCalendarShell__legendSwatch hrAttCalendarShell__legendSwatch--incomplete" />
+              Incomplete
+            </span>
+            <span className="hrAttCalendarShell__legendItem">
+              <span className="hrAttCalendarShell__legendSwatch hrAttCalendarShell__legendSwatch--absent" />
+              Absent
+            </span>
+          </div>
+
+          <div className="hrCal" style={calendarGridStyle}>
           {DAYS.map((day) => (
             <div key={day} className="hrCal__dow">
               {day}
@@ -445,15 +506,19 @@ export function AttendanceReportsBoard({
 
             const day = cell.day;
             const dateKey = toISODate(year, monthIndex, day);
-            const isToday = dateKey === toISODate(today.getFullYear(), today.getMonth(), today.getDate());
+            const isFutureDate = dateKey > todayDateKey;
+            const isToday = dateKey === todayDateKey;
             const isSelected = dateKey === selectedDateKey;
+            const showIndicators = !isFutureDate;
+            const hasAttention =
+              showIndicators && (cell.lateCount > 0 || cell.incompleteCount > 0 || (cell.absentCount ?? 0) > 0);
             const cellClass = [
               'hrCal__cell',
               'hrCal__cell--click',
               isToday ? 'hrCal__cell--today' : '',
               isSelected ? 'hrCal__cell--selected' : '',
-              cell.lateCount > 0 || cell.incompleteCount > 0 ? 'hrCal__cell--attention' : '',
-              cell.presentCount > 0 ? 'hrCal__cell--active' : '',
+              hasAttention ? 'hrCal__cell--attention' : '',
+              showIndicators && cell.presentCount > 0 ? 'hrCal__cell--active' : '',
             ]
               .filter(Boolean)
               .join(' ');
@@ -467,32 +532,35 @@ export function AttendanceReportsBoard({
                 aria-current={isToday ? 'date' : undefined}
                 aria-label={`Attendance details for ${dateKey}`}
               >
-                <div className="hrCal__day">{day}</div>
-                <div className="hrCal__stats">
-                  <div className="hrCal__stat">
-                    <span>Present</span>
-                    <strong>{cell.presentCount}</strong>
-                  </div>
-                  <div className="hrCal__stat">
-                    <span>Late</span>
-                    <strong>{cell.lateCount}</strong>
-                  </div>
-                  <div className="hrCal__stat">
-                    <span>{hasFullRoster ? 'Absent' : 'Incomplete'}</span>
-                    <strong>{hasFullRoster ? cell.absentCount ?? '-' : cell.incompleteCount}</strong>
-                  </div>
+                <div className="hrCal__cellTop">
+                  <div className="hrCal__day">{day}</div>
                 </div>
+                {showIndicators && (
+                  <div className="hrCal__stats">
+                    <div className="hrCal__stat hrCal__stat--present">
+                      <span>Present</span>
+                      <strong>{cell.presentCount}</strong>
+                    </div>
+                    <div className="hrCal__stat hrCal__stat--late">
+                      <span>Late</span>
+                      <strong>{cell.lateCount}</strong>
+                    </div>
+                    <div className="hrCal__stat hrCal__stat--incomplete">
+                      <span>Incomplete</span>
+                      <strong>{cell.incompleteCount}</strong>
+                    </div>
+                    <div className="hrCal__stat hrCal__stat--absent">
+                      <span>Absent</span>
+                      <strong>{hasFullRoster ? cell.absentCount ?? 0 : '-'}</strong>
+                    </div>
+                  </div>
+                )}
               </button>
             );
           })}
         </div>
+        </div>
       </section>
-
-      {selectedDateKey && (
-        <p className="hrAtt__hint">
-          Selected date: {selectedDateKey}
-        </p>
-      )}
 
       {detailOpen && (
         <div className="hrAttModalBackdrop" role="dialog" aria-modal="true" aria-label="Attendance breakdown">

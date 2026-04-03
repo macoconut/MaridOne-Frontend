@@ -5,27 +5,43 @@ body.modal-open {
 .hrAtt {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 18px;
 }
 
 .hrAtt__head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 20px;
-  flex-wrap: wrap;
+  gap: 16px;
   width: 100%;
 }
 
 .hrAtt__titleWrap {
-  flex: 1 1 360px;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .hrAtt__title {
   font-size: 32px;
   font-weight: 800;
   color: #2b2036;
-  margin: 2px 0 10px;
+  margin: 2px 0 6px;
+}
+
+.hrAtt__subtitle {
+  margin: 0;
+  color: rgba(43, 32, 54, 0.72);
+  font-size: 15px;
+  line-height: 1.45;
+  max-width: 760px;
+}
+
+.hrAtt__controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex: 0 0 auto;
 }
 
 .hrAtt__monthSelectWrap {
@@ -35,43 +51,44 @@ body.modal-open {
 
 .hrAtt__monthSelect {
   width: 100%;
-  height: 34px;
-  border: 1.6px solid rgba(0, 0, 0, 0.45);
-  border-radius: 6px;
-  padding: 0 12px;
-  background: #f8f4f0;
-  font-weight: 600;
+  height: 42px;
+  border: 1px solid rgba(82, 56, 116, 0.14);
+  border-radius: 12px;
+  padding: 0 14px;
+  background: #fff;
+  font-weight: 700;
   color: #2b2036;
+  box-shadow: 0 10px 20px rgba(28, 19, 42, 0.06);
 }
 
 .hrAtt__topActions {
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-wrap: wrap;
 }
 
 .hrAtt__actionBtn {
-  min-width: 180px;
-  height: 44px;
-  border-radius: 10px;
+  min-width: 196px;
+  height: 42px;
+  border-radius: 12px;
   border: none;
   background: #7b4a8f;
   color: #fff;
   font-weight: 800;
-  font-size: 15px;
+  font-size: 14px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 0 18px;
-  box-shadow: 0 8px 16px rgba(123, 74, 143, 0.26);
+  gap: 10px;
+  padding: 0 16px;
+  box-shadow: 0 8px 16px rgba(123, 74, 143, 0.24);
   cursor: pointer;
 }
 
 .hrAtt__actionBtn--ghost {
-  background: #efe5ff;
-  color: #4a2e63;
+  background: rgba(123, 74, 143, 0.1);
+  color: #5f3a82;
+  border: 1px solid rgba(123, 74, 143, 0.18);
   box-shadow: none;
 }
 
@@ -92,124 +109,238 @@ body.modal-open {
 
 .hrAttCard {
   width: 100%;
+  max-width: 100%;
+}
+
+.hrAttCalendarShell {
+  border: 1px solid rgba(82, 56, 116, 0.08);
+  border-radius: 16px;
+  padding: 14px;
   background: #fff;
-  border-radius: 12px;
-  border: 1px solid rgba(59, 34, 87, 0.18);
-  box-shadow: 0 8px 22px rgba(27, 18, 44, 0.08);
-  overflow: hidden;
-}
-
-.hrAttCard__monthBar {
-  padding: 10px 16px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  gap: 10px;
+  height: auto;
+  min-height: 760px;
+  box-shadow: 0 18px 34px rgba(27, 18, 44, 0.08);
 }
 
-.hrAttCard__monthLabel {
-  font-weight: 600;
+.hrAttCalendarShell__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
   color: #2b2036;
+}
+
+.hrAttCalendarShell__month {
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.hrAttCalendarShell__navBtn {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 10px;
+  display: inline-grid;
+  place-items: center;
+  background: rgba(123, 74, 143, 0.1);
+  color: #6d3db4;
+  cursor: pointer;
+}
+
+.hrAttCalendarShell__navBtn:hover {
+  background: rgba(123, 74, 143, 0.16);
+}
+
+.hrAttCalendarShell__navBtn:focus-visible {
+  outline: 2px solid rgba(109, 61, 180, 0.42);
+  outline-offset: 2px;
+}
+
+.hrAttCalendarShell__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+
+.hrAttCalendarShell__legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(42, 29, 61, 0.05);
+  color: rgba(43, 32, 54, 0.78);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hrAttCalendarShell__legendSwatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.hrAttCalendarShell__legendSwatch--present {
+  background: #50a067;
+}
+
+.hrAttCalendarShell__legendSwatch--late {
+  background: #e3a63b;
+}
+
+.hrAttCalendarShell__legendSwatch--incomplete {
+  background: #cb5a5a;
+}
+
+.hrAttCalendarShell__legendSwatch--absent {
+  background: #6f7695;
 }
 
 .hrCal {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
+  grid-template-rows: 24px repeat(var(--calendar-week-rows, 6), minmax(0, 1fr));
+  gap: 6px;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
 }
 
 .hrCal__dow {
-  padding: 8px 8px;
-  font-size: 16px;
-  font-weight: 600;
-  color: rgba(0, 0, 0, 0.45);
+  padding: 4px 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: rgba(43, 32, 54, 0.55);
   text-align: center;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .hrCal__cell {
-  min-height: 122px;
-  border-right: 1px solid rgba(0, 0, 0, 0.05);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-  background: #fcfbff;
+  min-height: 0;
+  border: 1px solid rgba(42, 29, 61, 0.08);
+  border-radius: 12px;
+  background: #fff;
   text-align: left;
-  padding: 8px 8px;
+  padding: 8px;
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  align-items: flex-start;
+  gap: 6px;
+  align-items: stretch;
+  overflow: hidden;
+  box-shadow: 0 10px 20px rgba(27, 18, 44, 0.04);
 }
 
-.hrCal__cell:nth-child(7n) {
-  border-right: none;
+.hrCal__cellTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .hrCal__cell--disabled {
-  background: #fcfbff;
-  opacity: 0.85;
+  background: rgba(247, 243, 255, 0.62);
+  cursor: default;
+  opacity: 0.72;
+  box-shadow: none;
+  border-style: dashed;
 }
 
 .hrCal__cell--click {
   cursor: pointer;
-  transition: background 0.15s ease, transform 0.12s ease;
+  transition: transform 0.12s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
 .hrCal__cell--click:hover {
-  background: rgba(123, 74, 143, 0.1);
   transform: translateY(-1px);
+  border-color: rgba(109, 61, 180, 0.24);
+  box-shadow: 0 14px 24px rgba(57, 37, 89, 0.08);
 }
 
 .hrCal__cell:focus-visible {
-  outline: 2px solid #2e5cff;
-  outline-offset: -2px;
+  outline: 2px solid rgba(109, 61, 180, 0.46);
+  outline-offset: 2px;
+}
+
+.hrCal__cell--active {
+  border-color: rgba(80, 160, 103, 0.24);
+}
+
+.hrCal__cell--attention {
+  background: linear-gradient(180deg, #fff8f8 0%, #ffffff 100%);
 }
 
 .hrCal__cell--today {
-  box-shadow: inset 0 0 0 2px #ffffff, inset 0 0 0 4px #2b2b34;
+  border-color: rgba(36, 31, 42, 0.9);
 }
 
 .hrCal__cell--selected {
-  background: rgba(123, 74, 143, 0.16);
-}
-
-.hrCal__cell--active .hrCal__stats {
-  background: rgba(123, 74, 143, 0.08);
-}
-
-.hrCal__cell--attention .hrCal__stats {
-  background: rgba(255, 231, 236, 0.92);
+  box-shadow: 0 0 0 2px rgba(123, 74, 143, 0.18), 0 14px 24px rgba(57, 37, 89, 0.08);
 }
 
 .hrCal__day {
-  font-size: 15px;
-  font-weight: 600;
-  color: rgba(0, 0, 0, 0.7);
+  font-size: 13px;
+  font-weight: 900;
+  color: #2b2036;
+  line-height: 1;
 }
 
 .hrCal__stats {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   margin-top: auto;
-  padding: 7px;
-  border-radius: 10px;
-  background: rgba(46, 92, 255, 0.05);
 }
 
 .hrCal__stat {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  font-size: 16px;
-  color: #312640;
-  font-weight: 500;
+  gap: 10px;
+  max-width: 100%;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 9px;
+  line-height: 1.2;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.hrCal__stat span,
+.hrCal__stat strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .hrCal__stat strong {
-  font-size: 16px;
-  color: #2b2036;
-  font-weight: 600;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.hrCal__stat--present {
+  background: rgba(80, 160, 103, 0.14);
+  color: #21663f;
+}
+
+.hrCal__stat--late {
+  background: rgba(227, 166, 59, 0.18);
+  color: #8b5b00;
+}
+
+.hrCal__stat--incomplete {
+  background: rgba(203, 90, 90, 0.14);
+  color: #9d3030;
+}
+
+.hrCal__stat--absent {
+  background: rgba(111, 118, 149, 0.14);
+  color: #495170;
 }
 
 .hrAttModalBackdrop {
@@ -253,6 +384,14 @@ body.modal-open {
   font-weight: 900;
   color: #3b2257;
   letter-spacing: 0.01em;
+}
+
+.hrAttModal__subtitle {
+  margin: 6px 0 0;
+  color: rgba(59, 34, 87, 0.72);
+  font-size: 14px;
+  line-height: 1.5;
+  max-width: 620px;
 }
 
 .hrAttModal__close {
@@ -445,22 +584,32 @@ body.modal-open {
 }
 
 @media (max-width: 900px) {
-  .hrCal__cell {
-    min-height: 138px;
+  .hrAtt__head {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .hrAtt__controls {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hrAtt__monthSelectWrap,
+  .hrAtt__topActions,
+  .hrAtt__actionBtn {
+    width: 100%;
+  }
+
+  .hrAttCalendarShell {
+    height: auto;
+    min-height: 680px;
   }
 }
 
 @media (max-width: 700px) {
   .hrAtt__title {
     font-size: 28px;
-  }
-
-  .hrAtt__topActions {
-    width: 100%;
-  }
-
-  .hrAtt__actionBtn {
-    flex: 1 1 180px;
   }
 
   .hrAttSummary {
@@ -471,4 +620,5 @@ body.modal-open {
     padding: 20px;
   }
 }
+
 
