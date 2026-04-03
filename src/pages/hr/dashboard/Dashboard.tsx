@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FiChevronLeft, FiChevronRight, FiClock, FiCalendar } from 'react-icons/fi';
+import type { CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FiChevronLeft, FiChevronRight, FiCalendar, FiClock } from 'react-icons/fi';
 import PageHeader from '../../../components/layout/PageHeader';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
@@ -11,9 +12,6 @@ type AttendanceLog = {
   timestamp?: string;
   direction?: string;
 };
-
-const REGULAR_CLOCK_IN_WINDOW_START_HOUR = 4;
-const REGULAR_CLOCK_IN_WINDOW_END_HOUR = 12;
 
 type LeaveRequest = {
   requestId?: number;
@@ -36,8 +34,9 @@ type EmployeeRow = {
 type FeedItem = {
   id: string;
   name: string;
-  summary: string;
-  detail: string;
+  directionLabel: string;
+  directionTone: 'in' | 'out' | 'late' | 'neutral';
+  position: string;
   time: string;
 };
 
@@ -55,7 +54,9 @@ type DepartmentBreakdownItem = {
   headcount: number;
   present: number;
   late: number;
+  absent: number;
   onLeave: number;
+  dayOff: number;
 };
 
 type AttendanceOverviewDashboardProps = {
@@ -64,6 +65,36 @@ type AttendanceOverviewDashboardProps = {
   leavesUrl?: string;
   rosterUrl?: string;
 };
+
+type AttendanceStatusKey = 'present' | 'late' | 'absent' | 'onLeave' | 'dayOff';
+
+type AttendanceStatusTone = 't1' | 't2' | 't3' | 't4' | 't5';
+
+type AttendanceStatusSummary = Record<AttendanceStatusKey, number> & {
+  headcount: number;
+};
+
+type DonutPoint = {
+  key: AttendanceStatusKey;
+  label: string;
+  value: number;
+  share: number;
+  tone: AttendanceStatusTone;
+};
+
+const STATUS_CONFIG: Record<
+  AttendanceStatusKey,
+  { label: string; tone: AttendanceStatusTone; color: string }
+> = {
+  present: { label: 'Present', tone: 't1', color: '#b83573' },
+  late: { label: 'Late', tone: 't2', color: '#ef6b9c' },
+  absent: { label: 'Absent', tone: 't3', color: '#f2a6a8' },
+  onLeave: { label: 'On Leave', tone: 't4', color: '#deb0ba' },
+  dayOff: { label: 'Day Off', tone: 't5', color: '#efc8d0' },
+};
+
+const DEFAULT_WORKING_DAYS = new Set([1, 2, 3, 4, 5, 6]);
+const DEPARTMENTS_PER_PAGE = 3;
 
 function localDateKey(value?: string) {
   if (!value) return '';
@@ -77,6 +108,25 @@ function formatDateLabel(value?: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function dateFromKey(dateKey: string) {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  return new Date(year, month - 1, day, 12, 0, 0, 0);
+}
+
+function formatLongDateLabel(date: Date) {
+  return date.toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function formatShortDateLabel(date: Date) {
+  const month = date.toLocaleDateString(undefined, { month: 'short' }).replace(/\.$/, '');
+  return `${month}. ${date.getDate()}`;
 }
 
 function formatPeriodLabel(start?: string, end?: string) {
@@ -102,14 +152,14 @@ function withPaging(path: string, page: number, size: number) {
   return `${path}${separator}page=${page}&size=${size}`;
 }
 
-function employeeName(employee: EmployeeRow | undefined) {
-  return employee?.name || 'Employee record unavailable';
+function withParams(path: string, params: Record<string, string>) {
+  const query = new URLSearchParams(params).toString();
+  const separator = path.includes('?') ? '&' : '?';
+  return `${path}${separator}${query}`;
 }
 
-function isInDirection(direction?: string) {
-  return String(direction ?? '')
-    .toUpperCase()
-    .includes('IN');
+function employeeName(employee: EmployeeRow | undefined) {
+  return employee?.name || 'Employee record unavailable';
 }
 
 function isLateDirection(direction?: string) {
@@ -118,12 +168,20 @@ function isLateDirection(direction?: string) {
     .includes('LATE');
 }
 
-function withinRegularClockInWindow(value?: string) {
-  if (!value) return false;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return false;
-  const hour = date.getHours();
-  return hour >= REGULAR_CLOCK_IN_WINDOW_START_HOUR && hour < REGULAR_CLOCK_IN_WINDOW_END_HOUR;
+function directionIndicator(direction?: string): FeedItem['directionLabel'] {
+  const value = String(direction ?? '').toUpperCase();
+  if (value.includes('OUT')) return 'OUT';
+  if (value.includes('LATE')) return 'LATE';
+  if (value.includes('IN')) return 'IN';
+  return 'LOG';
+}
+
+function directionIndicatorTone(direction?: string): FeedItem['directionTone'] {
+  const value = String(direction ?? '').toUpperCase();
+  if (value.includes('OUT')) return 'out';
+  if (value.includes('LATE')) return 'late';
+  if (value.includes('IN')) return 'in';
+  return 'neutral';
 }
 
 function rosterDisplayName(row: Record<string, unknown>) {
@@ -147,7 +205,93 @@ function rosterRows(payload: unknown) {
 
 function resolveDepartmentLabel(employee: EmployeeRow) {
   const value = String(employee.department ?? '').trim();
-  return value || 'Unassigned';
+  if (value) return value;
+
+  switch (employee.position.toUpperCase()) {
+    case 'HR':
+      return 'HR';
+    case 'ACCOUNTING':
+      return 'Accounting';
+    case 'MANAGEMENT':
+      return 'Management';
+    default:
+      return 'Unassigned';
+  }
+}
+
+function buildAttendanceSummary(
+  employeeIds: number[],
+  presentSet: Set<number>,
+  lateSet: Set<number>,
+  onLeaveSet: Set<number>,
+  isWorkingDay: boolean
+) {
+  const summary: AttendanceStatusSummary = {
+    headcount: employeeIds.length,
+    present: 0,
+    late: 0,
+    absent: 0,
+    onLeave: 0,
+    dayOff: 0,
+  };
+
+  for (const employeeId of employeeIds) {
+    if (lateSet.has(employeeId)) {
+      summary.late += 1;
+      continue;
+    }
+
+    if (presentSet.has(employeeId)) {
+      summary.present += 1;
+      continue;
+    }
+
+    if (onLeaveSet.has(employeeId)) {
+      summary.onLeave += 1;
+      continue;
+    }
+
+    if (!isWorkingDay) {
+      summary.dayOff += 1;
+      continue;
+    }
+
+    summary.absent += 1;
+  }
+
+  return summary;
+}
+
+function donutPoints(summary: AttendanceStatusSummary) {
+  const total = summary.headcount;
+  if (total <= 0) return [] as DonutPoint[];
+
+  return (Object.keys(STATUS_CONFIG) as AttendanceStatusKey[])
+    .map((key) => ({
+      key,
+      label: STATUS_CONFIG[key].label,
+      value: summary[key],
+      share: summary[key] / total,
+      tone: STATUS_CONFIG[key].tone,
+    }))
+    .filter((point) => point.value > 0);
+}
+
+function buildDonutBackground(points: DonutPoint[]) {
+  if (points.length === 0) return '';
+
+  let cursor = 0;
+  const segments = points.map((point) => {
+    const start = cursor;
+    cursor += point.share * 100;
+    return `${STATUS_CONFIG[point.key].color} ${start}% ${cursor}%`;
+  });
+
+  if (cursor < 100) {
+    segments.push(`#f4edf7 ${cursor}% 100%`);
+  }
+
+  return `conic-gradient(${segments.join(', ')})`;
 }
 
 export default function HrDashboard() {
@@ -160,6 +304,10 @@ export function AttendanceOverviewDashboard({
   leavesUrl = '/api/leave/request',
   rosterUrl = '/api/employees',
 }: AttendanceOverviewDashboardProps) {
+  const today = new Date();
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(
+    today.getDate()
+  ).padStart(2, '0')}`;
   const [logs, setLogs] = useState<AttendanceLog[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);
@@ -167,11 +315,48 @@ export function AttendanceOverviewDashboard({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [deptPage, setDeptPage] = useState(0);
   const [refreshTick, setRefreshTick] = useState(0);
+  const [selectedDateKey, setSelectedDateKey] = useState(todayKey);
+  const [feedPanelHeight, setFeedPanelHeight] = useState<number | null>(null);
+  const mainColRef = useRef<HTMLDivElement | null>(null);
+  const effectiveSelectedDateKey = selectedDateKey && selectedDateKey <= todayKey ? selectedDateKey : todayKey;
+  const selectedDate = useMemo(() => dateFromKey(effectiveSelectedDateKey), [effectiveSelectedDateKey]);
+  const isSelectedDateToday = effectiveSelectedDateKey === todayKey;
+  const selectedDateHeading = useMemo(() => formatLongDateLabel(selectedDate), [selectedDate]);
+  const selectedDateShortLabel = useMemo(() => formatShortDateLabel(selectedDate), [selectedDate]);
+  const isWorkingDaySelected = DEFAULT_WORKING_DAYS.has(selectedDate.getDay());
   const handlePageRefresh = useCallback(() => {
     setRefreshTick((tick) => tick + 1);
   }, []);
 
+  function shiftSelectedDate(days: number) {
+    const next = new Date(selectedDate);
+    next.setDate(next.getDate() + days);
+    const nextKey = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(
+      next.getDate()
+    ).padStart(2, '0')}`;
+    if (nextKey > todayKey) return;
+    setSelectedDateKey(nextKey);
+  }
+
   useRegisterPageRefresh(handlePageRefresh);
+
+  useEffect(() => {
+    const element = mainColRef.current;
+    if (!element || typeof ResizeObserver === 'undefined') return;
+
+    const updateHeight = () => {
+      setFeedPanelHeight(Math.ceil(element.getBoundingClientRect().height));
+    };
+
+    updateHeight();
+
+    const observer = new ResizeObserver(() => {
+      updateHeight();
+    });
+
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -180,8 +365,20 @@ export function AttendanceOverviewDashboard({
       if (!silent) setIsLoading(true);
       setLoadError(null);
 
+      const dayStart = new Date(selectedDate);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(selectedDate);
+      dayEnd.setHours(23, 59, 59, 999);
+
       const [logsResult, leavesResult, rosterResult] = await Promise.allSettled([
-        apiFetchJson<unknown>(withPaging(logsUrl, 0, 400)),
+        apiFetchJson<unknown>(
+          withParams(logsUrl, {
+            page: '0',
+            size: '5000',
+            timestampAfter: dayStart.toISOString(),
+            timestampBefore: dayEnd.toISOString(),
+          })
+        ),
         apiFetchJson<unknown>(withPaging(leavesUrl, 0, 200)),
         rosterUrl ? apiFetchJson<unknown>(withPaging(rosterUrl, 0, 500)) : Promise.resolve([]),
       ]);
@@ -219,7 +416,7 @@ export function AttendanceOverviewDashboard({
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [leavesUrl, logsUrl, refreshTick, rosterUrl]);
+  }, [leavesUrl, logsUrl, refreshTick, rosterUrl, selectedDate]);
 
   const employeeById = useMemo(() => {
     const map = new Map<number, EmployeeRow>();
@@ -229,120 +426,79 @@ export function AttendanceOverviewDashboard({
     return map;
   }, [employees]);
 
-  const now = new Date();
-  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(
-    now.getDate()
-  ).padStart(2, '0')}`;
-
-  const todayLogs = useMemo(() => {
-    return logs.filter((log) => localDateKey(log.timestamp) === todayKey);
-  }, [logs, todayKey]);
-
-  const firstClockInByEmployee = useMemo(() => {
-    const byEmployee = new Map<number, AttendanceLog>();
-    for (const log of [...todayLogs].sort((a, b) => {
-      const at = typeof a.timestamp === 'string' ? Date.parse(a.timestamp) : 0;
-      const bt = typeof b.timestamp === 'string' ? Date.parse(b.timestamp) : 0;
-      return at - bt;
-    })) {
-      if (typeof log.employeeId !== 'number') continue;
-      if (!isInDirection(log.direction)) continue;
-      if (!byEmployee.has(log.employeeId)) {
-        byEmployee.set(log.employeeId, log);
-      }
-    }
-    return byEmployee;
-  }, [todayLogs]);
+  const selectedDateLogs = useMemo(() => {
+    return logs.filter((log) => localDateKey(log.timestamp) === effectiveSelectedDateKey);
+  }, [effectiveSelectedDateKey, logs]);
 
   const presentSet = useMemo(() => {
     const ids = new Set<number>();
-    for (const log of todayLogs) {
+    for (const log of selectedDateLogs) {
       if (typeof log.employeeId === 'number') ids.add(log.employeeId);
     }
     return ids;
-  }, [todayLogs]);
+  }, [selectedDateLogs]);
 
   const lateSet = useMemo(() => {
     const ids = new Set<number>();
-    for (const log of todayLogs) {
+    for (const log of selectedDateLogs) {
       if (typeof log.employeeId !== 'number') continue;
       if (isLateDirection(log.direction)) ids.add(log.employeeId);
     }
     return ids;
-  }, [todayLogs]);
-
-  const onTimeSet = useMemo(() => {
-    const ids = new Set<number>();
-    for (const [employeeId, clockInLog] of firstClockInByEmployee.entries()) {
-      if (isLateDirection(clockInLog.direction)) continue;
-      if (!withinRegularClockInWindow(clockInLog.timestamp)) continue;
-      ids.add(employeeId);
-    }
-    return ids;
-  }, [firstClockInByEmployee]);
-
-  const metricCards = useMemo(
-    () => [
-      { label: 'Present', value: presentSet.size },
-      { label: 'Attendance Logs', value: todayLogs.length },
-      { label: 'On Time', value: onTimeSet.size },
-      { label: 'Late', value: lateSet.size },
-    ],
-    [lateSet.size, onTimeSet.size, presentSet.size, todayLogs.length]
-  );
+  }, [selectedDateLogs]);
 
   const activeEmployees = useMemo(() => {
     return employees.filter((employee) => employee.status.toUpperCase() !== 'TERMINATED');
   }, [employees]);
 
+  const activeEmployeeIds = useMemo(() => activeEmployees.map((employee) => employee.id), [activeEmployees]);
+
+  const lateClockInByEmployee = useMemo(() => {
+    const map = new Map<number, string>();
+
+    for (const log of [...selectedDateLogs].sort((a, b) => {
+      const at = typeof a.timestamp === 'string' ? Date.parse(a.timestamp) : 0;
+      const bt = typeof b.timestamp === 'string' ? Date.parse(b.timestamp) : 0;
+      return at - bt;
+    })) {
+      if (typeof log.employeeId !== 'number') continue;
+      if (!isLateDirection(log.direction)) continue;
+      if (map.has(log.employeeId)) continue;
+
+      const time = log.timestamp
+        ? new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : 'Unknown time';
+      map.set(log.employeeId, time);
+    }
+
+    return map;
+  }, [selectedDateLogs]);
+
   const attendanceFeed: FeedItem[] = useMemo(() => {
-    return [...logs]
+    return [...selectedDateLogs]
       .sort((a, b) => {
         const at = typeof a.timestamp === 'string' ? Date.parse(a.timestamp) : 0;
         const bt = typeof b.timestamp === 'string' ? Date.parse(b.timestamp) : 0;
         return bt - at;
       })
-      .slice(0, 10)
       .map((log, idx) => {
         const date = typeof log.timestamp === 'string' ? new Date(log.timestamp) : null;
-        const direction = typeof log.direction === 'string' ? log.direction : 'Attendance log';
-        return {
-          id: String(log.attendanceId ?? idx),
-          name: employeeName(employeeById.get(log.employeeId ?? -1)),
-          summary: direction,
-          detail: date
-            ? date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-            : 'Recorded recently',
-          time: date ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A',
-        };
-      });
-  }, [employeeById, logs]);
-
-  const lateToday = useMemo(() => {
-    return [...todayLogs]
-      .filter((log) => typeof log.direction === 'string' && log.direction.toUpperCase().includes('LATE'))
-      .map((log, idx) => {
-        const time = log.timestamp
-          ? new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          : 'N/A';
         const employee = employeeById.get(log.employeeId ?? -1);
-
         return {
           id: String(log.attendanceId ?? idx),
           name: employeeName(employee),
-          summary: employee?.position ? `${employee.position} • Late attendance entry` : 'Late attendance entry',
-          detail: `Direction: ${String(log.direction ?? 'UNKNOWN')}`,
-          timeIn: time,
-          duration: lateSet.has(log.employeeId ?? -1) ? 'Late flag active' : 'Under review',
-          period: 'Today',
+          directionLabel: directionIndicator(log.direction),
+          directionTone: directionIndicatorTone(log.direction),
+          position: employee?.position || 'Position unavailable',
+          time: date ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A',
         };
       });
-  }, [employeeById, lateSet, todayLogs]);
+  }, [employeeById, selectedDateLogs]);
 
   const onLeave: LeaveCardItem[] = useMemo(() => {
     return leaveRequests
       .filter((request) => String(request.requestStatus ?? '').toUpperCase() === 'APPROVED')
-      .filter((request) => isTodayWithin(request.startDateTime, request.endDateTime, now))
+      .filter((request) => isTodayWithin(request.startDateTime, request.endDateTime, selectedDate))
       .map((request, idx) => {
         const employee = employeeById.get(request.empId ?? -1);
         return {
@@ -353,18 +509,77 @@ export function AttendanceOverviewDashboard({
           period: formatPeriodLabel(request.startDateTime, request.endDateTime),
         };
       });
-  }, [employeeById, leaveRequests, now]);
+  }, [employeeById, leaveRequests, selectedDate]);
 
   const employeesOnLeaveToday = useMemo(() => {
     const ids = new Set<number>();
     for (const request of leaveRequests) {
       if (typeof request.empId !== 'number') continue;
       if (String(request.requestStatus ?? '').toUpperCase() !== 'APPROVED') continue;
-      if (!isTodayWithin(request.startDateTime, request.endDateTime, now)) continue;
+      if (!isTodayWithin(request.startDateTime, request.endDateTime, selectedDate)) continue;
       ids.add(request.empId);
     }
     return ids;
-  }, [leaveRequests, now]);
+  }, [leaveRequests, selectedDate]);
+
+  const absentToday = useMemo(() => {
+    if (!isWorkingDaySelected) return [];
+
+    return activeEmployees
+      .filter((employee) => !lateSet.has(employee.id))
+      .filter((employee) => !presentSet.has(employee.id))
+      .filter((employee) => !employeesOnLeaveToday.has(employee.id))
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((employee) => ({
+        id: String(employee.id),
+        name: employee.name,
+        summary: employee.position || 'No position assigned',
+        detail: resolveDepartmentLabel(employee),
+      }));
+  }, [activeEmployees, employeesOnLeaveToday, isWorkingDaySelected, lateSet, presentSet]);
+
+  const lateToday = useMemo(() => {
+    return activeEmployees
+      .filter((employee) => lateSet.has(employee.id))
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map((employee) => ({
+        id: String(employee.id),
+        name: employee.name,
+        summary: employee.position || 'No position assigned',
+        detail: resolveDepartmentLabel(employee),
+        timeIn: lateClockInByEmployee.get(employee.id) || 'Late clock-in logged',
+      }));
+  }, [activeEmployees, lateClockInByEmployee, lateSet]);
+
+  const overallSummary = useMemo(
+    () => buildAttendanceSummary(activeEmployeeIds, presentSet, lateSet, employeesOnLeaveToday, isWorkingDaySelected),
+    [activeEmployeeIds, employeesOnLeaveToday, isWorkingDaySelected, lateSet, presentSet]
+  );
+
+  const metricCards = useMemo(
+    () =>
+      (Object.keys(STATUS_CONFIG) as AttendanceStatusKey[]).map((key) => {
+        const total = overallSummary.headcount;
+        const value = overallSummary[key];
+        const percent = total > 0 ? Math.round((value / total) * 100) : 0;
+        const ringStyle =
+          total > 0
+            ? ({
+                '--ring-fill': `${Math.max((value / total) * 360, value > 0 ? 18 : 0)}deg`,
+                '--ring-color': STATUS_CONFIG[key].color,
+              } as CSSProperties)
+            : undefined;
+
+        return {
+          key,
+          label: STATUS_CONFIG[key].label,
+          value,
+          helper: `${percent}% of ${total} active`,
+          ringStyle,
+        };
+      }),
+    [overallSummary]
+  );
 
   const departmentBreakdown = useMemo(() => {
     const grouped = new Map<string, DepartmentBreakdownItem>();
@@ -377,26 +592,45 @@ export function AttendanceOverviewDashboard({
         headcount: 0,
         present: 0,
         late: 0,
+        absent: 0,
         onLeave: 0,
+        dayOff: 0,
       };
 
       current.headcount += 1;
-      if (presentSet.has(employee.id)) current.present += 1;
-      if (lateSet.has(employee.id)) current.late += 1;
-      if (employeesOnLeaveToday.has(employee.id)) current.onLeave += 1;
+
+      const employeeSummary = buildAttendanceSummary(
+        [employee.id],
+        presentSet,
+        lateSet,
+        employeesOnLeaveToday,
+        isWorkingDaySelected
+      );
+
+      current.present += employeeSummary.present;
+      current.late += employeeSummary.late;
+      current.absent += employeeSummary.absent;
+      current.onLeave += employeeSummary.onLeave;
+      current.dayOff += employeeSummary.dayOff;
       grouped.set(label, current);
     }
 
     return [...grouped.values()].sort(
-      (a, b) => b.present - a.present || b.headcount - a.headcount || a.name.localeCompare(b.name)
+      (a, b) =>
+        b.headcount - a.headcount ||
+        b.present + b.late - (a.present + a.late) ||
+        a.name.localeCompare(b.name)
     );
-  }, [activeEmployees, employeesOnLeaveToday, lateSet, presentSet]);
+  }, [activeEmployees, employeesOnLeaveToday, isWorkingDaySelected, lateSet, presentSet]);
 
-  const maxDeptPage = Math.max(departmentBreakdown.length - 1, 0);
-  const activeDeptPage = Math.min(deptPage, maxDeptPage);
-  const visibleDepartments = departmentBreakdown.slice(activeDeptPage, activeDeptPage + 1);
+  const totalDeptPages = Math.max(Math.ceil(departmentBreakdown.length / DEPARTMENTS_PER_PAGE), 1);
+  const activeDeptPage = Math.min(deptPage, totalDeptPages - 1);
+  const visibleDepartments = departmentBreakdown.slice(
+    activeDeptPage * DEPARTMENTS_PER_PAGE,
+    (activeDeptPage + 1) * DEPARTMENTS_PER_PAGE
+  );
   const attendanceDashboardDescription =
-    audience === 'Manager'
+    audience.toLowerCase() === 'manager'
       ? 'Track team attendance activity, late logs, and department trends from the latest records.'
       : 'Track attendance activity, late logs, and department trends from the latest records.';
 
@@ -406,18 +640,41 @@ export function AttendanceOverviewDashboard({
         <PageHeader
           title="Attendance Dashboard"
           description={attendanceDashboardDescription}
-          meta={
-            <span>
-              {new Date().toLocaleDateString(undefined, {
-                weekday: 'long',
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric',
-              })}
-            </span>
-          }
         />
         <div className="hrDash__topActions">
+          <div className="hrDash__dateFilter">
+            <div className="hrDash__dateNav">
+              <button
+                className="hrDash__dateArrow"
+                type="button"
+                aria-label="Previous date"
+                onClick={() => shiftSelectedDate(-1)}
+              >
+                <FiChevronLeft />
+              </button>
+              <div className="hrDash__dateLabel">
+                <strong>{selectedDateHeading}</strong>
+              </div>
+              <label className="hrDash__calendarTrigger" aria-label="Select a specific date">
+                <FiCalendar />
+              <input
+                type="date"
+                value={effectiveSelectedDateKey}
+                max={todayKey}
+                onChange={(event) => setSelectedDateKey(event.target.value || todayKey)}
+              />
+              </label>
+              <button
+                className="hrDash__dateArrow"
+                type="button"
+                aria-label="Next date"
+                onClick={() => shiftSelectedDate(1)}
+                disabled={isSelectedDateToday}
+              >
+                <FiChevronRight />
+              </button>
+            </div>
+          </div>
           <button className="hrDash__exportBtn" type="button" onClick={() => window.print()}>
             Export Attendance
             <br />
@@ -429,14 +686,15 @@ export function AttendanceOverviewDashboard({
       {!isLoading && loadError && <p className="hrDash__subtitle">Failed to load attendance logs: {loadError}</p>}
 
       <div className="hrDash__grid">
-        <div className="hrDash__mainCol">
+        <div className="hrDash__mainCol" ref={mainColRef}>
           <section className="hrStatRow">
             {metricCards.map((card) => (
-              <article key={card.label} className="hrStatCard">
-                <div className="hrStatCard__ring" />
+              <article key={card.key} className="hrStatCard">
+                <div className="hrStatCard__ring" style={card.ringStyle} />
                 <div className="hrStatCard__body">
                   <div className="hrStatCard__label">{card.label}</div>
                   <div className="hrStatCard__value">{card.value}</div>
+                  <div className="hrStatCard__helper">{card.helper}</div>
                 </div>
               </article>
             ))}
@@ -458,46 +716,51 @@ export function AttendanceOverviewDashboard({
                   </button>
 
                   <div className="hrDeptGrid">
-                    {visibleDepartments.map((department, index) => {
-                      const availableToday = Math.max(department.headcount - department.onLeave, 0);
-                      const coverage = department.headcount > 0 ? Math.round((department.present / department.headcount) * 100) : 0;
+                    {visibleDepartments.map((department) => {
+                      const summary: AttendanceStatusSummary = {
+                        headcount: department.headcount,
+                        present: department.present,
+                        late: department.late,
+                        absent: department.absent,
+                        onLeave: department.onLeave,
+                        dayOff: department.dayOff,
+                      };
+                      const chartPoints = donutPoints(summary);
+                      const donutBackground = buildDonutBackground(chartPoints);
+                      const donutStyle = donutBackground
+                        ? ({ background: donutBackground } as CSSProperties)
+                        : undefined;
 
                       return (
-                      <article key={department.id} className="hrDeptCard">
-                        <div className="hrDeptCard__top">
-                          <div>
-                            <div className="hrDeptCard__eyebrow">Department Overview</div>
-                            <div className="hrDeptCard__name">{department.name}</div>
+                        <article key={department.id} className="hrDeptCard">
+                          <div className="hrDeptCard__name">{department.name}</div>
+                          <div className="hrDeptCard__body">
+                            <div className="hrDeptCard__chartWrap">
+                              <div
+                                className={`hrDeptDonut${chartPoints.length === 0 ? ' hrDeptDonut--empty' : ''}`}
+                                style={donutStyle}
+                                aria-hidden="true"
+                              >
+                                <div className="hrDeptDonut__center">
+                                  <strong>{department.headcount}</strong>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="hrDeptCard__stats">
+                              {(Object.keys(STATUS_CONFIG) as AttendanceStatusKey[]).map((key) => (
+                                <div
+                                  key={`${department.id}-${key}`}
+                                  className="hrDeptStatRow"
+                                  aria-label={`${STATUS_CONFIG[key].label}: ${summary[key]}`}
+                                  title={STATUS_CONFIG[key].label}
+                                >
+                                  <span className={`hrDeptStatRow__dot hrDeptStatRow__dot--${key}`} />
+                                  <strong className="hrDeptStatRow__value">{summary[key]}</strong>
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                          <span className="hrDeptCard__pageTag">
-                            {activeDeptPage + index + 1} / {departmentBreakdown.length}
-                          </span>
-                        </div>
-                        <div className="hrDeptCard__metaRow">
-                          <span className="hrDeptCard__meta">
-                            {department.headcount} active employee{department.headcount === 1 ? '' : 's'}
-                          </span>
-                          <span className="hrDeptCard__meta hrDeptCard__meta--accent">{coverage}% attendance coverage</span>
-                        </div>
-                        <div className="hrDeptCard__stats">
-                          <div className="hrDeptStat hrDeptStat--present">
-                            <span>Present</span>
-                            <strong>{department.present}</strong>
-                          </div>
-                          <div className="hrDeptStat hrDeptStat--late">
-                            <span>Late</span>
-                            <strong>{department.late}</strong>
-                          </div>
-                          <div className="hrDeptStat hrDeptStat--leave">
-                            <span>On Leave</span>
-                            <strong>{department.onLeave}</strong>
-                          </div>
-                        </div>
-                        <div className="hrDeptCard__footer">
-                          <span>Available today: {availableToday}</span>
-                          <span>Slide through departments</span>
-                        </div>
-                      </article>
+                        </article>
                       );
                     })}
                   </div>
@@ -506,16 +769,16 @@ export function AttendanceOverviewDashboard({
                     className="hrCircleBtn"
                     type="button"
                     aria-label="Next department page"
-                    onClick={() => setDeptPage((page) => (page + 1 < departmentBreakdown.length ? page + 1 : page))}
-                    disabled={activeDeptPage + 1 >= departmentBreakdown.length}
+                    onClick={() => setDeptPage((page) => (page + 1 < totalDeptPages ? page + 1 : page))}
+                    disabled={activeDeptPage + 1 >= totalDeptPages}
                   >
                     <FiChevronRight />
                   </button>
                 </div>
 
-                {maxDeptPage > 0 && (
+                {totalDeptPages > 1 && (
                   <div className="hrPager" aria-hidden="true">
-                    {Array.from({ length: maxDeptPage + 1 }).map((_, index) => (
+                    {Array.from({ length: totalDeptPages }).map((_, index) => (
                       <span key={`dept-page-${index}`} className={index === activeDeptPage ? 'is-active' : ''} />
                     ))}
                   </div>
@@ -529,23 +792,55 @@ export function AttendanceOverviewDashboard({
               </div>
             )}
             <div className="hrLegend hrLegend--note">
-              <span className="hrLegend__note">
-                Department totals are grouped from the employee department data returned by the backend roster.
-              </span>
+              {(Object.keys(STATUS_CONFIG) as AttendanceStatusKey[]).map((key) => (
+                <span key={key} className={`hrLegend__item hrLegend__item--${key}`}>
+                  {STATUS_CONFIG[key].label}
+                </span>
+              ))}
             </div>
           </section>
 
           <div className="hrDash__bottomRow">
             <section className="hrPanel hrListPanel">
               <div className="hrPanel__header hrPanel__header--split">
-                <span>Late Today</span>
+                <span>{isSelectedDateToday ? 'Absent Today' : `Absent on ${selectedDateShortLabel}`}</span>
+                <span className="hrPanel__badge">{absentToday.length}</span>
+              </div>
+              <div className="hrPeopleList">
+                {absentToday.length > 0 ? (
+                  absentToday.map((item) => (
+                    <article key={item.id} className="hrPerson">
+                      <div className="hrPerson__body">
+                        <div className="hrPerson__name">{item.name}</div>
+                        <div className="hrPerson__meta">{item.summary}</div>
+                        <div className="hrPerson__meta">{item.detail}</div>
+                      </div>
+                    </article>
+                  ))
+                ) : (
+                  <div className="hrEmptyState">
+                    <div className="hrEmptyState__title">
+                      {isWorkingDaySelected ? 'Everyone is accounted for.' : 'No absences on scheduled day off.'}
+                    </div>
+                    <div className="hrEmptyState__note">
+                      {isWorkingDaySelected
+                        ? `No absences were recorded for ${selectedDateHeading}.`
+                        : `${selectedDateHeading} is treated as a day off in the dashboard schedule.`}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="hrPanel hrListPanel">
+              <div className="hrPanel__header hrPanel__header--split">
+                <span>{isSelectedDateToday ? 'Late Today' : `Late on ${selectedDateShortLabel}`}</span>
                 <span className="hrPanel__badge">{lateToday.length}</span>
               </div>
               <div className="hrPeopleList">
                 {lateToday.length > 0 ? (
                   lateToday.map((item) => (
                     <article key={item.id} className="hrPerson">
-                      <div className="hrPerson__avatar" />
                       <div className="hrPerson__body">
                         <div className="hrPerson__name">{item.name}</div>
                         <div className="hrPerson__meta">{item.summary}</div>
@@ -554,36 +849,30 @@ export function AttendanceOverviewDashboard({
                           <span>
                             <FiClock /> {item.timeIn}
                           </span>
-                          <span>
-                            <FiClock /> {item.duration}
-                          </span>
-                          <span>
-                            <FiCalendar /> {item.period}
-                          </span>
                         </div>
                       </div>
                     </article>
                   ))
                 ) : (
-                  <article className="hrPerson">
-                    <div className="hrPerson__body">
-                      <div className="hrPerson__name">No late attendance entries today.</div>
+                  <div className="hrEmptyState">
+                    <div className="hrEmptyState__title">No late arrivals logged.</div>
+                    <div className="hrEmptyState__note">
+                      Everyone who checked in for {selectedDateHeading} arrived on time.
                     </div>
-                  </article>
+                  </div>
                 )}
               </div>
             </section>
 
             <section className="hrPanel hrListPanel">
               <div className="hrPanel__header hrPanel__header--split">
-                <span>On Leave</span>
+                <span>{isSelectedDateToday ? 'On Leave Today' : `On Leave on ${selectedDateShortLabel}`}</span>
                 <span className="hrPanel__badge">{onLeave.length}</span>
               </div>
               <div className="hrPeopleList">
                 {onLeave.length > 0 ? (
                   onLeave.map((item) => (
                     <article key={item.id} className="hrPerson">
-                      <div className="hrPerson__avatar" />
                       <div className="hrPerson__body">
                         <div className="hrPerson__name">{item.name}</div>
                         <div className="hrPerson__meta">{item.summary}</div>
@@ -597,38 +886,45 @@ export function AttendanceOverviewDashboard({
                     </article>
                   ))
                 ) : (
-                  <article className="hrPerson">
-                    <div className="hrPerson__body">
-                      <div className="hrPerson__name">No approved leave requests covering today.</div>
+                  <div className="hrEmptyState">
+                    <div className="hrEmptyState__title">No approved leave on file.</div>
+                    <div className="hrEmptyState__note">
+                      No paid or unpaid leave request covers {selectedDateHeading}.
                     </div>
-                  </article>
+                  </div>
                 )}
               </div>
             </section>
           </div>
         </div>
-
-        <section className="hrPanel hrFeedPanel">
-          <div className="hrPanel__header">Attendance Feed</div>
+        <section
+          className="hrPanel hrFeedPanel"
+          style={feedPanelHeight ? ({ height: `${feedPanelHeight}px` } as CSSProperties) : undefined}
+        >
+          <div className="hrPanel__header">
+            {isSelectedDateToday ? 'Attendance Today' : `Attendance on ${selectedDateShortLabel}`}
+          </div>
           <div className="hrPeopleList">
             {attendanceFeed.length > 0 ? (
               attendanceFeed.map((item) => (
-                <article key={item.id} className="hrPerson">
-                  <div className="hrPerson__avatar" />
-                  <div className="hrPerson__body">
+                <article key={item.id} className="hrPerson hrPerson--feed">
+                  <div className="hrPerson__feedTop">
                     <div className="hrPerson__name">{item.name}</div>
-                    <div className="hrPerson__meta">{item.summary}</div>
-                    <div className="hrPerson__meta">{item.detail}</div>
+                    <div className="hrPerson__time">{item.time}</div>
                   </div>
-                  <div className="hrPerson__time">{item.time}</div>
+                  <div className="hrPerson__feedBottom">
+                    <div className="hrPerson__meta">{item.position}</div>
+                    <span className={`hrPerson__indicator hrPerson__indicator--${item.directionTone}`}>
+                      {item.directionLabel}
+                    </span>
+                  </div>
                 </article>
               ))
             ) : (
-              <article className="hrPerson">
-                <div className="hrPerson__body">
-                  <div className="hrPerson__name">No attendance feed yet.</div>
-                </div>
-              </article>
+              <div className="hrEmptyState">
+                <div className="hrEmptyState__title">No attendance activity yet.</div>
+                <div className="hrEmptyState__note">There are no attendance logs for {selectedDateHeading}.</div>
+              </div>
             )}
           </div>
         </section>
