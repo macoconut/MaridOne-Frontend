@@ -11,6 +11,9 @@ type AttendanceLog = {
   direction?: string;
 };
 
+const REGULAR_CLOCK_IN_WINDOW_START_HOUR = 4;
+const REGULAR_CLOCK_IN_WINDOW_END_HOUR = 12;
+
 type LeaveRequest = {
   requestId?: number;
   empId?: number;
@@ -26,6 +29,7 @@ type EmployeeRow = {
   name: string;
   status: string;
   position: string;
+  department?: string;
 };
 
 type FeedItem = {
@@ -42,6 +46,15 @@ type LeaveCardItem = {
   summary: string;
   detail: string;
   period: string;
+};
+
+type DepartmentBreakdownItem = {
+  id: string;
+  name: string;
+  headcount: number;
+  present: number;
+  late: number;
+  onLeave: number;
 };
 
 type AttendanceOverviewDashboardProps = {
@@ -88,20 +101,52 @@ function withPaging(path: string, page: number, size: number) {
   return `${path}${separator}page=${page}&size=${size}`;
 }
 
-function employeeName(employee: EmployeeRow | undefined, employeeId?: number) {
-  return employee?.name || (typeof employeeId === 'number' ? `Employee ID ${employeeId}` : 'Employee unavailable');
+function employeeName(employee: EmployeeRow | undefined) {
+  return employee?.name || 'Employee record unavailable';
+}
+
+function isInDirection(direction?: string) {
+  return String(direction ?? '')
+    .toUpperCase()
+    .includes('IN');
+}
+
+function isLateDirection(direction?: string) {
+  return String(direction ?? '')
+    .toUpperCase()
+    .includes('LATE');
+}
+
+function withinRegularClockInWindow(value?: string) {
+  if (!value) return false;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+  const hour = date.getHours();
+  return hour >= REGULAR_CLOCK_IN_WINDOW_START_HOUR && hour < REGULAR_CLOCK_IN_WINDOW_END_HOUR;
+}
+
+function rosterDisplayName(row: Record<string, unknown>) {
+  const firstName = typeof row.firstName === 'string' ? row.firstName.trim() : '';
+  const middleName = typeof row.middleName === 'string' ? row.middleName.trim() : '';
+  const lastName = typeof row.lastName === 'string' ? row.lastName.trim() : '';
+  const givenNames = [firstName, middleName].filter((part) => part.length > 0).join(' ');
+  const label = [lastName, givenNames].filter((part) => part.length > 0).join(', ');
+  return label || 'Employee record unavailable';
 }
 
 function rosterRows(payload: unknown) {
   return toArray<Record<string, unknown>>(payload).map((row, idx) => ({
     id: Number(row.employeeId ?? row.id ?? idx + 1),
-    name:
-      [row.firstName, row.middleName, row.lastName]
-        .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
-        .join(' ') || `Employee #${row.employeeId ?? row.id ?? idx + 1}`,
+    name: rosterDisplayName(row),
     status: String(row.employmentStatus ?? '-'),
     position: String(row.position ?? '-'),
+    department: typeof row.department === 'string' ? row.department.trim() : '',
   }));
+}
+
+function resolveDepartmentLabel(employee: EmployeeRow) {
+  const value = String(employee.department ?? '').trim();
+  return value || 'Unassigned';
 }
 
 export default function HrDashboard() {
@@ -192,6 +237,22 @@ export function AttendanceOverviewDashboard({
     return logs.filter((log) => localDateKey(log.timestamp) === todayKey);
   }, [logs, todayKey]);
 
+  const firstClockInByEmployee = useMemo(() => {
+    const byEmployee = new Map<number, AttendanceLog>();
+    for (const log of [...todayLogs].sort((a, b) => {
+      const at = typeof a.timestamp === 'string' ? Date.parse(a.timestamp) : 0;
+      const bt = typeof b.timestamp === 'string' ? Date.parse(b.timestamp) : 0;
+      return at - bt;
+    })) {
+      if (typeof log.employeeId !== 'number') continue;
+      if (!isInDirection(log.direction)) continue;
+      if (!byEmployee.has(log.employeeId)) {
+        byEmployee.set(log.employeeId, log);
+      }
+    }
+    return byEmployee;
+  }, [todayLogs]);
+
   const presentSet = useMemo(() => {
     const ids = new Set<number>();
     for (const log of todayLogs) {
@@ -204,21 +265,34 @@ export function AttendanceOverviewDashboard({
     const ids = new Set<number>();
     for (const log of todayLogs) {
       if (typeof log.employeeId !== 'number') continue;
-      if (typeof log.direction !== 'string') continue;
-      if (log.direction.toUpperCase().includes('LATE')) ids.add(log.employeeId);
+      if (isLateDirection(log.direction)) ids.add(log.employeeId);
     }
     return ids;
   }, [todayLogs]);
+
+  const onTimeSet = useMemo(() => {
+    const ids = new Set<number>();
+    for (const [employeeId, clockInLog] of firstClockInByEmployee.entries()) {
+      if (isLateDirection(clockInLog.direction)) continue;
+      if (!withinRegularClockInWindow(clockInLog.timestamp)) continue;
+      ids.add(employeeId);
+    }
+    return ids;
+  }, [firstClockInByEmployee]);
 
   const metricCards = useMemo(
     () => [
       { label: 'Present', value: presentSet.size },
       { label: 'Attendance Logs', value: todayLogs.length },
-      { label: 'On Time', value: Math.max(presentSet.size - lateSet.size, 0) },
+      { label: 'On Time', value: onTimeSet.size },
       { label: 'Late', value: lateSet.size },
     ],
-    [lateSet.size, presentSet.size, todayLogs.length]
+    [lateSet.size, onTimeSet.size, presentSet.size, todayLogs.length]
   );
+
+  const activeEmployees = useMemo(() => {
+    return employees.filter((employee) => employee.status.toUpperCase() !== 'TERMINATED');
+  }, [employees]);
 
   const attendanceFeed: FeedItem[] = useMemo(() => {
     return [...logs]
@@ -233,7 +307,7 @@ export function AttendanceOverviewDashboard({
         const direction = typeof log.direction === 'string' ? log.direction : 'Attendance log';
         return {
           id: String(log.attendanceId ?? idx),
-          name: employeeName(employeeById.get(log.employeeId ?? -1), log.employeeId),
+          name: employeeName(employeeById.get(log.employeeId ?? -1)),
           summary: direction,
           detail: date
             ? date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
@@ -246,7 +320,6 @@ export function AttendanceOverviewDashboard({
   const lateToday = useMemo(() => {
     return [...todayLogs]
       .filter((log) => typeof log.direction === 'string' && log.direction.toUpperCase().includes('LATE'))
-      .slice(0, 6)
       .map((log, idx) => {
         const time = log.timestamp
           ? new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -255,7 +328,7 @@ export function AttendanceOverviewDashboard({
 
         return {
           id: String(log.attendanceId ?? idx),
-          name: employeeName(employee, log.employeeId),
+          name: employeeName(employee),
           summary: employee?.position ? `${employee.position} • Late attendance entry` : 'Late attendance entry',
           detail: `Direction: ${String(log.direction ?? 'UNKNOWN')}`,
           timeIn: time,
@@ -269,12 +342,11 @@ export function AttendanceOverviewDashboard({
     return leaveRequests
       .filter((request) => String(request.requestStatus ?? '').toUpperCase() === 'APPROVED')
       .filter((request) => isTodayWithin(request.startDateTime, request.endDateTime, now))
-      .slice(0, 6)
       .map((request, idx) => {
         const employee = employeeById.get(request.empId ?? -1);
         return {
           id: String(request.requestId ?? idx),
-          name: employeeName(employee, request.empId),
+          name: employeeName(employee),
           summary: request.isPaid ? 'Paid leave' : 'Unpaid leave',
           detail: request.reason?.trim() || 'Approved leave request',
           period: formatPeriodLabel(request.startDateTime, request.endDateTime),
@@ -282,30 +354,46 @@ export function AttendanceOverviewDashboard({
       });
   }, [employeeById, leaveRequests, now]);
 
-  const activityLeaders = useMemo(() => {
-    const activity = new Map<number, { logCount: number; lateCount: number }>();
+  const employeesOnLeaveToday = useMemo(() => {
+    const ids = new Set<number>();
+    for (const request of leaveRequests) {
+      if (typeof request.empId !== 'number') continue;
+      if (String(request.requestStatus ?? '').toUpperCase() !== 'APPROVED') continue;
+      if (!isTodayWithin(request.startDateTime, request.endDateTime, now)) continue;
+      ids.add(request.empId);
+    }
+    return ids;
+  }, [leaveRequests, now]);
 
-    for (const log of todayLogs) {
-      if (typeof log.employeeId !== 'number') continue;
-      const current = activity.get(log.employeeId) ?? { logCount: 0, lateCount: 0 };
-      current.logCount += 1;
-      if (String(log.direction ?? '').toUpperCase().includes('LATE')) current.lateCount += 1;
-      activity.set(log.employeeId, current);
+  const departmentBreakdown = useMemo(() => {
+    const grouped = new Map<string, DepartmentBreakdownItem>();
+
+    for (const employee of activeEmployees) {
+      const label = resolveDepartmentLabel(employee);
+      const current = grouped.get(label) ?? {
+        id: label.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        name: label,
+        headcount: 0,
+        present: 0,
+        late: 0,
+        onLeave: 0,
+      };
+
+      current.headcount += 1;
+      if (presentSet.has(employee.id)) current.present += 1;
+      if (lateSet.has(employee.id)) current.late += 1;
+      if (employeesOnLeaveToday.has(employee.id)) current.onLeave += 1;
+      grouped.set(label, current);
     }
 
-    return [...activity.entries()]
-      .sort((a, b) => b[1].logCount - a[1].logCount || b[1].lateCount - a[1].lateCount)
-      .map(([employeeId, counts]) => ({
-        id: String(employeeId),
-        name: employeeName(employeeById.get(employeeId), employeeId),
-        logCount: counts.logCount,
-        lateCount: counts.lateCount,
-      }));
-  }, [employeeById, todayLogs]);
+    return [...grouped.values()].sort(
+      (a, b) => b.present - a.present || b.headcount - a.headcount || a.name.localeCompare(b.name)
+    );
+  }, [activeEmployees, employeesOnLeaveToday, lateSet, presentSet]);
 
-  const maxDeptPage = Math.max(Math.ceil(activityLeaders.length / 3) - 1, 0);
+  const maxDeptPage = Math.max(departmentBreakdown.length - 1, 0);
   const activeDeptPage = Math.min(deptPage, maxDeptPage);
-  const visibleLeaders = activityLeaders.slice(activeDeptPage * 3, activeDeptPage * 3 + 3);
+  const visibleDepartments = departmentBreakdown.slice(activeDeptPage, activeDeptPage + 1);
 
   return (
     <div className="hrDash">
@@ -347,62 +435,104 @@ export function AttendanceOverviewDashboard({
           </section>
 
           <section className="hrPanel">
-            <div className="hrPanel__header">Most Active Employees Today</div>
-            <div className="hrDept">
-              <button
-                className="hrCircleBtn"
-                type="button"
-                aria-label="Previous activity page"
-                onClick={() => setDeptPage((p) => Math.max(0, p - 1))}
-                disabled={activeDeptPage === 0}
-              >
-                <FiChevronLeft />
-              </button>
+            <div className="hrPanel__header">Attendance by Department</div>
+            {departmentBreakdown.length > 0 ? (
+              <>
+                <div className="hrDept">
+                  <button
+                    className="hrCircleBtn"
+                    type="button"
+                    aria-label="Previous department page"
+                    onClick={() => setDeptPage((page) => Math.max(0, page - 1))}
+                    disabled={activeDeptPage === 0}
+                  >
+                    <FiChevronLeft />
+                  </button>
 
-              <div className="hrDept__cards">
-                {visibleLeaders.length > 0 ? (
-                  visibleLeaders.map((leader) => (
-                    <div key={leader.id} className="hrDonutCard">
-                      <div className="hrDonut" />
-                      <div className="hrDonutCard__name">{leader.name}</div>
-                      <div className="hrDonutCard__meta">
-                        {leader.logCount} log{leader.logCount === 1 ? '' : 's'}
-                        {leader.lateCount > 0 ? ` • ${leader.lateCount} late` : ' • on time today'}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="hrDonutCard">
-                    <div className="hrDonutCard__name">No attendance logs recorded yet.</div>
+                  <div className="hrDeptGrid">
+                    {visibleDepartments.map((department, index) => {
+                      const availableToday = Math.max(department.headcount - department.onLeave, 0);
+                      const coverage = department.headcount > 0 ? Math.round((department.present / department.headcount) * 100) : 0;
+
+                      return (
+                      <article key={department.id} className="hrDeptCard">
+                        <div className="hrDeptCard__top">
+                          <div>
+                            <div className="hrDeptCard__eyebrow">Department Overview</div>
+                            <div className="hrDeptCard__name">{department.name}</div>
+                          </div>
+                          <span className="hrDeptCard__pageTag">
+                            {activeDeptPage + index + 1} / {departmentBreakdown.length}
+                          </span>
+                        </div>
+                        <div className="hrDeptCard__metaRow">
+                          <span className="hrDeptCard__meta">
+                            {department.headcount} active employee{department.headcount === 1 ? '' : 's'}
+                          </span>
+                          <span className="hrDeptCard__meta hrDeptCard__meta--accent">{coverage}% attendance coverage</span>
+                        </div>
+                        <div className="hrDeptCard__stats">
+                          <div className="hrDeptStat hrDeptStat--present">
+                            <span>Present</span>
+                            <strong>{department.present}</strong>
+                          </div>
+                          <div className="hrDeptStat hrDeptStat--late">
+                            <span>Late</span>
+                            <strong>{department.late}</strong>
+                          </div>
+                          <div className="hrDeptStat hrDeptStat--leave">
+                            <span>On Leave</span>
+                            <strong>{department.onLeave}</strong>
+                          </div>
+                        </div>
+                        <div className="hrDeptCard__footer">
+                          <span>Available today: {availableToday}</span>
+                          <span>Slide through departments</span>
+                        </div>
+                      </article>
+                      );
+                    })}
+                  </div>
+
+                  <button
+                    className="hrCircleBtn"
+                    type="button"
+                    aria-label="Next department page"
+                    onClick={() => setDeptPage((page) => (page + 1 < departmentBreakdown.length ? page + 1 : page))}
+                    disabled={activeDeptPage + 1 >= departmentBreakdown.length}
+                  >
+                    <FiChevronRight />
+                  </button>
+                </div>
+
+                {maxDeptPage > 0 && (
+                  <div className="hrPager" aria-hidden="true">
+                    {Array.from({ length: maxDeptPage + 1 }).map((_, index) => (
+                      <span key={`dept-page-${index}`} className={index === activeDeptPage ? 'is-active' : ''} />
+                    ))}
                   </div>
                 )}
+              </>
+            ) : (
+              <div className="hrDeptGrid">
+                <div className="hrDeptCard hrDeptCard--empty">
+                  <div className="hrDeptCard__name">No department attendance data yet.</div>
+                </div>
               </div>
-
-              <button
-                className="hrCircleBtn"
-                type="button"
-                aria-label="Next activity page"
-                onClick={() => setDeptPage((p) => ((p + 1) * 3 < activityLeaders.length ? p + 1 : p))}
-                disabled={(activeDeptPage + 1) * 3 >= activityLeaders.length}
-              >
-                <FiChevronRight />
-              </button>
-            </div>
-
-            <div className="hrPager" aria-hidden="true">
-              <span className="is-active" />
-              <span />
-              <span />
-            </div>
-
+            )}
             <div className="hrLegend hrLegend--note">
-              <span className="hrLegend__note">Leaderboard is based on today&apos;s attendance log activity only.</span>
+              <span className="hrLegend__note">
+                Department totals are grouped from the employee department data returned by the backend roster.
+              </span>
             </div>
           </section>
 
           <div className="hrDash__bottomRow">
             <section className="hrPanel hrListPanel">
-              <div className="hrPanel__header">Late Today</div>
+              <div className="hrPanel__header hrPanel__header--split">
+                <span>Late Today</span>
+                <span className="hrPanel__badge">{lateToday.length}</span>
+              </div>
               <div className="hrPeopleList">
                 {lateToday.length > 0 ? (
                   lateToday.map((item) => (
@@ -437,7 +567,10 @@ export function AttendanceOverviewDashboard({
             </section>
 
             <section className="hrPanel hrListPanel">
-              <div className="hrPanel__header">On Leave</div>
+              <div className="hrPanel__header hrPanel__header--split">
+                <span>On Leave</span>
+                <span className="hrPanel__badge">{onLeave.length}</span>
+              </div>
               <div className="hrPeopleList">
                 {onLeave.length > 0 ? (
                   onLeave.map((item) => (

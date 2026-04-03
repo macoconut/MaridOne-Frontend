@@ -384,6 +384,7 @@ export default function HrApprovals() {
   const activeFilterCount = [typeFilter, statusFilter, leavePaidFilter, overtimeTypeFilter].filter(
     (value) => value !== 'all'
   ).length;
+  const hasFinalDecision = selected ? toStatusCode(selected.status) !== 'PENDING' : false;
   const canReviewSelected =
     selected ? toStatusCode(selected.status) === 'PENDING' && selected.source !== 'leave' : false;
 
@@ -438,7 +439,7 @@ export default function HrApprovals() {
       let correctionIntent: CorrectionIntent | null = null;
 
       if (selected.source === 'leave') {
-        throw new Error('Leave requests can be displayed here, but this backend response does not include the leave type needed to submit an HR decision.');
+        return;
       }
 
       if (selected.source === 'dispute') {
@@ -488,11 +489,7 @@ export default function HrApprovals() {
         });
       }
     } catch (error) {
-      setSubmitError(
-        error instanceof Error && error.message.includes('leave type needed')
-          ? error.message
-          : getFriendlyErrorMessage(error, 'approval-decision')
-      );
+      setSubmitError(getFriendlyErrorMessage(error, 'approval-decision'));
     } finally {
       setIsSaving(false);
     }
@@ -739,12 +736,7 @@ export default function HrApprovals() {
                 Approving a payroll dispute opens the correction workspace so HR can stage the actual adjustment.
               </p>
             )}
-            {selected.source === 'leave' && (
-              <p className="hrApprForm__hint">
-                This leave request can be reviewed here, but the current backend response does not include the leave type needed to submit an approval or denial from this page.
-              </p>
-            )}
-            {!canReviewSelected && (
+            {hasFinalDecision && (
               <p className="hrApprForm__hint">This request already has a final decision recorded.</p>
             )}
 

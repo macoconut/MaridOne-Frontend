@@ -438,12 +438,6 @@ export function AttendanceReportsBoard({
             </select>
           </div>
 
-          <div className="hrAtt__topActions">
-            <button className="hrAtt__actionBtn" type="button" onClick={() => window.print()}>
-              <FiCalendar />
-              Export Attendance
-            </button>
-          </div>
         </div>
       </div>
 
@@ -596,12 +590,6 @@ export function AttendanceReportsBoard({
                 <strong>{hasFullRoster ? selectedSummary.absent ?? '-' : selectedSummary.totalLogs}</strong>
               </article>
             </div>
-
-            {!hasFullRoster && (
-              <p className="hrAtt__hint">
-                Absent counts are not shown because the full employee roster is not available on this screen.
-              </p>
-            )}
 
             <div className="hrAttBreakdown">
               <section className="hrAttBreakdown__section">
