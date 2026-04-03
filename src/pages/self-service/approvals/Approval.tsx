@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getUserEmail } from '../../../lib/session';
 import './Approval.css';
@@ -9,15 +10,17 @@ type ApprovalItem = {
   sortStamp: number;
   dateOfRequest: string;
   requestType: string;
-  category: string;
-  startOfRequest: string;
+  requestDetail: string;
+  requestTarget: string;
   status: 'Pending' | 'Approved' | 'Denied';
   approvedBy: string;
-  remarks: string;
   requestReason: string;
   decisionReason: string;
   decisionDate: string;
 };
+
+type ApprovalTypeFilter = 'all' | 'Leave' | 'Overtime' | 'Payslip Dispute';
+type ApprovalStatusFilter = 'all' | 'Pending' | 'Approved' | 'Denied';
 
 type LeaveRow = {
   requestId?: number;
@@ -50,6 +53,7 @@ type DisputeRow = {
   reason?: string;
   status?: string;
   createdAt?: string;
+  updatedAt?: string;
   statusReason?: string;
   itemId?: number;
 };
@@ -105,9 +109,23 @@ function formatLeaveType(value?: string) {
     .join(' ');
 }
 
+function buildLeaveDetail(leaveType?: string, isPaid?: boolean) {
+  const payLabel = isPaid === false ? ' - Unpaid' : ' - Paid';
+  return `${formatLeaveType(leaveType)}${payLabel}`;
+}
+
+function buildDisputeDetail(subject?: string) {
+  const trimmed = typeof subject === 'string' ? subject.trim() : '';
+  return trimmed.length > 0 ? trimmed : 'Payroll dispute';
+}
+
 export default function Approval() {
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
   const [selectedApproval, setSelectedApproval] = useState<ApprovalItem | null>(null);
+  const [searchValue, setSearchValue] = useState('');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [typeFilter, setTypeFilter] = useState<ApprovalTypeFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<ApprovalStatusFilter>('all');
 
   useEffect(() => {
     if (selectedApproval) document.body.classList.add('modal-open');
@@ -158,11 +176,10 @@ export default function Approval() {
             sortStamp: requestStamp,
             dateOfRequest: formatDate(row.startDateTime),
             requestType: 'Leave',
-            category: `${formatLeaveType(row.leaveType)}${(row.paid ?? row.isPaid) === false ? ' • Unpaid' : ''}`,
-            startOfRequest: `${formatDate(row.startDateTime)} to ${formatDate(row.endDateTime)}`,
+            requestDetail: buildLeaveDetail(row.leaveType, row.paid ?? row.isPaid),
+            requestTarget: `${formatDate(row.startDateTime)} to ${formatDate(row.endDateTime)}`,
             status,
             approvedBy: status === 'Pending' ? '-' : extractApprover(row.approverReason),
-            remarks: row.approverReason ?? row.reason ?? '-',
             requestReason: row.reason ?? '-',
             decisionReason: row.approverReason ?? '-',
             decisionDate: '-',
@@ -182,14 +199,13 @@ export default function Approval() {
             sortStamp: row.requestAt ? Date.parse(row.requestAt) || 0 : 0,
             dateOfRequest: formatDateTime(row.requestAt),
             requestType: 'Overtime',
-            category: formatLeaveType(row.overtimeType || 'OT'),
-            startOfRequest:
+            requestDetail: formatLeaveType(row.overtimeType || 'OT'),
+            requestTarget:
               row.startTime
                 ? `${formatDate(row.workDate)} at ${formatTime(row.startTime)}`
                 : formatDate(row.workDate),
             status,
             approvedBy: row.approver ?? '-',
-            remarks: row.approveReason ?? row.reason ?? '-',
             requestReason: row.reason ?? '-',
             decisionReason: row.approveReason ?? '-',
             decisionDate: formatDateTime(row.approvedAt),
@@ -209,14 +225,13 @@ export default function Approval() {
             sortStamp: row.createdAt ? Date.parse(row.createdAt) || 0 : 0,
             dateOfRequest: formatDateTime(row.createdAt),
             requestType: 'Payslip Dispute',
-            category: row.subject || 'Dispute',
-            startOfRequest: `Item #${row.itemId ?? '-'}`,
+            requestDetail: buildDisputeDetail(row.subject),
+            requestTarget: `Item #${row.itemId ?? '-'}`,
             status,
             approvedBy: status === 'Pending' ? '-' : extractApprover(row.statusReason),
-            remarks: row.statusReason ?? row.reason ?? '-',
             requestReason: row.reason ?? '-',
             decisionReason: row.statusReason ?? '-',
-            decisionDate: '-',
+            decisionDate: formatDateTime(row.updatedAt),
           };
         });
 
@@ -231,27 +246,142 @@ export default function Approval() {
     })();
   }, []);
 
-  const approvedCount = approvals.filter((item) => item.status === 'Approved').length;
-  const deniedCount = approvals.filter((item) => item.status === 'Denied').length;
-  const pendingCount = approvals.filter((item) => item.status === 'Pending').length;
-  const totalCount = approvals.length;
+  const normalizedSearch = searchValue.trim().toLowerCase();
+  const visibleApprovals = useMemo(() => {
+    return approvals.filter((item) => {
+      if (typeFilter !== 'all' && item.requestType !== typeFilter) {
+        return false;
+      }
+
+      if (statusFilter !== 'all' && item.status !== statusFilter) {
+        return false;
+      }
+
+      if (!normalizedSearch) {
+        return true;
+      }
+
+      const haystack = [
+        item.dateOfRequest,
+        item.requestType,
+        item.requestDetail,
+        item.requestTarget,
+        item.status,
+        item.approvedBy,
+        item.requestReason,
+        item.decisionReason,
+        item.decisionDate,
+      ]
+        .join(' ')
+        .toLowerCase();
+
+      return haystack.includes(normalizedSearch);
+    });
+  }, [approvals, normalizedSearch, statusFilter, typeFilter]);
+  const activeFilterCount = [typeFilter, statusFilter].filter((value) => value !== 'all').length;
   const cards = useMemo(
     () =>
       [
-        { label: 'Approved', value: approvedCount, cls: 'approved' },
-        { label: 'Denied', value: deniedCount, cls: 'denied' },
-        { label: 'Pending', value: pendingCount, cls: 'pending' },
+        {
+          label: 'Approved',
+          value: visibleApprovals.filter((item) => item.status === 'Approved').length,
+          cls: 'approved',
+        },
+        {
+          label: 'Denied',
+          value: visibleApprovals.filter((item) => item.status === 'Denied').length,
+          cls: 'denied',
+        },
+        {
+          label: 'Pending',
+          value: visibleApprovals.filter((item) => item.status === 'Pending').length,
+          cls: 'pending',
+        },
       ].map((card) => ({
         ...card,
-        progress: totalCount > 0 ? Math.max((card.value / totalCount) * 100, card.value > 0 ? 8 : 0) : 0,
+        progress:
+          visibleApprovals.length > 0
+            ? Math.max((card.value / visibleApprovals.length) * 100, card.value > 0 ? 8 : 0)
+            : 0,
       })),
-    [approvedCount, deniedCount, pendingCount, totalCount]
+    [visibleApprovals]
   );
+
+  function clearFilters() {
+    setTypeFilter('all');
+    setStatusFilter('all');
+  }
 
   return (
     <div className="appr">
       <div className="appr__head">
         <h1 className="appr__title">View Approvals</h1>
+      </div>
+
+      <div className="appr__toolbar">
+        <label className="apprSearch" aria-label="Search approvals">
+          <FiSearch />
+          <input
+            value={searchValue}
+            onChange={(e) => setSearchValue(e.target.value)}
+            placeholder="Search request, type, status, or decision"
+          />
+          {searchValue && (
+            <button type="button" aria-label="Clear search" onClick={() => setSearchValue('')}>
+              <FiXCircle />
+            </button>
+          )}
+        </label>
+
+        <div className="apprFilter">
+          <button
+            type="button"
+            className={`apprFilter__toggle ${filterOpen ? 'is-open' : ''} ${
+              activeFilterCount > 0 ? 'is-active' : ''
+            }`}
+            onClick={() => setFilterOpen((open) => !open)}
+          >
+            <FiFilter />
+            <span>Filter</span>
+            {activeFilterCount > 0 && <span className="apprFilter__count">{activeFilterCount}</span>}
+          </button>
+
+          {filterOpen && (
+            <div className="apprFilter__panel">
+              <label className="apprFilter__field">
+                <span>Request Type</span>
+                <select
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value as ApprovalTypeFilter)}
+                >
+                  <option value="all">All Requests</option>
+                  <option value="Leave">Leave</option>
+                  <option value="Overtime">Overtime</option>
+                  <option value="Payslip Dispute">Payslip Dispute</option>
+                </select>
+              </label>
+
+              <label className="apprFilter__field">
+                <span>Status</span>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as ApprovalStatusFilter)}
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Denied">Denied</option>
+                </select>
+              </label>
+
+              <div className="apprFilter__actions">
+                <button type="button" onClick={clearFilters}>
+                  Clear Filters
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="appr__stats">
@@ -279,40 +409,36 @@ export default function Approval() {
         <div className="apprTable__head">
           <div>Date of Request</div>
           <div>Request Type</div>
-          <div>Category</div>
-          <div>Start of Request</div>
+          <div>Type / Topic</div>
+          <div>Period / Target</div>
           <div>Status</div>
           <div>Approved By</div>
-          <div>Remarks</div>
+          <div>Decision Date</div>
         </div>
 
         <div className="apprTable__body">
-          {approvals.length > 0 ? (
-            approvals.map((row) => (
+          {visibleApprovals.length > 0 ? (
+            visibleApprovals.map((row) => (
               <button
                 key={row.id}
                 type="button"
-                className={`apprRow apprRow--button ${row.status !== 'Pending' ? 'is-openable' : ''}`}
-                onClick={() => {
-                  if (row.status === 'Pending') return;
-                  setSelectedApproval(row);
-                }}
-                disabled={row.status === 'Pending'}
+                className="apprRow apprRow--button is-openable"
+                onClick={() => setSelectedApproval(row)}
               >
                 <div>{row.dateOfRequest}</div>
                 <div>{row.requestType}</div>
-                <div>{row.category}</div>
-                <div>{row.startOfRequest}</div>
+                <div>{row.requestDetail}</div>
+                <div>{row.requestTarget}</div>
                 <div className={`apprStatus apprStatus--${row.status.toLowerCase()}`}>
                   {row.status}
                 </div>
                 <div>{row.approvedBy}</div>
-                <div>{row.remarks}</div>
+                <div>{row.decisionDate}</div>
               </button>
             ))
           ) : (
             <div className="apprRow">
-              <div>No approval requests yet.</div>
+              <div>No matching approval requests.</div>
               <div>-</div>
               <div>-</div>
               <div>-</div>
@@ -331,7 +457,9 @@ export default function Approval() {
               <div>
                 <div className="apprModal__eyebrow">Request Breakdown</div>
                 <div className="apprModal__title">{selectedApproval.requestType}</div>
-                <p className="apprModal__subtitle">Review the request timeline, current status, and recorded decision notes for this approval item.</p>
+                <p className="apprModal__subtitle">
+                  Review the request timeline, current status, and recorded decision notes for this approval item.
+                </p>
               </div>
               <button type="button" className="apprModal__close" onClick={() => setSelectedApproval(null)}>
                 x
@@ -347,8 +475,8 @@ export default function Approval() {
               </div>
               <div className="apprModal__heroMeta">
                 <div>
-                  <span>Category</span>
-                  <strong>{selectedApproval.category}</strong>
+                  <span>Type / Topic</span>
+                  <strong>{selectedApproval.requestDetail}</strong>
                 </div>
                 <div>
                   <span>Handled By</span>
@@ -365,8 +493,8 @@ export default function Approval() {
                 <strong>{selectedApproval.dateOfRequest}</strong>
               </div>
               <div className="apprModal__card">
-                <span>Start of Request</span>
-                <strong>{selectedApproval.startOfRequest}</strong>
+                <span>Period / Target</span>
+                <strong>{selectedApproval.requestTarget}</strong>
               </div>
               <div className="apprModal__card">
                 <span>Decision Timestamp</span>
@@ -382,10 +510,6 @@ export default function Approval() {
               <div className="apprModal__section">
                 <div className="apprModal__sectionTitle">Approval / Denial Reason</div>
                 <p className="apprModal__sectionBody">{selectedApproval.decisionReason}</p>
-              </div>
-              <div className="apprModal__section apprModal__section--compact">
-                <div className="apprModal__sectionTitle">Remarks Preview</div>
-                <p className="apprModal__sectionBody">{selectedApproval.remarks}</p>
               </div>
             </div>
 

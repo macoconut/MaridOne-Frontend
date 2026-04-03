@@ -12,11 +12,11 @@
 
 .trainingPage__title{
   margin:0;
-  font-size:52px;
-  line-height:1;
+  font-size:32px;
+  line-height:1.05;
   color:var(--ink);
-  font-weight:900;
-  letter-spacing:-0.03em;
+  font-weight:800;
+  letter-spacing:-0.02em;
 }
 
 .trainingPage__stack{
@@ -27,9 +27,9 @@
 
 .tmCard{
   border-radius:12px;
-  border:1px solid rgba(0,0,0,.18);
+  border:1px solid rgba(84, 53, 125, .18);
   background:#fff;
-  box-shadow:0 2px 6px rgba(0,0,0,.18);
+  box-shadow:0 2px 6px rgba(77, 38, 108, .16);
   overflow:hidden;
 }
 
@@ -39,16 +39,16 @@
   display:flex;
   align-items:center;
   justify-content:space-between;
-  padding:14px 18px 14px 40px;
-  background:#7d4a95;
+  padding:14px 18px 14px 28px;
+  background:linear-gradient(135deg, #7d4a95, #8a56a3);
   color:#fff;
   cursor:pointer;
 }
 
 .tmCard__title{
-  font-size:26px;
-  font-weight:900;
-  line-height:1;
+  font-size:22px;
+  font-weight:800;
+  line-height:1.1;
   text-align:left;
 }
 
@@ -73,42 +73,88 @@
 }
 
 .tmRow{
-  border:none;
-  border-top:1px solid rgba(0,0,0,.08);
-  background:#efefef;
+  border-top:1px solid rgba(84, 53, 125, .08);
+  background:#f5f0fb;
   width:100%;
   min-height:56px;
-  padding:10px 18px;
+  padding:10px 14px 10px 18px;
+  display:flex;
+  align-items:center;
+  gap:16px;
+}
+
+.tmRow:nth-child(even){
+  background:#fbf9fe;
+}
+
+.tmRow--empty{
+  gap:12px;
+}
+
+.tmRow__main{
+  border:none;
+  background:transparent;
+  flex:1;
+  min-width:0;
   display:flex;
   align-items:center;
   gap:18px;
   text-align:left;
+  padding:0;
   cursor:pointer;
 }
 
-.tmRow:nth-child(even){
-  background:#f8f8f8;
+.tmRow__main:disabled,
+.tmRow__download:disabled{
+  cursor:wait;
+  opacity:.72;
 }
 
 .tmRow__icon{
-  color:#5b3a80;
-  font-size:24px;
+  color:#6a4191;
+  font-size:22px;
   flex:0 0 auto;
 }
 
 .tmRow__label{
-  color:#222;
-  font-size:20px;
-  line-height:1.2;
+  color:#2b1b3f;
+  font-size:15px;
+  line-height:1.45;
+  font-weight:700;
 }
 
-.tmRow:hover{
-  background:#e8e8e8;
+.tmRow__download{
+  border:none;
+  border-radius:999px;
+  background:#7d4a95;
+  color:#fff;
+  min-width:116px;
+  padding:9px 14px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  font-size:13px;
+  font-weight:800;
+  letter-spacing:.02em;
+  cursor:pointer;
+  box-shadow:0 8px 16px rgba(123,74,143,.2);
+}
+
+.tmRow__main:hover .tmRow__label{
+  text-decoration:underline;
+}
+
+.trainingPage__error{
+  margin:-4px 0 0;
+  color:#9e2f2f;
+  font-size:14px;
+  font-weight:700;
 }
 
 @media (max-width: 1200px){
   .trainingPage__title{
-    font-size:42px;
+    font-size:32px;
   }
 
   .tmCard__title{
@@ -116,7 +162,7 @@
   }
 
   .tmRow__label{
-    font-size:18px;
+    font-size:15px;
   }
 }
 
@@ -145,12 +191,18 @@
   .tmCard__chevron{
     width:24px;
     height:24px;
-    font-size: 16px;
+    font-size:16px;
   }
 
   .tmRow{
     min-height:48px;
     padding:10px 12px;
+    gap:12px;
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  .tmRow__main{
     gap:12px;
   }
 
@@ -161,5 +213,9 @@
   .tmRow__label{
     font-size:15px;
   }
-}
 
+  .tmRow__download{
+    width:100%;
+    min-width:0;
+  }
+}

@@ -228,6 +228,8 @@ export default function Attendance() {
   const [clockMessage, setClockMessage] = useState('');
   const [clockError, setClockError] = useState('');
   const [confirmClockAction, setConfirmClockAction] = useState<'TIME_IN' | 'TIME_OUT' | null>(null);
+  const [confirmLeaveSubmit, setConfirmLeaveSubmit] = useState(false);
+  const [confirmOtSubmit, setConfirmOtSubmit] = useState(false);
   const [latestAttendanceDirection, setLatestAttendanceDirection] = useState<'IN' | 'OUT' | null>(null);
   const userRole = getUserRole();
   const canRequestOvertime = !['hr', 'management', 'manager'].includes(userRole ?? '');
@@ -526,38 +528,52 @@ export default function Attendance() {
     }
   }
 
-  async function submitOt() {
+  function validateOtForm() {
     setOtSubmitError('');
     if (!canRequestOvertime) {
       setOtSubmitError('Overtime requests are not available for your role.');
-      return;
+      return false;
     }
 
     if (!otDate) {
       setOtSubmitError('OT date is required.');
-      return;
+      return false;
     }
 
     const todayKey = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
     if (otDate < todayKey) {
       setOtSubmitError('OT date cannot be in the past.');
-      return;
+      return false;
     }
 
     if (!otStartTime || !otEndTime) {
       setOtSubmitError('Start and end time are required.');
-      return;
+      return false;
     }
 
     if (otEndTime <= otStartTime) {
       setOtSubmitError('End time must be later than start time.');
-      return;
+      return false;
     }
 
     if (otReason.trim().length < 5) {
       setOtSubmitError('Reason must be at least 5 characters.');
+      return false;
+    }
+
+    return true;
+  }
+
+  function requestOtConfirmation() {
+    if (!validateOtForm()) return;
+    setConfirmOtSubmit(true);
+  }
+
+  async function submitOt() {
+    if (!validateOtForm()) {
       return;
     }
+    setConfirmOtSubmit(false);
 
     const startDateTime = `${otDate}T${otStartTime}:00`;
     const endDateTime = `${otDate}T${otEndTime}:00`;
@@ -592,31 +608,31 @@ export default function Attendance() {
     }
   }
 
-  async function submitLeave() {
+  function validateLeaveForm() {
     setSubmitError('');
     if (!employeeId) {
       setSubmitError('Unable to resolve employee account.');
-      return;
+      return false;
     }
 
     if (!startDate) {
       setSubmitError('Start date is required.');
-      return;
+      return false;
     }
 
     if (!endDate) {
       setSubmitError('End date is required.');
-      return;
+      return false;
     }
 
     if (!startTime) {
       setSubmitError('Start time is required.');
-      return;
+      return false;
     }
 
     if (!endTime) {
       setSubmitError('End time is required.');
-      return;
+      return false;
     }
 
     const startDateTime = `${startDate}T${startTime}:00`;
@@ -624,13 +640,30 @@ export default function Attendance() {
 
     if (endDateTime <= startDateTime) {
       setSubmitError('End date and time must be later than the start date and time.');
-      return;
+      return false;
     }
 
     if (reason.trim().length < 5) {
       setSubmitError('Reason must be at least 5 characters.');
+      return false;
+    }
+
+    return true;
+  }
+
+  function requestLeaveConfirmation() {
+    if (!validateLeaveForm()) return;
+    setConfirmLeaveSubmit(true);
+  }
+
+  async function submitLeave() {
+    if (!validateLeaveForm()) {
       return;
     }
+    setConfirmLeaveSubmit(false);
+
+    const startDateTime = `${startDate}T${startTime}:00`;
+    const endDateTime = `${endDate}T${endTime}:00`;
 
     try {
       let attachmentRef: number | null = null;
@@ -986,7 +1019,7 @@ export default function Attendance() {
                 <button className="btn btn--ghost" type="button" onClick={closeLeave}>
                   Cancel
                 </button>
-                <button className="btn" type="button" onClick={submitLeave}>
+                <button className="btn" type="button" onClick={requestLeaveConfirmation}>
                   Submit
                 </button>
               </div>
@@ -1063,7 +1096,7 @@ export default function Attendance() {
                 <button className="btn btn--ghost" type="button" onClick={closeOt}>
                   Cancel
                 </button>
-                <button className="btn" type="button" onClick={submitOt}>
+                <button className="btn" type="button" onClick={requestOtConfirmation}>
                   Submit
                 </button>
               </div>
@@ -1126,6 +1159,24 @@ export default function Attendance() {
         isBusy={isClocking}
         onConfirm={() => void recordAttendance()}
         onCancel={closeClockConfirmation}
+      />
+      <ConfirmDialog
+        open={confirmLeaveSubmit}
+        title="Confirm Leave Request"
+        message={`Submit this ${leaveType.replaceAll('_', ' ').toLowerCase()} request from ${startDate} ${startTime} to ${endDate} ${endTime}?`}
+        confirmLabel="Submit Leave Request"
+        cancelLabel="Go Back"
+        onConfirm={() => void submitLeave()}
+        onCancel={() => setConfirmLeaveSubmit(false)}
+      />
+      <ConfirmDialog
+        open={confirmOtSubmit}
+        title="Confirm Overtime Request"
+        message={`Submit this ${otType.replaceAll('_', ' ').toLowerCase()} request for ${otDate} from ${otStartTime} to ${otEndTime}?`}
+        confirmLabel="Submit Overtime Request"
+        cancelLabel="Go Back"
+        onConfirm={() => void submitOt()}
+        onCancel={() => setConfirmOtSubmit(false)}
       />
     </div>
   );

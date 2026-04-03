@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FiSearch, FiFilter, FiXCircle } from 'react-icons/fi';
+import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import { useNavigate } from 'react-router-dom';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
@@ -187,6 +188,7 @@ export default function HrApprovals() {
   const [pendingDecision, setPendingDecision] = useState<'APPROVED' | 'REJECTED' | null>(null);
   const [decisionReason, setDecisionReason] = useState('');
   const [submitError, setSubmitError] = useState('');
+  const [confirmDecisionOpen, setConfirmDecisionOpen] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [searchValue, setSearchValue] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
@@ -389,6 +391,7 @@ export default function HrApprovals() {
     setDecisionReason('');
     setSubmitError('');
     setPendingDecision(null);
+    setConfirmDecisionOpen(false);
   }, [selectedId]);
 
   useEffect(() => {
@@ -493,6 +496,21 @@ export default function HrApprovals() {
     } finally {
       setIsSaving(false);
     }
+  }
+
+  function requestDecisionConfirmation() {
+    if (!selected) return;
+    if (!pendingDecision) {
+      setSubmitError('Choose approve or deny before confirming the decision.');
+      return;
+    }
+    const trimmedReason = decisionReason.trim();
+    if (trimmedReason.length < 5) {
+      setSubmitError('Please enter at least 5 characters explaining the decision.');
+      return;
+    }
+    setSubmitError('');
+    setConfirmDecisionOpen(true);
   }
 
   return (
@@ -780,7 +798,7 @@ export default function HrApprovals() {
                 Cancel
               </button>
               {canReviewSelected ? (
-                <button type="button" onClick={() => void submitDecision()} disabled={isSaving || !pendingDecision}>
+                <button type="button" onClick={requestDecisionConfirmation} disabled={isSaving || !pendingDecision}>
                   {isSaving
                     ? 'Saving...'
                     : pendingDecision === 'APPROVED'
@@ -798,6 +816,23 @@ export default function HrApprovals() {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={confirmDecisionOpen}
+        title={pendingDecision === 'REJECTED' ? 'Confirm Denial' : 'Confirm Approval'}
+        message={
+          selected
+            ? `Apply this ${pendingDecision === 'REJECTED' ? 'denial' : 'approval'} to ${selected.employee}'s ${selected.type.toLowerCase()} request?`
+            : 'Confirm this approval decision?'
+        }
+        confirmLabel={pendingDecision === 'REJECTED' ? 'Confirm Denial' : 'Confirm Approval'}
+        cancelLabel="Go Back"
+        isBusy={isSaving}
+        onConfirm={() => {
+          setConfirmDecisionOpen(false);
+          void submitDecision();
+        }}
+        onCancel={() => setConfirmDecisionOpen(false)}
+      />
     </div>
   );
 }

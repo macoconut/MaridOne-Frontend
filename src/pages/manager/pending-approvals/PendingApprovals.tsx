@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
+import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import '../../hr/approvals/Approvals.css';
@@ -36,6 +37,8 @@ type OvertimeDto = {
 
 type RequestType = 'Leave' | 'Overtime';
 type SourceType = 'leave' | 'overtime';
+type RequestTypeFilter = 'all' | SourceType;
+type StatusFilter = 'all' | 'PENDING' | 'APPROVED' | 'REJECTED';
 
 type ManagerRequest = {
   id: string;
@@ -51,7 +54,6 @@ type ManagerRequest = {
   decisionSummary?: string;
   sortStamp: number;
   leaveType?: string;
-  isPaid?: boolean;
   requestId?: number;
   startDateTime?: string;
   endDateTime?: string;
@@ -93,6 +95,24 @@ function employeeLabel(employeeById: Map<number, EmployeeRow>, employeeId?: numb
   return employeeById.get(employeeId)?.name || `Employee ID ${employeeId}`;
 }
 
+function normalizeText(value?: string) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+function toStatusCode(status: string) {
+  const normalized = status.toUpperCase();
+  if (normalized === 'DENIED') return 'REJECTED';
+  return normalized;
+}
+
+function statusLabel(status: string) {
+  const normalized = toStatusCode(status);
+  if (normalized === 'PENDING') return 'Pending';
+  if (normalized === 'APPROVED') return 'Approved';
+  if (normalized === 'REJECTED') return 'Denied';
+  return status;
+}
+
 function rosterMap(payload: unknown) {
   const rows = toArray<Record<string, unknown>>(payload).map((row, idx) => ({
     id: Number(row.employeeId ?? row.id ?? idx + 1),
@@ -102,7 +122,11 @@ function rosterMap(payload: unknown) {
         .join(' ') || `Employee #${row.employeeId ?? row.id ?? idx + 1}`,
   }));
 
-  return new Map(rows.filter((row) => Number.isFinite(row.id)).map((row) => [row.id, row] satisfies [number, EmployeeRow]));
+  return new Map(
+    rows
+      .filter((row) => Number.isFinite(row.id))
+      .map((row) => [row.id, row] satisfies [number, EmployeeRow])
+  );
 }
 
 export default function ManagerPendingApprovals() {
@@ -112,7 +136,12 @@ export default function ManagerPendingApprovals() {
   const [pendingDecision, setPendingDecision] = useState<'APPROVED' | 'REJECTED' | null>(null);
   const [decisionReason, setDecisionReason] = useState('');
   const [submitError, setSubmitError] = useState('');
+  const [confirmDecisionOpen, setConfirmDecisionOpen] = useState(false);
   const [loadError, setLoadError] = useState('');
+  const [searchValue, setSearchValue] = useState('');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [typeFilter, setTypeFilter] = useState<RequestTypeFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
   async function loadRequests() {
     try {
@@ -129,7 +158,9 @@ export default function ManagerPendingApprovals() {
         id: `leave-${item.requestId ?? idx}`,
         requestId: item.requestId,
         employee: employeeLabel(employeeById, item.empId),
-        message: `${item.leaveType?.replaceAll('_', ' ') || 'Leave'} • ${item.isPaid ? 'Paid' : 'Unpaid'}`,
+        message: `${item.leaveType?.replaceAll('_', ' ') || 'Leave'} - ${
+          item.isPaid === false ? 'Unpaid' : 'Paid'
+        }`,
         time: formatDateOnly(item.startDateTime),
         type: 'Leave' as const,
         source: 'leave' as const,
@@ -140,7 +171,6 @@ export default function ManagerPendingApprovals() {
         decisionSummary: item.approverReason || '',
         sortStamp: item.startDateTime ? Date.parse(item.startDateTime) || 0 : 0,
         leaveType: item.leaveType,
-        isPaid: item.isPaid,
         startDateTime: item.startDateTime,
         endDateTime: item.endDateTime,
       }));
@@ -161,7 +191,9 @@ export default function ManagerPendingApprovals() {
         sortStamp: item.requestAt ? Date.parse(item.requestAt) || 0 : 0,
       }));
 
-      const merged = [...leaveRows, ...overtimeRows].sort((a, b) => b.sortStamp - a.sortStamp || a.id.localeCompare(b.id));
+      const merged = [...leaveRows, ...overtimeRows].sort(
+        (a, b) => b.sortStamp - a.sortStamp || a.id.localeCompare(b.id)
+      );
       setRequests(merged);
     } catch (error) {
       setRequests([]);
@@ -173,28 +205,76 @@ export default function ManagerPendingApprovals() {
     void loadRequests();
   }, []);
 
+  useEffect(() => {
+    if (selectedId) document.body.classList.add('modal-open');
+    else document.body.classList.remove('modal-open');
+
+    return () => document.body.classList.remove('modal-open');
+  }, [selectedId]);
+
+  const normalizedSearch = normalizeText(searchValue);
+
+  const visibleRequests = useMemo(() => {
+    return requests.filter((request) => {
+      if (typeFilter !== 'all' && request.source !== typeFilter) {
+        return false;
+      }
+
+      if (statusFilter !== 'all' && toStatusCode(request.status) !== statusFilter) {
+        return false;
+      }
+
+      if (!normalizedSearch) {
+        return true;
+      }
+
+      const haystack = [
+        request.employee,
+        request.message,
+        request.reason,
+        request.referenceLabel,
+        request.referenceValue,
+        request.type,
+        request.time,
+        request.decisionSummary,
+        statusLabel(request.status),
+      ]
+        .map(normalizeText)
+        .join(' ');
+
+      return haystack.includes(normalizedSearch);
+    });
+  }, [requests, typeFilter, statusFilter, normalizedSearch]);
+
   const cards = useMemo(() => {
-    const approved = requests.filter((r) => r.status.toUpperCase() === 'APPROVED').length;
-    const denied = requests.filter((r) => ['DENIED', 'REJECTED'].includes(r.status.toUpperCase())).length;
-    const pending = requests.filter((r) => r.status.toUpperCase() === 'PENDING').length;
+    const approved = visibleRequests.filter((request) => toStatusCode(request.status) === 'APPROVED').length;
+    const denied = visibleRequests.filter((request) => toStatusCode(request.status) === 'REJECTED').length;
+    const pending = visibleRequests.filter((request) => toStatusCode(request.status) === 'PENDING').length;
     return [
-      { label: 'Approved', value: approved },
-      { label: 'Denied', value: denied },
-      { label: 'Pending', value: pending },
+      { label: 'Approved', value: approved, tone: 'approved' },
+      { label: 'Denied', value: denied, tone: 'denied' },
+      { label: 'Pending', value: pending, tone: 'pending' },
     ];
-  }, [requests]);
+  }, [visibleRequests]);
 
   const selected = useMemo(
     () => requests.find((request) => request.id === selectedId) ?? null,
     [selectedId, requests]
   );
-  const canReviewSelected = selected ? selected.status.toUpperCase() === 'PENDING' : false;
+  const activeFilterCount = [typeFilter, statusFilter].filter((value) => value !== 'all').length;
+  const canReviewSelected = selected ? toStatusCode(selected.status) === 'PENDING' : false;
 
   useEffect(() => {
     setDecisionReason('');
     setSubmitError('');
     setPendingDecision(null);
+    setConfirmDecisionOpen(false);
   }, [selectedId]);
+
+  function clearFilters() {
+    setTypeFilter('all');
+    setStatusFilter('all');
+  }
 
   async function submitDecision() {
     if (!selected) return;
@@ -248,22 +328,103 @@ export default function ManagerPendingApprovals() {
     }
   }
 
+  function requestDecisionConfirmation() {
+    if (!selected) return;
+    if (!pendingDecision) {
+      setSubmitError('Choose approve or deny before confirming the decision.');
+      return;
+    }
+    const trimmedReason = decisionReason.trim();
+    if (trimmedReason.length < 5) {
+      setSubmitError('Please enter at least 5 characters explaining the decision.');
+      return;
+    }
+    if (selected.source === 'leave' && !selected.leaveType) {
+      setSubmitError('This leave request is missing a leave type and cannot be processed yet.');
+      return;
+    }
+    setSubmitError('');
+    setConfirmDecisionOpen(true);
+  }
+
   return (
     <div className="hrAppr">
       <div className="hrAppr__head">
-        <h1 className="hrAppr__title">
-          {selected ? 'Review Team Request' : 'Requests from Team Members'}
-          <span className="hrAppr__tools">
+        <div className="hrAppr__titleRow">
+          <h1 className="hrAppr__title">{selected ? 'Review Team Request' : 'Requests from Team Members'}</h1>
+          <div className="hrAppr__summary">
+            Showing {visibleRequests.length} of {requests.length} request
+            {requests.length === 1 ? '' : 's'}
+          </div>
+        </div>
+
+        <div className="hrAppr__toolbar">
+          <label className="hrApprSearch" aria-label="Search approvals">
             <FiSearch />
-            <FiFilter />
-          </span>
-        </h1>
+            <input
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              placeholder="Search employee, request, reason, or status"
+            />
+            {searchValue && (
+              <button type="button" aria-label="Clear search" onClick={() => setSearchValue('')}>
+                <FiXCircle />
+              </button>
+            )}
+          </label>
+
+          <div className="hrApprFilter">
+            <button
+              type="button"
+              className={`hrApprFilter__toggle ${filterOpen ? 'is-open' : ''} ${
+                activeFilterCount > 0 ? 'is-active' : ''
+              }`}
+              onClick={() => setFilterOpen((open) => !open)}
+            >
+              <FiFilter />
+              <span>Filter</span>
+              {activeFilterCount > 0 && <span className="hrApprFilter__count">{activeFilterCount}</span>}
+            </button>
+
+            {filterOpen && (
+              <div className="hrApprFilter__panel">
+                <label className="hrApprFilter__field">
+                  <span>Request Type</span>
+                  <select
+                    value={typeFilter}
+                    onChange={(e) => setTypeFilter(e.target.value as RequestTypeFilter)}
+                  >
+                    <option value="all">All Requests</option>
+                    <option value="leave">Leave</option>
+                    <option value="overtime">Overtime</option>
+                  </select>
+                </label>
+
+                <label className="hrApprFilter__field">
+                  <span>Status</span>
+                  <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}>
+                    <option value="all">All Statuses</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="APPROVED">Approved</option>
+                    <option value="REJECTED">Denied</option>
+                  </select>
+                </label>
+
+                <div className="hrApprFilter__actions">
+                  <button type="button" onClick={clearFilters}>
+                    Clear Filters
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="hrAppr__cards">
         {cards.map((card) => (
           <article key={card.label} className="hrApprCard">
-            <div className="hrApprCard__ring" />
+            <div className={`hrApprCard__ring hrApprCard__ring--${card.tone}`} />
             <div className="hrApprCard__body">
               <div className="hrApprCard__label">{card.label}</div>
               <div className="hrApprCard__value">{card.value}</div>
@@ -274,26 +435,31 @@ export default function ManagerPendingApprovals() {
 
       <section className="hrApprTable">
         {loadError && <p className="hrApprForm__error">{loadError}</p>}
-        {requests.length > 0 ? (
-          requests.map((request) => (
+        {visibleRequests.length > 0 ? (
+          visibleRequests.map((request) => (
             <button
               key={request.id}
               type="button"
-              className="hrApprRow"
+              className={`hrApprRow hrApprRow--${toStatusCode(request.status).toLowerCase()}`}
               onClick={() => setSelectedId(request.id)}
             >
               <span className="hrApprRow__employee">{request.employee}</span>
-              <span className="hrApprRow__message">
-                {request.type} • {request.message}
+              <span className="hrApprRow__message">{request.message}</span>
+              <span className="hrApprRow__meta">
+                <span className={`hrApprRow__status hrApprRow__status--${toStatusCode(request.status).toLowerCase()}`}>
+                  {statusLabel(request.status)}
+                </span>
+                <span className="hrApprRow__time">{request.time}</span>
               </span>
-              <span className="hrApprRow__time">{request.time}</span>
             </button>
           ))
         ) : (
           <div className="hrApprRow">
-            <span className="hrApprRow__employee">No requests yet.</span>
-            <span className="hrApprRow__message">Waiting for team leave and overtime data.</span>
-            <span className="hrApprRow__time">-</span>
+            <span className="hrApprRow__employee">No matching requests.</span>
+            <span className="hrApprRow__message">Try clearing the search or adjusting the filters.</span>
+            <span className="hrApprRow__meta">
+              <span className="hrApprRow__time">-</span>
+            </span>
           </div>
         )}
       </section>
@@ -306,7 +472,10 @@ export default function ManagerPendingApprovals() {
                 <h2 className="hrApprModal__title">
                   {selected.employee} - {selected.type}
                 </h2>
-                <p className="hrApprModal__subtitle">Review the team request, choose an approval outcome, and confirm it once the decision reason is ready.</p>
+                <p className="hrApprModal__subtitle">
+                  Review the team request, choose an approval outcome, and confirm it once the
+                  decision reason is ready.
+                </p>
               </div>
               <button
                 type="button"
@@ -327,7 +496,13 @@ export default function ManagerPendingApprovals() {
               </label>
               <label>
                 <span>Current Status:</span>
-                <input value={selected.status} readOnly />
+                <div
+                  className={`hrApprForm__statusBadge hrApprForm__statusBadge--${toStatusCode(
+                    selected.status
+                  ).toLowerCase()}`}
+                >
+                  {statusLabel(selected.status)}
+                </div>
               </label>
             </div>
 
@@ -396,7 +571,8 @@ export default function ManagerPendingApprovals() {
                 </div>
                 {canReviewSelected && (
                   <p className="decisionPicker__note">
-                    Choose the outcome here first. The request will only be submitted after you click the confirm button.
+                    Choose the outcome here first. The request will only be submitted after you
+                    click the confirm button.
                   </p>
                 )}
               </label>
@@ -419,7 +595,11 @@ export default function ManagerPendingApprovals() {
                 Cancel
               </button>
               {canReviewSelected ? (
-                <button type="button" onClick={() => void submitDecision()} disabled={isSaving || !pendingDecision}>
+                <button
+                  type="button"
+                  onClick={requestDecisionConfirmation}
+                  disabled={isSaving || !pendingDecision}
+                >
                   {isSaving
                     ? 'Saving...'
                     : pendingDecision === 'APPROVED'
@@ -437,6 +617,25 @@ export default function ManagerPendingApprovals() {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={confirmDecisionOpen}
+        title={pendingDecision === 'REJECTED' ? 'Confirm Denial' : 'Confirm Approval'}
+        message={
+          selected
+            ? `Apply this ${pendingDecision === 'REJECTED' ? 'denial' : 'approval'} to ${
+                selected.employee
+              }'s ${selected.type.toLowerCase()} request?`
+            : 'Confirm this approval decision?'
+        }
+        confirmLabel={pendingDecision === 'REJECTED' ? 'Confirm Denial' : 'Confirm Approval'}
+        cancelLabel="Go Back"
+        isBusy={isSaving}
+        onConfirm={() => {
+          setConfirmDecisionOpen(false);
+          void submitDecision();
+        }}
+        onCancel={() => setConfirmDecisionOpen(false)}
+      />
     </div>
   );
 }

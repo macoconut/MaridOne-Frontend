@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { apiFetchJson, apiFetchRaw, toArray } from '../../../lib/api';
 import { getUserEmail } from '../../../lib/session';
 import { FiUpload, FiX } from 'react-icons/fi';
+import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import './Payslip.css';
 
 type EmployeeDetails = {
@@ -105,6 +106,7 @@ export default function Payslip() {
   const [disputeFile, setDisputeFile] = useState<File | null>(null);
   const [disputeError, setDisputeError] = useState('');
   const [disputeSubmitting, setDisputeSubmitting] = useState(false);
+  const [confirmDisputeSubmit, setConfirmDisputeSubmit] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -338,6 +340,7 @@ export default function Payslip() {
       return;
     }
 
+    setConfirmDisputeSubmit(false);
     setDisputeSubmitting(true);
     try {
       let attachmentRef: number | null = null;
@@ -377,6 +380,19 @@ export default function Payslip() {
     } finally {
       setDisputeSubmitting(false);
     }
+  }
+
+  function requestDisputeConfirmation() {
+    setDisputeError('');
+    if (!selectedItemId) {
+      setDisputeError('No payroll item selected.');
+      return;
+    }
+    if (disputeReason.trim().length < 5) {
+      setDisputeError('Reason must be at least 5 characters.');
+      return;
+    }
+    setConfirmDisputeSubmit(true);
   }
 
   return (
@@ -628,7 +644,7 @@ export default function Payslip() {
               <button type="button" className="payModal__cancel" onClick={() => setDisputeOpen(false)} disabled={disputeSubmitting}>
                 Cancel
               </button>
-              <button type="button" onClick={() => void submitDispute()} disabled={disputeSubmitting}>
+              <button type="button" onClick={requestDisputeConfirmation} disabled={disputeSubmitting}>
                 Submit
               </button>
             </div>
@@ -636,6 +652,16 @@ export default function Payslip() {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={confirmDisputeSubmit}
+        title="Confirm Payslip Dispute"
+        message={`Submit this dispute for payroll item #${selectedItemId ?? '-'}?`}
+        confirmLabel="Submit Dispute"
+        cancelLabel="Go Back"
+        isBusy={disputeSubmitting}
+        onConfirm={() => void submitDispute()}
+        onCancel={() => setConfirmDisputeSubmit(false)}
+      />
     </div>
   );
 }

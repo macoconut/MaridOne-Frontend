@@ -1,84 +1,49 @@
-import { useEffect, useMemo, useState } from 'react';
-import { FiChevronDown, FiFileText } from 'react-icons/fi';
-import { apiFetchJson, toArray } from '../../../lib/api';
+import { useMemo, useState } from 'react';
+import { FiChevronDown, FiDownload, FiFileText } from 'react-icons/fi';
+import {
+  downloadLibraryDocument,
+  materialLibrarySections,
+  openLibraryDocument,
+  type LibraryDocument,
+} from '../../../lib/materialLibrary';
+import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './Training.css';
 
-type MaterialSection = {
-  id: string;
-  title: string;
-  items: string[];
-};
-
 export default function Training() {
-  const [sections, setSections] = useState<MaterialSection[]>([]);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     onboarding: true,
     training: true,
   });
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const now = new Date();
-        const month = now.getMonth() + 1;
-        const year = now.getFullYear();
-
-        const [notificationsResponse, eventsResponse] = await Promise.all([
-          apiFetchJson<unknown>('/api/notifications?page=0&size=20'),
-          apiFetchJson<unknown>(`/api/calendar/events?month=${month}&year=${year}`),
-        ]);
-
-        const notificationItems = toArray<Record<string, unknown>>(
-          notificationsResponse
-        )
-          .map((row) => String(row.message ?? '').trim())
-          .filter((msg) => msg.length > 0);
-
-        const eventItems = toArray<Record<string, unknown>>(eventsResponse)
-          .map((row) => String(row.title ?? '').trim())
-          .filter((title) => title.length > 0)
-          .map((title) => `Upcoming event: ${title}`);
-
-        const grouped: MaterialSection[] = [
-          {
-            id: 'training',
-            title: 'Training Updates',
-            items:
-              notificationItems.length > 0
-                ? notificationItems.slice(0, 8)
-                : ['No training updates yet.'],
-          },
-          {
-            id: 'onboarding',
-            title: 'Onboarding & Company Events',
-            items: eventItems.length > 0 ? eventItems.slice(0, 8) : ['No onboarding events this month.'],
-          },
-        ];
-        setSections(grouped);
-      } catch {
-        setSections([
-          {
-            id: 'training',
-            title: 'Training Updates',
-            items: ['Cannot load training materials from backend yet.'],
-          },
-          {
-            id: 'onboarding',
-            title: 'Onboarding & Company Events',
-            items: ['Cannot load onboarding events from backend yet.'],
-          },
-        ]);
-      }
-    })();
-  }, []);
+  const [activeActionKey, setActiveActionKey] = useState<string | null>(null);
+  const [actionError, setActionError] = useState('');
 
   const isEmpty = useMemo(
-    () => sections.length === 0 || sections.every((section) => section.items.length === 0),
-    [sections]
+    () =>
+      materialLibrarySections.length === 0 ||
+      materialLibrarySections.every((section) => section.documents.length === 0),
+    []
   );
 
   function toggleSection(id: string) {
     setOpenSections((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
+  async function handleDocumentAction(action: 'view' | 'download', document: LibraryDocument) {
+    const actionKey = `${action}-${document.id}`;
+    setActiveActionKey(actionKey);
+    setActionError('');
+
+    try {
+      if (action === 'view') {
+        await openLibraryDocument(document);
+      } else {
+        await downloadLibraryDocument(document);
+      }
+    } catch (error) {
+      setActionError(getFriendlyErrorMessage(error, 'generic'));
+    } finally {
+      setActiveActionKey(null);
+    }
   }
 
   return (
@@ -89,8 +54,9 @@ export default function Training() {
 
       <div className="trainingPage__stack">
         {!isEmpty ? (
-          sections.map((section) => {
+          materialLibrarySections.map((section) => {
             const isOpen = !!openSections[section.id];
+
             return (
               <section key={section.id} className="tmCard">
                 <button
@@ -100,22 +66,52 @@ export default function Training() {
                   aria-expanded={isOpen}
                   aria-controls={`tm-content-${section.id}`}
                 >
-                  <span className="tmCard__title">{section.title}</span>
+                  <span className="tmCard__title">{section.heading}</span>
                   <span className={`tmCard__chevron ${isOpen ? 'is-open' : ''}`}>
                     <FiChevronDown />
                   </span>
                 </button>
 
-                {isOpen && (
+                {isOpen ? (
                   <div id={`tm-content-${section.id}`} className="tmCard__content">
-                    {section.items.map((item) => (
-                      <button key={item} type="button" className="tmRow">
-                        <FiFileText className="tmRow__icon" />
-                        <span className="tmRow__label">{item}</span>
-                      </button>
-                    ))}
+                    {section.documents.map((document) => {
+                      const viewActionKey = `view-${document.id}`;
+                      const downloadActionKey = `download-${document.id}`;
+
+                      return (
+                        <div key={document.id} className="tmRow">
+                          <button
+                            type="button"
+                            className="tmRow__main"
+                            onClick={() => void handleDocumentAction('view', document)}
+                            disabled={activeActionKey !== null}
+                          >
+                            <FiFileText className="tmRow__icon" />
+                            <span className="tmRow__label">
+                              {activeActionKey === viewActionKey
+                                ? 'Opening document...'
+                                : document.title}
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            className="tmRow__download"
+                            onClick={() => void handleDocumentAction('download', document)}
+                            disabled={activeActionKey !== null}
+                          >
+                            <FiDownload />
+                            <span>
+                              {activeActionKey === downloadActionKey
+                                ? 'Preparing...'
+                                : 'Download'}
+                            </span>
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
+                ) : null}
               </section>
             );
           })
@@ -125,7 +121,7 @@ export default function Training() {
               <span className="tmCard__title">No training materials yet.</span>
             </div>
             <div className="tmCard__content">
-              <div className="tmRow">
+              <div className="tmRow tmRow--empty">
                 <FiFileText className="tmRow__icon" />
                 <span className="tmRow__label">Waiting for backend data.</span>
               </div>
@@ -133,6 +129,12 @@ export default function Training() {
           </section>
         )}
       </div>
+
+      {actionError ? (
+        <p className="trainingPage__error" role="alert">
+          {actionError}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { apiFetchJson, toArray } from '../../../lib/api';
+import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './Payslips.css';
 
@@ -202,6 +203,7 @@ export default function HrPayslips() {
   const [loadError, setLoadError] = useState('');
 
   const [runModalOpen, setRunModalOpen] = useState(false);
+  const [confirmRunOpen, setConfirmRunOpen] = useState(false);
   const [postModalOpen, setPostModalOpen] = useState(false);
   const [runForm, setRunForm] = useState<RunFormState>(() => createDefaultRunForm());
   const [isSubmittingRun, setIsSubmittingRun] = useState(false);
@@ -220,6 +222,7 @@ export default function HrPayslips() {
   const [isSubmittingCorrection, setIsSubmittingCorrection] = useState(false);
   const [adjustmentRunId, setAdjustmentRunId] = useState<number | null>(null);
   const [pendingDisputeDecision, setPendingDisputeDecision] = useState<'APPROVED' | 'REJECTED' | null>(null);
+  const [confirmDisputeDecisionOpen, setConfirmDisputeDecisionOpen] = useState(false);
 
   function syncRunForm(run: PayrollRunDto) {
     setRunForm((prev) => ({
@@ -255,6 +258,7 @@ export default function HrPayslips() {
     setRemarks('');
     setActionError('');
     setPendingDisputeDecision(null);
+    setConfirmDisputeDecisionOpen(false);
   }, [selectedDispute?.id]);
 
   useEffect(() => {
@@ -332,13 +336,13 @@ export default function HrPayslips() {
         : 'This run has no generated payroll items yet. Process the payroll period again or check if there were eligible employees for these dates.'
       : '';
   const runModalTitle =
-    runForm.runType === 'ADJUSTMENT' ? 'Create Adjustment Run' : 'Process Payroll Run';
+    runForm.runType === 'ADJUSTMENT' ? 'Create Adjustment Run' : 'Create New Payroll Run';
   const runModalIntro =
     runForm.runType === 'ADJUSTMENT'
       ? 'Adjustment runs start empty so HR can add correction lines before posting them.'
       : 'This will create the payroll run and immediately generate payroll items for all eligible employees in the selected period.';
   const runSubmitLabel =
-    runForm.runType === 'ADJUSTMENT' ? 'Create Adjustment Run' : 'Process Payroll';
+    runForm.runType === 'ADJUSTMENT' ? 'Create Adjustment Run' : 'Create New Payroll Run';
 
   const currentPayPeriod = useMemo(() => {
     return formatDate(displayedPeriodEnd);
@@ -575,6 +579,36 @@ export default function HrPayslips() {
     await updateDispute(pendingDisputeDecision);
   }
 
+  function requestDisputeDecisionConfirmation() {
+    if (!pendingDisputeDecision) {
+      setActionError('Choose approve or deny before confirming the dispute decision.');
+      return;
+    }
+    if (remarks.trim().length < 5) {
+      setActionError('Please enter at least 5 characters explaining the approval or denial.');
+      return;
+    }
+    setActionError('');
+    setConfirmDisputeDecisionOpen(true);
+  }
+
+  function requestPayrollRunConfirmation() {
+    setRunError('');
+    setRunMessage('');
+
+    if (!runForm.periodStart || !runForm.periodEnd) {
+      setRunError('Payroll period start and end dates are required.');
+      return;
+    }
+
+    if (runForm.periodEnd < runForm.periodStart) {
+      setRunError('Period end cannot be earlier than period start.');
+      return;
+    }
+
+    setConfirmRunOpen(true);
+  }
+
   async function submitPayrollRun() {
     setRunError('');
     setRunMessage('');
@@ -701,7 +735,7 @@ export default function HrPayslips() {
               setRunModalOpen(true);
             }}
           >
-            Run Pay for this Period
+            Create New Payroll Run
           </button>
         </div>
       </section>
@@ -805,7 +839,7 @@ export default function HrPayslips() {
               <button type="button" className="is-muted" onClick={() => setRunModalOpen(false)} disabled={isSubmittingRun}>
                 Cancel
               </button>
-              <button type="button" onClick={() => void submitPayrollRun()} disabled={isSubmittingRun}>
+              <button type="button" onClick={requestPayrollRunConfirmation} disabled={isSubmittingRun}>
                 {isSubmittingRun ? 'Submitting...' : runSubmitLabel}
               </button>
             </div>
@@ -1073,7 +1107,7 @@ export default function HrPayslips() {
                 Cancel
               </button>
               {canReviewSelectedDispute ? (
-                <button type="button" onClick={() => void confirmDisputeDecision()} disabled={isSaving || !pendingDisputeDecision}>
+                <button type="button" onClick={requestDisputeDecisionConfirmation} disabled={isSaving || !pendingDisputeDecision}>
                   {isSaving
                     ? 'Saving...'
                     : pendingDisputeDecision === 'APPROVED'
@@ -1091,6 +1125,36 @@ export default function HrPayslips() {
           </article>
         </div>
       )}
+      <ConfirmDialog
+        open={confirmRunOpen}
+        title={runForm.runType === 'ADJUSTMENT' ? 'Confirm Adjustment Run' : 'Confirm New Payroll Run'}
+        message={`Create a ${runForm.runType === 'ADJUSTMENT' ? 'payroll adjustment' : 'new payroll'} run for ${runForm.periodStart} to ${runForm.periodEnd}?`}
+        confirmLabel={runForm.runType === 'ADJUSTMENT' ? 'Create Adjustment Run' : 'Create New Payroll Run'}
+        cancelLabel="Go Back"
+        isBusy={isSubmittingRun}
+        onConfirm={() => {
+          setConfirmRunOpen(false);
+          void submitPayrollRun();
+        }}
+        onCancel={() => setConfirmRunOpen(false)}
+      />
+      <ConfirmDialog
+        open={confirmDisputeDecisionOpen}
+        title={pendingDisputeDecision === 'REJECTED' ? 'Confirm Dispute Denial' : 'Confirm Dispute Approval'}
+        message={
+          selectedDispute
+            ? `Apply this ${pendingDisputeDecision === 'REJECTED' ? 'denial' : 'approval'} to ${selectedDispute.employee}'s payroll dispute?`
+            : 'Confirm this dispute decision?'
+        }
+        confirmLabel={pendingDisputeDecision === 'REJECTED' ? 'Confirm Denial' : 'Confirm Approval'}
+        cancelLabel="Go Back"
+        isBusy={isSaving}
+        onConfirm={() => {
+          setConfirmDisputeDecisionOpen(false);
+          void confirmDisputeDecision();
+        }}
+        onCancel={() => setConfirmDisputeDecisionOpen(false)}
+      />
     </div>
   );
 }

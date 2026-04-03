@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { FiPlus, FiTrash2 } from 'react-icons/fi';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AccountSecuritySection from '../../../components/account/AccountSecuritySection';
+import MaterialArt from '../../../components/document/MaterialArt';
 import {
   beginTwoFactorSetup,
   confirmTwoFactorSetup,
@@ -10,6 +11,12 @@ import {
   type TwoFactorSetupResponse,
 } from '../../../lib/accountSecurity';
 import { apiFetchJson, toArray } from '../../../lib/api';
+import {
+  downloadLibraryDocument,
+  handbookLibraryCard,
+  materialLibrarySections,
+  openLibraryDocument,
+} from '../../../lib/materialLibrary';
 import { getSelfServicePath } from '../../../lib/roleRoutes';
 import { getAuthToken, getUserEmail, getUserRole } from '../../../lib/session';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
@@ -77,34 +84,6 @@ type AnnouncementDraft = {
   startDateTime: string;
   endDateTime: string;
 };
-
-const trainingMaterialCards = [
-  {
-    id: 'training',
-    title: 'Updated Training v1.5',
-    items: [
-      'Review the refreshed safety and compliance walkthrough.',
-      'Complete the updated learning checklist before your next shift.',
-    ],
-    buttonLabel: 'View Training Materials',
-  },
-  {
-    id: 'onboarding',
-    title: 'Updated Onboarding v1.5',
-    items: [
-      'See the revised first-week orientation flow for new hires.',
-      'Review the latest onboarding forms and account setup steps.',
-    ],
-    buttonLabel: 'View Onboarding Materials',
-  },
-] as const;
-
-const handbookHighlights = [
-  'Review company policies, attendance rules, and leave guidance.',
-  'Keep the latest handbook version ready for quick reference.',
-] as const;
-
-const handbookFileHref = '/docs/employee-handbook.txt';
 
 function padDateTimePart(value: number) {
   return String(value).padStart(2, '0');
@@ -695,17 +674,20 @@ export default function Dashboard() {
     }
   }
 
-  function openHandbook() {
-    window.open(handbookFileHref, '_blank', 'noopener,noreferrer');
+  async function openHandbook() {
+    try {
+      await openLibraryDocument(handbookLibraryCard.document);
+    } catch (error) {
+      window.alert(getFriendlyErrorMessage(error, 'generic'));
+    }
   }
 
-  function downloadHandbook() {
-    const link = document.createElement('a');
-    link.href = handbookFileHref;
-    link.download = 'employee-handbook.txt';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+  async function downloadHandbook() {
+    try {
+      await downloadLibraryDocument(handbookLibraryCard.document);
+    } catch (error) {
+      window.alert(getFriendlyErrorMessage(error, 'generic'));
+    }
   }
 
   function openEditModal() {
@@ -976,18 +958,24 @@ export default function Dashboard() {
             <div className="cardX__title">Training and Onboarding Materials</div>
 
             <div className="miniFolders">
-              {trainingMaterialCards.map((material) => (
+              {materialLibrarySections.map((material) => (
                 <div key={material.id} className="miniFolder">
-                  <div className="miniFolder__icon" />
-                  <div className="miniFolder__body">
-                    <div className="miniFolder__name">{material.title}</div>
-                    <ul>
-                      {material.items.map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                    <button className="miniFolder__btn" type="button" onClick={() => navigate(selfServicePath('training'))}>
-                      {material.buttonLabel}
+                  <div className="miniFolder__main">
+                    <div className="miniFolder__artWrap" aria-hidden="true">
+                      <MaterialArt kind={material.artKind} className="miniFolder__art" />
+                    </div>
+                    <div className="miniFolder__text">
+                      <div className="miniFolder__name">{material.heading}</div>
+                      <p className="miniFolder__intro">{material.introduction}</p>
+                    </div>
+                  </div>
+                  <div className="miniFolder__actions">
+                    <button
+                      className="miniFolder__btn"
+                      type="button"
+                      onClick={() => navigate(selfServicePath('training'))}
+                    >
+                      {material.dashboardButtonLabel}
                     </button>
                   </div>
                 </div>
@@ -1000,23 +988,22 @@ export default function Dashboard() {
             <div className="cardX__title">Employee Handbook</div>
 
             <div className="handbookRow">
-              <div className="handbookRow__icon" />
-              <div className="handbookRow__body">
-                <div className="handbookRow__name">Updated Handbook v2.1</div>
-                <ul>
-                  {handbookHighlights.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-
-                <div className="handbookRow__actions">
-                  <button className="handbookBtn" type="button" onClick={openHandbook}>
-                    View Handbook
-                  </button>
-                  <button className="handbookBtn" type="button" onClick={downloadHandbook}>
-                    Download Handbook
-                  </button>
+              <div className="handbookRow__main">
+                <div className="handbookRow__artWrap" aria-hidden="true">
+                  <MaterialArt kind={handbookLibraryCard.artKind} className="handbookRow__art" />
                 </div>
+                <div className="handbookRow__text">
+                  <div className="handbookRow__name">{handbookLibraryCard.heading}</div>
+                  <p className="handbookRow__intro">{handbookLibraryCard.introduction}</p>
+                </div>
+              </div>
+              <div className="handbookRow__actions">
+                <button className="handbookBtn" type="button" onClick={() => void openHandbook()}>
+                  {handbookLibraryCard.viewLabel}
+                </button>
+                <button className="handbookBtn" type="button" onClick={() => void downloadHandbook()}>
+                  {handbookLibraryCard.downloadLabel}
+                </button>
               </div>
             </div>
           </div>
