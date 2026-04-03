@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
-import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import PageHeader from '../../../components/layout/PageHeader';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
@@ -133,11 +132,6 @@ function rosterMap(payload: unknown) {
 export default function ManagerPendingApprovals() {
   const [requests, setRequests] = useState<ManagerRequest[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [pendingDecision, setPendingDecision] = useState<'APPROVED' | 'REJECTED' | null>(null);
-  const [decisionReason, setDecisionReason] = useState('');
-  const [submitError, setSubmitError] = useState('');
-  const [confirmDecisionOpen, setConfirmDecisionOpen] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [searchValue, setSearchValue] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
@@ -263,89 +257,10 @@ export default function ManagerPendingApprovals() {
     [selectedId, requests]
   );
   const activeFilterCount = [typeFilter, statusFilter].filter((value) => value !== 'all').length;
-  const canReviewSelected = selected ? toStatusCode(selected.status) === 'PENDING' : false;
-
-  useEffect(() => {
-    setDecisionReason('');
-    setSubmitError('');
-    setPendingDecision(null);
-    setConfirmDecisionOpen(false);
-  }, [selectedId]);
 
   function clearFilters() {
     setTypeFilter('all');
     setStatusFilter('all');
-  }
-
-  async function submitDecision() {
-    if (!selected) return;
-    if (!pendingDecision) {
-      setSubmitError('Choose approve or deny before confirming the decision.');
-      return;
-    }
-    const trimmedReason = decisionReason.trim();
-    if (trimmedReason.length < 5) {
-      setSubmitError('Please enter at least 5 characters explaining the decision.');
-      return;
-    }
-
-    if (selected.source === 'leave' && !selected.leaveType) {
-      setSubmitError('This leave request is missing a leave type and cannot be processed yet.');
-      return;
-    }
-
-    setSubmitError('');
-    setIsSaving(true);
-    try {
-      if (selected.source === 'leave') {
-        await apiFetchJson(`/api/leave/update/${selected.requestId}`, {
-          method: 'PATCH',
-          body: JSON.stringify({
-            startDateTime: selected.startDateTime,
-            endDateTime: selected.endDateTime,
-            reason: selected.reason,
-            leaveType: selected.leaveType,
-            requestStatus: pendingDecision,
-            approverReason: trimmedReason,
-          }),
-        });
-      } else {
-        await apiFetchJson('/api/overtime/update', {
-          method: 'PATCH',
-          body: JSON.stringify({
-            overtimeId: selected.overtimeId,
-            updateStatus: pendingDecision,
-            approveReason: trimmedReason,
-          }),
-        });
-      }
-
-      setSelectedId(null);
-      await loadRequests();
-    } catch (error) {
-      setSubmitError(getFriendlyErrorMessage(error, 'approval-decision'));
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  function requestDecisionConfirmation() {
-    if (!selected) return;
-    if (!pendingDecision) {
-      setSubmitError('Choose approve or deny before confirming the decision.');
-      return;
-    }
-    const trimmedReason = decisionReason.trim();
-    if (trimmedReason.length < 5) {
-      setSubmitError('Please enter at least 5 characters explaining the decision.');
-      return;
-    }
-    if (selected.source === 'leave' && !selected.leaveType) {
-      setSubmitError('This leave request is missing a leave type and cannot be processed yet.');
-      return;
-    }
-    setSubmitError('');
-    setConfirmDecisionOpen(true);
   }
 
   return (
@@ -353,11 +268,6 @@ export default function ManagerPendingApprovals() {
       <div className="hrAppr__head">
         <PageHeader
           title={selected ? 'Review Team Request' : 'Requests from Team Members'}
-          description={
-            selected
-              ? 'Review the selected team request before recording an approval or denial.'
-              : 'Review leave, overtime, and dispute requests submitted by team members.'
-          }
           meta={
             <div className="hrAppr__summary">
               Showing {visibleRequests.length} of {requests.length} request
@@ -481,8 +391,7 @@ export default function ManagerPendingApprovals() {
                   {selected.employee} - {selected.type}
                 </h2>
                 <p className="hrApprModal__subtitle">
-                  Review the team request, choose an approval outcome, and confirm it once the
-                  decision reason is ready.
+                  Review the team request details and current status.
                 </p>
               </div>
               <button
@@ -548,102 +457,18 @@ export default function ManagerPendingApprovals() {
               </div>
             )}
 
-            {!canReviewSelected && (
-              <p className="hrApprForm__hint">This request already has a final decision recorded.</p>
-            )}
-
-            {submitError && <p className="hrApprForm__error">{submitError}</p>}
-
-            <div className="hrApprModal__rule" />
-
-            <div className="hrApprForm__row">
-              <label className="decisionPicker">
-                <span>Manager Approval:</span>
-                <div className="decisionPicker__actions">
-                  <button
-                    type="button"
-                    className={`decisionPicker__button ${pendingDecision === 'APPROVED' ? 'is-selected' : ''}`}
-                    disabled={isSaving || !canReviewSelected}
-                    onClick={() => setPendingDecision('APPROVED')}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    className={`decisionPicker__button ${pendingDecision === 'REJECTED' ? 'is-selected' : ''}`}
-                    disabled={isSaving || !canReviewSelected}
-                    onClick={() => setPendingDecision('REJECTED')}
-                  >
-                    Deny
-                  </button>
-                </div>
-                {canReviewSelected && (
-                  <p className="decisionPicker__note">
-                    Choose the outcome here first. The request will only be submitted after you
-                    click the confirm button.
-                  </p>
-                )}
-              </label>
-            </div>
-
-            <div className="hrApprForm__row">
-              <label>
-                <span>Reason for Approval / Denial:</span>
-                <textarea
-                  value={decisionReason}
-                  onChange={(e) => setDecisionReason(e.target.value)}
-                  placeholder="Type the reason for approving or denying this request"
-                  readOnly={!canReviewSelected}
-                />
-              </label>
-            </div>
+            <p className="hrApprForm__hint">
+              Managers can review team requests here, but final approval actions stay on the HR side.
+            </p>
 
             <div className="hrApprModal__footer">
-              <button type="button" onClick={() => setSelectedId(null)} disabled={isSaving}>
-                Cancel
+              <button type="button" onClick={() => setSelectedId(null)}>
+                Close
               </button>
-              {canReviewSelected ? (
-                <button
-                  type="button"
-                  onClick={requestDecisionConfirmation}
-                  disabled={isSaving || !pendingDecision}
-                >
-                  {isSaving
-                    ? 'Saving...'
-                    : pendingDecision === 'APPROVED'
-                      ? 'Confirm Approval'
-                      : pendingDecision === 'REJECTED'
-                        ? 'Confirm Denial'
-                        : 'Confirm Decision'}
-                </button>
-              ) : (
-                <button type="button" onClick={() => setSelectedId(null)} disabled={isSaving}>
-                  Close
-                </button>
-              )}
             </div>
           </div>
         </div>
       )}
-      <ConfirmDialog
-        open={confirmDecisionOpen}
-        title={pendingDecision === 'REJECTED' ? 'Confirm Denial' : 'Confirm Approval'}
-        message={
-          selected
-            ? `Apply this ${pendingDecision === 'REJECTED' ? 'denial' : 'approval'} to ${
-                selected.employee
-              }'s ${selected.type.toLowerCase()} request?`
-            : 'Confirm this approval decision?'
-        }
-        confirmLabel={pendingDecision === 'REJECTED' ? 'Confirm Denial' : 'Confirm Approval'}
-        cancelLabel="Go Back"
-        isBusy={isSaving}
-        onConfirm={() => {
-          setConfirmDecisionOpen(false);
-          void submitDecision();
-        }}
-        onCancel={() => setConfirmDecisionOpen(false)}
-      />
     </div>
   );
 }

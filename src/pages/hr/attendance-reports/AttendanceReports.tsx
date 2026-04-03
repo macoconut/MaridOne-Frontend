@@ -332,7 +332,9 @@ function buildDailyRecords(logs: AttendanceLog[], employeeById: Map<number, Empl
       const firstIn = sorted.find((row) => isInDirection(row.direction));
       const lastOut = [...sorted].reverse().find((row) => isOutDirection(row.direction));
       const employee = employeeById.get(employeeId);
-      const isLate = Boolean(firstIn) && isLateAfterGrace(firstIn.timestamp, employee, dateKey, firstIn.direction);
+      const isLate = firstIn
+        ? isLateAfterGrace(firstIn.timestamp, employee, dateKey, firstIn.direction)
+        : false;
       const hasIn = sorted.some((row) => isInDirection(row.direction));
       const hasOut = sorted.some((row) => isOutDirection(row.direction));
 
@@ -973,7 +975,7 @@ export function AttendanceReportsBoard({
 
   const attendanceReportDescription =
     audienceLabel === 'Manager'
-      ? 'Review daily team attendance activity, late entries, incomplete logs, and gaps in one monthly calendar.'
+      ? undefined
       : 'Review daily attendance activity, late entries, incomplete logs, and gaps in one monthly calendar.';
 
   const headerMeta = (

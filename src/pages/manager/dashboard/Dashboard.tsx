@@ -550,7 +550,6 @@ export default function ManagerDashboard() {
     <div className="dashPage">
       <PageHeader
         title="Manager Dashboard"
-        description="Monitor team activity, workforce totals, and company events from one dashboard."
       />
 
       <section className="infoCardX">

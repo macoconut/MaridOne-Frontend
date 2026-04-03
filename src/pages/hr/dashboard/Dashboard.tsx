@@ -747,9 +747,10 @@ export function AttendanceOverviewDashboard({
     activeDeptPage * DEPARTMENTS_PER_PAGE,
     (activeDeptPage + 1) * DEPARTMENTS_PER_PAGE
   );
+  const showDepartmentNav = totalDeptPages > 1;
   const attendanceDashboardDescription =
     audience.toLowerCase() === 'manager'
-      ? 'Track team attendance activity, late logs, and department trends from the latest records.'
+      ? undefined
       : 'Track attendance activity, late logs, and department trends from the latest records.';
 
   return (
@@ -822,18 +823,20 @@ export function AttendanceOverviewDashboard({
             <div className="hrPanel__header">Attendance by Department</div>
             {departmentBreakdown.length > 0 ? (
               <>
-                <div className="hrDept">
-                  <button
-                    className="hrCircleBtn"
-                    type="button"
-                    aria-label="Previous department page"
-                    onClick={() => setDeptPage((page) => Math.max(0, page - 1))}
-                    disabled={activeDeptPage === 0}
-                  >
-                    <FiChevronLeft />
-                  </button>
+                <div className={`hrDept${showDepartmentNav ? '' : ' hrDept--single'}`}>
+                  {showDepartmentNav ? (
+                    <button
+                      className="hrCircleBtn"
+                      type="button"
+                      aria-label="Previous department page"
+                      onClick={() => setDeptPage((page) => Math.max(0, page - 1))}
+                      disabled={activeDeptPage === 0}
+                    >
+                      <FiChevronLeft />
+                    </button>
+                  ) : null}
 
-                  <div className="hrDeptGrid">
+                  <div className={`hrDeptGrid${visibleDepartments.length === 1 ? ' hrDeptGrid--single' : ''}`}>
                     {visibleDepartments.map((department) => {
                       const summary: AttendanceStatusSummary = {
                         headcount: department.headcount,
@@ -883,15 +886,17 @@ export function AttendanceOverviewDashboard({
                     })}
                   </div>
 
-                  <button
-                    className="hrCircleBtn"
-                    type="button"
-                    aria-label="Next department page"
-                    onClick={() => setDeptPage((page) => (page + 1 < totalDeptPages ? page + 1 : page))}
-                    disabled={activeDeptPage + 1 >= totalDeptPages}
-                  >
-                    <FiChevronRight />
-                  </button>
+                  {showDepartmentNav ? (
+                    <button
+                      className="hrCircleBtn"
+                      type="button"
+                      aria-label="Next department page"
+                      onClick={() => setDeptPage((page) => (page + 1 < totalDeptPages ? page + 1 : page))}
+                      disabled={activeDeptPage + 1 >= totalDeptPages}
+                    >
+                      <FiChevronRight />
+                    </button>
+                  ) : null}
                 </div>
 
                 {totalDeptPages > 1 && (

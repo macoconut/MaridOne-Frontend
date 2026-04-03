@@ -3,7 +3,7 @@ import './PageHeader.css';
 
 type PageHeaderProps = {
   title: string;
-  description: string;
+  description?: string;
   meta?: ReactNode;
 };
 
@@ -15,7 +15,7 @@ export default function PageHeader({
   return (
     <div className="pageHeader">
       <h1 className="pageHeader__title">{title}</h1>
-      <p className="pageHeader__description">{description}</p>
+      {description ? <p className="pageHeader__description">{description}</p> : null}
       {meta ? <div className="pageHeader__meta">{meta}</div> : null}
     </div>
   );
