@@ -103,7 +103,6 @@ export default function Payslip() {
   const [disputeSubject, setDisputeSubject] = useState('Overtime pay dispute');
   const [disputeReason, setDisputeReason] = useState('');
   const [disputeFile, setDisputeFile] = useState<File | null>(null);
-  const [signatureFile, setSignatureFile] = useState<File | null>(null);
   const [disputeError, setDisputeError] = useState('');
   const [disputeSubmitting, setDisputeSubmitting] = useState(false);
 
@@ -297,7 +296,6 @@ export default function Payslip() {
     setDisputeSubject('Overtime pay dispute');
     setDisputeReason('');
     setDisputeFile(null);
-    setSignatureFile(null);
     setDisputeError('');
     setDisputeOpen(true);
   }
@@ -343,13 +341,9 @@ export default function Payslip() {
     setDisputeSubmitting(true);
     try {
       let attachmentRef: number | null = null;
-      let signatureRef: number | null = null;
 
       if (disputeFile) {
         attachmentRef = await uploadDocument(disputeFile);
-      }
-      if (signatureFile) {
-        signatureRef = await uploadDocument(signatureFile);
       }
 
       if (employeeId) {
@@ -372,7 +366,6 @@ export default function Payslip() {
           reason: [
             disputeReason.trim(),
             attachmentRef ? `(Attachment ID: ${attachmentRef})` : '',
-            signatureRef ? `(Signature ID: ${signatureRef})` : '',
           ]
             .filter(Boolean)
             .join(' '),
@@ -580,7 +573,10 @@ export default function Payslip() {
         <div className="payModalBackdrop" role="dialog" aria-modal="true" aria-label="Payslip dispute form">
           <div className="payModal">
             <div className="payModal__top">
-              <div className="payModal__title">PAYSLIP DISPUTE FORM</div>
+              <div>
+                <div className="payModal__title">PAYSLIP DISPUTE FORM</div>
+                <p className="payModal__subtitle">Describe the payroll discrepancy clearly and attach supporting proof only when it helps validate the dispute.</p>
+              </div>
               <button type="button" className="payModal__close" onClick={() => setDisputeOpen(false)} aria-label="Close">
                 <FiX />
               </button>
@@ -609,24 +605,23 @@ export default function Payslip() {
 
             <div className="payModal__row">
               <label>Supporting Documents (if any):</label>
-              <label className="payModal__upload">
-                <FiUpload />
-                <span>{disputeFile ? disputeFile.name : 'Upload Here'}</span>
-                <input type="file" style={{ display: 'none' }} onChange={(e) => setDisputeFile(e.target.files?.[0] ?? null)} />
-              </label>
-            </div>
-
-            <div className="payModal__row">
-              <label>Employee's Signature:</label>
-              <label className="payModal__upload">
-                <FiUpload />
-                <span>{signatureFile ? signatureFile.name : 'Upload Here'}</span>
-                <input
-                  type="file"
-                  style={{ display: 'none' }}
-                  onChange={(e) => setSignatureFile(e.target.files?.[0] ?? null)}
-                />
-              </label>
+              <div className="payModal__uploadCard">
+                <p className="payModal__uploadHint">
+                  Add screenshots, payroll references, or other supporting files only when they directly explain the issue.
+                </p>
+                <div className="payModal__uploadRow">
+                  <label className="payModal__uploadBtn">
+                    <FiUpload />
+                    <span>{disputeFile ? 'Replace Attachment' : 'Upload Attachment'}</span>
+                    <input
+                      type="file"
+                      style={{ display: 'none' }}
+                      onChange={(e) => setDisputeFile(e.target.files?.[0] ?? null)}
+                    />
+                  </label>
+                  <span className="payModal__uploadName">{disputeFile ? disputeFile.name : 'No file selected'}</span>
+                </div>
+              </div>
             </div>
 
             <div className="payModal__actions">

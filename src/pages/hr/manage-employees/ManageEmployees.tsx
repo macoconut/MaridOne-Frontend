@@ -388,6 +388,7 @@ export default function HrManageEmp() {
         <div className="hrEmpModalBackdrop" role="dialog" aria-modal="true">
           <div className="hrEmpModal hrEmpModal--picker">
             <h2>SELECT EMPLOYEE TO EDIT</h2>
+            <p className="hrEmpModal__subtitle">Choose an employee from the roster first so the full record can be loaded into the edit form.</p>
             <div className="hrEmpModal__rule" />
 
             <div className="hrEmpPicker">
@@ -432,6 +433,13 @@ export default function HrManageEmp() {
         <div className="hrEmpModalBackdrop" role="dialog" aria-modal="true">
           <div className={`hrEmpModal ${modal === 'delete' ? 'is-delete' : ''}`}>
             <h2>{modal === 'add' ? 'ADD EMPLOYEE' : modal === 'edit' ? 'EDIT EMPLOYEE' : 'TERMINATE EMPLOYEE'}</h2>
+            <p className="hrEmpModal__subtitle">
+              {modal === 'add'
+                ? 'Enter the employee profile, employment details, and contact information before creating the record.'
+                : modal === 'edit'
+                  ? 'Review the employee record and update the fields that need to change before saving.'
+                  : 'Confirm the selected employee and document the reason before updating the employment status.'}
+            </p>
             <div className="hrEmpModal__rule" />
 
             <div className="hrEmpForm">

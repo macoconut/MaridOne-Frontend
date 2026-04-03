@@ -11,7 +11,7 @@ import {
 } from '../../../lib/accountSecurity';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getSelfServicePath } from '../../../lib/roleRoutes';
-import { getAuthToken, getUserEmail } from '../../../lib/session';
+import { getAuthToken, getUserEmail, getUserRole } from '../../../lib/session';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './Dashboard.css';
 
@@ -344,6 +344,8 @@ function getCalendarEventsByDay(events: CalendarEvent[], year: number, monthInde
 export default function Dashboard() {
   const location = useLocation();
   const navigate = useNavigate();
+  const userRole = getUserRole() ?? 'employee';
+  const canRequestOvertime = userRole === 'employee';
   const [profile, setProfile] = useState<UserDetails | null>(null);
   const [employee, setEmployee] = useState<UserDetails['employee'] | null>(null);
   const [employeeId, setEmployeeId] = useState<number | null>(null);
@@ -527,6 +529,35 @@ export default function Dashboard() {
 
     return getSelfServicePath('employee', page);
   }
+
+  function attendanceOverviewPath() {
+    if (userRole === 'manager') return '/manager/attendance-dashboard';
+    if (userRole === 'management') return '/management/attendance';
+    if (userRole === 'hr') return '/hr/attendance-reports';
+    return selfServicePath('attendance');
+  }
+
+  const dashboardActions =
+    userRole === 'manager'
+      ? [
+          { label: 'View Payslip', path: selfServicePath('payslip') },
+          { label: 'View My Attendance', path: selfServicePath('attendance') },
+          { label: 'View Team Attendance', path: attendanceOverviewPath() },
+          { label: 'Request Leave', path: selfServicePath('attendance') },
+        ]
+      : userRole === 'hr' || userRole === 'management'
+        ? [
+            { label: 'View Payslip', path: selfServicePath('payslip') },
+            { label: 'View My Attendance', path: selfServicePath('attendance') },
+            { label: 'View Company Attendance', path: attendanceOverviewPath() },
+            { label: 'Request Leave', path: selfServicePath('attendance') },
+          ]
+        : [
+            { label: 'View Payslip', path: selfServicePath('payslip') },
+            { label: 'View Attendance', path: selfServicePath('attendance') },
+            { label: 'Request Overtime', path: selfServicePath('attendance') },
+            { label: 'Request Leave', path: selfServicePath('attendance') },
+          ];
 
   function shiftCalendarMonth(offset: number) {
     const next = new Date(calendarYear, calendarMonthIndex + offset, 1);
@@ -901,6 +932,19 @@ export default function Dashboard() {
 
       {/* ACTION BUTTONS */}
       <section className="actionRowX">
+        {dashboardActions.map((action) => (
+          <button
+            key={action.label}
+            className="actionBtnX"
+            type="button"
+            onClick={() => navigate(action.path)}
+          >
+            <span>{action.label}</span>
+            <span className="actionBtnX__arrow">→</span>
+          </button>
+        ))}
+        {false && (
+          <>
         <button className="actionBtnX" type="button" onClick={() => navigate(selfServicePath('payslip'))}>
           <span>View Payslip</span>
           <span className="actionBtnX__arrow">→</span>
@@ -909,14 +953,18 @@ export default function Dashboard() {
           <span>View Attendance</span>
           <span className="actionBtnX__arrow">→</span>
         </button>
-        <button className="actionBtnX" type="button" onClick={() => navigate(selfServicePath('attendance'))}>
-          <span>Request OT</span>
+        {canRequestOvertime && (
+          <button className="actionBtnX" type="button" onClick={() => navigate(selfServicePath('attendance'))}>
+          <span>Request Overtime</span>
           <span className="actionBtnX__arrow">→</span>
         </button>
+        )}
         <button className="actionBtnX" type="button" onClick={() => navigate(selfServicePath('attendance'))}>
           <span>Request Leave</span>
           <span className="actionBtnX__arrow">→</span>
         </button>
+          </>
+        )}
       </section>
 
       {/* LOWER */}
@@ -1198,7 +1246,10 @@ export default function Dashboard() {
         <div className="dashModalBackdrop" role="dialog" aria-modal="true" aria-label="Edit employee info">
           <div className="dashModal">
             <div className="dashModal__top">
-              <div className="dashModal__title">EDIT INFO</div>
+              <div>
+                <div className="dashModal__title">EDIT INFO</div>
+                <div className="dashModal__subtitle">Update your contact details and address information before saving the changes.</div>
+              </div>
               <button type="button" className="dashModal__close" onClick={closeEditModal} disabled={savingEdit}>
                 x
               </button>

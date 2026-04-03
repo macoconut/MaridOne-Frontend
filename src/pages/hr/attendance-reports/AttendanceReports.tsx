@@ -499,6 +499,7 @@ export function AttendanceReportsBoard({
               <div>
                 <div className="hrAttModal__eyebrow">Daily Attendance Breakdown</div>
                 <div className="hrAttModal__title">{selectedDateKey}</div>
+                <p className="hrAttModal__subtitle">Inspect the daily attendance summary, present employees, and missing logs for the selected date.</p>
               </div>
               <button className="hrAttModal__close" type="button" onClick={() => setDetailOpen(false)} aria-label="Close">
                 <FiX />

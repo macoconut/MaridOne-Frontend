@@ -1,8 +1,9 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { FiBarChart2, FiClipboard, FiLogOut } from 'react-icons/fi';
 import AppFooter from '../../components/layout/AppFooter';
 import SidebarBrand from '../../components/navigation/SidebarBrand';
+import SidebarNavSection, { type NavSection } from '../../components/navigation/SidebarNavSection';
 import '../shared/RoleLayout.css';
 import { getUserEmail } from '../../lib/session';
 import { BACKEND_TEST_MODE } from '../../config/flags';
@@ -53,12 +54,27 @@ const backendActions: BackendTestAction[] = [
   },
 ];
 
+const navSections: NavSection[] = [
+  {
+    id: 'payroll',
+    label: 'Payroll Audit',
+    defaultOpen: true,
+    items: [
+      { to: '/accounting/payroll-dashboard', label: 'Payroll Dashboard', icon: FiBarChart2 },
+      { to: '/accounting/payroll-review', label: 'Payslip Review', icon: FiClipboard },
+    ],
+  },
+];
+
 export default function AccountingLayout() {
   const navigate = useNavigate();
   const [headerTitle, setHeaderTitle] = useState('Accounting');
   const [backendAction, setBackendAction] = useState<string>('None');
   const [backendResult, setBackendResult] = useState<string>('Waiting for backend test.');
   const [isLoading, setIsLoading] = useState(false);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(navSections.map((section) => [section.id, section.defaultOpen]))
+  );
 
   useEffect(() => {
     void loadHeaderProfile();
@@ -84,6 +100,10 @@ export default function AccountingLayout() {
 
   function handleBrandClick() {
     navigate('/accounting/payroll-dashboard', { replace: true });
+  }
+
+  function toggleSection(sectionId: string) {
+    setOpenSections((prev) => ({ ...prev, [sectionId]: !prev[sectionId] }));
   }
 
   async function fetchJsonWithAuth(path: string) {
@@ -189,23 +209,14 @@ export default function AccountingLayout() {
         <SidebarBrand label="Go to dashboard" onClick={handleBrandClick} />
 
         <div className="eSide__navWrap">
-          <nav className="eSide__nav" aria-label="Accounting navigation">
-            <NavLink
-              to="/accounting/payroll-dashboard"
-              className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
-            >
-              <FiBarChart2 className="eSide__icon" />
-              <span>Payroll Dashboard</span>
-            </NavLink>
-
-            <NavLink
-              to="/accounting/payroll-review"
-              className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
-            >
-              <FiClipboard className="eSide__icon" />
-              <span>Payroll Review</span>
-            </NavLink>
-          </nav>
+          {navSections.map((section) => (
+            <SidebarNavSection
+              key={section.id}
+              section={section}
+              isOpen={openSections[section.id]}
+              onToggle={toggleSection}
+            />
+          ))}
         </div>
 
         <div className="eSide__footer">

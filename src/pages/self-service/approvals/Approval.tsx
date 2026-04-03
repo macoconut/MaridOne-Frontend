@@ -331,6 +331,7 @@ export default function Approval() {
               <div>
                 <div className="apprModal__eyebrow">Request Breakdown</div>
                 <div className="apprModal__title">{selectedApproval.requestType}</div>
+                <p className="apprModal__subtitle">Review the request timeline, current status, and recorded decision notes for this approval item.</p>
               </div>
               <button type="button" className="apprModal__close" onClick={() => setSelectedApproval(null)}>
                 x

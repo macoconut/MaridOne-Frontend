@@ -2,8 +2,9 @@ import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import './Attendance.css';
 import { FiCalendar, FiChevronLeft, FiChevronRight, FiPlusSquare, FiUpload, FiX } from 'react-icons/fi';
+import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import { ApiError, apiFetchJson, apiFetchRaw, toArray } from '../../../lib/api';
-import { getUserEmail } from '../../../lib/session';
+import { getUserEmail, getUserRole } from '../../../lib/session';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 
 type LeaveType =
@@ -43,6 +44,11 @@ type AttendanceLog = {
 type AttendanceSession = {
   in?: string;
   out?: string;
+};
+
+type AttendanceHistory = {
+  sessionsByDate: Record<string, AttendanceSession[]>;
+  latestDirection: 'IN' | 'OUT' | null;
 };
 
 const LEAVE_CACHE_PREFIX = 'employee-leave-requests';
@@ -119,6 +125,58 @@ function formatAttendanceSession(session: AttendanceSession) {
   return 'Attendance logged';
 }
 
+function buildAttendanceHistory(logs: unknown): AttendanceHistory {
+  const parsedLogs = toArray<AttendanceLog>(logs)
+    .map((row) => {
+      if (typeof row.timestamp !== 'string') return null;
+      const date = new Date(row.timestamp);
+      if (Number.isNaN(date.getTime())) return null;
+
+      return {
+        date,
+        direction: String(row.direction ?? '').toUpperCase(),
+      };
+    })
+    .filter(
+      (entry): entry is { date: Date; direction: string } =>
+        entry !== null
+    )
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  const next: Record<string, AttendanceSession[]> = {};
+  const latestDirection = parsedLogs[parsedLogs.length - 1]?.direction;
+  for (const entry of parsedLogs) {
+    const dateKey = `${entry.date.getFullYear()}-${pad2(entry.date.getMonth() + 1)}-${pad2(entry.date.getDate())}`;
+    const timeLabel = entry.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const current = next[dateKey] ?? [];
+    const lastSession = current[current.length - 1];
+
+    if (entry.direction.includes('IN')) {
+      next[dateKey] = [...current, { in: timeLabel }];
+      continue;
+    }
+
+    if (entry.direction.includes('OUT')) {
+      if (lastSession && lastSession.in && !lastSession.out) {
+        next[dateKey] = [
+          ...current.slice(0, -1),
+          {
+            ...lastSession,
+            out: timeLabel,
+          },
+        ];
+      } else {
+        next[dateKey] = [...current, { out: timeLabel }];
+      }
+    }
+  }
+
+  return {
+    sessionsByDate: next,
+    latestDirection: latestDirection === 'IN' || latestDirection === 'OUT' ? latestDirection : null,
+  };
+}
+
 export default function Attendance() {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
@@ -147,7 +205,9 @@ export default function Attendance() {
 
   const [leaveType, setLeaveType] = useState<LeaveType>('SICK_LEAVE');
   const [startDate, setStartDate] = useState<string>('');
+  const [startTime, setStartTime] = useState<string>('08:00');
   const [endDate, setEndDate] = useState<string>('');
+  const [endTime, setEndTime] = useState<string>('17:00');
   const [reason, setReason] = useState<string>('');
   const [file, setFile] = useState<File | null>(null);
   const [submitError, setSubmitError] = useState('');
@@ -167,6 +227,19 @@ export default function Attendance() {
   const [isClocking, setIsClocking] = useState(false);
   const [clockMessage, setClockMessage] = useState('');
   const [clockError, setClockError] = useState('');
+  const [confirmClockAction, setConfirmClockAction] = useState<'TIME_IN' | 'TIME_OUT' | null>(null);
+  const [latestAttendanceDirection, setLatestAttendanceDirection] = useState<'IN' | 'OUT' | null>(null);
+  const userRole = getUserRole();
+  const canRequestOvertime = !['hr', 'management', 'manager'].includes(userRole ?? '');
+
+  async function fetchAttendanceHistory(resolvedEmpId: number) {
+    try {
+      const logs = await apiFetchJson<unknown>(`/api/logs/attendance/self/${resolvedEmpId}?page=0&size=500`);
+      return buildAttendanceHistory(logs);
+    } catch {
+      return null;
+    }
+  }
 
   useEffect(() => {
     setMonthValue(monthLabel);
@@ -234,72 +307,25 @@ export default function Attendance() {
             .filter((item): item is RequestEntry => item !== null);
           setRequestEntries([...otEntries, ...cachedLeaveEntries]);
 
-          try {
-            const logs = await apiFetchJson<unknown>(
-              `/api/logs/attendance/self/${resolvedEmpId}?page=0&size=500`
-            );
-            const parsedLogs = toArray<AttendanceLog>(logs)
-              .map((row) => {
-                if (typeof row.timestamp !== 'string') return null;
-                const date = new Date(row.timestamp);
-                if (Number.isNaN(date.getTime())) return null;
-
-                return {
-                  date,
-                  direction: String(row.direction ?? '').toUpperCase(),
-                };
-              })
-              .filter(
-                (entry): entry is { date: Date; direction: string } =>
-                  entry !== null
-              )
-              .sort((a, b) => a.date.getTime() - b.date.getTime());
-
-            const next: Record<string, AttendanceSession[]> = {};
-            for (const entry of parsedLogs) {
-              const dateKey = `${entry.date.getFullYear()}-${pad2(entry.date.getMonth() + 1)}-${pad2(entry.date.getDate())}`;
-              const timeLabel = entry.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-              const current = next[dateKey] ?? [];
-              const lastSession = current[current.length - 1];
-
-              if (entry.direction.includes('IN')) {
-                next[dateKey] = [...current, { in: timeLabel }];
-                continue;
-              }
-
-              if (entry.direction.includes('OUT')) {
-                if (lastSession && lastSession.in && !lastSession.out) {
-                  next[dateKey] = [
-                    ...current.slice(0, -1),
-                    {
-                      ...lastSession,
-                      out: timeLabel,
-                    },
-                  ];
-                } else {
-                  next[dateKey] = [...current, { out: timeLabel }];
-                }
-              }
-            }
-            setAttendanceByDate(next);
-          } catch {
-            setAttendanceByDate({});
-          }
+          const attendanceHistory = await fetchAttendanceHistory(resolvedEmpId);
+          setAttendanceByDate(attendanceHistory?.sessionsByDate ?? {});
+          setLatestAttendanceDirection(attendanceHistory?.latestDirection ?? null);
         }
       } catch {
         setEmployeeId(null);
         setRequestEntries([]);
         setAttendanceByDate({});
+        setLatestAttendanceDirection(null);
       }
     })();
   }, [monthIndex, year]);
 
   useEffect(() => {
-    if (leaveOpen || otOpen || requestViewOpen) document.body.classList.add('modal-open');
+    if (leaveOpen || otOpen || requestViewOpen || confirmClockAction) document.body.classList.add('modal-open');
     else document.body.classList.remove('modal-open');
 
     return () => document.body.classList.remove('modal-open');
-  }, [leaveOpen, otOpen, requestViewOpen]);
+  }, [confirmClockAction, leaveOpen, otOpen, requestViewOpen]);
 
   const approvedRequestDateKeys = useMemo(() => {
     return new Set(
@@ -319,12 +345,7 @@ export default function Attendance() {
     );
   }, [requestEntries, today]);
 
-  const todayAttendance = useMemo(() => {
-    const todayKey = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
-    return attendanceByDate[todayKey] ?? [];
-  }, [attendanceByDate, today]);
-  const latestTodaySession = todayAttendance[todayAttendance.length - 1];
-  const isClockOutAction = Boolean(latestTodaySession?.in && !latestTodaySession.out);
+  const isClockOutAction = latestAttendanceDirection === 'IN';
   const firstDay = new Date(year, monthIndex, 1);
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
   const sundayBasedStart = firstDay.getDay();
@@ -361,14 +382,7 @@ export default function Attendance() {
       );
 
       if (!hasApprovedLeave && attendance.length > 0) {
-        if (attendance.length === 1) {
-          const [session] = attendance;
-          detailNotes.push(formatAttendanceSession(session));
-        } else {
-          detailNotes.push(`${attendance.length} attendance sessions`);
-          detailNotes.push(formatAttendanceSession(attendance[0]));
-          detailNotes.push(`+${attendance.length - 1} more session${attendance.length - 1 === 1 ? '' : 's'}`);
-        }
+        detailNotes.push(...attendance.map((session) => formatAttendanceSession(session)));
       }
 
       cells.push({
@@ -390,7 +404,9 @@ export default function Attendance() {
     const now = new Date();
     const iso = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
     setStartDate(iso);
+    setStartTime('08:00');
     setEndDate(iso);
+    setEndTime('17:00');
     setLeaveType('SICK_LEAVE');
     setReason('');
     setFile(null);
@@ -425,6 +441,7 @@ export default function Attendance() {
   }
 
   function openOtForToday() {
+    if (!canRequestOvertime) return;
     const now = new Date();
     const iso = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
     setOtDate(iso);
@@ -440,23 +457,32 @@ export default function Attendance() {
     setOtOpen(false);
   }
 
-  async function recordAttendance() {
+  function requestAttendanceConfirmation() {
     setClockMessage('');
     setClockError('');
     if (!employeeId) {
       setClockError('Employee ID not found.');
-      return;
+      return false;
     }
     if (hasApprovedTodayLeave) {
       setClockError('Clock in/out is blocked today because there is an approved leave request.');
-      return;
+      return false;
     }
-    if (isClockOutAction && !window.confirm('Are you sure you want to clock out?')) {
-      return;
-    }
+    setConfirmClockAction(isClockOutAction ? 'TIME_OUT' : 'TIME_IN');
+    return true;
+  }
+
+  function closeClockConfirmation() {
+    if (isClocking) return;
+    setConfirmClockAction(null);
+  }
+
+  async function recordAttendance() {
+    if (!employeeId || !confirmClockAction) return;
 
     setIsClocking(true);
     try {
+      const attemptedAction = confirmClockAction === 'TIME_OUT' ? 'Time out' : 'Time in';
       const response = await apiFetchRaw(`/api/logs/attendance/${employeeId}`, {
         method: 'POST',
       });
@@ -465,26 +491,34 @@ export default function Attendance() {
         throw new ApiError(response.status, text || `Attendance log failed (${response.status})`);
       }
 
-      const now = new Date();
-      const dateKey = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
-      const timeLabel = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      setAttendanceByDate((prev) => {
-        const current = prev[dateKey] ?? [];
-        const lastSession = current[current.length - 1];
-        const nextSessions =
-          lastSession?.in && !lastSession.out
-            ? [
-                ...current.slice(0, -1),
-                {
-                  ...lastSession,
-                  out: timeLabel,
-                },
-              ]
-            : [...current, { in: timeLabel }];
-        return { ...prev, [dateKey]: nextSessions };
-      });
+      const updatedHistory = await fetchAttendanceHistory(employeeId);
+      if (updatedHistory) {
+        setAttendanceByDate(updatedHistory.sessionsByDate);
+        setLatestAttendanceDirection(updatedHistory.latestDirection);
+      } else {
+        const now = new Date();
+        const dateKey = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+        const timeLabel = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        setAttendanceByDate((prev) => {
+          const current = prev[dateKey] ?? [];
+          const lastSession = current[current.length - 1];
+          const nextSessions =
+            lastSession?.in && !lastSession.out
+              ? [
+                  ...current.slice(0, -1),
+                  {
+                    ...lastSession,
+                    out: timeLabel,
+                  },
+                ]
+              : [...current, { in: timeLabel }];
+          return { ...prev, [dateKey]: nextSessions };
+        });
+        setLatestAttendanceDirection((prev) => (prev === 'IN' ? 'OUT' : 'IN'));
+      }
 
-      setClockMessage('Attendance log submitted.');
+      setClockMessage(`${attemptedAction} submitted.`);
+      setConfirmClockAction(null);
     } catch (error) {
       setClockError(getFriendlyErrorMessage(error, 'attendance'));
     } finally {
@@ -494,6 +528,10 @@ export default function Attendance() {
 
   async function submitOt() {
     setOtSubmitError('');
+    if (!canRequestOvertime) {
+      setOtSubmitError('Overtime requests are not available for your role.');
+      return;
+    }
 
     if (!otDate) {
       setOtSubmitError('OT date is required.');
@@ -571,8 +609,21 @@ export default function Attendance() {
       return;
     }
 
-    if (endDate < startDate) {
-      setSubmitError('End date cannot be earlier than start date.');
+    if (!startTime) {
+      setSubmitError('Start time is required.');
+      return;
+    }
+
+    if (!endTime) {
+      setSubmitError('End time is required.');
+      return;
+    }
+
+    const startDateTime = `${startDate}T${startTime}:00`;
+    const endDateTime = `${endDate}T${endTime}:00`;
+
+    if (endDateTime <= startDateTime) {
+      setSubmitError('End date and time must be later than the start date and time.');
       return;
     }
 
@@ -603,8 +654,8 @@ export default function Attendance() {
       }
 
       const payload = {
-        startDateTime: `${startDate}T00:00:00`,
-        endDateTime: `${endDate}T23:59:59`,
+        startDateTime,
+        endDateTime,
         leaveType,
         reason: [
           reason.trim(),
@@ -650,7 +701,8 @@ export default function Attendance() {
         <div className="att__titleWrap">
           <h1 className="att__title">Attendance</h1>
           <p className="att__subtitle">Review your work logs, requests, shifts, and events in one monthly calendar.</p>
-
+        </div>
+        <div className="att__controls">
           <div className="att__monthSelectWrap">
             <select
               className="att__monthSelect"
@@ -669,8 +721,21 @@ export default function Attendance() {
               })}
             </select>
           </div>
+          <button
+            className="attClockBtn"
+            type="button"
+            onClick={requestAttendanceConfirmation}
+            disabled={isClocking}
+          >
+            <span>{isClocking ? 'Submitting...' : isClockOutAction ? 'Time Out' : 'Time In'}</span>
+            <span className="attClockBtn__icon">
+              <FiPlusSquare />
+            </span>
+          </button>
         </div>
       </div>
+      {clockMessage && <p className="field__ok">{clockMessage}</p>}
+      {clockError && <p className="field__error">{clockError}</p>}
 
       {/* Calendar card */}
       <section className="attCard">
@@ -775,7 +840,7 @@ export default function Attendance() {
                   )}
                   {c.detailNotes && (
                     <div className="cal__detailNotes">
-                      {c.detailNotes.slice(0, 3).map((line, lineIdx) => (
+                      {c.detailNotes.map((line, lineIdx) => (
                         <span key={`${line}-${lineIdx}`} className="cal__detail">
                           {line}
                         </span>
@@ -791,13 +856,6 @@ export default function Attendance() {
 
       {/* Bottom buttons like figma */}
       <div className="attActions">
-        <button className="attBtn" type="button" onClick={() => void recordAttendance()} disabled={isClocking}>
-          <span>{isClocking ? 'Submitting...' : isClockOutAction ? 'Time Out' : 'Time In'}</span>
-          <span className="attBtn__icon">
-            <FiPlusSquare />
-          </span>
-        </button>
-
         <button className="attBtn" type="button" onClick={openLeaveForToday}>
           <span>Request Leave</span>
           <span className="attBtn__icon">
@@ -805,103 +863,126 @@ export default function Attendance() {
           </span>
         </button>
 
-        <button
-          className="attBtn"
-          type="button"
-          onClick={openOtForToday}
-        >
-          <span>Request OT</span>
-          <span className="attBtn__icon">
-            <FiPlusSquare />
-          </span>
-        </button>
+        {canRequestOvertime && (
+          <button
+            className="attBtn"
+            type="button"
+            onClick={openOtForToday}
+          >
+            <span>Request Overtime</span>
+            <span className="attBtn__icon">
+              <FiPlusSquare />
+            </span>
+          </button>
+        )}
       </div>
-      {clockMessage && <p className="field__ok">{clockMessage}</p>}
-      {clockError && <p className="field__error">{clockError}</p>}
 
       {/* Leave Modal */}
       {leaveOpen && (
-        <div className="modalBackdrop" role="dialog" aria-modal="true" aria-label="Leave Application">
-          <div className="modal">
-            <div className="modal__top">
-              <div className="modal__title">LEAVE APPLICATION FORM</div>
+        <div className="modalBackdrop" role="dialog" aria-modal="true" aria-label="Leave Application Form">
+          <div className="modal modal--request">
+            <div className="modal__top modal__top--request">
+              <div className="modal__meta">
+                <div className="modal__title">Leave Application Form</div>
+                <p className="modal__subtitle">
+                  Submit the coverage window, leave type, and any supporting details for approval.
+                </p>
+              </div>
               <button className="modal__close" type="button" onClick={closeLeave} aria-label="Close">
                 <FiX />
               </button>
             </div>
 
-            <div className="modal__rule" />
+            <div className="modal__rule modal__rule--request" />
 
-            <div className="form">
-              <div className="formRow">
-                <label className="label">Type of Leave Requested:</label>
-                <select
-                  className="input"
-                  value={leaveType}
-                  onChange={(e) => setLeaveType(e.target.value as LeaveType)}
-                >
-                  {LEAVE_TYPE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="requestForm">
+              <div className="requestForm__grid">
+                <div className="requestField requestField--span2">
+                  <label className="label">Type of Leave Requested</label>
+                  <p className="requestField__help">Choose the leave category that applies to this request.</p>
+                  <select
+                    className="input"
+                    value={leaveType}
+                    onChange={(e) => setLeaveType(e.target.value as LeaveType)}
+                  >
+                    {LEAVE_TYPE_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              <div className="formRow formRow--2">
-                <div className="field">
-                  <label className="label">Start Date:</label>
-                  <div className="inputIcon">
+                <div className="requestField">
+                  <label className="label">Start Date and Time</label>
+                  <div className="requestField__group">
+                    <div className="inputIcon">
+                      <input
+                        className="input"
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                      />
+                      <FiCalendar className="inputIcon__icon" />
+                    </div>
                     <input
                       className="input"
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
+                      type="time"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
                     />
-                    <FiCalendar className="inputIcon__icon" />
                   </div>
                 </div>
 
-                <div className="field">
-                  <label className="label">End Date:</label>
-                  <div className="inputIcon">
+                <div className="requestField">
+                  <label className="label">End Date and Time</label>
+                  <div className="requestField__group">
+                    <div className="inputIcon">
+                      <input
+                        className="input"
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                      />
+                      <FiCalendar className="inputIcon__icon" />
+                    </div>
                     <input
                       className="input"
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
+                      type="time"
+                      value={endTime}
+                      onChange={(e) => setEndTime(e.target.value)}
                     />
-                    <FiCalendar className="inputIcon__icon" />
+                  </div>
+                </div>
+
+                <div className="requestField requestField--span2">
+                  <label className="label">Reason for Leave</label>
+                  <textarea
+                    className="textarea"
+                    placeholder="Describe why you need this leave request."
+                    value={reason}
+                    onChange={(e) => setReason(e.target.value)}
+                  />
+                </div>
+
+                <div className="requestField requestField--span2">
+                  <label className="label">Supporting Documents</label>
+                  <div className="requestUpload">
+                    <label className="requestUpload__button">
+                      <FiUpload />
+                      <span>{file ? 'Replace File' : 'Upload File'}</span>
+                      <input
+                        type="file"
+                        style={{ display: 'none' }}
+                        onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                      />
+                    </label>
+                    <span className="requestUpload__name">{file ? file.name : 'No file selected'}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="formRow">
-                <label className="label">Reason for Leave:</label>
-                <textarea
-                  className="textarea"
-                  placeholder="Enter reason for leave"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                />
-              </div>
-
-              <div className="formRow">
-                <label className="label">Supporting Documents (if any):</label>
-                <div className="upload">
-                  <label className="uploadBtn">
-                    <FiUpload />
-                    <span>{file ? file.name : 'Upload Here'}</span>
-                    <input
-                      type="file"
-                      style={{ display: 'none' }}
-                      onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                    />
-                  </label>
-                </div>
-              </div>
-
-              <div className="modalActions">
+              <div className="requestActions">
                 <button className="btn btn--ghost" type="button" onClick={closeLeave}>
                   Cancel
                 </button>
@@ -916,65 +997,69 @@ export default function Attendance() {
       )}
 
       {otOpen && (
-        <div className="modalBackdrop" role="dialog" aria-modal="true" aria-label="Overtime Application">
-          <div className="modal">
-            <div className="modal__top">
-              <div className="modal__title">OVERTIME APPLICATION FORM</div>
+        <div className="modalBackdrop" role="dialog" aria-modal="true" aria-label="Overtime Application Form">
+          <div className="modal modal--request">
+            <div className="modal__top modal__top--request">
+              <div className="modal__meta">
+                <div className="modal__title">Overtime Application Form</div>
+                <p className="modal__subtitle">
+                  Request overtime coverage with the exact date, time window, and reason for the additional work.
+                </p>
+              </div>
               <button className="modal__close" type="button" onClick={closeOt} aria-label="Close">
                 <FiX />
               </button>
             </div>
 
-            <div className="modal__rule" />
+            <div className="modal__rule modal__rule--request" />
 
-            <div className="form">
-              <div className="formRow">
-                <label className="label">Type of OT Requested:</label>
-                <select
-                  className="input"
-                  value={otType}
-                  onChange={(e) => setOtType(e.target.value as OvertimeType)}
-                >
-                  <option value="OVERTIME">Overtime</option>
-                  <option value="DOUBLE_OVERTIME">Double Overtime</option>
-                  <option value="TRIPLE_OVERTIME">Triple Overtime</option>
-                  <option value="HOLIDAY">Holiday</option>
-                </select>
-              </div>
+            <div className="requestForm">
+              <div className="requestForm__grid">
+                <div className="requestField requestField--span2">
+                  <label className="label">Type of Overtime Requested</label>
+                  <p className="requestField__help">Pick the overtime category that matches this work period.</p>
+                  <select
+                    className="input"
+                    value={otType}
+                    onChange={(e) => setOtType(e.target.value as OvertimeType)}
+                  >
+                    <option value="OVERTIME">Overtime</option>
+                    <option value="DOUBLE_OVERTIME">Double Overtime</option>
+                    <option value="TRIPLE_OVERTIME">Triple Overtime</option>
+                    <option value="HOLIDAY">Holiday</option>
+                  </select>
+                </div>
 
-              <div className="formRow formRow--2">
-                <div className="field">
-                  <label className="label">OT Date:</label>
+                <div className="requestField">
+                  <label className="label">OT Date</label>
                   <div className="inputIcon">
                     <input className="input" type="date" value={otDate} onChange={(e) => setOtDate(e.target.value)} />
                     <FiCalendar className="inputIcon__icon" />
                   </div>
                 </div>
 
-                <div className="field">
-                  <label className="label">Start Time:</label>
+                <div className="requestField">
+                  <label className="label">Start Time</label>
                   <input className="input" type="time" value={otStartTime} onChange={(e) => setOtStartTime(e.target.value)} />
                 </div>
-              </div>
 
-              <div className="formRow">
-                <div className="field">
-                  <label className="label">End Time:</label>
+                <div className="requestField requestField--span2">
+                  <label className="label">End Time</label>
                   <input className="input" type="time" value={otEndTime} onChange={(e) => setOtEndTime(e.target.value)} />
+                </div>
+
+                <div className="requestField requestField--span2">
+                  <label className="label">Reason for Overtime</label>
+                  <textarea
+                    className="textarea"
+                    placeholder="Describe the work that requires overtime."
+                    value={otReason}
+                    onChange={(e) => setOtReason(e.target.value)}
+                  />
                 </div>
               </div>
 
-              <div className="formRow">
-                <label className="label">Reason for OT:</label>
-                <textarea
-                  className="textarea"
-                  placeholder="Enter reason for OT"
-                  value={otReason}
-                  onChange={(e) => setOtReason(e.target.value)}
-                />
-              </div>
-
-              <div className="modalActions">
+              <div className="requestActions">
                 <button className="btn btn--ghost" type="button" onClick={closeOt}>
                   Cancel
                 </button>
@@ -1031,6 +1116,17 @@ export default function Attendance() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmClockAction !== null}
+        title={confirmClockAction === 'TIME_OUT' ? 'Confirm Time Out' : 'Confirm Time In'}
+        message={`Are you sure you want to ${confirmClockAction === 'TIME_OUT' ? 'time out' : 'time in'}?`}
+        confirmLabel={confirmClockAction === 'TIME_OUT' ? 'Time Out' : 'Time In'}
+        cancelLabel="Go Back"
+        isBusy={isClocking}
+        onConfirm={() => void recordAttendance()}
+        onCancel={closeClockConfirmation}
+      />
     </div>
   );
 }

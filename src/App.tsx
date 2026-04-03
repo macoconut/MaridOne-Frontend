@@ -33,6 +33,7 @@ import ManagerPendingApprovals from './pages/manager/pending-approvals/PendingAp
 import AccountingLayout from './layouts/accounting/AccountingLayout';
 import AccountingPayrollDashboard from './pages/accounting/payroll-dashboard/PayrollDashboard';
 import AccountingPayrollReview from './pages/accounting/payroll-review/PayrollReview';
+import './styles/popupForms.css';
 
 function roleHome(role: UserRole) {
   return getRoleHomePath(role);

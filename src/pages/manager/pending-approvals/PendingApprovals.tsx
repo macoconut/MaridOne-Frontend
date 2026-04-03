@@ -109,6 +109,7 @@ export default function ManagerPendingApprovals() {
   const [requests, setRequests] = useState<ManagerRequest[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [pendingDecision, setPendingDecision] = useState<'APPROVED' | 'REJECTED' | null>(null);
   const [decisionReason, setDecisionReason] = useState('');
   const [submitError, setSubmitError] = useState('');
   const [loadError, setLoadError] = useState('');
@@ -192,10 +193,15 @@ export default function ManagerPendingApprovals() {
   useEffect(() => {
     setDecisionReason('');
     setSubmitError('');
+    setPendingDecision(null);
   }, [selectedId]);
 
-  async function submitDecision(nextStatus: 'APPROVED' | 'REJECTED') {
+  async function submitDecision() {
     if (!selected) return;
+    if (!pendingDecision) {
+      setSubmitError('Choose approve or deny before confirming the decision.');
+      return;
+    }
     const trimmedReason = decisionReason.trim();
     if (trimmedReason.length < 5) {
       setSubmitError('Please enter at least 5 characters explaining the decision.');
@@ -218,7 +224,7 @@ export default function ManagerPendingApprovals() {
             endDateTime: selected.endDateTime,
             reason: selected.reason,
             leaveType: selected.leaveType,
-            requestStatus: nextStatus,
+            requestStatus: pendingDecision,
             approverReason: trimmedReason,
           }),
         });
@@ -227,7 +233,7 @@ export default function ManagerPendingApprovals() {
           method: 'PATCH',
           body: JSON.stringify({
             overtimeId: selected.overtimeId,
-            updateStatus: nextStatus,
+            updateStatus: pendingDecision,
             approveReason: trimmedReason,
           }),
         });
@@ -295,18 +301,22 @@ export default function ManagerPendingApprovals() {
       {selected && (
         <div className="hrApprModalBackdrop" role="dialog" aria-modal="true">
           <div className="hrApprModal">
-            <button
-              type="button"
-              className="hrApprModal__close"
-              onClick={() => setSelectedId(null)}
-              aria-label="Close"
-            >
-              <FiXCircle />
-            </button>
-
-            <h2 className="hrApprModal__title">
-              {selected.employee} - {selected.type}
-            </h2>
+            <div className="dashModal__top">
+              <div>
+                <h2 className="hrApprModal__title">
+                  {selected.employee} - {selected.type}
+                </h2>
+                <p className="hrApprModal__subtitle">Review the team request, choose an approval outcome, and confirm it once the decision reason is ready.</p>
+              </div>
+              <button
+                type="button"
+                className="hrApprModal__close"
+                onClick={() => setSelectedId(null)}
+                aria-label="Close"
+              >
+                <FiXCircle />
+              </button>
+            </div>
 
             <div className="hrApprModal__rule" />
 
@@ -355,6 +365,43 @@ export default function ManagerPendingApprovals() {
               </div>
             )}
 
+            {!canReviewSelected && (
+              <p className="hrApprForm__hint">This request already has a final decision recorded.</p>
+            )}
+
+            {submitError && <p className="hrApprForm__error">{submitError}</p>}
+
+            <div className="hrApprModal__rule" />
+
+            <div className="hrApprForm__row">
+              <label className="decisionPicker">
+                <span>Manager Approval:</span>
+                <div className="decisionPicker__actions">
+                  <button
+                    type="button"
+                    className={`decisionPicker__button ${pendingDecision === 'APPROVED' ? 'is-selected' : ''}`}
+                    disabled={isSaving || !canReviewSelected}
+                    onClick={() => setPendingDecision('APPROVED')}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    className={`decisionPicker__button ${pendingDecision === 'REJECTED' ? 'is-selected' : ''}`}
+                    disabled={isSaving || !canReviewSelected}
+                    onClick={() => setPendingDecision('REJECTED')}
+                  >
+                    Deny
+                  </button>
+                </div>
+                {canReviewSelected && (
+                  <p className="decisionPicker__note">
+                    Choose the outcome here first. The request will only be submitted after you click the confirm button.
+                  </p>
+                )}
+              </label>
+            </div>
+
             <div className="hrApprForm__row">
               <label>
                 <span>Reason for Approval / Denial:</span>
@@ -367,35 +414,25 @@ export default function ManagerPendingApprovals() {
               </label>
             </div>
 
-            {!canReviewSelected && (
-              <p className="hrApprForm__hint">This request already has a final decision recorded.</p>
-            )}
-
-            {submitError && <p className="hrApprForm__error">{submitError}</p>}
-
-            <div className="hrApprModal__rule" />
-
-            <div className="hrApprForm__row hrApprForm__row--2">
-              <label className="hrApprForm__inline">
-                <span>Manager Approval:</span>
-                <div className="hrApprForm__actions">
-                  <button type="button" disabled={isSaving || !canReviewSelected} onClick={() => void submitDecision('APPROVED')}>
-                    Approve
-                  </button>
-                  <button type="button" disabled={isSaving || !canReviewSelected} onClick={() => void submitDecision('REJECTED')}>
-                    Deny
-                  </button>
-                </div>
-              </label>
-            </div>
-
             <div className="hrApprModal__footer">
               <button type="button" onClick={() => setSelectedId(null)} disabled={isSaving}>
                 Cancel
               </button>
-              <button type="button" onClick={() => setSelectedId(null)} disabled={isSaving}>
-                Close
-              </button>
+              {canReviewSelected ? (
+                <button type="button" onClick={() => void submitDecision()} disabled={isSaving || !pendingDecision}>
+                  {isSaving
+                    ? 'Saving...'
+                    : pendingDecision === 'APPROVED'
+                      ? 'Confirm Approval'
+                      : pendingDecision === 'REJECTED'
+                        ? 'Confirm Denial'
+                        : 'Confirm Decision'}
+                </button>
+              ) : (
+                <button type="button" onClick={() => setSelectedId(null)} disabled={isSaving}>
+                  Close
+                </button>
+              )}
             </div>
           </div>
         </div>

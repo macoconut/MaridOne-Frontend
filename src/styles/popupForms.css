@@ -1,0 +1,566 @@
+:root {
+  --popup-accent: #7b4a8f;
+  --popup-accent-dark: #5f3a82;
+  --popup-ink: #3b2257;
+  --popup-copy: rgba(59, 34, 87, 0.72);
+  --popup-border: rgba(123, 74, 143, 0.14);
+  --popup-shadow: 0 26px 60px rgba(32, 21, 49, 0.28);
+  --popup-field-shadow: 0 10px 22px rgba(39, 25, 60, 0.05);
+  --popup-surface:
+    radial-gradient(circle at top right, rgba(191, 154, 223, 0.24), transparent 32%),
+    linear-gradient(180deg, #f7f2fb 0%, #ffffff 42%);
+}
+
+:where(
+  .modalBackdrop,
+  .dashModalBackdrop,
+  .payModalBackdrop,
+  .apprModalBackdrop,
+  .hrEmpModalBackdrop,
+  .hrAttModalBackdrop,
+  .hrPayModalBackdrop,
+  .hrApprModalBackdrop,
+  .aReviewPayModalBackdrop
+) {
+  position: fixed !important;
+  inset: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 20px !important;
+  overflow-y: auto !important;
+  background: rgba(30, 19, 47, 0.44) !important;
+  backdrop-filter: blur(8px);
+  z-index: 3200 !important;
+}
+
+:where(
+  .modal,
+  .dashModal,
+  .payModal,
+  .apprModal,
+  .hrEmpModal,
+  .hrAttModal,
+  .hrPayModal,
+  .hrApprModal,
+  .aReviewPayModal
+) {
+  max-height: min(84vh, 780px) !important;
+  overflow-y: auto !important;
+  border-radius: 24px !important;
+  border: 1px solid var(--popup-border) !important;
+  background: var(--popup-surface) !important;
+  box-shadow: var(--popup-shadow) !important;
+  padding: 24px 28px 26px !important;
+}
+
+.modal,
+.dashModal,
+.payModal,
+.apprModal,
+.hrEmpModal,
+.hrApprModal {
+  width: min(860px, 96vw) !important;
+}
+
+.modal--request,
+.dashModal--security,
+.hrPayModal,
+.hrAttModal {
+  width: min(980px, 96vw) !important;
+}
+
+.hrPayModal--run,
+.hrEmpModal--picker {
+  width: min(700px, 94vw) !important;
+}
+
+.dashModal--announcement,
+.payModal,
+.apprModal,
+.aReviewPayModal {
+  width: min(780px, 96vw) !important;
+}
+
+:where(.modal__top, .dashModal__top, .payModal__top, .apprModal__top, .hrAttModal__top) {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 18px !important;
+}
+
+:where(.modal__meta) {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+:where(
+  .modal__title,
+  .dashModal__title,
+  .payModal__title,
+  .apprModal__title,
+  .hrAttModal__title,
+  .hrApprModal__title,
+  .hrEmpModal h2,
+  .hrPayModal h3,
+  .aReviewPayModal h2
+) {
+  margin: 0 !important;
+  color: var(--popup-ink) !important;
+  font-size: clamp(24px, 2vw, 30px) !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1.08 !important;
+  text-align: left !important;
+}
+
+:where(
+  .modal__subtitle,
+  .dashModal__subtitle,
+  .payModal__subtitle,
+  .apprModal__subtitle,
+  .hrEmpModal__subtitle,
+  .hrAttModal__subtitle,
+  .hrPayModal__subtitle,
+  .hrApprModal__subtitle,
+  .aReviewPayModal__subtitle,
+  .hrPayModal__intro,
+  .aReviewPayModal p,
+  .announcementModal__dates
+) {
+  margin: 8px 0 0 !important;
+  color: var(--popup-copy) !important;
+  line-height: 1.5 !important;
+}
+
+:where(.apprModal__eyebrow, .hrAttModal__eyebrow) {
+  color: rgba(91, 52, 126, 0.72) !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  margin-bottom: 6px !important;
+}
+
+:where(
+  .modal__close,
+  .dashModal__close,
+  .payModal__close,
+  .apprModal__close,
+  .hrAttModal__close,
+  .hrApprModal__close,
+  .aReviewPayModal__close
+) {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 12px !important;
+  border: 1px solid var(--popup-border) !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  color: rgba(59, 34, 87, 0.78) !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  font-size: 20px !important;
+  cursor: pointer !important;
+}
+
+:where(
+  .modal__rule,
+  .dashModal__rule,
+  .payModal__rule,
+  .apprModal__rule,
+  .hrAttModal__rule,
+  .hrPayModal__rule,
+  .hrApprModal__rule
+) {
+  height: 1px !important;
+  border: 0 !important;
+  background: linear-gradient(
+    90deg,
+    rgba(123, 74, 143, 0.28),
+    rgba(123, 74, 143, 0.04)
+  ) !important;
+  margin: 18px 0 22px !important;
+}
+
+:where(
+  .dashModal__field,
+  .payModal__row,
+  .apprModal__card,
+  .apprModal__section,
+  .announcementModal__card,
+  .hrEmpForm__section,
+  .hrEmpPicker__row,
+  .hrEmpDelete .hrEmpField,
+  .hrAttSummary__card,
+  .hrAttBreakdown__section,
+  .hrAttPerson,
+  .hrPayModal__summary,
+  .hrPayCorrectionSummary,
+  .hrPayModal__grid label,
+  .hrPayModal__area,
+  .hrPayCorrectionLine,
+  .hrApprForm__row label,
+  .aReviewPayModal__grid label,
+  .hrEmpConfirmCard
+) {
+  border: 1px solid var(--popup-border) !important;
+  border-radius: 20px !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  box-shadow: var(--popup-field-shadow) !important;
+}
+
+:where(
+  .dashModal__field,
+  .payModal__row,
+  .hrPayModal__grid label,
+  .hrPayModal__area,
+  .hrApprForm__row label,
+  .aReviewPayModal__grid label
+) {
+  padding: 18px !important;
+}
+
+:where(
+  .payModal__row,
+  .hrPayModal__grid label,
+  .hrPayModal__area,
+  .hrApprForm__row label,
+  .aReviewPayModal__grid label
+) {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 8px !important;
+}
+
+.payModal__row {
+  margin-bottom: 0 !important;
+}
+
+:where(
+  .dashModal__field span,
+  .payModal__row > label:first-child,
+  .hrEmpField label,
+  .hrPayModal__grid label > span:first-child,
+  .hrPayModal__area > span:first-child,
+  .hrApprForm__row label > span:first-child,
+  .aReviewPayModal__grid label > span:first-child,
+  .hrAttSummary__card span,
+  .hrPayCorrectionSummary__row span
+) {
+  color: #5a337d !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+}
+
+:where(
+  .dashModal__field input,
+  .dashModal__field textarea,
+  .payModal select,
+  .payModal textarea,
+  .hrEmpField input,
+  .hrEmpField select,
+  .hrEmpField textarea,
+  .hrPayModal input,
+  .hrPayModal select,
+  .hrPayModal textarea,
+  .hrApprForm__row input,
+  .hrApprForm__row textarea,
+  .aReviewPayModal__grid input
+) {
+  width: 100% !important;
+  min-height: 44px !important;
+  border: 1px solid rgba(123, 74, 143, 0.18) !important;
+  border-radius: 14px !important;
+  background: #fff !important;
+  color: #2b2036 !important;
+  font-size: 15px !important;
+  padding: 12px 14px !important;
+  box-shadow: none !important;
+}
+
+:where(
+  .dashModal__field textarea,
+  .payModal textarea,
+  .hrEmpField textarea,
+  .hrPayModal textarea,
+  .hrApprForm__row textarea
+) {
+  min-height: 132px !important;
+  resize: vertical !important;
+}
+
+:where(
+  .dashModal__field input:focus,
+  .dashModal__field textarea:focus,
+  .payModal select:focus,
+  .payModal textarea:focus,
+  .hrEmpField input:focus,
+  .hrEmpField select:focus,
+  .hrEmpField textarea:focus,
+  .hrPayModal input:focus,
+  .hrPayModal select:focus,
+  .hrPayModal textarea:focus,
+  .hrApprForm__row input:focus,
+  .hrApprForm__row textarea:focus,
+  .aReviewPayModal__grid input:focus
+) {
+  outline: none !important;
+  border-color: rgba(123, 74, 143, 0.55) !important;
+  box-shadow: 0 0 0 4px rgba(123, 74, 143, 0.12) !important;
+}
+
+:where(
+  .requestActions,
+  .modalActions,
+  .dashModal__actions,
+  .payModal__actions,
+  .apprModal__actions,
+  .hrEmpModal__actions,
+  .hrEmpConfirmCard__actions,
+  .hrAttModal__actions,
+  .hrPayModal__actions,
+  .hrApprForm__actions,
+  .hrApprModal__footer,
+  .aReviewPayModal__actions
+) {
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 12px !important;
+  flex-wrap: wrap !important;
+  margin-top: 18px !important;
+}
+
+:where(
+  .btn,
+  .dashModal__btn,
+  .payModal__actions button,
+  .apprModal__actions button,
+  .hrEmpModal__actions button,
+  .hrEmpConfirmCard__actions button,
+  .hrAttModal__actions button,
+  .hrPayModal__actions button,
+  .hrPayModal__inlineBtns button,
+  .hrApprForm__actions button,
+  .hrApprModal__footer button,
+  .aReviewPayModal__actions button
+) {
+  min-width: 120px !important;
+  min-height: 42px !important;
+  border: none !important;
+  border-radius: 999px !important;
+  background: var(--popup-accent) !important;
+  color: #fff !important;
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  padding: 0 18px !important;
+  cursor: pointer !important;
+  box-shadow: 0 12px 22px rgba(123, 74, 143, 0.18) !important;
+}
+
+:where(
+  .btn--ghost,
+  .dashModal__btn--ghost,
+  .payModal__cancel,
+  .hrPayModal .is-muted
+) {
+  background: rgba(123, 74, 143, 0.1) !important;
+  color: var(--popup-accent-dark) !important;
+  border: 1px solid rgba(123, 74, 143, 0.18) !important;
+  box-shadow: none !important;
+}
+
+:where(
+  .payModal__actions button:first-child,
+  .apprModal__actions button:first-child,
+  .hrEmpModal__actions button:first-child,
+  .hrEmpConfirmCard__actions button:first-child,
+  .hrAttModal__actions button:first-child,
+  .hrPayModal__actions button:first-child,
+  .hrApprModal__footer button:first-child,
+  .aReviewPayModal__actions button:first-child
+) {
+  background: rgba(123, 74, 143, 0.1) !important;
+  color: var(--popup-accent-dark) !important;
+  border: 1px solid rgba(123, 74, 143, 0.18) !important;
+  box-shadow: none !important;
+}
+
+.hrApprForm__actions button:last-child,
+.hrPayModal__inlineBtns button:last-child {
+  background: rgba(123, 74, 143, 0.1) !important;
+  color: var(--popup-accent-dark) !important;
+  border: 1px solid rgba(123, 74, 143, 0.18) !important;
+  box-shadow: none !important;
+}
+
+:where(
+  .btn:disabled,
+  .dashModal__btn:disabled,
+  .payModal__actions button:disabled,
+  .apprModal__actions button:disabled,
+  .hrEmpModal__actions button:disabled,
+  .hrEmpConfirmCard__actions button:disabled,
+  .hrAttModal__actions button:disabled,
+  .hrPayModal__actions button:disabled,
+  .hrPayModal__inlineBtns button:disabled,
+  .hrApprForm__actions button:disabled,
+  .hrApprModal__footer button:disabled,
+  .aReviewPayModal__actions button:disabled
+) {
+  opacity: 0.72 !important;
+  cursor: not-allowed !important;
+}
+
+.announcementModal__list,
+.hrEmpForm,
+.hrEmpDelete,
+.requestForm {
+  padding-right: 4px;
+}
+
+.hrEmpConfirmLayer {
+  background: rgba(16, 12, 24, 0.44) !important;
+  backdrop-filter: blur(6px);
+}
+
+.payModal__uploadCard {
+  padding: 18px;
+}
+
+.payModal__uploadHint {
+  margin: 0;
+  color: var(--popup-copy);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.payModal__uploadRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.payModal__uploadBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(123, 74, 143, 0.16);
+  background: rgba(123, 74, 143, 0.08);
+  border-radius: 999px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-weight: 800;
+  color: #5a337d;
+}
+
+.payModal__uploadName {
+  color: rgba(43, 32, 54, 0.72);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.decisionPicker {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.decisionPicker__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.decisionPicker__button {
+  min-width: 140px;
+  min-height: 42px;
+  border-radius: 999px;
+  border: 1px solid rgba(123, 74, 143, 0.18);
+  background: rgba(123, 74, 143, 0.1);
+  color: var(--popup-accent-dark);
+  font-size: 15px;
+  font-weight: 800;
+  padding: 0 18px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.decisionPicker__button.is-selected {
+  background: var(--popup-accent);
+  color: #fff;
+  box-shadow: 0 12px 22px rgba(123, 74, 143, 0.18);
+}
+
+.decisionPicker__button:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.decisionPicker__note {
+  margin: 0;
+  color: var(--popup-copy);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+  :where(
+    .modal,
+    .dashModal,
+    .payModal,
+    .apprModal,
+    .hrEmpModal,
+    .hrAttModal,
+    .hrPayModal,
+    .hrApprModal,
+    .aReviewPayModal
+  ) {
+    padding: 20px !important;
+  }
+
+  :where(
+    .dashModal__actions,
+    .payModal__actions,
+    .apprModal__actions,
+    .hrEmpModal__actions,
+    .hrEmpConfirmCard__actions,
+    .hrAttModal__actions,
+    .hrPayModal__actions,
+    .hrApprForm__actions,
+    .hrApprModal__footer,
+    .aReviewPayModal__actions
+  ) {
+    flex-direction: column-reverse !important;
+    align-items: stretch !important;
+  }
+
+  :where(
+    .btn,
+    .dashModal__btn,
+    .payModal__actions button,
+    .apprModal__actions button,
+    .hrEmpModal__actions button,
+    .hrEmpConfirmCard__actions button,
+    .hrAttModal__actions button,
+    .hrPayModal__actions button,
+    .hrPayModal__inlineBtns button,
+    .hrApprForm__actions button,
+    .hrApprModal__footer button,
+    .aReviewPayModal__actions button
+  ) {
+    width: 100% !important;
+  }
+
+  .decisionPicker__actions {
+    flex-direction: column;
+  }
+
+  .decisionPicker__button {
+    width: 100%;
+  }
+}

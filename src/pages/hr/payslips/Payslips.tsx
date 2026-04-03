@@ -219,6 +219,7 @@ export default function HrPayslips() {
   const [isLoadingCorrection, setIsLoadingCorrection] = useState(false);
   const [isSubmittingCorrection, setIsSubmittingCorrection] = useState(false);
   const [adjustmentRunId, setAdjustmentRunId] = useState<number | null>(null);
+  const [pendingDisputeDecision, setPendingDisputeDecision] = useState<'APPROVED' | 'REJECTED' | null>(null);
 
   function syncRunForm(run: PayrollRunDto) {
     setRunForm((prev) => ({
@@ -249,6 +250,12 @@ export default function HrPayslips() {
 
     return () => document.body.classList.remove('modal-open');
   }, [correctionOpen, postModalOpen, runModalOpen, selectedDispute]);
+
+  useEffect(() => {
+    setRemarks('');
+    setActionError('');
+    setPendingDisputeDecision(null);
+  }, [selectedDispute?.id]);
 
   useEffect(() => {
     const storedRun = readStoredRun();
@@ -559,6 +566,15 @@ export default function HrPayslips() {
     }
   }
 
+  async function confirmDisputeDecision() {
+    if (!pendingDisputeDecision) {
+      setActionError('Choose approve or deny before confirming the dispute decision.');
+      return;
+    }
+
+    await updateDispute(pendingDisputeDecision);
+  }
+
   async function submitPayrollRun() {
     setRunError('');
     setRunMessage('');
@@ -746,6 +762,7 @@ export default function HrPayslips() {
         <div className="hrPayModalBackdrop" role="dialog" aria-modal="true" aria-label={runModalTitle}>
           <article className="hrPayModal hrPayModal--run">
             <h3>{runModalTitle}</h3>
+            <p className="hrPayModal__subtitle">Set the payroll coverage window and run type before starting this payroll process.</p>
             <div className="hrPayModal__rule" />
 
             <p className="hrPayModal__intro">{runModalIntro}</p>
@@ -800,6 +817,7 @@ export default function HrPayslips() {
         <div className="hrPayModalBackdrop" role="dialog" aria-modal="true" aria-label="Post payroll run">
           <article className="hrPayModal hrPayModal--run">
             <h3>Post Payroll Run</h3>
+            <p className="hrPayModal__subtitle">Review the payroll run summary carefully before confirming the final posting step.</p>
             <div className="hrPayModal__rule" />
 
             <p className="hrPayModal__intro">
@@ -840,6 +858,7 @@ export default function HrPayslips() {
         <div className="hrPayModalBackdrop" role="dialog" aria-modal="true" aria-label="Stage payroll correction">
           <article className="hrPayModal">
             <h3>Stage Approved Dispute Correction</h3>
+            <p className="hrPayModal__subtitle">Select the exact payroll line that needs adjustment and stage the corrected amount into the active adjustment run.</p>
             <div className="hrPayModal__rule" />
 
             {isLoadingCorrection ? (
@@ -972,6 +991,7 @@ export default function HrPayslips() {
         <div className="hrPayModalBackdrop" role="dialog" aria-modal="true">
           <article className="hrPayModal">
             <h3>{selectedDispute.employee} - Payslip Dispute</h3>
+            <p className="hrPayModal__subtitle">Review the employee dispute, choose a decision, and confirm it only after the decision reason is complete.</p>
             <div className="hrPayModal__rule" />
 
             <div className="hrPayModal__grid">
@@ -1005,20 +1025,32 @@ export default function HrPayslips() {
               </label>
             )}
 
-            <div className="hrPayModal__line">
+            <div className="hrPayModal__area">
               <span>Administrative Approval:</span>
-              <div className="hrPayModal__inlineBtns">
-                <button type="button" disabled={isSaving || !canReviewSelectedDispute} onClick={() => void updateDispute('APPROVED')}>
-                  Approve
-                </button>
-                <button
-                  type="button"
-                  className="is-muted"
-                  disabled={isSaving || !canReviewSelectedDispute}
-                  onClick={() => void updateDispute('REJECTED')}
-                >
-                  Deny
-                </button>
+              <div className="decisionPicker">
+                <div className="decisionPicker__actions">
+                  <button
+                    type="button"
+                    className={`decisionPicker__button ${pendingDisputeDecision === 'APPROVED' ? 'is-selected' : ''}`}
+                    disabled={isSaving || !canReviewSelectedDispute}
+                    onClick={() => setPendingDisputeDecision('APPROVED')}
+                  >
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    className={`decisionPicker__button ${pendingDisputeDecision === 'REJECTED' ? 'is-selected' : ''}`}
+                    disabled={isSaving || !canReviewSelectedDispute}
+                    onClick={() => setPendingDisputeDecision('REJECTED')}
+                  >
+                    Deny
+                  </button>
+                </div>
+                {canReviewSelectedDispute && (
+                  <p className="decisionPicker__note">
+                    Choose the outcome first, then enter the decision reason below and use the confirm button to submit it.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1040,9 +1072,21 @@ export default function HrPayslips() {
               <button type="button" className="is-muted" onClick={() => setSelectedDispute(null)} disabled={isSaving}>
                 Cancel
               </button>
-              <button type="button" onClick={() => setSelectedDispute(null)} disabled={isSaving}>
-                Close
-              </button>
+              {canReviewSelectedDispute ? (
+                <button type="button" onClick={() => void confirmDisputeDecision()} disabled={isSaving || !pendingDisputeDecision}>
+                  {isSaving
+                    ? 'Saving...'
+                    : pendingDisputeDecision === 'APPROVED'
+                      ? 'Confirm Approval'
+                      : pendingDisputeDecision === 'REJECTED'
+                        ? 'Confirm Denial'
+                        : 'Confirm Decision'}
+                </button>
+              ) : (
+                <button type="button" onClick={() => setSelectedDispute(null)} disabled={isSaving}>
+                  Close
+                </button>
+              )}
             </div>
           </article>
         </div>

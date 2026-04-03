@@ -330,6 +330,7 @@ export default function AccountingPayrollReview() {
             </button>
 
             <h2>{formatEmployeeName(selectedRow)}</h2>
+            <p className="aReviewPayModal__subtitle">Review the payroll totals for this item before printing or cross-checking the posted numbers.</p>
             <p>{describeRun(selectedRun)}</p>
 
             <div className="aReviewPayModal__grid">
