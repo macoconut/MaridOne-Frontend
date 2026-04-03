@@ -74,9 +74,36 @@ function formatEmployeeName(row: PayrollItemRow) {
   return 'Unnamed employee';
 }
 
+function formatRunLabel(run: PayrollRunRow) {
+  if (run.periodStart || run.periodEnd) {
+    return `${formatDate(run.periodStart)} to ${formatDate(run.periodEnd)}`;
+  }
+  return run.periodDescription || 'Payroll period unavailable';
+}
+
+function toSortStamp(value?: string) {
+  if (!value) return 0;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function compareRunsDescending(a: PayrollRunRow, b: PayrollRunRow) {
+  const endDiff = toSortStamp(b.periodEnd) - toSortStamp(a.periodEnd);
+  if (endDiff !== 0) return endDiff;
+
+  const startDiff = toSortStamp(b.periodStart) - toSortStamp(a.periodStart);
+  if (startDiff !== 0) return startDiff;
+
+  return (b.payId ?? 0) - (a.payId ?? 0);
+}
+
 function formatSummaryLabel(value?: string) {
   const key = String(value ?? '').trim();
   if (!key) return 'Unknown line item';
+  const normalized = key.replace(/[\s_]+/g, '').toUpperCase();
+  if (normalized === 'PAGIBIG') return 'PagIbig';
+  if (normalized === 'PHILHEALTH') return 'PhilHealth';
+  if (normalized === 'SSS') return 'SSS';
   return key
     .toLowerCase()
     .split('_')
@@ -159,7 +186,7 @@ export default function HrPayRunReporting() {
         const runResponse = await apiFetchJson<unknown>('/api/payroll/run');
         if (cancelled) return;
 
-        const nextRuns = toArray<PayrollRunRow>(runResponse);
+        const nextRuns = [...toArray<PayrollRunRow>(runResponse)].sort(compareRunsDescending);
         setRuns(nextRuns);
 
         const selectedExists = nextRuns.some((run) => run.payId === selectedPayId);
@@ -238,22 +265,34 @@ export default function HrPayRunReporting() {
   const normalizedFilter = filterValue.trim().toLowerCase();
 
   const visibleEmployeeRows = useMemo(() => {
-    if (!normalizedFilter || normalizedFilter === 'all') return employeeRows;
+    const filtered =
+      !normalizedFilter || normalizedFilter === 'all'
+        ? [...employeeRows]
+        : employeeRows.filter((row) => {
+            const name = formatEmployeeName(row).toLowerCase();
+            const empId = String(row.empId ?? '').toLowerCase();
+            return name.includes(normalizedFilter) || empId.includes(normalizedFilter);
+          });
 
-    return employeeRows.filter((row) => {
-      const name = formatEmployeeName(row).toLowerCase();
-      return name.includes(normalizedFilter);
+    return filtered.sort((a, b) => {
+      const aId = typeof a.empId === 'number' ? a.empId : Number.MAX_SAFE_INTEGER;
+      const bId = typeof b.empId === 'number' ? b.empId : Number.MAX_SAFE_INTEGER;
+      if (aId !== bId) return aId - bId;
+      return formatEmployeeName(a).localeCompare(formatEmployeeName(b));
     });
   }, [employeeRows, normalizedFilter]);
 
   const visiblePayTypeRows = useMemo(() => {
-    if (!normalizedFilter || normalizedFilter === 'all') return payTypeRows;
+    const filtered =
+      !normalizedFilter || normalizedFilter === 'all'
+        ? [...payTypeRows]
+        : payTypeRows.filter((row) => {
+            const payType = String(row.payType ?? '').toLowerCase();
+            const kind = String(getSummaryAdjustmentKind(row) ?? '').toLowerCase();
+            return payType.includes(normalizedFilter) || kind.includes(normalizedFilter);
+          });
 
-    return payTypeRows.filter((row) => {
-      const payType = String(row.payType ?? '').toLowerCase();
-      const kind = String(getSummaryAdjustmentKind(row) ?? '').toLowerCase();
-      return payType.includes(normalizedFilter) || kind.includes(normalizedFilter);
-    });
+    return filtered.sort((a, b) => formatSummaryLabel(a.payType).localeCompare(formatSummaryLabel(b.payType)));
   }, [normalizedFilter, payTypeRows]);
 
   const visibleEarningRows = useMemo(
@@ -278,10 +317,7 @@ export default function HrPayRunReporting() {
 
   const reportLabel = useMemo(() => {
     if (!selectedRun) return 'Payroll Run Report';
-    return (
-      selectedRun.periodDescription ||
-      `${formatDate(selectedRun.periodStart)} to ${formatDate(selectedRun.periodEnd)}`
-    );
+    return formatRunLabel(selectedRun);
   }, [selectedRun]);
 
   const reportFileStem = useMemo(() => {
@@ -298,8 +334,9 @@ export default function HrPayRunReporting() {
             ['Report', reportLabel],
             ['Status', selectedRun?.payrollStatus || 'Unknown status'],
             [''],
-            ['Employee Name', 'Gross Pay', 'Net Pay'],
+            ['Employee ID', 'Employee Name', 'Gross Pay', 'Net Pay'],
             ...visibleEmployeeRows.map((row) => [
+              String(row.empId ?? '-'),
               formatEmployeeName(row),
               formatCurrency(row.grossPay),
               formatCurrency(row.netPay),
@@ -386,94 +423,72 @@ export default function HrPayRunReporting() {
     <div className="hrRun">
       <div className="hrRun__top">
         <h1>Pay Run Reporting</h1>
-        <select value={view} onChange={(e) => setView(e.target.value as ReportView)} aria-label="Report view">
-          <option value="employee">By Employee</option>
-          <option value="payType">By Earnings / Deductions</option>
-        </select>
+        <label className="hrRunSelect hrRunSelect--view" aria-label="Report view">
+          <select value={view} onChange={(e) => setView(e.target.value as ReportView)}>
+            <option value="employee">By Employee</option>
+            <option value="payType">By Earnings / Deductions</option>
+          </select>
+        </label>
       </div>
 
       <div className="hrRunFilters">
         <div className="hrRunFilters__field hrRunFilters__field--search">
           <label>{filterLabel}</label>
-          <div className="hrRunFilters__searchWrap">
+          <label className="hrRunSearch" aria-label={view === 'employee' ? 'Search employees' : 'Search pay types'}>
             <FiSearch />
             <input
               value={filterValue}
               onChange={(e) => setFilterValue(e.target.value)}
               placeholder={view === 'employee' ? 'Search by employee name' : 'Search by earnings or deductions type'}
             />
-            <button type="button" aria-label="Clear filter" onClick={() => setFilterValue('')}>
-              <FiXCircle />
-            </button>
-          </div>
+            {filterValue && (
+              <button type="button" aria-label="Clear filter" onClick={() => setFilterValue('')}>
+                <FiXCircle />
+              </button>
+            )}
+          </label>
         </div>
 
         <div className="hrRunFilters__field">
-          <label>From:</label>
-          <select
-            aria-label="From date"
-            value={selectedPayId ?? ''}
-            onChange={(e) => setSelectedPayId(e.target.value ? Number(e.target.value) : null)}
-            disabled={runs.length === 0}
-          >
-            {runs.length > 0 ? (
-              runs.map((run) => (
-                <option key={`from-${run.payId}`} value={run.payId}>
-                  {formatDate(run.periodStart)}
-                </option>
-              ))
-            ) : (
-              <option value="">No payroll runs yet</option>
-            )}
-          </select>
-        </div>
-
-        <div className="hrRunFilters__field">
-          <label>To:</label>
-          <select
-            aria-label="To date"
-            value={selectedPayId ?? ''}
-            onChange={(e) => setSelectedPayId(e.target.value ? Number(e.target.value) : null)}
-            disabled={runs.length === 0}
-          >
-            {runs.length > 0 ? (
-              runs.map((run) => (
-                <option key={`to-${run.payId}`} value={run.payId}>
-                  {formatDate(run.periodEnd)}
-                </option>
-              ))
-            ) : (
-              <option value="">No payroll runs yet</option>
-            )}
-          </select>
+          <label>Payroll Period:</label>
+          <label className="hrRunSelect" aria-label="Payroll period">
+            <select
+              value={selectedPayId ?? ''}
+              onChange={(e) => setSelectedPayId(e.target.value ? Number(e.target.value) : null)}
+              disabled={runs.length === 0}
+            >
+              {runs.length > 0 ? (
+                runs.map((run) => (
+                  <option key={run.payId} value={run.payId}>
+                    {formatRunLabel(run)}
+                  </option>
+                ))
+              ) : (
+                <option value="">No payroll runs yet</option>
+              )}
+            </select>
+          </label>
         </div>
       </div>
 
-      {selectedRun && (
-        <p className="hrRun__status">
-          {selectedRun.periodDescription || `${formatDate(selectedRun.periodStart)} to ${formatDate(selectedRun.periodEnd)}`} •{' '}
-          {selectedRun.payrollStatus || 'Unknown status'} • {selectedRun.itemCount ?? 0} item
-          {(selectedRun.itemCount ?? 0) === 1 ? '' : 's'}
-        </p>
-      )}
       {loadError && <p className="hrRun__status hrRun__status--error">{loadError}</p>}
 
       {view === 'employee' ? (
         <section className="hrRunTable" aria-label="Pay run by employee">
-          <div className="hrRunTable__head">
+          <div className="hrRunTable__head hrRunTable__head--employee">
+            <span>Employee ID</span>
             <span>Employee Name</span>
-            <span>Total</span>
+            <span>Gross Pay</span>
+            <span>Net Pay</span>
           </div>
 
           <div className="hrRunTable__body">
             {!isLoading && visibleEmployeeRows.length > 0 ? (
               visibleEmployeeRows.map((row, index) => (
                 <article key={`${row.itemId ?? row.empId ?? index}`} className="hrRunEmployee">
+                  <div className="hrRunEmployee__id">{row.empId ?? '-'}</div>
                   <div className="hrRunEmployee__name">{formatEmployeeName(row)}</div>
-                  <div className="hrRunEmployee__sub">
-                    NET PAY • GROSS {formatCurrency(row.grossPay)}
-                    {typeof row.itemId === 'number' ? ` • ITEM #${row.itemId}` : ''}
-                  </div>
+                  <div className="hrRunEmployee__gross">{formatCurrency(row.grossPay)}</div>
                   <div className="hrRunEmployee__value">{formatCurrency(row.netPay)}</div>
                 </article>
               ))
@@ -485,56 +500,71 @@ export default function HrPayRunReporting() {
           </div>
         </section>
       ) : (
-        <section className="hrRunTable" aria-label="Pay run earnings and deductions">
-          <div className="hrRunTable__head">
-            <span>Earnings and Deductions</span>
-            <span>Total</span>
-          </div>
-
-          <div className="hrRunTable__body hrRunTable__body--split">
-            {!isLoading && (visibleEarningRows.length > 0 || visibleDeductionRows.length > 0) ? (
-              <>
-                <section className="hrRunGroup" aria-label="Earnings summary">
-                  <div className="hrRunGroup__head">
-                    <span>EARNINGS</span>
-                    <span>{formatCurrency(earningsTotal)}</span>
+        <div className="hrRunSplitTables" aria-label="Pay run earnings and deductions">
+          {!isLoading && (visibleEarningRows.length > 0 || visibleDeductionRows.length > 0) ? (
+            <>
+              <section className="hrRunTable hrRunTable--summaryView" aria-label="Earnings summary table">
+                <div className="hrRunGroup__head">
+                  <div className="hrRunGroup__titleBlock">
+                    <span className="hrRunGroup__title">Earnings</span>
+                    <span className="hrRunGroup__caption">Total earnings</span>
                   </div>
+                  <span className="hrRunGroup__total">{formatCurrency(earningsTotal)}</span>
+                </div>
+                <div className="hrRunTable__head hrRunTable__head--payType">
+                  <span>Type</span>
+                  <span>Total</span>
+                </div>
+                <div className="hrRunTable__body hrRunTable__body--summary">
                   {visibleEarningRows.length > 0 ? (
                     visibleEarningRows.map((row, index) => (
-                      <article key={`earning-${row.payType ?? index}`} className="hrRunTypeRow">
-                        <div>{formatSummaryLabel(row.payType)}</div>
-                        <div>{formatCurrency(row.total)}</div>
+                      <article key={`earning-${row.payType ?? index}`} className="hrRunTypeRow hrRunTypeRow--table">
+                        <div className="hrRunTypeRow__label">{formatSummaryLabel(row.payType)}</div>
+                        <div className="hrRunTypeRow__value">{formatCurrency(row.total)}</div>
                       </article>
                     ))
                   ) : (
                     <article className="hrRunEmpty hrRunEmpty--group">No earnings matched this payroll run.</article>
                   )}
-                </section>
+                </div>
+              </section>
 
-                <section className="hrRunGroup" aria-label="Deductions summary">
-                  <div className="hrRunGroup__head">
-                    <span>DEDUCTIONS</span>
-                    <span>{formatCurrency(deductionsTotal)}</span>
+              <section className="hrRunTable hrRunTable--summaryView" aria-label="Deductions summary table">
+                <div className="hrRunGroup__head">
+                  <div className="hrRunGroup__titleBlock">
+                    <span className="hrRunGroup__title">Deductions</span>
+                    <span className="hrRunGroup__caption">Total deductions</span>
                   </div>
+                  <span className="hrRunGroup__total">{formatCurrency(deductionsTotal)}</span>
+                </div>
+                <div className="hrRunTable__head hrRunTable__head--payType">
+                  <span>Type</span>
+                  <span>Total</span>
+                </div>
+                <div className="hrRunTable__body hrRunTable__body--summary">
                   {visibleDeductionRows.length > 0 ? (
                     visibleDeductionRows.map((row, index) => (
-                      <article key={`deduction-${row.payType ?? index}`} className="hrRunTypeRow">
-                        <div>{formatSummaryLabel(row.payType)}</div>
-                        <div>{formatCurrency(row.total)}</div>
+                      <article key={`deduction-${row.payType ?? index}`} className="hrRunTypeRow hrRunTypeRow--table">
+                        <div className="hrRunTypeRow__label">{formatSummaryLabel(row.payType)}</div>
+                        <div className="hrRunTypeRow__value">{formatCurrency(row.total)}</div>
                       </article>
                     ))
                   ) : (
                     <article className="hrRunEmpty hrRunEmpty--group">No deductions matched this payroll run.</article>
                   )}
-                </section>
-              </>
-            ) : (
-              <article className="hrRunEmpty">
-                {isLoading ? 'Loading pay type totals...' : getEmptyRunMessage(selectedRun, 'payType')}
-              </article>
-            )}
-          </div>
-        </section>
+                </div>
+              </section>
+            </>
+          ) : (
+            <section className="hrRunTable hrRunTable--summaryView" aria-label="Pay type summary table">
+              <div className="hrRunTable__body hrRunTable__body--summary">
+                <article className="hrRunEmpty">
+                  {isLoading ? 'Loading pay type totals...' : getEmptyRunMessage(selectedRun, 'payType')}
+                </article>
+              </div>
+            </section>
+          )}
+        </div>
       )}
 
       <div className="hrRunActions">

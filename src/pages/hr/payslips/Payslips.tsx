@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
@@ -28,6 +29,8 @@ type PayrollRunDto = {
 };
 
 type DisputeStatus = 'Open' | 'Clear';
+type DisputeStatusFilter = 'all' | 'Open' | 'Clear';
+type DisputeTypeFilter = 'all' | 'Overtime' | 'Late Penalty' | 'Absent Deduction' | 'General' | 'Other';
 
 type DisputeRow = {
   id: number;
@@ -96,6 +99,19 @@ function mapStatus(value: string | undefined): DisputeStatus {
   return value && value.toUpperCase() === 'PENDING' ? 'Open' : 'Clear';
 }
 
+function normalizeText(value?: string) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+function mapDisputeType(subject?: string): Exclude<DisputeTypeFilter, 'all'> {
+  const normalized = normalizeText(subject);
+  if (normalized.includes('overtime')) return 'Overtime';
+  if (normalized.includes('late')) return 'Late Penalty';
+  if (normalized.includes('absent')) return 'Absent Deduction';
+  if (normalized.includes('general')) return 'General';
+  return 'Other';
+}
+
 function pad2(value: number) {
   return String(value).padStart(2, '0');
 }
@@ -107,7 +123,13 @@ function toISODate(date: Date) {
 function formatDate(value?: string) {
   if (!value) return 'Not available';
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
 }
 
 function formatDateTime(value?: string) {
@@ -223,6 +245,10 @@ export default function HrPayslips() {
   const [adjustmentRunId, setAdjustmentRunId] = useState<number | null>(null);
   const [pendingDisputeDecision, setPendingDisputeDecision] = useState<'APPROVED' | 'REJECTED' | null>(null);
   const [confirmDisputeDecisionOpen, setConfirmDisputeDecisionOpen] = useState(false);
+  const [disputeSearchValue, setDisputeSearchValue] = useState('');
+  const [disputeFilterOpen, setDisputeFilterOpen] = useState(false);
+  const [disputeStatusFilter, setDisputeStatusFilter] = useState<DisputeStatusFilter>('all');
+  const [disputeTypeFilter, setDisputeTypeFilter] = useState<DisputeTypeFilter>('all');
 
   function syncRunForm(run: PayrollRunDto) {
     setRunForm((prev) => ({
@@ -305,7 +331,7 @@ export default function HrPayslips() {
         employeeName: item.employeeName,
         employee: employeeLabel(item.employeeName, item.employeeId),
         department: 'Payroll',
-        payrollPeriod: item.createdAt ? new Date(item.createdAt).toLocaleDateString() : 'No date',
+        payrollPeriod: item.createdAt ? formatDate(item.createdAt) : 'No date',
         status: mapStatus(item.status),
         rawStatus: item.status || 'PENDING',
         subject: item.subject || 'Payroll dispute',
@@ -337,23 +363,57 @@ export default function HrPayslips() {
       : '';
   const runModalTitle =
     runForm.runType === 'ADJUSTMENT' ? 'Create Adjustment Run' : 'Create New Payroll Run';
-  const runModalIntro =
-    runForm.runType === 'ADJUSTMENT'
-      ? 'Adjustment runs start empty so HR can add correction lines before posting them.'
-      : 'This will create the payroll run and immediately generate payroll items for all eligible employees in the selected period.';
   const runSubmitLabel =
     runForm.runType === 'ADJUSTMENT' ? 'Create Adjustment Run' : 'Create New Payroll Run';
 
   const currentPayPeriod = useMemo(() => {
     return formatDate(displayedPeriodEnd);
   }, [displayedPeriodEnd]);
+  const normalizedDisputeSearch = normalizeText(disputeSearchValue);
   const canReviewSelectedDispute =
     selectedDispute ? String(selectedDispute.rawStatus ?? '').toUpperCase() === 'PENDING' : false;
+
+  const visibleDisputes = useMemo(() => {
+    return disputes.filter((row) => {
+      if (disputeStatusFilter !== 'all' && row.status !== disputeStatusFilter) {
+        return false;
+      }
+
+      if (disputeTypeFilter !== 'all' && mapDisputeType(row.subject) !== disputeTypeFilter) {
+        return false;
+      }
+
+      if (!normalizedDisputeSearch) {
+        return true;
+      }
+
+      const haystack = [
+        row.employee,
+        row.department,
+        row.payrollPeriod,
+        row.status,
+        row.subject,
+        row.reason,
+        row.decisionSummary,
+      ]
+        .map(normalizeText)
+        .join(' ');
+
+      return haystack.includes(normalizedDisputeSearch);
+    });
+  }, [disputes, disputeStatusFilter, disputeTypeFilter, normalizedDisputeSearch]);
+
+  const activeDisputeFilterCount = [disputeStatusFilter, disputeTypeFilter].filter((value) => value !== 'all').length;
 
   const selectedCorrectionLine = useMemo(
     () => correctionLines.find((line) => line.key === selectedCorrectionKey) ?? null,
     [correctionLines, selectedCorrectionKey]
   );
+
+  function clearDisputeFilters() {
+    setDisputeStatusFilter('all');
+    setDisputeTypeFilter('all');
+  }
 
   function resetCorrectionState() {
     setCorrectionOpen(false);
@@ -763,6 +823,73 @@ export default function HrPayslips() {
         <header className="hrPayPanel__head">Payroll Dispute from Employees</header>
         {loadError && <p className="hrPay__message">{loadError}</p>}
 
+        <div className="hrPayToolbar">
+          <label className="hrPaySearch" aria-label="Search payroll disputes">
+            <FiSearch />
+            <input
+              value={disputeSearchValue}
+              onChange={(event) => setDisputeSearchValue(event.target.value)}
+              placeholder="Search employee, dispute type, reason, or status"
+            />
+            {disputeSearchValue && (
+              <button type="button" aria-label="Clear search" onClick={() => setDisputeSearchValue('')}>
+                <FiXCircle />
+              </button>
+            )}
+          </label>
+
+          <div className="hrPayFilter">
+            <button
+              type="button"
+              className={`hrPayFilter__toggle ${disputeFilterOpen ? 'is-open' : ''} ${
+                activeDisputeFilterCount > 0 ? 'is-active' : ''
+              }`}
+              onClick={() => setDisputeFilterOpen((open) => !open)}
+            >
+              <FiFilter />
+              <span>Filter</span>
+              {activeDisputeFilterCount > 0 && <span className="hrPayFilter__count">{activeDisputeFilterCount}</span>}
+            </button>
+
+            {disputeFilterOpen && (
+              <div className="hrPayFilter__panel">
+                <label className="hrPayFilter__field">
+                  <span>Dispute Type</span>
+                  <select
+                    value={disputeTypeFilter}
+                    onChange={(event) => setDisputeTypeFilter(event.target.value as DisputeTypeFilter)}
+                  >
+                    <option value="all">All Types</option>
+                    <option value="Overtime">Overtime</option>
+                    <option value="Late Penalty">Late Penalty</option>
+                    <option value="Absent Deduction">Absent Deduction</option>
+                    <option value="General">General</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </label>
+
+                <label className="hrPayFilter__field">
+                  <span>Status</span>
+                  <select
+                    value={disputeStatusFilter}
+                    onChange={(event) => setDisputeStatusFilter(event.target.value as DisputeStatusFilter)}
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="Open">Open</option>
+                    <option value="Clear">Clear</option>
+                  </select>
+                </label>
+
+                <div className="hrPayFilter__actions">
+                  <button type="button" onClick={clearDisputeFilters}>
+                    Clear Filters
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="hrPayTable">
           <div className="hrPayTable__head">
             <span>Employee Name</span>
@@ -771,8 +898,8 @@ export default function HrPayslips() {
             <span>Status</span>
           </div>
           <div className="hrPayTable__body">
-            {disputes.length > 0 ? (
-              disputes.map((row) => (
+            {visibleDisputes.length > 0 ? (
+              visibleDisputes.map((row) => (
                 <button key={row.id} className="hrPayRow" type="button" onClick={() => setSelectedDispute(row)}>
                   <span>{row.employee}</span>
                   <span>{row.department}</span>
@@ -782,10 +909,10 @@ export default function HrPayslips() {
               ))
             ) : (
               <div className="hrPayRow">
-                <span>No disputes yet</span>
+                <span>{disputes.length > 0 ? 'No matching disputes' : 'No disputes yet'}</span>
+                <span>{disputes.length > 0 ? 'Adjust search or filters' : '-'}</span>
                 <span>-</span>
-                <span>-</span>
-                <span>Clear</span>
+                <span>{disputes.length > 0 ? '-' : 'Clear'}</span>
               </div>
             )}
           </div>
@@ -798,8 +925,6 @@ export default function HrPayslips() {
             <h3>{runModalTitle}</h3>
             <p className="hrPayModal__subtitle">Set the payroll coverage window and run type before starting this payroll process.</p>
             <div className="hrPayModal__rule" />
-
-            <p className="hrPayModal__intro">{runModalIntro}</p>
 
             <div className="hrPayModal__grid hrPayModal__grid--compact">
               <label>

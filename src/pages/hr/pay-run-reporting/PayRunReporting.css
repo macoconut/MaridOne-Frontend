@@ -18,21 +18,9 @@
   color: var(--hr-primary-dark);
 }
 
-.hrRun__top select {
-  height: 34px;
-  min-width: 132px;
-  border: 1px solid var(--hr-border);
-  border-radius: 8px;
-  background: var(--hr-surface-soft);
-  padding: 0 10px;
-  color: var(--hr-text);
-  font-size: 15px;
-  font-weight: 700;
-}
-
 .hrRunFilters {
   display: grid;
-  grid-template-columns: 1.4fr auto auto;
+  grid-template-columns: 1.4fr minmax(280px, 360px);
   gap: 8px 12px;
   align-items: end;
 }
@@ -49,43 +37,37 @@
   color: var(--hr-muted);
 }
 
-.hrRunFilters__field select {
-  height: 36px;
-  min-width: 142px;
-  border: 1px solid var(--hr-border);
-  border-radius: 4px;
-  background: var(--hr-surface-soft);
+.hrRunSearch {
+  height: 38px;
+  border: 1px solid rgba(59, 34, 87, 0.16);
+  border-radius: 10px;
+  background: #fff;
   padding: 0 10px;
-  font-size: 15px;
-  color: #3f3a4c;
-}
-
-.hrRunFilters__searchWrap {
-  height: 36px;
-  border: 1px solid var(--hr-border);
-  border-radius: 4px;
-  background: var(--hr-surface-soft);
-  padding: 0 8px;
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 8px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
 }
 
-.hrRunFilters__searchWrap svg {
-  color: #5a5666;
+.hrRunSearch svg {
+  color: #5c5470;
   font-size: 15px;
 }
 
-.hrRunFilters__searchWrap input {
+.hrRunSearch input {
   border: 0;
   background: transparent;
   font-size: 15px;
-  color: #3f3a4c;
+  color: #2b2036;
   width: 100%;
 }
 
-.hrRunFilters__searchWrap button {
+.hrRunSearch input:focus {
+  outline: none;
+}
+
+.hrRunSearch button {
   border: 0;
   background: transparent;
   width: 22px;
@@ -94,17 +76,62 @@
   place-items: center;
   padding: 0;
   color: #676278;
+  cursor: pointer;
 }
 
-.hrRun__status {
-  margin: -2px 0 0;
-  color: #4b4460;
-  font-size: 16px;
+.hrRunSelect {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  border: 1px solid rgba(59, 34, 87, 0.16);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.hrRunSelect::after {
+  content: '';
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid #645775;
+  border-bottom: 2px solid #645775;
+  transform: translateY(-65%) rotate(45deg);
+  pointer-events: none;
+}
+
+.hrRunSelect select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0 40px 0 12px;
+  color: #2f2050;
+  font-size: 15px;
   font-weight: 700;
+  cursor: pointer;
+}
+
+.hrRunSelect select:focus {
+  outline: none;
+}
+
+.hrRunSelect--view {
+  min-width: 224px;
 }
 
 .hrRun__status--error {
   color: #b24651;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .hrRunTable {
@@ -127,8 +154,18 @@
   font-weight: 900;
 }
 
+.hrRunTable__head--employee {
+  grid-template-columns: 120px minmax(220px, 1.6fr) minmax(140px, 1fr) minmax(140px, 1fr);
+  gap: 12px;
+}
+
+.hrRunTable__head--employee span:nth-child(3),
+.hrRunTable__head--employee span:nth-child(4) {
+  text-align: right;
+}
+
 .hrRunTable__body {
-  padding: 8px 14px;
+  padding: 0 14px;
 }
 
 .hrRunTable__body--split {
@@ -136,12 +173,28 @@
   gap: 14px;
 }
 
+.hrRunSplitTables {
+  display: grid;
+  gap: 14px;
+}
+
+.hrRunTable__body--summary {
+  padding: 0;
+}
+
 .hrRunEmployee {
-  padding: 10px 0 8px;
+  padding: 12px 0;
   border-bottom: 1px solid var(--hr-line);
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 2px 10px;
+  grid-template-columns: 120px minmax(220px, 1.6fr) minmax(140px, 1fr) minmax(140px, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.hrRunEmployee__id {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--hr-muted);
 }
 
 .hrRunEmployee__name {
@@ -150,19 +203,39 @@
   color: var(--hr-text);
 }
 
-.hrRunEmployee__sub {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--hr-muted);
+.hrRunEmployee__name,
+.hrRunEmployee__id {
+  text-align: left;
 }
 
+.hrRunEmployee__gross,
 .hrRunEmployee__value {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  align-self: end;
   font-size: 15px;
   font-weight: 800;
   color: var(--hr-text);
+  text-align: right;
+}
+
+.hrRunTable--summaryView {
+  background: var(--hr-surface);
+  border: 1.5px solid var(--hr-border);
+  box-shadow: var(--hr-shadow);
+}
+
+.hrRunTable__head--payType {
+  grid-template-columns: minmax(220px, 1fr) minmax(140px, 180px);
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--hr-primary-soft);
+  border-bottom: 1px solid var(--hr-line);
+  box-shadow: none;
+  font-size: 16px;
+  font-weight: 900;
+  color: var(--hr-primary-dark);
+}
+
+.hrRunTable__head--payType span:last-child {
+  text-align: right;
 }
 
 .hrRunTypeRow {
@@ -176,16 +249,25 @@
   color: var(--hr-text);
 }
 
+.hrRunTypeRow--table {
+  grid-template-columns: minmax(220px, 1fr) minmax(140px, 180px);
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.hrRunTypeRow__label {
+  min-width: 0;
+  font-weight: 700;
+}
+
+.hrRunTypeRow__value {
+  text-align: right;
+  font-weight: 800;
+}
+
 .hrRunTypeRow--total {
   font-weight: 900;
   color: #251c38;
-}
-
-.hrRunGroup {
-  border: 1px solid var(--hr-line);
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--hr-surface-soft);
 }
 
 .hrRunGroup__head {
@@ -193,17 +275,45 @@
   grid-template-columns: 1fr auto;
   gap: 10px;
   align-items: center;
-  padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.68);
+  padding: 12px 14px 10px;
+  background: #fff;
   border-bottom: 1px solid var(--hr-line);
+}
+
+.hrRunGroup__titleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.hrRunGroup__title {
   color: var(--hr-primary-dark);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 900;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.hrRunGroup__caption {
+  color: #6a627c;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hrRunGroup__total {
+  color: #241b34;
+  font-size: 16px;
+  font-weight: 900;
+  text-align: right;
+}
+
+.hrRunGroup .hrRunEmpty--group {
+  padding: 16px 14px;
 }
 
 .hrRunEmpty {
-  padding: 18px 0 12px;
+  padding: 18px 0 16px;
   color: #554f63;
   font-size: 15px;
   font-weight: 700;
@@ -238,20 +348,19 @@
     font-size: 22px;
   }
 
-  .hrRun__top select {
+  .hrRunSelect select {
     font-size: 16px;
   }
 
   .hrRunFilters {
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1fr;
   }
 
   .hrRunFilters__field label {
     font-size: 15px;
   }
 
-  .hrRunFilters__field select,
-  .hrRunFilters__searchWrap input {
+  .hrRunSearch input {
     font-size: 16px;
   }
 
@@ -259,8 +368,9 @@
     font-size: 15px;
   }
 
+  .hrRunEmployee__id,
   .hrRunEmployee__name,
-  .hrRunEmployee__sub,
+  .hrRunEmployee__gross,
   .hrRunEmployee__value,
   .hrRunTypeRow {
     font-size: 16px;
@@ -283,8 +393,22 @@
     grid-template-columns: 1fr;
   }
 
-  .hrRunFilters__field select {
+  .hrRunSelect,
+  .hrRunSelect--view {
+    width: 100%;
     min-width: 100%;
+  }
+
+  .hrRunTable__head--employee,
+  .hrRunEmployee {
+    grid-template-columns: 110px minmax(180px, 1fr) minmax(110px, 1fr) minmax(110px, 1fr);
+    gap: 8px;
+  }
+
+  .hrRunTable__head--payType,
+  .hrRunTypeRow--table {
+    grid-template-columns: minmax(160px, 1fr) minmax(110px, 150px);
+    gap: 8px;
   }
 
   .hrRunActions {

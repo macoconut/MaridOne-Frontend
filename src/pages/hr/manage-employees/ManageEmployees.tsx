@@ -1083,7 +1083,7 @@ export default function HrManageEmp() {
                           value={form.phoneNumber}
                           onChange={(event) => setField('phoneNumber', sanitizePhoneNumber(event.target.value))}
                         />
-                        <span className={`hrEmpField__hint ${phoneHasError ? 'is-error' : ''}`}>{phoneHelperMessage}</span>
+                        {phoneHasError && <span className="hrEmpField__hint is-error">{phoneHelperMessage}</span>}
                       </div>
                     </div>
                   </div>
@@ -1110,11 +1110,9 @@ export default function HrManageEmp() {
                           onChange={(event) => setField('password', event.target.value)}
                           placeholder={modal === 'add' ? 'Required' : 'Leave blank to keep current password'}
                         />
-                        <span className="hrEmpField__hint">
-                          {modal === 'add'
-                            ? 'This password is used for the initial account setup.'
-                            : 'Leave this blank if the current password should stay unchanged.'}
-                        </span>
+                        {modal !== 'add' && (
+                          <span className="hrEmpField__hint">Leave this blank if the current password should stay unchanged.</span>
+                        )}
                       </div>
                     </div>
                   </div>
