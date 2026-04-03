@@ -37,12 +37,17 @@ type PayTypeSummaryRow = {
 };
 
 function formatCurrency(value: unknown) {
-  if (typeof value === 'number' && Number.isFinite(value)) return value.toFixed(2);
+  const options: Intl.NumberFormatOptions = {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  };
+
+  if (typeof value === 'number' && Number.isFinite(value)) return value.toLocaleString(undefined, options);
   if (typeof value === 'string' && value.trim().length > 0) {
     const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed.toFixed(2) : value;
+    return Number.isFinite(parsed) ? parsed.toLocaleString(undefined, options) : value;
   }
-  return '0.00';
+  return (0).toLocaleString(undefined, options);
 }
 
 function toAmount(value: unknown) {
