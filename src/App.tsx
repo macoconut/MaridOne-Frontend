@@ -76,13 +76,24 @@ function LoginRoute() {
   return <EmployeeLogin />;
 }
 
+function LandingRoute() {
+  const token = getAuthToken();
+  const role = getUserRole();
+
+  if (token && role) {
+    return <Navigate to={roleHome(role)} replace />;
+  }
+
+  return <Landing />;
+}
+
 export default function App() {
   return (
     <UiDialogProvider>
       <BrowserRouter>
         <Routes>
           {/* Public */}
-          <Route path="/" element={<Landing />} />
+          <Route path="/" element={<LandingRoute />} />
           <Route path="/login" element={<LoginRoute />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/employee/login" element={<LoginRoute />} />

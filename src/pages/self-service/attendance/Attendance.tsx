@@ -1,12 +1,14 @@
 import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import './Attendance.css';
-import { FiCalendar, FiChevronLeft, FiChevronRight, FiPlusSquare, FiUpload, FiX } from 'react-icons/fi';
+import { FiCalendar, FiChevronLeft, FiChevronRight, FiPlusSquare, FiX } from 'react-icons/fi';
+import FileUploadField from '../../../components/form/FileUploadField';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { ApiError, apiFetchJson, apiFetchRaw, toArray } from '../../../lib/api';
+import { uploadDocument } from '../../../lib/documentUpload';
 import { getUserEmail, getUserRole } from '../../../lib/session';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 
@@ -84,6 +86,9 @@ type LeaveBalanceRow = {
   balanceHours?: number | string | null;
   leaveType?: LeaveType | string;
 };
+
+const LEAVE_UPLOAD_SUBDIR = 'leave-request';
+const OVERTIME_UPLOAD_SUBDIR = 'overtime-request';
 
 const LEAVE_TYPE_OPTIONS: Array<{ label: string; value: LeaveType }> = [
   { label: 'Sick Leave', value: 'SICK_LEAVE' },
@@ -372,6 +377,7 @@ export default function Attendance() {
   const [otEndTime, setOtEndTime] = useState<string>('20:00');
   const [otType, setOtType] = useState<OvertimeType>('OVERTIME');
   const [otReason, setOtReason] = useState<string>('');
+  const [otFile, setOtFile] = useState<File | null>(null);
   const [otSubmitError, setOtSubmitError] = useState('');
   const [requestViewOpen, setRequestViewOpen] = useState(false);
   const [requestViewDate, setRequestViewDate] = useState<string>('');
@@ -677,6 +683,7 @@ export default function Attendance() {
   }
 
   function closeLeave() {
+    setFile(null);
     setLeaveOpen(false);
   }
 
@@ -700,11 +707,13 @@ export default function Attendance() {
     setOtEndTime('20:00');
     setOtType('OVERTIME');
     setOtReason('');
+    setOtFile(null);
     setOtSubmitError('');
     setOtOpen(true);
   }
 
   function closeOt() {
+    setOtFile(null);
     setOtOpen(false);
   }
 
@@ -868,6 +877,11 @@ export default function Attendance() {
     const endDateTime = `${otEndDate}T${otEndTime}:00`;
 
     try {
+      let attachmentRef: number | null = null;
+      if (otFile) {
+        attachmentRef = await uploadDocument(otFile, OVERTIME_UPLOAD_SUBDIR);
+      }
+
       await apiFetchJson('/api/overtime/create', {
         method: 'POST',
         body: JSON.stringify({
@@ -875,7 +889,12 @@ export default function Attendance() {
           startTime: startDateTime,
           endTime: endDateTime,
           overtimeType: otType,
-          reason: otReason.trim(),
+          reason: [
+            otReason.trim(),
+            attachmentRef ? `(Attachment ID: ${attachmentRef})` : '',
+          ]
+            .filter(Boolean)
+            .join(' '),
         }),
       });
       setOtOpen(false);
@@ -957,22 +976,7 @@ export default function Attendance() {
     try {
       let attachmentRef: number | null = null;
       if (file) {
-        const form = new FormData();
-        form.append('file', file);
-        const uploadResponse = await apiFetchRaw('/api/document/upload', {
-          method: 'POST',
-          body: form,
-        });
-        if (!uploadResponse.ok) {
-          throw new ApiError(
-            uploadResponse.status,
-            uploadResponse.status === 404
-              ? 'Document upload endpoint is not enabled in current backend profile.'
-              : `Document upload failed (${uploadResponse.status}).`
-          );
-        }
-        const uploadPayload = (await uploadResponse.json()) as Record<string, unknown>;
-        attachmentRef = typeof uploadPayload.pathId === 'number' ? uploadPayload.pathId : null;
+        attachmentRef = await uploadDocument(file, LEAVE_UPLOAD_SUBDIR);
       }
 
       const payload = {
@@ -1321,19 +1325,13 @@ export default function Attendance() {
                 </div>
 
                 <div className="requestField requestField--span2">
-                  <label className="label">Supporting Documents</label>
-                  <div className="requestUpload">
-                    <label className="requestUpload__button">
-                      <FiUpload />
-                      <span>{file ? 'Replace File' : 'Upload File'}</span>
-                      <input
-                        type="file"
-                        style={{ display: 'none' }}
-                        onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                      />
-                    </label>
-                    <span className="requestUpload__name">{file ? file.name : 'No file selected'}</span>
-                  </div>
+                  <FileUploadField
+                    label="Supporting Documents (Optional)"
+                    hint="Add medical certificates, screenshots, or other files only when they help validate this leave request. Maximum file size: 10 MB."
+                    file={file}
+                    onChange={setFile}
+                    emptyLabel="Optional attachment"
+                  />
                 </div>
               </div>
 
@@ -1441,6 +1439,16 @@ export default function Attendance() {
                     placeholder="Describe the work that requires overtime."
                     value={otReason}
                     onChange={(e) => setOtReason(e.target.value)}
+                  />
+                </div>
+
+                <div className="requestField requestField--span2">
+                  <FileUploadField
+                    label="Supporting Documents (Optional)"
+                    hint="Attach schedules, work orders, or supporting proof only when they help explain this overtime request. Maximum file size: 10 MB."
+                    file={otFile}
+                    onChange={setOtFile}
+                    emptyLabel="Optional attachment"
                   />
                 </div>
               </div>

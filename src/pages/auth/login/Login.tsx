@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
-import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
+import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
 import { clearSession, setSession } from '../../../lib/session';
 import { getRoleHomePath } from '../../../lib/roleRoutes';
 import './Login.css';
@@ -164,14 +164,13 @@ function extractRequiresTwoFactor(payload: unknown): boolean {
 
 export default function EmployeeLogin() {
   const navigate = useNavigate();
+  const { showError } = useUiDialog();
   const twoFactorInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const emailOtpInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
-  useErrorDialogEffect(error, 'Sign-in failed');
   const [isLoading, setIsLoading] = useState(false);
   const [twoFactorChallenge, setTwoFactorChallenge] = useState<TwoFactorChallenge | null>(null);
   const [twoFactorMode, setTwoFactorMode] = useState<TwoFactorMode>('authenticator');
@@ -187,6 +186,10 @@ export default function EmployeeLogin() {
 
     emailOtpInputRefs.current[0]?.focus();
   }, [twoFactorChallenge, twoFactorMode]);
+
+  function showSignInError(message: string) {
+    showError(message, 'Sign-in failed');
+  }
 
   function mapLoginError(status: number, payload: unknown) {
     const message =
@@ -241,7 +244,6 @@ export default function EmployeeLogin() {
 
   async function handlePrimaryLogin(normalizedUsername: string) {
     setIsLoading(true);
-    setError('');
     clearSession();
 
     try {
@@ -264,7 +266,7 @@ export default function EmployeeLogin() {
       }
 
       if (!response.ok) {
-        setError(mapLoginError(response.status, payload));
+        showSignInError(mapLoginError(response.status, payload));
         return;
       }
 
@@ -273,7 +275,7 @@ export default function EmployeeLogin() {
 
       if (extractRequiresTwoFactor(payload)) {
         if (!token || token === 'authenticated-session') {
-          setError('Login requires 2FA, but the pre-auth token was missing.');
+          showSignInError('Login requires 2FA, but the pre-auth token was missing.');
           return;
         }
 
@@ -298,14 +300,14 @@ export default function EmployeeLogin() {
       const role = roleFromDetails ?? roleFromPayload;
 
       if (!role) {
-        setError('Login succeeded but role was missing in API response.');
+        showSignInError('Login succeeded but role was missing in API response.');
         return;
       }
 
       setSession(role, identity, remember, token, refreshToken);
       navigate(mapRoleToRoute(role), { replace: true });
     } catch {
-      setError('Cannot reach backend. Make sure API is running.');
+      showSignInError('Cannot reach backend. Make sure API is running.');
     } finally {
       setIsLoading(false);
     }
@@ -317,12 +319,15 @@ export default function EmployeeLogin() {
     const isEmail = twoFactorMode === 'email-otp';
     const code = (isEmail ? emailOtpCode : twoFactorCode).trim();
     if (!/^\d{6}$/.test(code)) {
-      setError('Enter the current 6-digit code from your authenticator app.');
+      showSignInError(
+        isEmail
+          ? 'Enter the 6-digit code from your verified email.'
+          : 'Enter the current 6-digit code from your authenticator app.'
+      );
       return;
     }
 
     setIsLoading(true);
-    setError('');
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/verify-2fa`, {
@@ -343,13 +348,13 @@ export default function EmployeeLogin() {
       }
 
       if (!response.ok) {
-        setError(mapTwoFactorError(response.status, payload));
+        showSignInError(mapTwoFactorError(response.status, payload));
         return;
       }
 
       const token = extractToken(payload);
       if (!token || token === 'authenticated-session') {
-        setError('2FA verification succeeded but no access token was returned.');
+        showSignInError('2FA verification succeeded but no access token was returned.');
         return;
       }
 
@@ -360,7 +365,7 @@ export default function EmployeeLogin() {
       const role = roleFromDetails ?? roleFromPayload;
 
       if (!role) {
-        setError('2FA verification succeeded but role was missing in API response.');
+        showSignInError('2FA verification succeeded but role was missing in API response.');
         return;
       }
 
@@ -369,7 +374,7 @@ export default function EmployeeLogin() {
       setTwoFactorCode('');
       navigate(mapRoleToRoute(role), { replace: true });
     } catch {
-      setError('Cannot reach backend. Make sure API is running.');
+      showSignInError('Cannot reach backend. Make sure API is running.');
     } finally {
       setIsLoading(false);
     }
@@ -379,7 +384,6 @@ export default function EmployeeLogin() {
     if (!twoFactorChallenge) return;
 
     setIsLoading(true);
-    setError('');
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/2fa/send-login-code`, {
@@ -391,13 +395,13 @@ export default function EmployeeLogin() {
       });
 
       if (!response.ok) {
-        setError('Failed to send the verification email. Please try again.');
+        showSignInError('Failed to send the verification email. Please try again.');
         setTwoFactorMode('authenticator'); 
         return;
       }
       
     } catch {
-      setError('Cannot reach backend to send email. Make sure API is running.');
+      showSignInError('Cannot reach backend to send email. Make sure API is running.');
     } finally {
       setIsLoading(false);
     }
@@ -413,7 +417,12 @@ export default function EmployeeLogin() {
 
     const normalizedUsername = username.trim();
     if (!normalizedUsername || !password) {
-      setError('Enter username/email and password.');
+      if (!normalizedUsername && !password) {
+        showSignInError('Enter your username and password.');
+        return;
+      }
+
+      showSignInError(normalizedUsername ? 'Enter your password.' : 'Enter your username.');
       return;
     }
 
@@ -582,7 +591,6 @@ export default function EmployeeLogin() {
                         type="button"
                         className="eloginTwoFactorSwitch"
                         onClick={() => {
-                          setError('');
                           setEmailOtpCode('');
                           setTwoFactorMode('email-otp');
                           requestEmailOtp();
@@ -621,7 +629,6 @@ export default function EmployeeLogin() {
                         type="button"
                         className="eloginTwoFactorSwitch"
                         onClick={() => {
-                          setError('');
                           setTwoFactorMode('authenticator');
                         }}
                       >
@@ -666,7 +673,7 @@ export default function EmployeeLogin() {
                   onClick={() => {
                     setTwoFactorChallenge(null);
                     setTwoFactorCode('');
-                    setError('');
+                    setEmailOtpCode('');
                   }}
                   disabled={isLoading}
                 >

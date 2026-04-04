@@ -175,8 +175,9 @@ async function refreshAccessToken(): Promise<boolean> {
 export async function apiFetchRaw(path: string, init: RequestInit = {}, allowRetry = true): Promise<Response> {
   const token = getAuthToken();
   const headers = new Headers(init.headers ?? {});
+  const isFormDataBody = typeof FormData !== 'undefined' && init.body instanceof FormData;
 
-  if (!headers.has('Content-Type') && init.body) {
+  if (!headers.has('Content-Type') && init.body && !isFormDataBody) {
     headers.set('Content-Type', 'application/json');
   }
 

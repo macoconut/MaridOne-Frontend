@@ -1167,11 +1167,6 @@ export function AttendanceOverviewDashboard({
               </button>
             </div>
           </div>
-          <button className="hrDash__exportBtn" type="button" onClick={() => window.print()}>
-            Export Attendance
-            <br />
-            Analytics
-          </button>
         </div>
       </div>
       {isLoading && <p className="hrDash__subtitle">Loading {audience.toLowerCase()} dashboard data...</p>}

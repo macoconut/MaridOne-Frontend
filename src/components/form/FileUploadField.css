@@ -1,0 +1,136 @@
+.fileUploadField {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fileUploadField__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.fileUploadField__label {
+  color: #5a337d;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.fileUploadField__limit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(123, 74, 143, 0.14);
+  background: rgba(123, 74, 143, 0.08);
+  color: #5f3a82;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.fileUploadField__hint {
+  margin: 0;
+  color: rgba(59, 34, 87, 0.72);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.fileUploadField__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px dashed rgba(123, 74, 143, 0.24);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(123, 74, 143, 0.06) 0%, rgba(255, 255, 255, 0.96) 100%);
+}
+
+.fileUploadField__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.fileUploadField__button,
+.fileUploadField__clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 42px;
+  border-radius: 999px;
+  padding: 0 16px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.fileUploadField__button {
+  border: 1px solid rgba(123, 74, 143, 0.16);
+  background: rgba(123, 74, 143, 0.1);
+  color: #5a337d;
+}
+
+.fileUploadField__clear {
+  border: 1px solid rgba(123, 74, 143, 0.14);
+  background: rgba(255, 255, 255, 0.94);
+  color: rgba(59, 34, 87, 0.74);
+}
+
+.fileUploadField__status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(123, 74, 143, 0.12);
+  background: rgba(255, 255, 255, 0.96);
+  color: rgba(43, 32, 54, 0.72);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.fileUploadField__status.is-selected {
+  border-color: rgba(123, 74, 143, 0.22);
+  background: rgba(123, 74, 143, 0.08);
+  color: #3b2257;
+}
+
+.fileUploadField__status span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileUploadField__statusIcon {
+  flex: 0 0 auto;
+  opacity: 0.72;
+}
+
+.fileUploadField__input {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .fileUploadField__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .fileUploadField__button,
+  .fileUploadField__clear {
+    width: 100%;
+  }
+}

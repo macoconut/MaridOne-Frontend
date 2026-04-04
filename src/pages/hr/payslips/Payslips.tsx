@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FiEdit2, FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
-import { apiFetchJson, toArray } from '../../../lib/api';
+import { ApiError, apiFetchJson, toArray } from '../../../lib/api';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
+import { extractAttachmentReference, openDocumentAttachment } from '../../../lib/documentAttachments';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import '../approvals/Approvals.css';
 import '../../manager/pending-approvals/PendingApprovals.css';
@@ -70,6 +71,7 @@ type DisputeRow = {
   subject: string;
   reason: string;
   decisionSummary?: string;
+  attachmentPathId?: number;
 };
 
 type RunFormState = {
@@ -297,6 +299,14 @@ function readStoredRun() {
   }
 }
 
+function clearStoredRun() {
+  try {
+    window.localStorage.removeItem(PAYROLL_RUN_STORAGE_KEY);
+  } catch {
+    // ignore storage write failures
+  }
+}
+
 function toSortStamp(value?: string) {
   if (!value) return 0;
   const parsed = Date.parse(value);
@@ -339,6 +349,7 @@ function toDisputeStatusTone(status: DisputeStatusCode): DisputeRow['statusTone'
 }
 
 function toDisputeRow(item: DisputeDto, idx: number): DisputeRow {
+  const attachment = extractAttachmentReference(item.reason);
   const statusCode = toDisputeStatusCode(item.status);
   return {
     id: item.id ?? idx + 1,
@@ -353,8 +364,9 @@ function toDisputeRow(item: DisputeDto, idx: number): DisputeRow {
     statusLabel: formatDisputeStatusLabel(statusCode),
     statusTone: toDisputeStatusTone(statusCode),
     subject: item.subject || 'Payroll dispute',
-    reason: item.reason || '',
+    reason: attachment.cleanText,
     decisionSummary: item.statusReason || '',
+    attachmentPathId: attachment.attachmentPathId ?? undefined,
   };
 }
 
@@ -366,6 +378,7 @@ function createWaitingDisputeRow(row: DisputeRow, decisionSummary: string): Disp
     statusLabel: formatDisputeStatusLabel('WAITING_ADJUSTMENT'),
     statusTone: toDisputeStatusTone('WAITING_ADJUSTMENT'),
     decisionSummary,
+    attachmentPathId: row.attachmentPathId,
   };
 }
 
@@ -398,6 +411,7 @@ function readWaitingDisputes() {
             subject: typeof row.subject === 'string' && row.subject.trim().length > 0 ? row.subject : 'Payroll dispute',
             reason: typeof row.reason === 'string' ? row.reason : '',
             decisionSummary: typeof row.decisionSummary === 'string' ? row.decisionSummary : '',
+            attachmentPathId: typeof row.attachmentPathId === 'number' ? row.attachmentPathId : undefined,
           },
           typeof row.decisionSummary === 'string' ? row.decisionSummary : ''
         );
@@ -430,6 +444,40 @@ function upsertWaitingDispute(row: DisputeRow) {
 function removeWaitingDispute(disputeId: number) {
   const next = readWaitingDisputes().filter((entry) => entry.id !== disputeId);
   writeWaitingDisputes(next);
+}
+
+async function reconcileWaitingDisputes() {
+  const cached = readWaitingDisputes();
+  if (cached.length === 0) return cached;
+
+  const validIds = new Set<number>();
+
+  try {
+    const uniqueIds = [...new Set(cached.map((row) => row.id).filter((id) => Number.isFinite(id) && id > 0))];
+
+    await Promise.all(
+      uniqueIds.map(async (id) => {
+        try {
+          await apiFetchJson<unknown>(`/api/payroll/item/dispute/details/${id}`);
+          validIds.add(id);
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 404) {
+            return;
+          }
+          throw error;
+        }
+      })
+    );
+  } catch {
+    return cached;
+  }
+
+  const next = cached.filter((row) => validIds.has(row.id));
+  if (next.length !== cached.length) {
+    writeWaitingDisputes(next);
+  }
+
+  return next;
 }
 
 function buildCorrectionIntent(row: DisputeRow): CorrectionIntent | null {
@@ -488,6 +536,8 @@ export default function HrPayslips() {
   const [disputeFilterOpen, setDisputeFilterOpen] = useState(false);
   const [disputeStatusFilter, setDisputeStatusFilter] = useState<DisputeStatusFilter>('all');
   const [disputeTypeFilter, setDisputeTypeFilter] = useState<DisputeTypeFilter>('all');
+  const [attachmentError, setAttachmentError] = useState('');
+  const [openingAttachmentId, setOpeningAttachmentId] = useState<number | null>(null);
 
   useErrorDialogEffect(loadError, 'Payroll data could not be loaded');
   useErrorDialogEffect(runItemsError, 'Payroll run items could not be loaded');
@@ -495,6 +545,7 @@ export default function HrPayslips() {
   useErrorDialogEffect(actionError, 'Dispute action failed');
   useErrorDialogEffect(runError, 'Payroll run could not be completed');
   useErrorDialogEffect(correctionError, 'Payroll correction could not be completed');
+  useErrorDialogEffect(attachmentError, 'Attachment could not be opened');
   useEscapeDismiss(runModalOpen && !isSubmittingRun, () => setRunModalOpen(false), 10);
   useEscapeDismiss(postModalOpen && !isPostingRun, () => setPostModalOpen(false), 10);
   useEscapeDismiss(correctionOpen && !isSubmittingCorrection, resetCorrectionState, 10);
@@ -513,6 +564,9 @@ export default function HrPayslips() {
     try {
       const response = await apiFetchJson<unknown>('/api/payroll/run');
       const runs = [...toArray<PayrollRunDto>(response)].sort(compareRunsDescending);
+      if (preferredPayId != null && !runs.some((run) => run.payId === preferredPayId)) {
+        clearStoredRun();
+      }
       const preferredRun =
         preferredPayId != null ? runs.find((run) => run.payId === preferredPayId) ?? null : null;
       const activeRun =
@@ -557,7 +611,6 @@ export default function HrPayslips() {
 
   useEffect(() => {
     const storedRun = readStoredRun();
-    if (storedRun) syncRunForm(storedRun);
     void loadCurrentRun(storedRun?.payId);
   }, []);
 
@@ -574,7 +627,7 @@ export default function HrPayslips() {
   }, [currentRun]);
 
   async function loadDisputes() {
-    const waitingDisputes = readWaitingDisputes();
+    const waitingDisputes = await reconcileWaitingDisputes();
     try {
       setLoadError('');
       const response = await apiFetchJson<unknown>('/api/payroll/item/dispute/all?page=0&size=100');
@@ -651,7 +704,7 @@ export default function HrPayslips() {
     return () => {
       cancelled = true;
     };
-  }, [currentRun?.payId, currentRun?.payrollStatus]);
+  }, [currentRun]);
 
   const displayedPeriodStart = currentRun?.periodStart ?? runForm.periodStart;
   const displayedPeriodEnd = currentRun?.periodEnd ?? runForm.periodEnd;
@@ -941,7 +994,7 @@ export default function HrPayslips() {
 
       setCorrectionSource(sourceResponse);
       setCorrectionLines(nextLines);
-      setSelectedCorrectionKey(nextLines[0]?.key ?? '');
+      setSelectedCorrectionKey('');
       await ensureAdjustmentRun(sourceResponse);
     } catch (error) {
       setCorrectionError(getFriendlyErrorMessage(error, 'payroll-dispute'));
@@ -1029,8 +1082,12 @@ export default function HrPayslips() {
       if (status === 'APPROVED') {
         const waitingRow = createWaitingDisputeRow(activeDispute, trimmedRemarks);
         upsertWaitingDispute(waitingRow);
-        const refreshedDisputes = await loadDisputes();
-        setSelectedDispute(refreshedDisputes.find((row) => row.id === waitingRow.id) ?? waitingRow);
+        await loadDisputes();
+        setSelectedDispute(null);
+        showSuccess(
+          `${activeDispute.employee}'s dispute was moved to Waiting for Adjustment. Reopen the request when you are ready to stage the correction.`,
+          'Dispute Approved'
+        );
       } else {
         removeWaitingDispute(activeDispute.id);
         setSelectedDispute(null);
@@ -1056,6 +1113,23 @@ export default function HrPayslips() {
     void startApprovedDisputeCorrection(intent);
   }
 
+  function openDisputeRow(row: DisputeRow) {
+    if (row.statusCode === 'WAITING_ADJUSTMENT') {
+      const intent = buildCorrectionIntent(row);
+      if (!intent) {
+        setActionError('This dispute is missing its source payslip item, so no adjustment can be staged yet.');
+        return;
+      }
+
+      setActionError('');
+      setSelectedDispute(null);
+      void startApprovedDisputeCorrection(intent);
+      return;
+    }
+
+    setSelectedDispute(row);
+  }
+
   async function confirmDisputeDecision() {
     if (!pendingDisputeDecision) {
       setActionError('Choose approve or deny before confirming the dispute decision.');
@@ -1076,6 +1150,18 @@ export default function HrPayslips() {
     }
     setActionError('');
     setConfirmDisputeDecisionOpen(true);
+  }
+
+  async function handleOpenAttachment(pathId: number) {
+    setAttachmentError('');
+    setOpeningAttachmentId(pathId);
+    try {
+      await openDocumentAttachment(pathId);
+    } catch (error) {
+      setAttachmentError(error instanceof Error ? error.message : 'Failed to open the attachment.');
+    } finally {
+      setOpeningAttachmentId(null);
+    }
   }
 
   function requestPayrollRunConfirmation() {
@@ -1357,7 +1443,7 @@ export default function HrPayslips() {
                     key={row.id}
                     type="button"
                     className={`mgrPendTable__row mgrPendTable__row--${row.statusTone}`}
-                    onClick={() => setSelectedDispute(row)}
+                    onClick={() => openDisputeRow(row)}
                   >
                     <span className="mgrPendTable__cell mgrPendTable__cell--name">{row.employee}</span>
                     <span className="mgrPendTable__cell">Payroll Dispute</span>
@@ -1470,8 +1556,24 @@ export default function HrPayslips() {
       {correctionOpen && (
         <div className="hrPayModalBackdrop" role="dialog" aria-modal="true" aria-label="Stage payroll correction">
           <article className="hrPayModal">
-            <h3>Stage Approved Dispute Correction</h3>
-            <p className="hrPayModal__subtitle">Select the exact payroll line that needs adjustment and stage the corrected amount into the active adjustment run.</p>
+            <div className="hrPayModal__top">
+              <div className="hrPayModal__heading">
+                <h3>Stage Approved Dispute Correction</h3>
+                <p className="hrPayModal__subtitle">
+                  Review the approved dispute, choose the matching payroll line, and stage the corrected amount into the
+                  active adjustment run.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="hrPayModal__close"
+                aria-label="Close dispute correction workspace"
+                onClick={() => resetCorrectionState()}
+                disabled={isSubmittingCorrection}
+              >
+                X
+              </button>
+            </div>
             <div className="hrPayModal__rule" />
 
             {isLoadingCorrection ? (
@@ -1481,29 +1583,26 @@ export default function HrPayslips() {
               </p>
             ) : (
               <>
-                <p className="hrPayModal__intro">
-                  Pick the exact payroll line that needs to change, then enter the corrected amount that should be
-                  staged into the adjustment run.
-                </p>
-
                 <div className="hrPayCorrectionSummary">
                   <div className="hrPayCorrectionSummary__row">
-                    <span>Employee</span>
-                    <strong>{correctionIntent?.employee ?? '-'}</strong>
+                    <span className="hrPayCorrectionSummary__label">Employee</span>
+                    <div className="hrPayCorrectionSummary__value">{correctionIntent?.employee ?? '-'}</div>
                   </div>
                   <div className="hrPayCorrectionSummary__row">
-                    <span>Source Item</span>
-                    <strong>#{correctionSource?.itemId ?? correctionIntent?.itemId ?? '-'}</strong>
+                    <span className="hrPayCorrectionSummary__label">Source Item</span>
+                    <div className="hrPayCorrectionSummary__value">
+                      #{correctionSource?.itemId ?? correctionIntent?.itemId ?? '-'}
+                    </div>
                   </div>
                   <div className="hrPayCorrectionSummary__row">
-                    <span>Source Period</span>
-                    <strong>
+                    <span className="hrPayCorrectionSummary__label">Source Period</span>
+                    <div className="hrPayCorrectionSummary__value">
                       {formatDate(correctionSource?.runDetails?.periodStart)} - {formatDate(correctionSource?.runDetails?.periodEnd)}
-                    </strong>
+                    </div>
                   </div>
                   <div className="hrPayCorrectionSummary__row">
-                    <span>Adjustment Run</span>
-                    <strong>#{adjustmentRunId ?? '-'}</strong>
+                    <span className="hrPayCorrectionSummary__label">Adjustment Run</span>
+                    <div className="hrPayCorrectionSummary__value">#{adjustmentRunId ?? '-'}</div>
                   </div>
                 </div>
 
@@ -1524,8 +1623,14 @@ export default function HrPayslips() {
 
                 <div className="hrPayCorrectionPicker">
                   <div className="hrPayCorrectionPicker__head">
-                    <span>Select the exact line to correct</span>
-                    <span>{correctionLines.length} available lines</span>
+                    <div className="hrPayCorrectionPicker__heading">
+                      <span className="hrPayCorrectionPicker__stepText">Step 1</span>
+                      <strong>Select the exact line to correct</strong>
+                      <p>
+                        Click the matching payroll line below to select it. The line name is filled in automatically,
+                        so you only need to type the corrected amount afterward.
+                      </p>
+                    </div>
                   </div>
                   <div className="hrPayCorrectionPicker__list">
                     {correctionLines.map((line) => (
@@ -1534,14 +1639,19 @@ export default function HrPayslips() {
                         type="button"
                         className={`hrPayCorrectionLine${line.key === selectedCorrectionKey ? ' is-selected' : ''}`}
                         onClick={() => setSelectedCorrectionKey(line.key)}
+                        aria-pressed={line.key === selectedCorrectionKey}
                       >
                         <div className="hrPayCorrectionLine__main">
-                          <strong>{line.label}</strong>
-                          <span>{line.lineType === 'EARNING' ? 'Earning' : 'Deduction'}</span>
+                          <div className="hrPayCorrectionLine__identity">
+                            <span className="hrPayCorrectionLine__type">
+                              {line.lineType === 'EARNING' ? 'Earning' : 'Deduction'}
+                            </span>
+                            <strong>{line.label}</strong>
+                          </div>
+                          <span className="hrPayCorrectionLine__amount">{formatCurrency(line.amount)}</span>
                         </div>
                         <div className="hrPayCorrectionLine__meta">
-                          <span>Current amount: {line.amount}</span>
-                          {line.originalAmount && <span>Original posted amount: {line.originalAmount}</span>}
+                          {line.originalAmount && <span>Original posted amount: {formatCurrency(line.originalAmount)}</span>}
                           {line.adjustedBy && <span>Last adjusted by {line.adjustedBy}</span>}
                           {line.adjustedAt && <span>{formatDateTime(line.adjustedAt)}</span>}
                         </div>
@@ -1550,28 +1660,32 @@ export default function HrPayslips() {
                   </div>
                 </div>
 
-                <div className="hrPayModal__grid hrPayModal__grid--compact">
-                  <label>
-                    <span>Selected Line:</span>
-                    <input
-                      value={
-                        selectedCorrectionLine
-                          ? `${selectedCorrectionLine.lineType === 'EARNING' ? 'Earning' : 'Deduction'} - ${selectedCorrectionLine.label}`
-                          : 'Choose a line first'
-                      }
-                      readOnly
-                    />
-                  </label>
-                  <label>
-                    <span>Corrected Amount:</span>
+                <div className="hrPayCorrectionAction">
+                  <div className="hrPayCorrectionAction__card">
+                    <span>Step 2</span>
+                    <strong>
+                      {selectedCorrectionLine
+                        ? `${selectedCorrectionLine.lineType === 'EARNING' ? 'Earning' : 'Deduction'} - ${selectedCorrectionLine.label}`
+                        : 'No payroll line selected yet'}
+                    </strong>
+                    <p>
+                      {selectedCorrectionLine
+                        ? 'Enter the corrected amount for the selected payroll line.'
+                        : 'Click one payroll line above to lock in the exact line before the corrected amount field becomes available.'}
+                    </p>
+                  </div>
+                  <label className="hrPayCorrectionAction__card hrPayCorrectionAction__card--form">
+                    <span>Corrected Amount</span>
                     <input
                       type="number"
                       min="0"
                       step="0.01"
                       value={correctedAmount}
                       onChange={(event) => setCorrectedAmount(event.target.value)}
-                      placeholder={selectedCorrectionLine ? `Current amount: ${selectedCorrectionLine.amount}` : 'Enter amount'}
+                      placeholder={selectedCorrectionLine ? `Current amount: ${selectedCorrectionLine.amount}` : 'Choose a line first'}
+                      disabled={!selectedCorrectionLine || isSubmittingCorrection}
                     />
+                    {!selectedCorrectionLine && <small>Pick the exact payroll line above to enable amount entry.</small>}
                   </label>
                 </div>
 
@@ -1590,7 +1704,7 @@ export default function HrPayslips() {
               <button
                 type="button"
                 onClick={() => void submitCorrection()}
-                disabled={isLoadingCorrection || isSubmittingCorrection}
+                disabled={isLoadingCorrection || isSubmittingCorrection || !selectedCorrectionLine}
               >
                 {isSubmittingCorrection ? 'Staging...' : 'Stage Correction'}
               </button>
@@ -1850,6 +1964,27 @@ export default function HrPayslips() {
               <span>Reason for Dispute:</span>
               <textarea value={selectedDispute.reason || 'No reason provided.'} readOnly />
             </label>
+
+            <div className="hrApprAttachment hrApprAttachment--payroll">
+              <div className="hrApprAttachment__copy">
+                <span>Attachment:</span>
+                <p>
+                  {typeof selectedDispute.attachmentPathId === 'number'
+                    ? 'A supporting file was uploaded with this dispute.'
+                    : 'No attachment was uploaded with this dispute.'}
+                </p>
+              </div>
+              {typeof selectedDispute.attachmentPathId === 'number' && (
+                <button
+                  type="button"
+                  className="hrApprAttachment__button"
+                  onClick={() => void handleOpenAttachment(selectedDispute.attachmentPathId!)}
+                  disabled={openingAttachmentId === selectedDispute.attachmentPathId}
+                >
+                  {openingAttachmentId === selectedDispute.attachmentPathId ? 'Opening...' : 'View Attachment'}
+                </button>
+              )}
+            </div>
 
             {selectedDispute.decisionSummary && (
               <label className="hrPayModal__area">

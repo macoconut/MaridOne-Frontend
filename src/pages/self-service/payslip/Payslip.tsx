@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { apiFetchJson, apiFetchRaw, toArray } from '../../../lib/api';
+import { uploadDocument } from '../../../lib/documentUpload';
 import { getUserEmail } from '../../../lib/session';
-import { FiUpload, FiX } from 'react-icons/fi';
+import { FiX } from 'react-icons/fi';
+import FileUploadField from '../../../components/form/FileUploadField';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
@@ -61,6 +63,7 @@ const moneyFormatter = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
+const DISPUTE_UPLOAD_SUBDIR = 'dispute-request';
 
 function toMoneyString(value: unknown) {
   if (typeof value === 'number' && Number.isFinite(value)) return value.toFixed(2);
@@ -452,33 +455,6 @@ export default function Payslip() {
     setDisputeOpen(true);
   }
 
-  async function uploadDocument(file: File) {
-    const uploadPaths = ['/api/document/upload', '/api/LOCAL/document/upload'];
-
-    for (const path of uploadPaths) {
-      const form = new FormData();
-      form.append('file', file);
-
-      const response = await apiFetchRaw(path, {
-        method: 'POST',
-        body: form,
-      });
-
-      if (response.ok) {
-        const payload = (await response.json()) as Record<string, unknown>;
-        const pathId = typeof payload.pathId === 'number' ? payload.pathId : null;
-        if (pathId != null) return pathId;
-        throw new Error('Document upload succeeded but no file reference was returned.');
-      }
-
-      if (response.status !== 404) {
-        throw new Error(`Document upload failed (${response.status}).`);
-      }
-    }
-
-    throw new Error('Document upload endpoint is not enabled in current backend profile.');
-  }
-
   async function submitDispute() {
     setDisputeError('');
     if (!selectedItemId) {
@@ -496,7 +472,7 @@ export default function Payslip() {
       let attachmentRef: number | null = null;
 
       if (disputeFile) {
-        attachmentRef = await uploadDocument(disputeFile);
+        attachmentRef = await uploadDocument(disputeFile, DISPUTE_UPLOAD_SUBDIR);
       }
 
       if (employeeId) {
@@ -784,24 +760,15 @@ export default function Payslip() {
             </div>
 
             <div className="payModal__row">
-              <label>Supporting Documents (if any):</label>
-              <div className="payModal__uploadCard">
-                <p className="payModal__uploadHint">
-                  Add screenshots, payroll references, or other supporting files only when they directly explain the issue.
-                </p>
-                <div className="payModal__uploadRow">
-                  <label className="payModal__uploadBtn">
-                    <FiUpload />
-                    <span>{disputeFile ? 'Replace Attachment' : 'Upload Attachment'}</span>
-                    <input
-                      type="file"
-                      style={{ display: 'none' }}
-                      onChange={(e) => setDisputeFile(e.target.files?.[0] ?? null)}
-                    />
-                  </label>
-                  <span className="payModal__uploadName">{disputeFile ? disputeFile.name : 'No file selected'}</span>
-                </div>
-              </div>
+              <FileUploadField
+                label="Supporting Documents (Optional)"
+                hint="Add screenshots, payroll references, or other supporting files only when they directly explain the issue. Maximum file size: 10 MB."
+                file={disputeFile}
+                onChange={setDisputeFile}
+                uploadLabel="Upload Attachment"
+                replaceLabel="Replace Attachment"
+                emptyLabel="Optional attachment"
+              />
             </div>
 
             <div className="payModal__actions">

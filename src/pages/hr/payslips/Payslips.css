@@ -556,26 +556,33 @@ body.modal-open {
   border: 1px solid rgba(123, 74, 143, 0.16);
   border-radius: 12px;
   background: #faf7ff;
-  padding: 12px 14px;
+  padding: 16px 18px;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 20px;
+  align-items: stretch;
 }
 
 .hrPayCorrectionSummary__row {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  justify-content: center;
+  gap: 5px;
+  min-height: 52px;
 }
 
-.hrPayCorrectionSummary__row span {
+.hrPayCorrectionSummary__label {
   color: #5f5577;
+  font-size: 15px;
+  font-weight: 700;
 }
 
-.hrPayCorrectionSummary__row strong {
-  color: var(--hr-primary-dark);
+.hrPayCorrectionSummary__value {
+  color: #000000;
   font-size: 16px;
-  font-weight: 900;
+  font-weight: 400;
+  line-height: 1.2;
+  text-transform: none;
 }
 
 .hrPayBreakdownTotals {
@@ -685,66 +692,159 @@ body.modal-open {
 .hrPayCorrectionPicker {
   margin-top: 14px;
   border: 1px solid rgba(123, 74, 143, 0.16);
-  border-radius: 14px;
-  background: #fcfbff;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #fcfbff 0%, #ffffff 100%);
+  box-shadow: 0 12px 28px rgba(42, 18, 71, 0.06);
 }
 
 .hrPayCorrectionPicker__head {
-  padding: 12px 14px;
+  padding: 16px 18px;
   border-bottom: 1px solid rgba(123, 74, 143, 0.12);
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  color: #473a63;
-  font-size: 16px;
-  font-weight: 800;
+  align-items: center;
+  gap: 16px;
+}
+
+.hrPayCorrectionPicker__heading {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.hrPayCorrectionPicker__stepText {
+  color: #5b4d76;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+}
+
+.hrPayCorrectionPicker__heading strong {
+  color: #2a1c42;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.hrPayCorrectionPicker__heading p {
+  margin: 0;
+  color: #61567a;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.55;
+  max-width: 600px;
 }
 
 .hrPayCorrectionPicker__list {
   display: flex;
   flex-direction: column;
+  gap: 10px;
+  padding: 12px;
 }
 
 .hrPayCorrectionLine {
-  border: 0;
-  border-bottom: 1px solid rgba(123, 74, 143, 0.1);
-  background: transparent;
+  border: 1px solid rgba(123, 74, 143, 0.12);
+  border-radius: 16px;
+  background: #ffffff;
   text-align: left;
-  padding: 12px 14px;
+  padding: 10px 16px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  justify-content: center;
+  gap: 4px;
+  position: relative;
+  overflow: hidden;
   cursor: pointer;
+  box-shadow: 0 8px 18px rgba(42, 18, 71, 0.04);
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease, background 120ms ease;
 }
 
 .hrPayCorrectionLine:last-child {
-  border-bottom: 0;
+  border-bottom: 1px solid rgba(123, 74, 143, 0.12);
 }
 
 .hrPayCorrectionLine:hover {
-  background: rgba(123, 74, 143, 0.05);
+  transform: translateY(-1px);
+  border-color: rgba(123, 74, 143, 0.28);
+  background: #fcf9ff;
+  box-shadow: 0 14px 26px rgba(42, 18, 71, 0.08);
+}
+
+.hrPayCorrectionLine:focus-visible {
+  outline: none;
+  border-color: rgba(123, 74, 143, 0.56);
+  box-shadow:
+    inset 0 0 0 1px rgba(123, 74, 143, 0.16),
+    0 0 0 3px rgba(123, 74, 143, 0.14);
 }
 
 .hrPayCorrectionLine.is-selected {
-  background: rgba(123, 74, 143, 0.1);
-  box-shadow: inset 3px 0 0 var(--hr-primary);
+  border-color: rgba(123, 74, 143, 0.68);
+  background: linear-gradient(180deg, rgba(235, 224, 245, 0.92) 0%, rgba(247, 240, 251, 0.96) 100%);
+  box-shadow:
+    inset 0 0 0 1px rgba(123, 74, 143, 0.18),
+    0 18px 30px rgba(70, 41, 90, 0.14);
+}
+
+.hrPayCorrectionLine.is-selected::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 6px;
+  background: linear-gradient(180deg, #7b4a8f 0%, #a06bbb 100%);
 }
 
 .hrPayCorrectionLine__main {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  min-height: 44px;
 }
 
-.hrPayCorrectionLine__main strong {
-  color: #221739;
-  font-size: 16px;
-  font-weight: 900;
+.hrPayCorrectionLine__identity {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  min-height: 44px;
 }
 
-.hrPayCorrectionLine__main span {
-  color: #594c76;
+.hrPayCorrectionLine__type {
+  color: #6b617f;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.hrPayCorrectionLine__identity strong {
+  color: var(--hr-text);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.08;
+}
+
+.hrPayCorrectionLine__amount {
+  color: var(--hr-text);
+  display: flex;
+  align-items: center;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.hrPayCorrectionLine.is-selected .hrPayCorrectionLine__type {
+  color: #6a3d82;
+}
+
+.hrPayCorrectionLine.is-selected .hrPayCorrectionLine__identity strong,
+.hrPayCorrectionLine.is-selected .hrPayCorrectionLine__amount {
+  color: var(--hr-text);
 }
 
 .hrPayCorrectionLine__meta {
@@ -752,8 +852,67 @@ body.modal-open {
   flex-wrap: wrap;
   gap: 8px 12px;
   color: #5d5470;
-  font-size: 16px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+  align-items: center;
+}
+
+.hrPayCorrectionLine__meta span {
+  color: #5d5470;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.hrPayCorrectionAction {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 14px;
+}
+
+.hrPayCorrectionAction__card {
+  border: 1px solid rgba(123, 74, 143, 0.14);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #faf7ff 0%, #ffffff 100%);
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.hrPayCorrectionAction__card > span {
+  color: #5b4d76;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hrPayCorrectionAction__card strong {
+  color: #2a1c42;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.hrPayCorrectionAction__card p,
+.hrPayCorrectionAction__card small {
+  margin: 0;
+  color: #61567a;
+  font-size: 14px;
   font-weight: 600;
+  line-height: 1.55;
+}
+
+.hrPayCorrectionAction__card--form input {
+  min-height: 44px;
+}
+
+.hrPayCorrectionAction__card--form input:disabled {
+  background: #f0edf4;
+  color: #8a7f9c;
+  cursor: not-allowed;
 }
 
 .hrPayBreakdown {
@@ -988,6 +1147,10 @@ body.modal-open {
     grid-template-columns: 1fr;
   }
 
+  .hrPayCorrectionAction {
+    grid-template-columns: 1fr;
+  }
+
   .hrPayModal__grid label,
   .hrPayModal__area {
     grid-template-columns: 1fr;
@@ -1009,10 +1172,14 @@ body.modal-open {
   }
 
   .hrPayCorrectionPicker__head,
-  .hrPayCorrectionLine__main,
   .hrPayBreakdown__row {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .hrPayCorrectionLine__main {
+    grid-template-columns: 1fr;
+    justify-items: start;
   }
 
   .hrPayBreakdown__amounts,

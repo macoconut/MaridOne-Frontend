@@ -15,8 +15,10 @@
 .hrDash__topActions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 10px;
   flex-wrap: wrap;
+  margin-left: auto;
 }
 
 .hrDash__title {
@@ -31,20 +33,6 @@
   margin: 4px 0 0;
   color: #3e3a47;
   font-size: 16px;
-}
-
-.hrDash__exportBtn {
-  border: 0;
-  border-radius: 8px;
-  background: var(--hr-primary);
-  color: #fff;
-  font-weight: 800;
-  font-size: 16px;
-  line-height: 1.1;
-  padding: 10px 16px;
-  min-width: 160px;
-  height: 60px;
-  cursor: pointer;
 }
 
 .hrDash__dateFilter {
@@ -788,6 +776,7 @@
 
   .hrDash__topActions {
     width: 100%;
+    margin-left: 0;
   }
 
   .hrDash__dateFilter {
@@ -802,10 +791,6 @@
   .hrDash__dateArrow {
     width: 34px;
     height: 34px;
-  }
-
-  .hrDash__exportBtn {
-    width: 100%;
   }
 
   .hrStatRow {

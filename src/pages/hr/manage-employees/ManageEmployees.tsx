@@ -989,7 +989,7 @@ export default function HrManageEmp() {
                         <textarea
                           value={form.reason}
                           onChange={(event) => setField('reason', event.target.value)}
-                          placeholder="Add internal HR notes for the termination record"
+                          placeholder="Optional internal HR notes for the termination record"
                         />
                       </div>
                     </div>
@@ -1072,7 +1072,7 @@ export default function HrManageEmp() {
                           step="0.01"
                           value={form.yearlySalary}
                           onChange={(event) => setField('yearlySalary', event.target.value)}
-                          placeholder="0.00"
+                          placeholder="Optional salary amount"
                         />
                       </div>
 
@@ -1098,7 +1098,11 @@ export default function HrManageEmp() {
 
                       <div className="hrEmpField">
                         <label>Middle Name</label>
-                        <input value={form.middleName} onChange={(event) => setField('middleName', event.target.value)} />
+                        <input
+                          value={form.middleName}
+                          placeholder="Optional middle name"
+                          onChange={(event) => setField('middleName', event.target.value)}
+                        />
                       </div>
 
                       <div className="hrEmpField">
@@ -1122,7 +1126,7 @@ export default function HrManageEmp() {
                           type="tel"
                           inputMode="numeric"
                           maxLength={11}
-                          placeholder="Enter 11-digit mobile number"
+                          placeholder={modal === 'add' ? 'Required 11-digit mobile number' : 'Optional 11-digit mobile number'}
                           aria-invalid={phoneHasError}
                           value={form.phoneNumber}
                           onChange={(event) => setField('phoneNumber', sanitizePhoneNumber(event.target.value))}
@@ -1165,6 +1169,7 @@ export default function HrManageEmp() {
                         <label>Permanent Address</label>
                         <input
                           value={form.permanentAddress}
+                          placeholder="Optional permanent address"
                           onChange={(event) => setField('permanentAddress', event.target.value)}
                         />
                       </div>
@@ -1173,28 +1178,45 @@ export default function HrManageEmp() {
                         <label>Temporary Address</label>
                         <input
                           value={form.temporaryAddress}
+                          placeholder="Optional temporary address"
                           onChange={(event) => setField('temporaryAddress', event.target.value)}
                         />
                       </div>
 
                       <div className="hrEmpField">
                         <label>City</label>
-                        <input value={form.city} onChange={(event) => setField('city', event.target.value)} />
+                        <input
+                          value={form.city}
+                          placeholder="Optional city"
+                          onChange={(event) => setField('city', event.target.value)}
+                        />
                       </div>
 
                       <div className="hrEmpField">
                         <label>State</label>
-                        <input value={form.state} onChange={(event) => setField('state', event.target.value)} />
+                        <input
+                          value={form.state}
+                          placeholder="Optional state"
+                          onChange={(event) => setField('state', event.target.value)}
+                        />
                       </div>
 
                       <div className="hrEmpField">
                         <label>Country</label>
-                        <input value={form.country} onChange={(event) => setField('country', event.target.value)} />
+                        <input
+                          value={form.country}
+                          placeholder="Optional country"
+                          onChange={(event) => setField('country', event.target.value)}
+                        />
                       </div>
 
                       <div className="hrEmpField">
                         <label>Zip Code</label>
-                        <input value={form.zipCode} onChange={(event) => setField('zipCode', event.target.value)} />
+                        <input
+                          value={form.zipCode}
+                          placeholder="Optional ZIP code"
+                          onChange={(event) => setField('zipCode', event.target.value)}
+                        />
                       </div>
                     </div>
                   </div>

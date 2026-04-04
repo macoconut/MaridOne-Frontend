@@ -6,6 +6,7 @@ import PageHeader from '../../../components/layout/PageHeader';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
+import { extractAttachmentReference, openDocumentAttachment } from '../../../lib/documentAttachments';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './PendingApprovals.css';
 import '../../hr/approvals/Approvals.css';
@@ -68,6 +69,7 @@ type ManagerRequest = {
   startDateTime?: string;
   endDateTime?: string;
   overtimeId?: number;
+  attachmentPathId?: number;
 };
 
 function formatDateTime(value?: string) {
@@ -208,6 +210,8 @@ export default function ManagerPendingApprovals() {
   const [submitError, setSubmitError] = useState('');
   const [confirmDecisionOpen, setConfirmDecisionOpen] = useState(false);
   const [loadError, setLoadError] = useState('');
+  const [attachmentError, setAttachmentError] = useState('');
+  const [openingAttachmentId, setOpeningAttachmentId] = useState<number | null>(null);
   const [searchValue, setSearchValue] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState<RequestTypeFilter>('all');
@@ -215,6 +219,7 @@ export default function ManagerPendingApprovals() {
 
   useErrorDialogEffect(loadError, 'Team requests could not be loaded');
   useErrorDialogEffect(submitError, 'Team request decision could not be completed');
+  useErrorDialogEffect(attachmentError, 'Attachment could not be opened');
   useEscapeDismiss(Boolean(selectedId), () => setSelectedId(null), 10);
 
   async function loadRequests() {
@@ -228,51 +233,59 @@ export default function ManagerPendingApprovals() {
 
       const employeeById = rosterMap(employeesRes);
 
-      const leaveRows = toArray<LeaveDto>(leaveRes).map((item, idx) => ({
-        id: `leave-${item.requestId ?? idx}`,
-        requestId: item.requestId,
-        employee: employeeLabel(employeeById, item.empId),
-        message: `${item.leaveType?.replaceAll('_', ' ') || 'Leave'} - ${
-          item.isPaid === false ? 'Unpaid' : 'Paid'
-        }`,
-        submittedAt: formatDateTime(item.requestAt ?? item.startDateTime),
-        type: 'Leave' as const,
-        source: 'leave' as const,
-        status: item.requestStatus || 'PENDING',
-        reason: item.reason || '',
-        referenceLabel: 'Leave Period',
-        referenceValue: formatPeriod(item.startDateTime, item.endDateTime),
-        requestLabel: 'Leave Request',
-        requestKind: `${formatRequestType(item.leaveType)} - ${item.isPaid === false ? 'Unpaid' : 'Paid'}`,
-        durationLabel: formatLeaveDuration(item.startDateTime, item.endDateTime),
-        requestDateTime: formatRequestDateTime('leave', item.startDateTime, item.endDateTime),
-        decisionSummary: item.approverReason || '',
-        sortStamp:
-          item.requestAt ? Date.parse(item.requestAt) || 0 : item.startDateTime ? Date.parse(item.startDateTime) || 0 : 0,
-        leaveType: item.leaveType,
-        startDateTime: item.startDateTime,
-        endDateTime: item.endDateTime,
-      }));
+      const leaveRows = toArray<LeaveDto>(leaveRes).map((item, idx) => {
+        const attachment = extractAttachmentReference(item.reason);
+        return {
+          id: `leave-${item.requestId ?? idx}`,
+          requestId: item.requestId,
+          employee: employeeLabel(employeeById, item.empId),
+          message: `${item.leaveType?.replaceAll('_', ' ') || 'Leave'} - ${
+            item.isPaid === false ? 'Unpaid' : 'Paid'
+          }`,
+          submittedAt: formatDateTime(item.requestAt ?? item.startDateTime),
+          type: 'Leave' as const,
+          source: 'leave' as const,
+          status: item.requestStatus || 'PENDING',
+          reason: attachment.cleanText,
+          referenceLabel: 'Leave Period',
+          referenceValue: formatPeriod(item.startDateTime, item.endDateTime),
+          requestLabel: 'Leave Request',
+          requestKind: `${formatRequestType(item.leaveType)} - ${item.isPaid === false ? 'Unpaid' : 'Paid'}`,
+          durationLabel: formatLeaveDuration(item.startDateTime, item.endDateTime),
+          requestDateTime: formatRequestDateTime('leave', item.startDateTime, item.endDateTime),
+          decisionSummary: item.approverReason || '',
+          sortStamp:
+            item.requestAt ? Date.parse(item.requestAt) || 0 : item.startDateTime ? Date.parse(item.startDateTime) || 0 : 0,
+          leaveType: item.leaveType,
+          startDateTime: item.startDateTime,
+          endDateTime: item.endDateTime,
+          attachmentPathId: attachment.attachmentPathId ?? undefined,
+        };
+      });
 
-      const overtimeRows = toArray<OvertimeDto>(overtimeRes).map((item, idx) => ({
-        id: `overtime-${item.overtimeId ?? idx}`,
-        overtimeId: item.overtimeId,
-        employee: employeeLabel(employeeById, item.employeeId),
-        message: `${item.overtimeType || 'Overtime'} request on ${formatDateOnly(item.workDate)}`,
-        submittedAt: formatDateTime(item.requestAt),
-        type: 'Overtime' as const,
-        source: 'overtime' as const,
-        status: item.requestStatus || 'PENDING',
-        reason: item.reason || '',
-        referenceLabel: 'Work Window',
-        referenceValue: `${formatDateTime(item.startTime)} to ${formatDateTime(item.endTime)}`,
-        requestLabel: 'Overtime Request',
-        requestKind: formatRequestType(item.overtimeType || 'Overtime'),
-        durationLabel: formatClockWindow(item.startTime, item.endTime),
-        requestDateTime: formatRequestDateTime('overtime', item.startTime, item.endTime, item.workDate),
-        decisionSummary: item.approveReason || '',
-        sortStamp: item.requestAt ? Date.parse(item.requestAt) || 0 : 0,
-      }));
+      const overtimeRows = toArray<OvertimeDto>(overtimeRes).map((item, idx) => {
+        const attachment = extractAttachmentReference(item.reason);
+        return {
+          id: `overtime-${item.overtimeId ?? idx}`,
+          overtimeId: item.overtimeId,
+          employee: employeeLabel(employeeById, item.employeeId),
+          message: `${item.overtimeType || 'Overtime'} request on ${formatDateOnly(item.workDate)}`,
+          submittedAt: formatDateTime(item.requestAt),
+          type: 'Overtime' as const,
+          source: 'overtime' as const,
+          status: item.requestStatus || 'PENDING',
+          reason: attachment.cleanText,
+          referenceLabel: 'Work Window',
+          referenceValue: `${formatDateTime(item.startTime)} to ${formatDateTime(item.endTime)}`,
+          requestLabel: 'Overtime Request',
+          requestKind: formatRequestType(item.overtimeType || 'Overtime'),
+          durationLabel: formatClockWindow(item.startTime, item.endTime),
+          requestDateTime: formatRequestDateTime('overtime', item.startTime, item.endTime, item.workDate),
+          decisionSummary: item.approveReason || '',
+          sortStamp: item.requestAt ? Date.parse(item.requestAt) || 0 : 0,
+          attachmentPathId: attachment.attachmentPathId ?? undefined,
+        };
+      });
 
       const merged = [...leaveRows, ...overtimeRows].sort(
         (a, b) => b.sortStamp - a.sortStamp || a.id.localeCompare(b.id)
@@ -426,6 +439,18 @@ export default function ManagerPendingApprovals() {
 
     setSubmitError('');
     setConfirmDecisionOpen(true);
+  }
+
+  async function handleOpenAttachment(pathId: number) {
+    setAttachmentError('');
+    setOpeningAttachmentId(pathId);
+    try {
+      await openDocumentAttachment(pathId);
+    } catch (error) {
+      setAttachmentError(error instanceof Error ? error.message : 'Failed to open the attachment.');
+    } finally {
+      setOpeningAttachmentId(null);
+    }
   }
 
   return (
@@ -608,6 +633,29 @@ export default function ManagerPendingApprovals() {
                 <span>Reason:</span>
                 <textarea value={selected.reason || 'No reason provided.'} readOnly />
               </label>
+            </div>
+
+            <div className="hrApprForm__row">
+              <div className="hrApprAttachment">
+                <div className="hrApprAttachment__copy">
+                  <span>Attachment:</span>
+                  <p>
+                    {typeof selected.attachmentPathId === 'number'
+                      ? 'A supporting file was uploaded with this request.'
+                      : 'No attachment was uploaded with this request.'}
+                  </p>
+                </div>
+                {typeof selected.attachmentPathId === 'number' && (
+                  <button
+                    type="button"
+                    className="hrApprAttachment__button"
+                    onClick={() => void handleOpenAttachment(selected.attachmentPathId!)}
+                    disabled={openingAttachmentId === selected.attachmentPathId}
+                  >
+                    {openingAttachmentId === selected.attachmentPathId ? 'Opening...' : 'View Attachment'}
+                  </button>
+                )}
+              </div>
             </div>
 
             {selected.decisionSummary && (

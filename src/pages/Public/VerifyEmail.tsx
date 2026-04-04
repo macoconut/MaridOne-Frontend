@@ -56,8 +56,7 @@ export default function VerifyEmail() {
     <main className="verifyEmailPage">
       <div className="verifyEmailCard">
         <div className={`verifyEmailBadge is-${status}`}>{status === 'success' ? 'Verified' : 'Email Check'}</div>
-        <h1>Verify your email</h1>
-        <p>{visibleMessage}</p>
+        <h1>{visibleMessage}</h1>
 
         <div className="verifyEmailActions">
           {status !== 'success' && token && (

@@ -1253,6 +1253,7 @@ export default function Dashboard() {
                   value={announcementDraft.description}
                   maxLength={500}
                   rows={6}
+                  placeholder="Optional announcement details"
                   onChange={(event) => setAnnouncementDraftField('description', event.target.value)}
                 />
               </label>
@@ -1304,16 +1305,25 @@ export default function Dashboard() {
             <div className="dashModal__grid">
               <label className="dashModal__field">
                 <span>Email</span>
-                <input value={editDraft.email} onChange={(e) => setEditField('email', e.target.value)} />
+                <input
+                  value={editDraft.email}
+                  placeholder="Optional email address"
+                  onChange={(e) => setEditField('email', e.target.value)}
+                />
               </label>
               <label className="dashModal__field">
                 <span>Phone Number</span>
-                <input value={editDraft.phoneNumber} onChange={(e) => setEditField('phoneNumber', e.target.value)} />
+                <input
+                  value={editDraft.phoneNumber}
+                  placeholder="Optional phone number"
+                  onChange={(e) => setEditField('phoneNumber', e.target.value)}
+                />
               </label>
               <label className="dashModal__field dashModal__field--full">
                 <span>Permanent Address</span>
                 <input
                   value={editDraft.permanentAddress}
+                  placeholder="Optional permanent address"
                   onChange={(e) => setEditField('permanentAddress', e.target.value)}
                 />
               </label>
@@ -1321,24 +1331,41 @@ export default function Dashboard() {
                 <span>Temporary Address</span>
                 <input
                   value={editDraft.temporaryAddress}
+                  placeholder="Optional temporary address"
                   onChange={(e) => setEditField('temporaryAddress', e.target.value)}
                 />
               </label>
               <label className="dashModal__field">
                 <span>City</span>
-                <input value={editDraft.city} onChange={(e) => setEditField('city', e.target.value)} />
+                <input
+                  value={editDraft.city}
+                  placeholder="Optional city"
+                  onChange={(e) => setEditField('city', e.target.value)}
+                />
               </label>
               <label className="dashModal__field">
                 <span>State</span>
-                <input value={editDraft.state} onChange={(e) => setEditField('state', e.target.value)} />
+                <input
+                  value={editDraft.state}
+                  placeholder="Optional state"
+                  onChange={(e) => setEditField('state', e.target.value)}
+                />
               </label>
               <label className="dashModal__field">
                 <span>Country</span>
-                <input value={editDraft.country} onChange={(e) => setEditField('country', e.target.value)} />
+                <input
+                  value={editDraft.country}
+                  placeholder="Optional country"
+                  onChange={(e) => setEditField('country', e.target.value)}
+                />
               </label>
               <label className="dashModal__field">
                 <span>Zip Code</span>
-                <input value={editDraft.zipCode} onChange={(e) => setEditField('zipCode', e.target.value)} />
+                <input
+                  value={editDraft.zipCode}
+                  placeholder="Optional ZIP code"
+                  onChange={(e) => setEditField('zipCode', e.target.value)}
+                />
               </label>
             </div>
 

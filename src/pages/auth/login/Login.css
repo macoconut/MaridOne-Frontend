@@ -210,12 +210,6 @@
   color: #2f1746;
 }
 
-.eloginError {
-  color: #b73045;
-  font-size: 16px;
-  font-weight: 600;
-}
-
 .remember {
   display: flex;
   align-items: center;
