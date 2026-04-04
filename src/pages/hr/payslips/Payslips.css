@@ -54,57 +54,6 @@ body.modal-open {
   color: #216d42;
 }
 
-.hrPayNotice {
-  border-radius: 12px;
-  border: 1px solid rgba(37, 126, 80, 0.18);
-  background: linear-gradient(180deg, #f5fff9 0%, #ffffff 100%);
-  box-shadow: 0 8px 20px rgba(49, 34, 74, 0.05);
-  padding: 14px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.hrPayNotice__copy {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.hrPayNotice__copy strong {
-  color: #1e6a46;
-  font-size: 16px;
-  font-weight: 900;
-}
-
-.hrPayNotice__copy span {
-  color: #4a5b52;
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.hrPayNotice__meta {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: #2c3b34;
-  font-size: 16px;
-  font-weight: 800;
-}
-
-.hrPayNotice__dismiss {
-  border: 0;
-  background: rgba(37, 126, 80, 0.12);
-  color: #1e6a46;
-  min-height: 34px;
-  padding: 0 12px;
-  border-radius: 999px;
-  font-size: 16px;
-  font-weight: 800;
-  cursor: pointer;
-}
-
 .hrPayPeriod,
 .hrPayPanel {
   border: 1.5px solid var(--hr-border);
@@ -157,18 +106,6 @@ body.modal-open {
   flex-direction: column;
   justify-content: flex-end;
   gap: 10px;
-}
-
-.hrPayPeriod__runId {
-  color: #5a506d;
-  font-size: 16px;
-  font-weight: 700;
-}
-
-.hrPayPeriod__runCount {
-  color: #4b5b4f;
-  font-size: 16px;
-  font-weight: 800;
 }
 
 .hrPayPill {
@@ -355,11 +292,11 @@ body.modal-open {
 
 .hrPayRunTable__head,
 .hrPayRunTable__row {
-  min-width: 980px;
+  min-width: 960px;
   display: grid;
   grid-template-columns:
-    minmax(170px, 1.18fr)
-    minmax(110px, 0.72fr)
+    minmax(110px, 0.6fr)
+    minmax(240px, 1.28fr)
     minmax(130px, 0.78fr)
     minmax(130px, 0.78fr)
     minmax(130px, 0.78fr)
@@ -1018,11 +955,6 @@ body.modal-open {
     align-items: flex-start;
   }
 
-  .hrPayNotice {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
   .hrPayPeriod__actions {
     width: 100%;
     justify-content: stretch;
@@ -1044,7 +976,7 @@ body.modal-open {
 
   .hrPayRunTable__head,
   .hrPayRunTable__row {
-    min-width: 840px;
+    min-width: 860px;
   }
 
   .hrPayModal__grid,
@@ -1065,14 +997,12 @@ body.modal-open {
 @media (max-width: 700px) {
   .hrPay__runBtn,
   .hrPayModal__actions button,
-  .hrPayModal__inlineBtns button,
-  .hrPayNotice__dismiss {
+  .hrPayModal__inlineBtns button {
     width: 100%;
   }
 
   .hrPayModal__actions,
-  .hrPayModal__inlineBtns,
-  .hrPayNotice__meta {
+  .hrPayModal__inlineBtns {
     width: 100%;
     flex-direction: column;
     align-items: flex-start;

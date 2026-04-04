@@ -380,6 +380,10 @@ body.modal-open {
   background: #6f7695;
 }
 
+.hrAttCalendarShell__legendSwatch--holiday {
+  background: #98a4d6;
+}
+
 .hrAttCalendarShell__legendSwatch--leave {
   background: #8c55ff;
 }
@@ -527,6 +531,11 @@ body.modal-open {
   background: linear-gradient(180deg, #f8f9fc 0%, #ffffff 100%);
 }
 
+.hrCal__cell--holiday {
+  border-color: rgba(152, 164, 214, 0.24);
+  background: linear-gradient(180deg, #f5f7ff 0%, #ffffff 100%);
+}
+
 .hrCal__cell--leave {
   border-color: rgba(140, 85, 255, 0.2);
   background: linear-gradient(180deg, #f4edff 0%, #ffffff 100%);
@@ -597,6 +606,11 @@ body.modal-open {
 .hrCal__note--dayOff {
   color: #495170;
   background: rgba(111, 118, 149, 0.14);
+}
+
+.hrCal__note--holiday {
+  color: #43518c;
+  background: rgba(152, 164, 214, 0.2);
 }
 
 .hrCal__note--leave {
@@ -677,6 +691,11 @@ body.modal-open {
 .hrCal__stat--dayOff {
   background: rgba(111, 118, 149, 0.14);
   color: #495170;
+}
+
+.hrCal__stat--holiday {
+  background: rgba(152, 164, 214, 0.2);
+  color: #43518c;
 }
 
 .hrAttModalBackdrop {

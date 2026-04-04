@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { FiEdit2, FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
+import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
@@ -284,11 +285,6 @@ function normalizeRunType(value?: string): RunFormState['runType'] {
   return value === 'ADJUSTMENT' ? 'ADJUSTMENT' : 'REGULAR';
 }
 
-function formatItemCount(value?: number) {
-  const count = typeof value === 'number' && Number.isFinite(value) ? value : 0;
-  return `${count} payroll item${count === 1 ? '' : 's'}`;
-}
-
 function readStoredRun() {
   try {
     const raw = window.localStorage.getItem(PAYROLL_RUN_STORAGE_KEY);
@@ -449,6 +445,7 @@ function buildCorrectionIntent(row: DisputeRow): CorrectionIntent | null {
 }
 
 export default function HrPayslips() {
+  const { showSuccess } = useUiDialog();
   const [disputes, setDisputes] = useState<DisputeRow[]>([]);
   const [selectedDispute, setSelectedDispute] = useState<DisputeRow | null>(null);
   const [runItems, setRunItems] = useState<PayrollItemSummaryRow[]>([]);
@@ -473,7 +470,6 @@ export default function HrPayslips() {
   const [runForm, setRunForm] = useState<RunFormState>(() => createDefaultRunForm());
   const [isSubmittingRun, setIsSubmittingRun] = useState(false);
   const [isPostingRun, setIsPostingRun] = useState(false);
-  const [runMessage, setRunMessage] = useState('');
   const [runError, setRunError] = useState('');
   const [currentRun, setCurrentRun] = useState<PayrollRunDto | null>(null);
   const [correctionOpen, setCorrectionOpen] = useState(false);
@@ -895,7 +891,7 @@ export default function HrPayslips() {
       setCurrentRun(reusableRun);
       syncRunForm(reusableRun);
       setAdjustmentRunId(reusableRun.payId ?? null);
-      setRunMessage(`Reusing adjustment run #${reusableRun.payId ?? '-'} for this approved dispute.`);
+      showSuccess('Existing adjustment run is ready for the approved dispute.', 'Adjustment Run Ready');
       return reusableRun;
     }
 
@@ -913,7 +909,7 @@ export default function HrPayslips() {
     setCurrentRun(createdRun);
     syncRunForm(createdRun);
     setAdjustmentRunId(createdRun.payId ?? null);
-    setRunMessage(`Adjustment run #${createdRun.payId ?? '-'} is ready for the approved dispute.`);
+    showSuccess('Adjustment run is ready for the approved dispute.', 'Adjustment Run Ready');
     return createdRun;
   }
 
@@ -1001,9 +997,7 @@ export default function HrPayslips() {
       removeWaitingDispute(correctionIntent.disputeId);
       await loadCurrentRun(runId);
       await loadDisputes();
-      setRunMessage(
-        `Correction for ${employee} was staged in adjustment run #${runId}. Review the run and post it when you are ready.`
-      );
+      showSuccess(`Correction for ${employee} was staged successfully.`, 'Correction Staged');
     } catch (error) {
       setCorrectionError(getFriendlyErrorMessage(error, 'payroll-dispute'));
     } finally {
@@ -1086,7 +1080,6 @@ export default function HrPayslips() {
 
   function requestPayrollRunConfirmation() {
     setRunError('');
-    setRunMessage('');
 
     if (!runForm.periodStart || !runForm.periodEnd) {
       setRunError('Payroll period start and end dates are required.');
@@ -1103,7 +1096,6 @@ export default function HrPayslips() {
 
   async function submitPayrollRun() {
     setRunError('');
-    setRunMessage('');
 
     if (!runForm.periodStart || !runForm.periodEnd) {
       setRunError('Payroll period start and end dates are required.');
@@ -1134,18 +1126,10 @@ export default function HrPayslips() {
       setCurrentRun(createdRun);
       syncRunForm(createdRun);
       setRunModalOpen(false);
-
-      const generatedCount = createdRun.itemCount ?? 0;
       if (isAdjustmentRun) {
-        setRunMessage(`Adjustment run #${createdRun.payId ?? '-'} is ready for corrections.`);
-      } else if (generatedCount > 0) {
-        setRunMessage(
-          `Payroll run #${createdRun.payId ?? '-'} generated ${formatItemCount(generatedCount)}.`
-        );
+        showSuccess('Adjustment run successfully created.', 'Adjustment Run Created');
       } else {
-        setRunMessage(
-          `Payroll run #${createdRun.payId ?? '-'} was processed, but no payroll items were generated for this period.`
-        );
+        showSuccess('Payroll run successfully created and is now in progress.', 'Payroll Run In Progress');
       }
     } catch (error) {
       setRunError(getFriendlyErrorMessage(error, 'payroll-run'));
@@ -1166,7 +1150,6 @@ export default function HrPayslips() {
     }
 
     setRunError('');
-    setRunMessage('');
     setIsPostingRun(true);
     try {
       const postedRun = await apiFetchJson<PayrollRunDto>(`/api/payroll/run/${currentRun.payId}/post`, {
@@ -1174,7 +1157,7 @@ export default function HrPayslips() {
       });
       setCurrentRun(postedRun);
       setPostModalOpen(false);
-      setRunMessage(`Payroll run #${postedRun.payId ?? '-'} has been posted.`);
+      showSuccess('Payroll run successfully posted.', 'Payroll Run Posted');
     } catch (error) {
       setRunError(getFriendlyErrorMessage(error, 'payroll-run'));
     } finally {
@@ -1204,8 +1187,6 @@ export default function HrPayslips() {
             <div className="hrPayPeriod__meta">
               <span className="hrPayPill">{currentRun.runType ?? 'REGULAR'}</span>
               <span className="hrPayPill hrPayPill--status">{currentRun.payrollStatus ?? 'IN_PROGRESS'}</span>
-              <span className="hrPayPeriod__runId">Run ID #{currentRun.payId ?? '-'}</span>
-              <span className="hrPayPeriod__runCount">{formatItemCount(currentRun.itemCount)}</span>
             </div>
           )}
         </div>
@@ -1226,7 +1207,6 @@ export default function HrPayslips() {
             className="hrPay__runBtn"
             onClick={() => {
               setRunError('');
-              setRunMessage('');
               setRunModalOpen(true);
             }}
           >
@@ -1234,23 +1214,6 @@ export default function HrPayslips() {
           </button>
         </div>
       </section>
-
-      {runMessage && currentRun && (
-        <section className="hrPayNotice hrPayNotice--success" aria-live="polite">
-          <div className="hrPayNotice__copy">
-            <strong>{runMessage}</strong>
-            <span>
-              {formatRunType(currentRun.runType)} for {formatDate(currentRun.periodStart)} - {formatDate(currentRun.periodEnd)}
-            </span>
-          </div>
-          <div className="hrPayNotice__meta">
-            <span>Run ID #{currentRun.payId ?? '-'}</span>
-            <button type="button" className="hrPayNotice__dismiss" onClick={() => setRunMessage('')}>
-              Dismiss
-            </button>
-          </div>
-        </section>
-      )}
       {emptyRunHint && <p className="hrPay__message">{emptyRunHint}</p>}
 
       {isCurrentRunInProgress && currentRun && (
@@ -1266,8 +1229,8 @@ export default function HrPayslips() {
             ) : runItems.length > 0 ? (
               <>
                 <div className="hrPayRunTable__head" role="row">
-                  <span>Name</span>
-                  <span>Payroll Item</span>
+                  <span>Employee ID</span>
+                  <span>Employee</span>
                   <span>Gross Pay</span>
                   <span>Deductions</span>
                   <span>Net Pay</span>
@@ -1282,8 +1245,10 @@ export default function HrPayslips() {
                       className="hrPayRunTable__row"
                       onClick={() => void openPayrollItemDetail(row)}
                     >
-                      <span className="mgrPendTable__cell mgrPendTable__cell--name">{row.employee}</span>
-                      <span className="mgrPendTable__cell">#{row.itemId}</span>
+                      <span className="mgrPendTable__cell">{row.empId ?? '-'}</span>
+                      <span className="mgrPendTable__cell mgrPendTable__cell--name">
+                        {row.employee}
+                      </span>
                       <span className="mgrPendTable__cell">{formatCurrency(row.grossPay)}</span>
                       <span className="mgrPendTable__cell">{formatCurrency(row.deductions)}</span>
                       <span className="mgrPendTable__cell">{formatCurrency(row.netPay)}</span>
