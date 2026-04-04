@@ -55,6 +55,11 @@ type PayslipLine = {
   isAdjusted: boolean;
 };
 
+const moneyFormatter = new Intl.NumberFormat('en-US', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 function toMoneyString(value: unknown) {
   if (typeof value === 'number' && Number.isFinite(value)) return value.toFixed(2);
   if (typeof value === 'string' && value.trim().length > 0) return value;
@@ -98,6 +103,32 @@ function formatDisplayDate(value?: string) {
 function formatPeriodLabel(start?: string, end?: string) {
   if (!start || !end) return '-';
   return `${formatDisplayDate(start)} to ${formatDisplayDate(end)}`;
+}
+
+function formatCurrency(value: number | string | undefined) {
+  const parsedValue =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number(value.replace(/,/g, ''))
+        : Number.NaN;
+
+  if (Number.isFinite(parsedValue)) {
+    return `P ${moneyFormatter.format(parsedValue)}`;
+  }
+
+  return `P ${moneyFormatter.format(0)}`;
+}
+
+function normalizePayslipLabel(label: string) {
+  const normalized = label.trim();
+  const upper = normalized.toUpperCase();
+
+  if (upper === 'PAGIBIG') return 'Pag-IBIG';
+  if (upper === 'PHILHEALTH') return 'PhilHealth';
+  if (/^BRACKET_LEVEL_/i.test(normalized)) return 'Withholding Tax';
+
+  return normalized;
 }
 
 function matchesPayslipPeriod(document: DocumentRow, periodEnd?: string) {
@@ -232,7 +263,7 @@ export default function Payslip() {
         setDeductions(
           toArray<Record<string, unknown>>(deductionsResponse).map((row, idx) => ({
             key: String(row.deductionsId ?? `deduction-${idx + 1}`),
-            label: String(row.deductionType ?? row.description ?? `Deduction ${idx + 1}`),
+            label: normalizePayslipLabel(String(row.deductionType ?? row.description ?? `Deduction ${idx + 1}`)),
             amount: toMoneyString(row.amount),
             originalAmount: toOptionalMoneyString(row.originalAmount),
             adjustedBy: toOptionalText(row.adjustedBy),
@@ -255,6 +286,7 @@ export default function Payslip() {
     () => deductions.reduce((sum, row) => sum + Number(row.amount || 0), 0),
     [deductions]
   );
+  const netPay = useMemo(() => totalEarnings - totalDeductions, [totalDeductions, totalEarnings]);
   const adjustedLines = useMemo(
     () => [...earnings, ...deductions].filter((row) => row.isAdjusted),
     [deductions, earnings]
@@ -286,10 +318,10 @@ export default function Payslip() {
 
   function handleDownload() {
     const formatLine = (line: PayslipLine) => {
-      const parts = [`${line.label}: ${line.amount}`];
+      const parts = [`${line.label}: ${formatCurrency(line.amount)}`];
       if (line.isAdjusted) {
         parts.push(
-          `[Adjusted${line.originalAmount ? ` | Original: ${line.originalAmount}` : ''}${
+          `[Adjusted${line.originalAmount ? ` | Original: ${formatCurrency(line.originalAmount)}` : ''}${
             line.adjustedBy ? ` | By: ${line.adjustedBy}` : ''
           }${line.adjustedAt ? ` | At: ${formatAdjustmentTimestamp(line.adjustedAt)}` : ''}]`
         );
@@ -309,9 +341,9 @@ export default function Payslip() {
       'Deductions:',
       ...(deductions.length > 0 ? deductions.map(formatLine) : ['No deductions data available']),
       '',
-      `Total Earnings: ${totalEarnings.toFixed(2)}`,
-      `Total Deductions: ${totalDeductions.toFixed(2)}`,
-      `Net Pay: ${(totalEarnings - totalDeductions).toFixed(2)}`,
+      `Total Earnings: ${formatCurrency(totalEarnings)}`,
+      `Total Deductions: ${formatCurrency(totalDeductions)}`,
+      `Net Pay: ${formatCurrency(netPay)}`,
     ].join('\n');
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -542,7 +574,7 @@ export default function Payslip() {
               <span className="payInfo__line">{employeeName}</span>
             </div>
             <div className="payInfo__row">
-              <span>Employee Number</span>
+              <span>Emp No.</span>
               <span className="payInfo__line">{employeeId ? `EMP-${employeeId}` : '-'}</span>
             </div>
             <div className="payInfo__row">
@@ -581,38 +613,40 @@ export default function Payslip() {
               <div>Earnings</div>
               <div>Amount</div>
             </div>
-            {earnings.length > 0 ? (
-              earnings.map((item) => (
-                <div className={`payTable__row${item.isAdjusted ? ' payTable__row--adjusted' : ''}`} key={item.key}>
-                  <div className="payTable__cell">
-                    <div className="payTable__lineTitle">
-                      <span>{item.label}</span>
-                      {item.isAdjusted && <span className="payTable__badge">Adjusted</span>}
-                    </div>
-                    {item.isAdjusted && (
-                      <div className="payTable__meta">
-                        {item.adjustedBy && <span>By {item.adjustedBy}</span>}
-                        {item.adjustedAt && <span>{formatAdjustmentTimestamp(item.adjustedAt)}</span>}
+            <div className="payTable__body">
+              {earnings.length > 0 ? (
+                earnings.map((item) => (
+                  <div className={`payTable__row${item.isAdjusted ? ' payTable__row--adjusted' : ''}`} key={item.key}>
+                    <div className="payTable__cell">
+                      <div className="payTable__lineTitle">
+                        <span>{item.label}</span>
+                        {item.isAdjusted && <span className="payTable__badge">Adjusted</span>}
                       </div>
-                    )}
+                      {item.isAdjusted && (
+                        <div className="payTable__meta">
+                          {item.adjustedBy && <span>By {item.adjustedBy}</span>}
+                          {item.adjustedAt && <span>{formatAdjustmentTimestamp(item.adjustedAt)}</span>}
+                        </div>
+                      )}
+                    </div>
+                    <div className="payTable__amount">
+                      <span>{formatCurrency(item.amount)}</span>
+                      {item.isAdjusted && item.originalAmount && (
+                        <span className="payTable__original">Original: {formatCurrency(item.originalAmount)}</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="payTable__amount">
-                    <span>{item.amount}</span>
-                    {item.isAdjusted && item.originalAmount && (
-                      <span className="payTable__original">Original: {item.originalAmount}</span>
-                    )}
-                  </div>
+                ))
+              ) : (
+                <div className="payTable__row">
+                  <span>No earnings data available</span>
+                  <span>-</span>
                 </div>
-              ))
-            ) : (
-              <div className="payTable__row">
-                <span>No earnings data available</span>
-                <span>-</span>
-              </div>
-            )}
+              )}
+            </div>
             <div className="payTable__total">
               <span>Total Earnings</span>
-              <span>{totalEarnings.toFixed(2)}</span>
+              <span>{formatCurrency(totalEarnings)}</span>
             </div>
           </div>
 
@@ -621,43 +655,48 @@ export default function Payslip() {
               <div>Deductions</div>
               <div>Amount</div>
             </div>
-            {deductions.length > 0 ? (
-              deductions.map((item) => (
-                <div className={`payTable__row${item.isAdjusted ? ' payTable__row--adjusted' : ''}`} key={item.key}>
-                  <div className="payTable__cell">
-                    <div className="payTable__lineTitle">
-                      <span>{item.label}</span>
-                      {item.isAdjusted && <span className="payTable__badge">Adjusted</span>}
-                    </div>
-                    {item.isAdjusted && (
-                      <div className="payTable__meta">
-                        {item.adjustedBy && <span>By {item.adjustedBy}</span>}
-                        {item.adjustedAt && <span>{formatAdjustmentTimestamp(item.adjustedAt)}</span>}
+            <div className="payTable__body">
+              {deductions.length > 0 ? (
+                deductions.map((item) => (
+                  <div className={`payTable__row${item.isAdjusted ? ' payTable__row--adjusted' : ''}`} key={item.key}>
+                    <div className="payTable__cell">
+                      <div className="payTable__lineTitle">
+                        <span>{item.label}</span>
+                        {item.isAdjusted && <span className="payTable__badge">Adjusted</span>}
                       </div>
-                    )}
+                      {item.isAdjusted && (
+                        <div className="payTable__meta">
+                          {item.adjustedBy && <span>By {item.adjustedBy}</span>}
+                          {item.adjustedAt && <span>{formatAdjustmentTimestamp(item.adjustedAt)}</span>}
+                        </div>
+                      )}
+                    </div>
+                    <div className="payTable__amount">
+                      <span>{formatCurrency(item.amount)}</span>
+                      {item.isAdjusted && item.originalAmount && (
+                        <span className="payTable__original">Original: {formatCurrency(item.originalAmount)}</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="payTable__amount">
-                    <span>{item.amount}</span>
-                    {item.isAdjusted && item.originalAmount && (
-                      <span className="payTable__original">Original: {item.originalAmount}</span>
-                    )}
-                  </div>
+                ))
+              ) : (
+                <div className="payTable__row">
+                  <span>No deductions data available</span>
+                  <span>-</span>
                 </div>
-              ))
-            ) : (
-              <div className="payTable__row">
-                <span>No deductions data available</span>
-                <span>-</span>
-              </div>
-            )}
+              )}
+            </div>
             <div className="payTable__total">
               <span>Total Deductions</span>
-              <span>{totalDeductions.toFixed(2)}</span>
+              <span>{formatCurrency(totalDeductions)}</span>
             </div>
-            <div className="payTable__net">
-              <span>Net Pay</span>
-              <span>{(totalEarnings - totalDeductions).toFixed(2)}</span>
-            </div>
+          </div>
+        </div>
+
+        <div className="payNetRow">
+          <div className="payNet">
+            <span>Net Pay</span>
+            <span>{formatCurrency(netPay)}</span>
           </div>
         </div>
 

@@ -2,6 +2,7 @@
   display:flex;
   flex-direction:column;
   gap:16px;
+  --pay-amount-col: 136px;
 }
 
 .pay__head{
@@ -63,7 +64,7 @@
 
 .payCard__companyName{
   font-weight:800;
-  font-size: 16px;
+  font-size: 19px;
   color:#2b2036;
 }
 
@@ -144,7 +145,7 @@
   border-bottom:1px solid rgba(0,0,0,0.35);
   background:none;
   color:#20152a;
-  font-weight:700;
+  font-weight:400;
   line-height:1.35;
 }
 
@@ -152,25 +153,44 @@
   display:grid;
   grid-template-columns: 1fr 1fr;
   gap: 26px;
+  align-items:stretch;
 }
 
 .payTable{
   border:1px solid rgba(0,0,0,0.35);
+  display:flex;
+  flex-direction:column;
 }
 
-.payTable__head{
-  background:#bdbdbd;
+.pay .payTable__head{
+  background:#efefef !important;
   font-size: 16px;
   font-weight:800;
   color:#111;
   display:grid;
-  grid-template-columns: 1fr 120px;
+  grid-template-columns: 1fr var(--pay-amount-col);
   padding:6px 8px;
+  border:0 !important;
+  border-bottom:1px solid rgba(0,0,0,0.22) !important;
+  border-radius:0 !important;
+  box-shadow:none !important;
+}
+
+.pay .payTable__head div{
+  color:#111 !important;
+  font-size: 13px !important;
+  letter-spacing:0.08em !important;
+}
+
+.payTable__body{
+  display:flex;
+  flex-direction:column;
+  flex:1 1 auto;
 }
 
 .payTable__row{
   display:grid;
-  grid-template-columns: 1fr 120px;
+  grid-template-columns: 1fr var(--pay-amount-col);
   padding:6px 8px;
   font-size: 15px;
   border-top:1px solid rgba(0,0,0,0.18);
@@ -178,7 +198,7 @@
 
 .payTable__row span:last-child{
   text-align:right;
-  font-weight:700;
+  font-weight:400;
 }
 
 .payTable__row--adjusted{
@@ -238,7 +258,7 @@
 }
 
 .payTable__amount span:first-child{
-  font-weight:700;
+  font-weight:400;
 }
 
 .payTable__original{
@@ -249,31 +269,50 @@
 
 .payTable__total{
   display:grid;
-  grid-template-columns: 1fr 120px;
+  grid-template-columns: 1fr var(--pay-amount-col);
   padding:6px 8px;
   font-size: 15px;
   border-top:1px solid rgba(0,0,0,0.35);
   font-weight:800;
+  background:#f5f5f5;
+  margin-top:auto;
 }
 
-.payTable__net{
-  margin-top:8px;
-  display:grid;
-  grid-template-columns: 1fr 120px;
-  padding:6px 8px;
-  font-size: 16px;
-  border-top:1px solid rgba(0,0,0,0.35);
-  border-bottom:1px solid rgba(0,0,0,0.35);
-  font-weight:900;
-  background:#e0e0e0;
-}
-
-.payTable__net span:last-child{
+.payTable__total span:last-child{
   text-align:right;
 }
 
+.payNet{
+  display:grid;
+  grid-template-columns: 1fr var(--pay-amount-col);
+  padding:8px 10px;
+  font-size: 16px;
+  border:1px solid rgba(0,0,0,0.35);
+  font-weight:900;
+  background:#dddddd;
+}
+
+.payNet span:last-child{
+  text-align:right;
+}
+
+.payNetRow{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 26px;
+  margin-top:12px;
+}
+
+.payNetRow .payNet{
+  grid-column: 2;
+}
+
+.payCard__rule--thin{
+  margin: 32px 0 0;
+}
+
 .paySign{
-  margin-top: 16px;
+  margin-top: 42px;
   display:grid;
   grid-template-columns: 1fr 1fr;
   gap: 26px;
@@ -281,7 +320,7 @@
 
 .paySign__line{
   border-top:1px solid rgba(0,0,0,0.45);
-  padding-top:6px;
+  padding-top:10px;
   text-align:center;
   font-size: 15px;
   color:#2b2036;
@@ -324,6 +363,8 @@
 
 @media (max-width: 1100px){
   .payTables{ grid-template-columns:1fr; }
+  .payNetRow{ grid-template-columns:1fr; }
+  .payNetRow .payNet{ grid-column:auto; }
   .paySign{ grid-template-columns:1fr; }
   .payActions{ flex-wrap:wrap; }
 }
@@ -344,8 +385,19 @@
     gap:6px;
   }
 
+  .pay .payTable__head,
+  .payTable__total,
+  .payNet{
+    grid-template-columns: 1fr;
+    gap:6px;
+  }
+
   .payTable__amount{
     align-items:flex-start;
+    text-align:left;
+  }
+
+  .payNet span:last-child{
     text-align:left;
   }
 }
