@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
@@ -31,16 +32,17 @@ type PayTypeSummaryRow = {
 };
 
 type HistoryPoint = {
+  payId: number;
   label: string;
-  total: number;
-  tone: 'light' | 'dark';
+  grossTotal: number;
+  netTotal: number;
 };
 
 type BreakdownPoint = {
   label: string;
   total: number;
   share: number;
-  tone: 't1' | 't2' | 't3' | 't4';
+  tone: 't1' | 't2' | 't3' | 't4' | 't5' | 't6';
 };
 
 const BREAKDOWN_COLORS: Record<BreakdownPoint['tone'], string> = {
@@ -48,6 +50,8 @@ const BREAKDOWN_COLORS: Record<BreakdownPoint['tone'], string> = {
   t2: '#f06f9b',
   t3: '#ef9aa8',
   t4: '#f3b6c3',
+  t5: '#c98ab7',
+  t6: '#9f5f97',
 };
 
 function toAmount(value: unknown) {
@@ -66,6 +70,13 @@ function formatCurrency(value: number) {
   })}`;
 }
 
+function formatShareLabel(share: number) {
+  const percentage = share * 100;
+  if (percentage >= 10) return `${Math.round(percentage)}%`;
+  if (percentage >= 1) return `${percentage.toFixed(1).replace(/\.0$/, '')}%`;
+  return `${percentage.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')}%`;
+}
+
 function formatDate(value?: string) {
   if (!value) return '-';
   const date = new Date(value);
@@ -77,17 +88,29 @@ function formatDate(value?: string) {
   });
 }
 
-function formatShortMonth(value?: string) {
-  if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString(undefined, { month: 'short' });
-}
-
 function describeRun(run: PayrollRunRow | null) {
   if (!run) return 'No payroll run selected';
+  if (run.periodStart || run.periodEnd) {
+    return `${formatDate(run.periodStart)} to ${formatDate(run.periodEnd)}`;
+  }
   if (run.periodDescription?.trim()) return run.periodDescription.trim();
-  return `${formatDate(run.periodStart)} - ${formatDate(run.periodEnd)}`;
+  return 'Payroll period unavailable';
+}
+
+function toSortStamp(value?: string) {
+  if (!value) return 0;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function compareRunsDescending(a: PayrollRunRow, b: PayrollRunRow) {
+  const endDiff = toSortStamp(b.periodEnd) - toSortStamp(a.periodEnd);
+  if (endDiff !== 0) return endDiff;
+
+  const startDiff = toSortStamp(b.periodStart) - toSortStamp(a.periodStart);
+  if (startDiff !== 0) return startDiff;
+
+  return (b.payId ?? 0) - (a.payId ?? 0);
 }
 
 function formatPayTypeLabel(value?: string) {
@@ -169,9 +192,12 @@ export default function AccountingPayrollDashboard() {
   const [selectedItems, setSelectedItems] = useState<PayrollItemRow[]>([]);
   const [selectedSummary, setSelectedSummary] = useState<PayTypeSummaryRow[]>([]);
   const [historyPoints, setHistoryPoints] = useState<HistoryPoint[]>([]);
+  const historyViewportRef = useRef<HTMLDivElement | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [refreshTick, setRefreshTick] = useState(0);
+  const [canScrollHistoryLeft, setCanScrollHistoryLeft] = useState(false);
+  const [canScrollHistoryRight, setCanScrollHistoryRight] = useState(false);
   useErrorDialogEffect(loadError, 'Payroll dashboard could not be loaded');
   const handlePageRefresh = useCallback(() => {
     setRefreshTick((tick) => tick + 1);
@@ -190,7 +216,7 @@ export default function AccountingPayrollDashboard() {
         const response = await apiFetchJson<unknown>('/api/payroll/run');
         if (cancelled) return;
 
-        const nextRuns = toArray<PayrollRunRow>(response);
+        const nextRuns = [...toArray<PayrollRunRow>(response)].sort(compareRunsDescending);
         setRuns(nextRuns);
         setSelectedPayId((currentPayId) => {
           if (currentPayId != null && nextRuns.some((run) => run.payId === currentPayId)) {
@@ -241,16 +267,19 @@ export default function AccountingPayrollDashboard() {
 
         const recentRuns = runs
           .filter((run): run is PayrollRunRow & { payId: number } => typeof run.payId === 'number')
-          .slice(0, 6);
+          .slice(0, 6)
+          .reverse();
 
-        const historyPromises = recentRuns.map(async (run, index) => {
+        const historyPromises = recentRuns.map(async (run) => {
           const response = await apiFetchJson<unknown>(`/api/payroll/run/${run.payId}/items?page=0&size=1000`);
           const rows = toArray<PayrollItemRow>(response);
           const grossTotal = rows.reduce((sum, row) => sum + toAmount(row.grossPay), 0);
+          const netTotal = rows.reduce((sum, row) => sum + toAmount(row.netPay), 0);
           return {
-            label: formatShortMonth(run.periodEnd ?? run.periodStart),
-            total: grossTotal,
-            tone: (index + 1) % 2 === 0 ? 'light' : 'dark',
+            payId: run.payId,
+            label: describeRun(run),
+            grossTotal,
+            netTotal,
           } as HistoryPoint;
         });
 
@@ -307,14 +336,19 @@ export default function AccountingPayrollDashboard() {
   );
 
   const breakdownPoints = useMemo<BreakdownPoint[]>(() => {
-    const rankedRows = [...selectedSummary]
-      .map((row) => ({
-        label: formatPayTypeLabel(row.payType),
-        total: toAmount(row.total),
-      }))
-      .filter((row) => row.total > 0)
+    const groupedRows = [...selectedSummary].reduce<Map<string, number>>((groups, row) => {
+      const label = formatPayTypeLabel(row.payType);
+      const total = toAmount(row.total);
+      if (total <= 0) return groups;
+
+      groups.set(label, (groups.get(label) ?? 0) + total);
+      return groups;
+    }, new Map());
+
+    const rankedRows = [...groupedRows.entries()]
+      .map(([label, total]) => ({ label, total }))
       .sort((left, right) => right.total - left.total)
-      .slice(0, 4);
+      .slice(0, 6);
 
     const total = rankedRows.reduce((sum, row) => sum + row.total, 0);
     if (total <= 0) return [];
@@ -322,37 +356,60 @@ export default function AccountingPayrollDashboard() {
     return rankedRows.map((row, index) => ({
       ...row,
       share: row.total / total,
-      tone: (['t1', 't2', 't3', 't4'] as const)[index] ?? 't4',
+      tone: (['t1', 't2', 't3', 't4', 't5', 't6'] as const)[index] ?? 't6',
     }));
   }, [selectedSummary]);
 
   const historyScale = useMemo(
-    () => Math.max(...historyPoints.map((point) => point.total), 0),
+    () => Math.max(...historyPoints.flatMap((point) => [point.grossTotal, point.netTotal]), 0),
     [historyPoints]
   );
 
   const donutBackground = useMemo(() => buildDonutBackground(breakdownPoints), [breakdownPoints]);
-  const donutLabels = useMemo(() => {
-    let cursor = 0;
 
-    return breakdownPoints.map((point) => {
-      const sweep = point.share * 360;
-      const midpoint = cursor + sweep / 2;
-      cursor += sweep;
+  const syncHistoryScrollButtons = useCallback(() => {
+    const viewport = historyViewportRef.current;
+    if (!viewport) {
+      setCanScrollHistoryLeft(false);
+      setCanScrollHistoryRight(false);
+      return;
+    }
 
-      const radians = ((midpoint - 90) * Math.PI) / 180;
-      const radius = point.share < 0.12 ? 34 : 28;
+    const maxScrollLeft = Math.max(viewport.scrollWidth - viewport.clientWidth, 0);
+    setCanScrollHistoryLeft(viewport.scrollLeft > 4);
+    setCanScrollHistoryRight(maxScrollLeft - viewport.scrollLeft > 4);
+  }, []);
 
-      return {
-        ...point,
-        percentLabel: `${Math.round(point.share * 100)}%`,
-        style: {
-          left: `calc(50% + ${Math.cos(radians) * radius}%)`,
-          top: `calc(50% + ${Math.sin(radians) * radius}%)`,
-        },
-      };
+  useEffect(() => {
+    const viewport = historyViewportRef.current;
+    if (!viewport) {
+      setCanScrollHistoryLeft(false);
+      setCanScrollHistoryRight(false);
+      return;
+    }
+
+    const syncButtons = () => syncHistoryScrollButtons();
+    const frame = window.requestAnimationFrame(syncButtons);
+    viewport.addEventListener('scroll', syncButtons, { passive: true });
+    window.addEventListener('resize', syncButtons);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      viewport.removeEventListener('scroll', syncButtons);
+      window.removeEventListener('resize', syncButtons);
+    };
+  }, [historyPoints, syncHistoryScrollButtons]);
+
+  const scrollHistory = useCallback((direction: 'left' | 'right') => {
+    const viewport = historyViewportRef.current;
+    if (!viewport) return;
+
+    const distance = Math.max(viewport.clientWidth * 0.8, 260);
+    viewport.scrollBy({
+      left: direction === 'left' ? -distance : distance,
+      behavior: 'smooth',
     });
-  }, [breakdownPoints]);
+  }, []);
 
   return (
     <section className="aDashPay">
@@ -363,47 +420,36 @@ export default function AccountingPayrollDashboard() {
         />
 
         <div className="aDashPay__controls">
-          <select
-            className="aDashPay__dateSelect"
-            value={selectedPayId ?? ''}
-            onChange={(event) => setSelectedPayId(event.target.value ? Number(event.target.value) : null)}
-            aria-label="Payroll run"
-            disabled={runs.length === 0}
-          >
-            {runs.length > 0 ? (
-              runs.map((run) => (
-                <option key={run.payId ?? `run-${run.periodEnd}`} value={run.payId}>
-                  {describeRun(run)}
-                </option>
-              ))
-            ) : (
-              <option value="">No payroll runs yet</option>
-            )}
-          </select>
+          <div className="aDashPaySelectField">
+            <label htmlFor="aDashPayRunSelect">Payroll run from:</label>
+            <div className="aDashPaySelect">
+              <select
+                id="aDashPayRunSelect"
+                value={selectedPayId ?? ''}
+                onChange={(event) => setSelectedPayId(event.target.value ? Number(event.target.value) : null)}
+                aria-label="Payroll run"
+                disabled={runs.length === 0}
+              >
+                {runs.length > 0 ? (
+                  runs.map((run) => (
+                    <option key={run.payId ?? `run-${run.periodEnd}`} value={run.payId}>
+                      {describeRun(run)}
+                    </option>
+                  ))
+                ) : (
+                  <option value="">No payroll runs yet</option>
+                )}
+              </select>
+            </div>
+          </div>
         </div>
-
-        <button className="aDashPay__exportBtn" type="button" onClick={() => window.print()}>
-          Export Payroll
-          <br />
-          Analytics
-        </button>
       </div>
-
-      <p className="aDashPay__status">
-        {selectedRun
-            ? `${describeRun(selectedRun)} • ${selectedRun.payrollStatus ?? 'Unknown status'} • ${selectedRun.itemCount ?? 0} payroll item${
-                (selectedRun.itemCount ?? 0) === 1 ? '' : 's'
-              }`
-            : isLoading
-              ? 'Loading payroll run details...'
-              : 'Select a payroll run to review its totals.'}
-      </p>
 
       <section className="aDashPaySummaryGrid">
         <article className="aDashPaySummaryCard">
           <h3>Final Net Payout</h3>
           <div className="aDashPaySummaryCard__value">{formatCurrency(finalNetPayout)}</div>
-          <p>{selectedRun ? `${formatDate(selectedRun.periodStart)} - ${formatDate(selectedRun.periodEnd)} payout` : 'No payroll run selected yet'}</p>
+          <p>{selectedRun ? `${describeRun(selectedRun)} payout` : 'No payroll run selected yet'}</p>
         </article>
 
         <article className="aDashPaySummaryCard">
@@ -420,45 +466,110 @@ export default function AccountingPayrollDashboard() {
       </section>
 
       <section className="aDashPayChartsGrid">
-        <article className="aDashPayPanel">
-          <header className="aDashPayPanel__head">Latest 6 Payroll Runs by Gross Wages</header>
-          <div className="aDashPayHistory">
-            {historyPoints.length > 0 ? (
-              historyPoints.map((item) => (
-                <div key={`${item.label}-${item.total}`} className="aDashPayHistory__barWrap">
-                  <div
-                    className={`aDashPayHistory__bar aDashPayHistory__bar--${item.tone}`}
-                    style={{
-                      height:
-                        historyScale > 0
-                          ? `${Math.max((item.total / historyScale) * 100, item.total > 0 ? 10 : 0)}%`
-                          : '0%',
-                    }}
-                    title={`${item.label}: ${formatCurrency(item.total)}`}
-                  />
-                  <strong>{formatCurrency(item.total)}</strong>
-                  <span>{item.label}</span>
+        <article className="aDashPayPanel aDashPayPanel--history">
+          <header className="aDashPayPanel__head aDashPayPanel__head--history">
+            <span>Latest Payroll Runs</span>
+            <div className="aDashPayHistoryNav" aria-label="Payroll history navigation">
+              <button
+                type="button"
+                className="aDashPayHistoryNav__button"
+                onClick={() => scrollHistory('left')}
+                aria-label="Scroll to earlier payroll runs"
+                disabled={!canScrollHistoryLeft}
+              >
+                <FiChevronLeft aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="aDashPayHistoryNav__button"
+                onClick={() => scrollHistory('right')}
+                aria-label="Scroll to later payroll runs"
+                disabled={!canScrollHistoryRight}
+              >
+                <FiChevronRight aria-hidden="true" />
+              </button>
+            </div>
+          </header>
+          <div className="aDashPayHistoryViewport" ref={historyViewportRef}>
+            <div className="aDashPayHistory">
+              {historyPoints.length > 0 ? (
+                historyPoints.map((item) => (
+                  <article key={item.payId} className="aDashPayHistoryCard">
+                    <div className="aDashPayHistoryCard__period">
+                      <strong>{item.label}</strong>
+                    </div>
+
+                    <div className="aDashPayHistoryCard__bars" aria-label={`Gross and net totals for ${item.label}`}>
+                      <div className="aDashPayHistoryMetric">
+                        <strong className="aDashPayHistoryMetric__value">{formatCurrency(item.grossTotal)}</strong>
+                        <div className="aDashPayHistoryMetric__plot">
+                          <div
+                            className="aDashPayHistoryMetric__bar aDashPayHistoryMetric__bar--gross"
+                            style={{
+                              height:
+                                historyScale > 0
+                                  ? `${Math.max((item.grossTotal / historyScale) * 100, item.grossTotal > 0 ? 12 : 0)}%`
+                                  : '0%',
+                            }}
+                            title={`Gross pay: ${formatCurrency(item.grossTotal)}`}
+                          />
+                        </div>
+                        <span className="aDashPayHistoryMetric__label">Gross Pay</span>
+                      </div>
+
+                      <div className="aDashPayHistoryMetric">
+                        <strong className="aDashPayHistoryMetric__value">{formatCurrency(item.netTotal)}</strong>
+                        <div className="aDashPayHistoryMetric__plot">
+                          <div
+                            className="aDashPayHistoryMetric__bar aDashPayHistoryMetric__bar--net"
+                            style={{
+                              height:
+                                historyScale > 0
+                                  ? `${Math.max((item.netTotal / historyScale) * 100, item.netTotal > 0 ? 12 : 0)}%`
+                                  : '0%',
+                            }}
+                            title={`Net pay: ${formatCurrency(item.netTotal)}`}
+                          />
+                        </div>
+                        <span className="aDashPayHistoryMetric__label">Net Pay</span>
+                      </div>
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <div className="aDashPayHistory__empty">
+                  {isLoading ? 'Loading payroll history...' : 'No payroll totals are available yet.'}
                 </div>
-              ))
-            ) : (
-              <div className="aDashPayHistory__empty">
-                {isLoading ? 'Loading payroll history...' : 'No payroll totals are available yet.'}
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </article>
 
         <article className="aDashPayPanel">
           <header className="aDashPayPanel__head">Selected Run Cost Breakdown by Pay Type</header>
           <div className="aDashPayDonutBlock">
+            <div
+              className={`aDashPayDonut${breakdownPoints.length === 0 ? ' aDashPayDonut--empty' : ''}`}
+              aria-label={
+                breakdownPoints.length > 0
+                  ? 'Pay type cost breakdown chart'
+                  : 'No pay type breakdown data available'
+              }
+              role="img"
+              style={donutBackground ? { background: donutBackground } : undefined}
+            />
             <div className="aDashPayLegend">
               {breakdownPoints.length > 0 ? (
                 breakdownPoints.map((item) => (
                   <div key={item.label} className="aDashPayLegend__item">
                     <i className={item.tone} />
-                    <span>
-                      {item.label} • {formatCurrency(item.total)}
-                    </span>
+                    <div className="aDashPayLegend__content">
+                      <div className="aDashPayLegend__head">
+                        <span className="aDashPayLegend__label">{item.label}</span>
+                        <span className="aDashPayLegend__share">{formatShareLabel(item.share)}</span>
+                      </div>
+                      <span className="aDashPayLegend__value">{formatCurrency(item.total)}</span>
+                    </div>
                   </div>
                 ))
               ) : (
@@ -466,26 +577,6 @@ export default function AccountingPayrollDashboard() {
                   {isLoading ? 'Loading pay type totals...' : 'No pay type totals are available for this run yet.'}
                 </div>
               )}
-            </div>
-            <div
-              className={`aDashPayDonut${breakdownPoints.length === 0 ? ' aDashPayDonut--empty' : ''}`}
-              aria-label={
-                breakdownPoints.length > 0
-                  ? 'Pay type cost breakdown with percentage labels for each segment'
-                  : 'No pay type breakdown data available'
-              }
-              role="img"
-              style={donutBackground ? { background: donutBackground } : undefined}
-            >
-              {donutLabels.map((item) => (
-                <div
-                  key={`${item.label}-${item.percentLabel}`}
-                  className={`aDashPayDonut__label aDashPayDonut__label--${item.tone}`}
-                  style={item.style}
-                >
-                  {item.percentLabel}
-                </div>
-              ))}
             </div>
           </div>
         </article>

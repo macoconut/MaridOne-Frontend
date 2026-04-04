@@ -111,6 +111,7 @@ body {
   .hrEmpSearch,
   .hrPaySearch,
   .hrAuditSearch,
+  .aReviewRunSearch,
   .hrRunSearch,
   .mRunFilters__search
 ) {
@@ -128,6 +129,7 @@ body {
   .hrEmpSearch input,
   .hrPaySearch input,
   .hrAuditSearch input,
+  .aReviewRunSearch input,
   .hrRunSearch input,
   .mRunFilters__search input
 ) {
@@ -141,6 +143,7 @@ body {
   .hrEmpSearch svg,
   .hrPaySearch svg,
   .hrAuditSearch svg,
+  .aReviewRunSearch svg,
   .hrRunSearch svg,
   .mRunFilters__search svg
 ) {
@@ -185,6 +188,7 @@ body {
   .hrEmpFilter__field span,
   .hrPayFilter__field span,
   .hrAuditFilter__field span,
+  .aReviewRunFilters__field label,
   .hrRunFilters__field label,
   .mRunFilters__field label
 ) {
@@ -196,13 +200,24 @@ body {
 }
 
 :where(
+  .aReviewRunSelect,
+  .hrRunSelect
+) {
+  min-height: 48px !important;
+  border: 1px solid var(--ui-border-strong) !important;
+  border-radius: var(--ui-radius-md) !important;
+  background: var(--ui-surface) !important;
+  box-shadow: var(--ui-shadow-soft) !important;
+  overflow: hidden !important;
+}
+
+:where(
   .apprFilter__field select,
   .hrApprFilter__field select,
   .hrAttFilter__field select,
   .hrEmpFilter__field select,
   .hrPayFilter__field select,
   .hrAuditFilter__field select,
-  .hrRunSelect select,
   .mRun__top select,
   .mRunFilters__field select,
   .aReviewPay__field select,
@@ -213,6 +228,19 @@ body {
   border: 1px solid var(--ui-border-strong) !important;
   border-radius: var(--ui-radius-sm) !important;
   background: #ffffff !important;
+  color: var(--ui-title-color) !important;
+  font-size: 14px !important;
+  box-shadow: none !important;
+}
+
+:where(
+  .aReviewRunSelect select,
+  .hrRunSelect select
+) {
+  min-height: 100% !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
   color: var(--ui-title-color) !important;
   font-size: 14px !important;
   box-shadow: none !important;
@@ -241,6 +269,7 @@ body {
   .hrPayRunTable__head,
   .hrPayTable__head,
   .aReviewPayTable__head,
+  .aReviewRunTable__head,
   .hrRunTable__head,
   .mRunTable__head
 ) {
@@ -259,6 +288,7 @@ body {
   .hrPayRunTable__head span,
   .hrPayTable__head > div,
   .aReviewPayTable__head > div,
+  .aReviewRunTable__head span,
   .hrRunTable__head span,
   .mRunTable__head span
 ) {

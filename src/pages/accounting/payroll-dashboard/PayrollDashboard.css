@@ -22,45 +22,66 @@
 
 .aDashPay__controls {
   display: flex;
-  gap: 8px;
+  justify-content: flex-end;
+  margin-left: auto;
+  min-width: min(100%, 360px);
+}
+
+.aDashPaySelectField {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: min(100%, 360px);
+}
+
+.aDashPaySelectField label {
+  font-size: 16px;
+  font-weight: 700;
+  color: #6a627c;
+}
+
+.aDashPaySelect {
+  position: relative;
+  display: flex;
   align-items: center;
+  min-height: 38px;
+  border: 1px solid rgba(59, 34, 87, 0.16);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
 }
 
-.aDashPay__dateSelect {
-  width: min(320px, 100%);
-  height: 36px;
-  border: 1px solid #b7a5cc;
-  border-radius: 8px;
-  background: #f7f2fb;
-  color: #564570;
-  font-size: 15px;
-  font-weight: 700;
-  padding: 0 12px;
+.aDashPaySelect::after {
+  content: '';
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid #645775;
+  border-bottom: 2px solid #645775;
+  transform: translateY(-65%) rotate(45deg);
+  pointer-events: none;
 }
 
-.aDashPay__exportBtn {
+.aDashPaySelect select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
   border: 0;
-  border-radius: 8px;
-  background: #7b4a8f;
-  color: #fff;
-  height: 38px;
-  min-width: 170px;
-  padding: 0 14px;
+  background: transparent;
+  padding: 0 40px 0 12px;
+  color: #2f2050;
   font-size: 15px;
-  font-weight: 800;
-  line-height: 1.1;
-  box-shadow: 0 6px 12px rgba(123, 74, 143, 0.22);
-}
-
-.aDashPay__status {
-  margin: 0;
-  color: #5f5178;
-  font-size: 13px;
   font-weight: 700;
+  cursor: pointer;
 }
 
-.aDashPay__status.is-error {
-  color: #a14254;
+.aDashPaySelect select:focus {
+  outline: none;
 }
 
 .aDashPaySummaryGrid {
@@ -105,8 +126,8 @@
 
 .aDashPayChartsGrid {
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1.7fr) minmax(320px, 1fr);
+  gap: 14px;
 }
 
 .aDashPayPanel__head {
@@ -117,98 +138,278 @@
   font-weight: 900;
 }
 
-.aDashPayHistory {
-  height: 280px;
-  margin: 14px;
-  border-radius: 10px;
-  border: 1px solid #eadff3;
-  background: #fcf9ff;
-  padding: 20px 16px 12px;
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 8px;
-  align-items: end;
+.aDashPayPanel--history {
+  display: flex;
+  flex-direction: column;
 }
 
-.aDashPayHistory__barWrap {
-  display: grid;
-  justify-items: center;
-  gap: 8px;
-  height: 100%;
-}
-
-.aDashPayHistory__bar {
-  width: 100%;
-  border-radius: 4px 4px 0 0;
-  align-self: end;
-}
-
-.aDashPayHistory__bar--light {
-  background: #ab88c7;
-}
-
-.aDashPayHistory__bar--dark {
-  background: #7b4a8f;
-}
-
-.aDashPayHistory__barWrap span {
-  color: #66567e;
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.aDashPayHistory__barWrap strong {
-  color: #47395f;
-  font-size: 11px;
-  font-weight: 800;
-  text-align: center;
-}
-
-.aDashPayHistory__empty {
-  grid-column: 1 / -1;
-  align-self: center;
-  justify-self: center;
-  color: #6d5f85;
-  font-size: 13px;
-  font-weight: 700;
-  text-align: center;
-}
-
-.aDashPayDonutBlock {
-  --donut-size: clamp(180px, 28vw, 240px);
-  padding: 16px 14px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--donut-size);
+.aDashPayPanel__head--history {
+  display: flex;
   align-items: center;
-  gap: 16px;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-.aDashPayLegend {
-  display: grid;
-  gap: 8px;
-}
-
-.aDashPayLegend__item {
+.aDashPayHistoryNav {
   display: inline-flex;
   align-items: center;
   gap: 8px;
 }
 
-.aDashPayLegend__item i {
-  width: 26px;
-  height: 8px;
+.aDashPayHistoryNav__button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(123, 74, 143, 0.16);
+  border-radius: 999px;
+  background: #fff;
+  color: #5f2f78;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease,
+    opacity 120ms ease;
+}
+
+.aDashPayHistoryNav__button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(95, 47, 120, 0.14);
+}
+
+.aDashPayHistoryNav__button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.aDashPayHistoryViewport {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 14px 12px 16px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(92, 54, 117, 0.6) transparent;
+}
+
+.aDashPayHistoryViewport::-webkit-scrollbar {
+  height: 10px;
+}
+
+.aDashPayHistoryViewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.aDashPayHistoryViewport::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(123, 74, 143, 0.82), rgba(42, 18, 71, 0.88));
   border-radius: 999px;
 }
 
-.aDashPayLegend__item span {
-  color: #584b71;
-  font-size: 15px;
+.aDashPayHistory {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  min-height: 100%;
+}
+
+.aDashPayHistoryCard {
+  width: 220px;
+  min-height: 100%;
+  flex: 0 0 220px;
+  border-radius: 14px;
+  border: 1px solid #eadff3;
+  background: linear-gradient(180deg, #fcf9ff 0%, #ffffff 100%);
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 10px 20px rgba(123, 74, 143, 0.08);
+}
+
+.aDashPayHistoryCard__period {
+  display: grid;
+  gap: 6px;
+}
+
+.aDashPayHistoryCard__period span {
+  color: #7b6d91;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.aDashPayHistoryCard__period strong {
+  color: #36284a;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.aDashPayHistoryCard__bars {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: stretch;
+  flex: 1;
+}
+
+.aDashPayHistoryMetric {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 6px;
+  align-items: stretch;
+  min-width: 0;
+  min-height: 0;
+}
+
+.aDashPayHistoryMetric__value {
+  color: #47395f;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.3;
+  text-align: center;
+  word-break: break-word;
+}
+
+.aDashPayHistoryMetric__plot {
+  min-height: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.aDashPayHistoryMetric__bar {
+  width: min(100%, 52px);
+  min-height: 12px;
+  border-radius: 14px 14px 8px 8px;
+  box-shadow: 0 10px 18px rgba(47, 32, 80, 0.18);
+}
+
+.aDashPayHistoryMetric__bar--gross {
+  background: linear-gradient(180deg, #8c63a7 0%, #5a2f78 100%);
+}
+
+.aDashPayHistoryMetric__bar--net {
+  background: linear-gradient(180deg, #f28aac 0%, #b93f79 100%);
+}
+
+.aDashPayHistoryMetric__label {
+  color: #66567e;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.aDashPayHistory__empty {
+  min-width: 100%;
+  min-height: 320px;
+  border-radius: 16px;
+  border: 1px dashed #d7cae3;
+  background: #fcf9ff;
+  display: grid;
+  place-items: center;
+  color: #6d5f85;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  padding: 24px;
+}
+
+.aDashPayDonutBlock {
+  --donut-size: clamp(220px, 26vw, 280px);
+  padding: 16px 14px;
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 14px;
+  min-height: 100%;
+}
+
+.aDashPayLegend {
+  width: min(100%, 600px);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  justify-content: center;
+  gap: 10px;
+}
+
+.aDashPayLegend__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(123, 74, 143, 0.12);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fefcff 0%, #f8f2fc 100%);
+  box-shadow: 0 8px 18px rgba(123, 74, 143, 0.08);
+}
+
+.aDashPayLegend__item i {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  margin-top: 5px;
+}
+
+.aDashPayLegend__item > span {
+  display: none;
+}
+
+.aDashPayLegend__content {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 4px;
+}
+
+.aDashPayLegend__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.aDashPayLegend__label {
+  color: #35264a;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.3;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.aDashPayLegend__share {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: rgba(123, 74, 143, 0.12);
+  color: #6a3c82;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+}
+
+.aDashPayLegend__value {
+  color: #6b5d81;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
 }
 
 .aDashPayLegend__empty {
   color: #6d5f85;
   font-size: 13px;
   font-weight: 700;
+  text-align: center;
 }
 
 .aDashPayLegend .t1 {
@@ -223,10 +424,17 @@
 .aDashPayLegend .t4 {
   background: #f3b6c3;
 }
+.aDashPayLegend .t5 {
+  background: #c98ab7;
+}
+.aDashPayLegend .t6 {
+  background: #9f5f97;
+}
 
 .aDashPayDonut {
   width: var(--donut-size);
   height: var(--donut-size);
+  justify-self: center;
   border-radius: 50%;
   background: conic-gradient(
     #b83573 0 55%,
@@ -240,38 +448,6 @@
   box-shadow:
     inset 0 0 0 1px rgba(123, 74, 143, 0.08),
     0 10px 22px rgba(47, 32, 80, 0.1);
-}
-
-.aDashPayDonut__label {
-  position: absolute;
-  z-index: 1;
-  transform: translate(-50%, -50%);
-  min-width: 46px;
-  padding: 5px 9px;
-  border-radius: 999px;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 900;
-  line-height: 1;
-  text-align: center;
-  box-shadow: 0 6px 14px rgba(47, 32, 80, 0.18);
-  white-space: nowrap;
-}
-
-.aDashPayDonut__label--t1 {
-  background: #b83573;
-}
-
-.aDashPayDonut__label--t2 {
-  background: #f06f9b;
-}
-
-.aDashPayDonut__label--t3 {
-  background: #d98597;
-}
-
-.aDashPayDonut__label--t4 {
-  background: #c98d9b;
 }
 
 .aDashPayDonut--empty {
@@ -291,6 +467,20 @@
   .aDashPaySummaryCard__value {
     font-size: 30px;
   }
+
+  .aDashPayHistory {
+    min-height: 100%;
+  }
+
+  .aDashPayHistoryCard {
+    width: 208px;
+    min-height: 100%;
+    flex-basis: 208px;
+  }
+
+  .aDashPayHistoryMetric__plot {
+    min-height: 0;
+  }
 }
 
 @media (max-width: 768px) {
@@ -299,8 +489,13 @@
     align-items: stretch;
   }
 
-  .aDashPay__exportBtn {
-    width: fit-content;
+  .aDashPay__controls {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .aDashPaySelectField {
+    width: 100%;
   }
 
   .aDashPayDonutBlock {
@@ -308,14 +503,31 @@
     justify-items: center;
   }
 
-  .aDashPayDonut__label {
-    font-size: 10px;
-    min-width: 40px;
-    padding: 4px 7px;
+  .aDashPayLegend {
+    grid-template-columns: 1fr;
+  }
+
+  .aDashPayLegend__head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .aDashPayHistoryViewport {
+    padding: 14px 12px 16px;
   }
 
   .aDashPayHistory {
-    height: 220px;
+    min-height: 100%;
+  }
+
+  .aDashPayHistoryCard {
+    width: min(224px, calc(100vw - 76px));
+    min-height: 100%;
+    flex-basis: min(224px, calc(100vw - 76px));
+  }
+
+  .aDashPayHistoryMetric__plot {
+    min-height: 0;
   }
 }
 

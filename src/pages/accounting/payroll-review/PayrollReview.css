@@ -1,260 +1,686 @@
 .aReviewPay {
+  --hr-primary: #7b4a8f;
+  --hr-primary-dark: #2f2050;
+  --hr-primary-soft: rgba(123, 74, 143, 0.12);
+  --hr-text: #2d273b;
+  --hr-muted: #555066;
+  --hr-surface: #ffffff;
+  --hr-surface-soft: #f7f6f9;
+  --hr-border: rgba(62, 35, 94, 0.24);
+  --hr-line: rgba(0, 0, 0, 0.16);
+  --hr-shadow: 0 8px 14px rgba(0, 0, 0, 0.08);
+  --hr-button-shadow: 0 6px 12px rgba(0, 0, 0, 0.14);
+
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.aReviewPay h1 {
+.aReviewRun__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.aReviewRun__top h1 {
   margin: 0;
-  color: #2f2050;
   font-size: 24px;
   font-weight: 900;
   letter-spacing: -0.03em;
+  color: var(--hr-primary-dark);
 }
 
-.aReviewPay__status {
-  margin: 0;
-  color: #5f5178;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.aReviewPay__status.is-error {
-  color: #a14254;
-}
-
-.aReviewPay__filters {
+.aReviewRunFilters {
   display: grid;
-  grid-template-columns: 1.3fr 220px;
-  gap: 12px;
+  grid-template-columns: 1.4fr minmax(280px, 360px);
+  gap: 8px 12px;
   align-items: end;
 }
 
-.aReviewPay__field {
+.aReviewRunFilters__field {
   display: flex;
   flex-direction: column;
   gap: 3px;
 }
 
-.aReviewPay__field label {
-  color: #5b4f72;
+.aReviewRunFilters__field label {
   font-size: 16px;
   font-weight: 700;
+  color: var(--hr-muted);
 }
 
-.aReviewPay__search {
-  height: 36px;
-  border-radius: 8px;
-  border: 1px solid #b7a5cc;
+.aReviewRunSearch {
+  height: 38px;
+  border: 1px solid rgba(59, 34, 87, 0.16);
+  border-radius: 10px;
   background: #fff;
-  padding: 0 8px;
+  padding: 0 10px;
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
 }
 
-.aReviewPay__search svg {
-  color: #6d5f85;
-  font-size: 16px;
-}
-
-.aReviewPay__search input {
-  border: 0;
-  background: transparent;
-  color: #4d3f68;
+.aReviewRunSearch svg {
+  color: #5c5470;
   font-size: 15px;
 }
 
-.aReviewPay__search button {
+.aReviewRunSearch input {
   border: 0;
   background: transparent;
-  color: #6d5f85;
+  font-size: 15px;
+  color: #2b2036;
+  width: 100%;
 }
 
-.aReviewPay__search button {
-  width: 20px;
-  height: 20px;
+.aReviewRunSearch input:focus {
+  outline: none;
+}
+
+.aReviewRunSearch button {
+  border: 0;
+  background: transparent;
+  width: 22px;
+  height: 22px;
   display: grid;
   place-items: center;
+  padding: 0;
+  color: #676278;
+  cursor: pointer;
 }
 
-.aReviewPay__field select {
-  height: 36px;
-  border-radius: 8px;
-  border: 1px solid #b7a5cc;
-  background: #f7f2fb;
-  color: #564570;
-  font-size: 15px;
-  font-weight: 700;
-  padding: 0 10px;
-}
-
-.aReviewPayTable {
-  border: 1.5px solid #dacde7;
+.aReviewRunSelect {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  border: 1px solid rgba(59, 34, 87, 0.16);
   border-radius: 10px;
   background: #fff;
-  box-shadow: 0 8px 14px rgba(123, 74, 143, 0.12);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
   overflow: hidden;
 }
 
-.aReviewPayTable__head,
-.aReviewPayRow {
-  display: grid;
-  grid-template-columns: 1.2fr 0.7fr 0.8fr 0.7fr 0.7fr 0.8fr;
-  align-items: center;
-  gap: 10px;
+.aReviewRunSelect::after {
+  content: '';
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid #645775;
+  border-bottom: 2px solid #645775;
+  transform: translateY(-65%) rotate(45deg);
+  pointer-events: none;
 }
 
-.aReviewPayTable__head {
-  padding: 10px 12px;
-  background: rgba(123, 74, 143, 0.14);
-  border-bottom: 1px solid #dacde7;
-  color: #2f2050;
-  font-size: 16px;
-  font-weight: 900;
-}
-
-.aReviewPayTable__body {
-  padding: 4px 12px 8px;
-}
-
-.aReviewPayRow {
-  padding: 8px 0;
-  border-bottom: 1px solid #e8deef;
-  color: #564a6c;
-  font-size: 15px;
-}
-
-.aReviewPayRow .is-name,
-.aReviewPayRow .is-net {
-  color: #2f2050;
-  font-weight: 900;
-}
-
-.aReviewPayRow button {
+.aReviewRunSelect select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
   border: 0;
-  border-radius: 8px;
-  background: #7b4a8f;
-  color: #fff;
-  height: 30px;
-  font-size: 16px;
-  font-weight: 800;
-  padding: 0 10px;
-  width: fit-content;
-}
-
-.aReviewPayRow--total {
-  font-weight: 900;
+  background: transparent;
+  padding: 0 40px 0 12px;
   color: #2f2050;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
 }
 
-.aReviewPayRow--empty {
-  color: #6c5d84;
+.aReviewRunSelect select:focus {
+  outline: none;
 }
 
-.aReviewPayModalBackdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(32, 18, 50, 0.46);
+.aReviewRunSelect--view {
+  min-width: 224px;
+}
+
+.aReviewRunTable {
+  border: 1.5px solid var(--hr-border);
+  border-radius: 12px;
+  background: var(--hr-surface);
+  box-shadow: var(--hr-shadow);
+  overflow: hidden;
+}
+
+.aReviewRunTable__head {
+  background: var(--hr-primary-soft);
+  border-bottom: 1px solid var(--hr-line);
+  padding: 10px 14px;
   display: grid;
-  place-items: center;
-  padding: 24px;
-  z-index: 50;
+  align-items: center;
+  color: var(--hr-primary-dark);
+  font-size: 16px;
+  font-weight: 900;
+  font-family: var(--font-heading);
 }
 
-.aReviewPayModal {
-  position: relative;
-  width: min(720px, 100%);
-  border-radius: 16px;
-  background: #fff;
-  border: 1.5px solid #dacde7;
-  box-shadow: 0 18px 48px rgba(52, 30, 76, 0.2);
-  padding: 22px;
+.aReviewRunTable__head--employee {
+  grid-template-columns: 120px minmax(220px, 1.45fr) minmax(140px, 1fr) minmax(140px, 1fr) minmax(132px, 152px);
+  gap: 12px;
+}
+
+.aReviewRunTable__head--employee span:nth-child(3),
+.aReviewRunTable__head--employee span:nth-child(4) {
+  text-align: right;
+}
+
+.aReviewRunTable__headCell--action {
+  text-align: center;
+}
+
+.aReviewRunTable__body {
+  padding: 0 14px;
+}
+
+.aReviewRunSplitTables {
   display: grid;
   gap: 14px;
 }
 
-.aReviewPayModal h2 {
-  margin: 0;
-  color: #2f2050;
-  font-size: 24px;
-  font-weight: 900;
+.aReviewRunTable__body--summary {
+  padding: 0;
 }
 
-.aReviewPayModal p {
-  margin: 0;
-  color: #65597c;
-  font-size: 14px;
-}
-
-.aReviewPayModal__close {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  border: 0;
-  background: transparent;
-  color: #7b4a8f;
-  font-size: 24px;
-}
-
-.aReviewPayModal__grid {
+.aReviewRunEmployee {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--hr-line);
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 120px minmax(220px, 1.45fr) minmax(140px, 1fr) minmax(140px, 1fr) minmax(132px, 152px);
   gap: 12px;
+  align-items: center;
 }
 
-.aReviewPayModal__grid label {
+.aReviewRunEmployee--interactive {
+  width: 100%;
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.aReviewRunEmployee--interactive:hover {
+  background: #f8f3fc;
+}
+
+.aReviewRunEmployee--interactive:disabled {
+  cursor: default;
+}
+
+.aReviewRunEmployee__id {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--hr-muted);
+  font-family: var(--font-heading);
+}
+
+.aReviewRunEmployee__name {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--hr-text);
+  font-family: var(--font-heading);
+}
+
+.aReviewRunEmployee__name,
+.aReviewRunEmployee__id {
+  text-align: left;
+}
+
+.aReviewRunEmployee__gross,
+.aReviewRunEmployee__value {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--hr-text);
+  text-align: right;
+}
+
+.aReviewRunEmployee__action {
+  display: flex;
+  justify-content: center;
+}
+
+.aReviewRunPreviewPill {
+  border: 1px solid rgba(123, 74, 143, 0.16);
+  border-radius: 999px;
+  background: rgba(123, 74, 143, 0.12);
+  color: #5d3676;
+  min-height: 34px;
+  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+  font-family: var(--font-heading);
+}
+
+.aReviewRunEmployee--interactive:disabled .aReviewRunPreviewPill {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.aReviewRunTable--summaryView {
+  background: var(--hr-surface);
+  border: 1.5px solid var(--hr-border);
+  box-shadow: var(--hr-shadow);
+}
+
+.aReviewRunTable__head--payType {
+  grid-template-columns: minmax(220px, 1fr) minmax(140px, 180px);
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--hr-primary-soft);
+  border-bottom: 1px solid var(--hr-line);
+  box-shadow: none;
+  font-size: 16px;
+  font-weight: 900;
+  color: var(--hr-primary-dark);
+}
+
+.aReviewRunTable__head--payType span:last-child {
+  text-align: right;
+}
+
+.aReviewRunTypeRow {
   display: grid;
-  gap: 4px;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--hr-line);
+  font-size: 15px;
+  color: var(--hr-text);
 }
 
-.aReviewPayModal__grid span {
-  color: #5b4f72;
+.aReviewRunTypeRow--table {
+  grid-template-columns: minmax(220px, 1fr) minmax(140px, 180px);
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.aReviewRunTypeRow__label {
+  min-width: 0;
+  font-weight: 700;
+  font-family: var(--font-heading);
+}
+
+.aReviewRunTypeRow__value {
+  text-align: right;
+  font-weight: 500;
+}
+
+.aReviewRunGroup__head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 14px 10px;
+  background: #fff;
+  border-bottom: 1px solid var(--hr-line);
+}
+
+.aReviewRunGroup__titleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.aReviewRunGroup__title {
+  color: var(--hr-primary-dark);
+  font-size: 15px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-family: var(--font-heading);
+}
+
+.aReviewRunGroup__caption {
+  color: #6a627c;
   font-size: 12px;
   font-weight: 700;
 }
 
-.aReviewPayModal__grid input {
-  height: 38px;
-  border-radius: 8px;
-  border: 1px solid #b7a5cc;
-  background: #f7f2fb;
-  color: #564570;
-  font-size: 13px;
+.aReviewRunGroup__total {
+  color: #241b34;
+  font-size: 16px;
+  font-weight: 900;
+  text-align: right;
+  font-family: var(--font-heading);
+}
+
+.aReviewRunEmpty {
+  padding: 18px 0 16px;
+  color: #554f63;
+  font-size: 15px;
   font-weight: 700;
-  padding: 0 12px;
 }
 
-.aReviewPayModal__actions {
+.aReviewRunEmpty--group {
+  padding: 14px 12px;
+}
+
+.aReviewRunModalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 3000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.aReviewRunModal {
+  width: min(920px, 96vw);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(123, 74, 143, 0.1), transparent 28%),
+    linear-gradient(180deg, #ffffff 0%, #fbf8fe 100%);
+  border: 1px solid rgba(77, 52, 104, 0.18);
+  padding: 18px 18px 16px;
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.22);
+}
+
+.aReviewRunModal__top {
   display: flex;
-  justify-content: flex-end;
-  gap: 10px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
 }
 
-.aReviewPayModal__actions button {
+.aReviewRunModal__heading {
+  min-width: 0;
+}
+
+.aReviewRunModal__title {
+  margin: 0;
+  color: var(--hr-primary-dark);
+  font-size: clamp(24px, 2vw, 30px);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+  font-family: var(--font-heading);
+}
+
+.aReviewRunModal__subtitle {
+  margin: 7px 0 0;
+  color: rgba(43, 32, 54, 0.72);
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.55;
+  max-width: 680px;
+}
+
+.aReviewRunModal__close {
   border: 0;
-  border-radius: 8px;
-  background: #7b4a8f;
-  color: #fff;
-  height: 36px;
-  padding: 0 14px;
+  background: transparent;
+  color: #5f2f78;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.aReviewRunModal__close svg {
+  width: 24px;
+  height: 24px;
+}
+
+.aReviewRunModal__rule {
+  margin: 10px 0 16px;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.aReviewRunModal__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+}
+
+.aReviewRunModal__grid label {
+  display: grid;
+  gap: 8px;
+}
+
+.aReviewRunModal__grid label span {
+  color: #6a4e88;
   font-size: 13px;
   font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-family: var(--font-heading);
 }
 
-@media (max-width: 1100px) {
-  .aReviewPay__filters {
-    grid-template-columns: 1fr;
+.aReviewRunModal__grid input {
+  border: 1px solid rgba(123, 74, 143, 0.16);
+  border-radius: 14px;
+  background: #fff;
+  color: #342743;
+  font-size: 15px;
+  min-height: 46px;
+  padding: 0 14px;
+  width: 100%;
+  font-family: var(--font-body);
+}
+
+.aReviewRunBreakdownTotals {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.aReviewRunBreakdownTotals__card {
+  border: 1px solid rgba(123, 74, 143, 0.14);
+  border-radius: 14px;
+  background: #faf7ff;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.aReviewRunBreakdownTotals__card span {
+  color: #665c7b;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: var(--font-heading);
+}
+
+.aReviewRunBreakdownTotals__card strong {
+  color: #2a1c42;
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.aReviewRunModal__intro,
+.aReviewRunModal__message {
+  margin: 14px 0 0;
+  color: #544a69;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.aReviewRunModal__message {
+  color: #a63f4d;
+  font-weight: 700;
+}
+
+.aReviewRunBreakdown {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.aReviewRunBreakdown__section {
+  border: 1px solid rgba(123, 74, 143, 0.14);
+  border-radius: 14px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.aReviewRunBreakdown__head {
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid rgba(123, 74, 143, 0.12);
+  background: #faf7ff;
+}
+
+.aReviewRunBreakdown__head h3 {
+  margin: 0;
+  color: #3c2856;
+  font-size: 16px;
+  font-weight: 900;
+  font-family: var(--font-heading);
+}
+
+.aReviewRunBreakdown__head span {
+  color: #705b8a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.aReviewRunBreakdown__list {
+  display: grid;
+}
+
+.aReviewRunBreakdown__row {
+  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  border-bottom: 1px solid rgba(123, 74, 143, 0.1);
+}
+
+.aReviewRunBreakdown__row:last-child {
+  border-bottom: 0;
+}
+
+.aReviewRunBreakdown__row strong {
+  display: block;
+  color: #2e2445;
+  font-size: 15px;
+  font-weight: 800;
+  font-family: var(--font-heading);
+}
+
+.aReviewRunBreakdown__row span {
+  display: block;
+  margin-top: 4px;
+  color: #6a627c;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.aReviewRunBreakdown__amounts {
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+  text-align: right;
+}
+
+.aReviewRunBreakdown__amounts small {
+  color: #7a728b;
+  font-size: 12px;
+}
+
+.aReviewRunBreakdown__amounts strong {
+  color: #2b1f3f;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.aReviewRunBreakdown__empty {
+  padding: 14px;
+  color: #655c78;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+@media (max-width: 1200px) {
+  .aReviewRun__top h1 {
+    font-size: 22px;
   }
 
-  .aReviewPayTable__head,
-  .aReviewPayRow {
+  .aReviewRunSelect select {
+    font-size: 16px;
+  }
+
+  .aReviewRunFilters {
     grid-template-columns: 1fr 1fr;
   }
 
-  .aReviewPayModal__grid {
-    grid-template-columns: 1fr;
+  .aReviewRunFilters__field label {
+    font-size: 15px;
+  }
+
+  .aReviewRunSearch input {
+    font-size: 16px;
+  }
+
+  .aReviewRunTable__head {
+    font-size: 15px;
+  }
+
+  .aReviewRunEmployee__id,
+  .aReviewRunEmployee__name,
+  .aReviewRunEmployee__gross,
+  .aReviewRunEmployee__value,
+  .aReviewRunTypeRow {
+    font-size: 16px;
   }
 }
 
+@media (max-width: 760px) {
+  .aReviewRun__top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .aReviewRunFilters {
+    grid-template-columns: 1fr;
+  }
+
+  .aReviewRunSelect,
+  .aReviewRunSelect--view {
+    width: 100%;
+    min-width: 100%;
+  }
+
+  .aReviewRunTable__head--employee,
+  .aReviewRunEmployee {
+    grid-template-columns: 110px minmax(180px, 1fr) minmax(110px, 1fr) minmax(110px, 1fr) minmax(124px, 136px);
+    gap: 8px;
+  }
+
+  .aReviewRunTable__head--payType,
+  .aReviewRunTypeRow--table {
+    grid-template-columns: minmax(160px, 1fr) minmax(110px, 150px);
+    gap: 8px;
+  }
+
+  .aReviewRunModal__grid,
+  .aReviewRunBreakdown,
+  .aReviewRunBreakdownTotals {
+    grid-template-columns: 1fr;
+  }
+}
