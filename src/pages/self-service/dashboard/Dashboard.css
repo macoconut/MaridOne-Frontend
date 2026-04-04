@@ -66,27 +66,33 @@ body.modal-open{
 
 .infoCardX__grid{
   display:grid;
-  grid-template-columns: 340px 1px 1fr 1px 260px;
-  gap: 16px;
+  grid-template-columns: minmax(320px, 0.95fr) 1px minmax(0, 1.35fr) 1px minmax(260px, 0.9fr);
+  gap: 22px;
   align-items:center;
 }
 
 .infoCardX__divider{
   width:1px;
-  height: 124px;
+  height: 148px;
   background: rgba(0,0,0,.28);
 }
 
 /* left */
 .infoCardX__left{
   display:flex;
-  gap: 16px;
+  gap: 22px;
   align-items:center;
+  min-width: 0;
 }
 
 .infoCardX__photo{
-  width: 92px;
-  height: 92px;
+  width: 124px;
+  height: 124px;
+  min-width: 124px;
+  min-height: 124px;
+  flex: 0 0 124px;
+  aspect-ratio: 1 / 1;
+  flex-shrink: 0;
   border-radius: 50%;
   background: center / cover no-repeat url('/images/default-pfp.jpg');
   border: 1px solid rgba(0,0,0,.18);
@@ -95,8 +101,10 @@ body.modal-open{
 .infoCardX__name{
   font-weight: 900;
   color: var(--ink);
-  font-size: 20px;
-  line-height: 1.05;
+  font-size: 28px;
+  line-height: 1.02;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* middle */
