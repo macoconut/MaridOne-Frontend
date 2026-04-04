@@ -72,15 +72,6 @@ export default function AccountSecuritySection({
 
   return (
     <section className="dashSecurity">
-      <div className="dashSecurity__header">
-        <div>
-          <div className="dashSecurity__title">Account Security</div>
-          <p className="dashSecurity__copy">
-            Verify your email address and protect sign-in with an authenticator app.
-          </p>
-        </div>
-      </div>
-
       <div className="dashSecurity__grid">
         <article className="dashSecurityCard">
           <div className="dashSecurityCard__head">

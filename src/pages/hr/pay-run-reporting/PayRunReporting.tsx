@@ -28,6 +28,17 @@ type PayrollItemRow = {
   netPay?: number | string;
 };
 
+type PayrollBreakdownLine = {
+  key: string;
+  lineId: number;
+  lineType: 'EARNING' | 'DEDUCTION';
+  label: string;
+  amount: string;
+  originalAmount?: string;
+  adjustedBy?: string;
+  adjustedAt?: string;
+};
+
 type AdjustmentKind = 'EARNING' | 'DEDUCTION';
 
 type PayTypeSummaryRow = {
@@ -43,12 +54,12 @@ function formatCurrency(value: unknown) {
     maximumFractionDigits: 2,
   };
 
-  if (typeof value === 'number' && Number.isFinite(value)) return value.toLocaleString(undefined, options);
+  if (typeof value === 'number' && Number.isFinite(value)) return `P${value.toLocaleString(undefined, options)}`;
   if (typeof value === 'string' && value.trim().length > 0) {
     const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed.toLocaleString(undefined, options) : value;
+    return Number.isFinite(parsed) ? `P${parsed.toLocaleString(undefined, options)}` : value;
   }
-  return (0).toLocaleString(undefined, options);
+  return `P${(0).toLocaleString(undefined, options)}`;
 }
 
 function toAmount(value: unknown) {
@@ -68,6 +79,19 @@ function formatDate(value?: string) {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
+  });
+}
+
+function formatDateTime(value?: string) {
+  if (!value) return 'Not available';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
   });
 }
 
@@ -92,6 +116,22 @@ function toSortStamp(value?: string) {
   if (!value) return 0;
   const parsed = Date.parse(value);
   return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function toMoneyString(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value.toFixed(2);
+  if (typeof value === 'string' && value.trim().length > 0) return value;
+  return '0.00';
+}
+
+function toOptionalMoneyString(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value.toFixed(2);
+  if (typeof value === 'string' && value.trim().length > 0) return value;
+  return undefined;
+}
+
+function toOptionalText(value: unknown) {
+  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 }
 
 function compareRunsDescending(a: PayrollRunRow, b: PayrollRunRow) {
@@ -171,6 +211,11 @@ export default function HrPayRunReporting() {
   const [selectedPayId, setSelectedPayId] = useState<number | null>(null);
   const [employeeRows, setEmployeeRows] = useState<PayrollItemRow[]>([]);
   const [payTypeRows, setPayTypeRows] = useState<PayTypeSummaryRow[]>([]);
+  const [selectedBreakdownItem, setSelectedBreakdownItem] = useState<PayrollItemRow | null>(null);
+  const [selectedBreakdownEarnings, setSelectedBreakdownEarnings] = useState<PayrollBreakdownLine[]>([]);
+  const [selectedBreakdownDeductions, setSelectedBreakdownDeductions] = useState<PayrollBreakdownLine[]>([]);
+  const [isLoadingBreakdown, setIsLoadingBreakdown] = useState(false);
+  const [breakdownError, setBreakdownError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [refreshTick, setRefreshTick] = useState(0);
@@ -269,6 +314,16 @@ export default function HrPayRunReporting() {
     () => runs.find((run) => run.payId === selectedPayId) ?? null,
     [runs, selectedPayId]
   );
+
+  const selectedBreakdownGross = selectedBreakdownItem ? toAmount(selectedBreakdownItem.grossPay) : 0;
+  const selectedBreakdownNet = selectedBreakdownItem ? toAmount(selectedBreakdownItem.netPay) : 0;
+  const selectedBreakdownDeductionsTotal = useMemo(() => {
+    if (!selectedBreakdownItem) return 0;
+    if (selectedBreakdownDeductions.length > 0) {
+      return selectedBreakdownDeductions.reduce((sum, line) => sum + toAmount(line.amount), 0);
+    }
+    return Math.max(selectedBreakdownGross - selectedBreakdownNet, 0);
+  }, [selectedBreakdownDeductions, selectedBreakdownGross, selectedBreakdownItem, selectedBreakdownNet]);
 
   const normalizedFilter = filterValue.trim().toLowerCase();
 
@@ -375,6 +430,60 @@ export default function HrPayRunReporting() {
   const currentReportCsv = useMemo(() => {
     return currentReportRows.map((row) => row.map(toCsvValue).join(',')).join('\r\n');
   }, [currentReportRows]);
+
+  const closeBreakdownModal = useCallback(() => {
+    setSelectedBreakdownItem(null);
+    setSelectedBreakdownEarnings([]);
+    setSelectedBreakdownDeductions([]);
+    setBreakdownError('');
+    setIsLoadingBreakdown(false);
+  }, []);
+
+  useEffect(() => {
+    closeBreakdownModal();
+  }, [closeBreakdownModal, selectedPayId, view]);
+
+  function mapBreakdownLines(response: unknown, lineType: PayrollBreakdownLine['lineType']) {
+    return toArray<Record<string, unknown>>(response)
+      .map((row, idx) => ({
+        key: `${lineType}-${String(row.earningsId ?? row.deductionsId ?? idx + 1)}`,
+        lineId: Number(row.earningsId ?? row.deductionsId),
+        lineType,
+        label:
+          lineType === 'EARNING'
+            ? String(row.description ?? `Earning ${idx + 1}`)
+            : String(row.description ?? row.deductionType ?? `Deduction ${idx + 1}`),
+        amount: toMoneyString(row.amount),
+        originalAmount: toOptionalMoneyString(row.originalAmount),
+        adjustedBy: toOptionalText(row.adjustedBy),
+        adjustedAt: toOptionalText(row.adjustedAt),
+      }))
+      .filter((line) => Number.isFinite(line.lineId) && line.lineId > 0);
+  }
+
+  async function openBreakdownModal(row: PayrollItemRow) {
+    if (typeof row.itemId !== 'number') return;
+
+    setSelectedBreakdownItem(row);
+    setSelectedBreakdownEarnings([]);
+    setSelectedBreakdownDeductions([]);
+    setBreakdownError('');
+    setIsLoadingBreakdown(true);
+
+    try {
+      const [earningsResponse, deductionsResponse] = await Promise.all([
+        apiFetchJson<unknown>(`/api/payroll/item/earnings/${row.itemId}`),
+        apiFetchJson<unknown>(`/api/payroll/item/deductions/${row.itemId}`),
+      ]);
+
+      setSelectedBreakdownEarnings(mapBreakdownLines(earningsResponse, 'EARNING'));
+      setSelectedBreakdownDeductions(mapBreakdownLines(deductionsResponse, 'DEDUCTION'));
+    } catch (error) {
+      setBreakdownError(getFriendlyErrorMessage(error, 'payroll-run'));
+    } finally {
+      setIsLoadingBreakdown(false);
+    }
+  }
 
   function downloadCurrentReport() {
     const blob = new Blob([currentReportCsv], { type: 'text/csv;charset=utf-8;' });
@@ -491,17 +600,29 @@ export default function HrPayRunReporting() {
             <span>Employee Name</span>
             <span>Gross Pay</span>
             <span>Net Pay</span>
+            <span className="hrRunTable__headCell--action">Details</span>
           </div>
 
           <div className="hrRunTable__body">
             {!isLoading && visibleEmployeeRows.length > 0 ? (
               visibleEmployeeRows.map((row, index) => (
-                <article key={`${row.itemId ?? row.empId ?? index}`} className="hrRunEmployee">
+                <button
+                  key={`${row.itemId ?? row.empId ?? index}`}
+                  type="button"
+                  className="hrRunEmployee hrRunEmployee--interactive"
+                  onClick={() => void openBreakdownModal(row)}
+                  disabled={typeof row.itemId !== 'number'}
+                >
                   <div className="hrRunEmployee__id">{row.empId ?? '-'}</div>
                   <div className="hrRunEmployee__name">{formatEmployeeName(row)}</div>
                   <div className="hrRunEmployee__gross">{formatCurrency(row.grossPay)}</div>
                   <div className="hrRunEmployee__value">{formatCurrency(row.netPay)}</div>
-                </article>
+                  <div className="hrRunEmployee__action">
+                    <span className="hrRunPreviewPill">
+                      {typeof row.itemId === 'number' ? 'View Breakdown' : 'Unavailable'}
+                    </span>
+                  </div>
+                </button>
               ))
             ) : (
               <article className="hrRunEmpty">
@@ -575,6 +696,136 @@ export default function HrPayRunReporting() {
               </div>
             </section>
           )}
+        </div>
+      )}
+
+      {selectedBreakdownItem && (
+        <div className="hrRunModalBackdrop" role="dialog" aria-modal="true" aria-label="Payroll item breakdown">
+          <article className="hrRunModal">
+            <div className="hrRunModal__top">
+              <div className="hrRunModal__heading">
+                <h2 className="hrRunModal__title">{formatEmployeeName(selectedBreakdownItem)} - Payslip Breakdown</h2>
+                <p className="hrRunModal__subtitle">
+                  Review the current earnings, deductions, and totals before posting this in-progress payroll item.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="hrRunModal__close"
+                aria-label="Close payroll item breakdown"
+                onClick={closeBreakdownModal}
+              >
+                <FiXCircle />
+              </button>
+            </div>
+            <div className="hrRunModal__rule" />
+
+            <div className="hrRunModal__grid">
+              <label>
+                <span>Payroll Item</span>
+                <input value={`#${selectedBreakdownItem.itemId ?? '-'}`} readOnly />
+              </label>
+              <label>
+                <span>Run Status</span>
+                <input value={selectedRun?.payrollStatus ?? 'Unknown'} readOnly />
+              </label>
+              <label>
+                <span>Pay Period</span>
+                <input value={selectedRun ? formatRunLabel(selectedRun) : 'Payroll period unavailable'} readOnly />
+              </label>
+              <label>
+                <span>Run Type</span>
+                <input value={selectedRun?.runType ?? 'Unknown'} readOnly />
+              </label>
+            </div>
+
+            <div className="hrRunBreakdownTotals">
+              <div className="hrRunBreakdownTotals__card">
+                <span>Gross Pay</span>
+                <strong>{formatCurrency(selectedBreakdownGross)}</strong>
+              </div>
+              <div className="hrRunBreakdownTotals__card">
+                <span>Total Deductions</span>
+                <strong>{formatCurrency(selectedBreakdownDeductionsTotal)}</strong>
+              </div>
+              <div className="hrRunBreakdownTotals__card">
+                <span>Net Pay</span>
+                <strong>{formatCurrency(selectedBreakdownNet)}</strong>
+              </div>
+            </div>
+
+            {isLoadingBreakdown ? (
+              <p className="hrRunModal__intro">
+                Loading the payroll lines for this employee so the full payslip breakdown can be reviewed.
+              </p>
+            ) : (
+              <>
+                {breakdownError && <p className="hrRunModal__message">{breakdownError}</p>}
+
+                <div className="hrRunBreakdown">
+                  <section className="hrRunBreakdown__section">
+                    <div className="hrRunBreakdown__head">
+                      <h3>Earnings</h3>
+                      <span>{selectedBreakdownEarnings.length} line(s)</span>
+                    </div>
+                    <div className="hrRunBreakdown__list">
+                      {selectedBreakdownEarnings.length > 0 ? (
+                        selectedBreakdownEarnings.map((line) => (
+                          <div key={line.key} className="hrRunBreakdown__row">
+                            <div>
+                              <strong>{line.label}</strong>
+                              {(line.adjustedBy || line.adjustedAt) && (
+                                <span>
+                                  {line.adjustedBy ? `Adjusted by ${line.adjustedBy}` : 'Adjusted'}{' '}
+                                  {line.adjustedAt ? `on ${formatDateTime(line.adjustedAt)}` : ''}
+                                </span>
+                              )}
+                            </div>
+                            <div className="hrRunBreakdown__amounts">
+                              {line.originalAmount && <small>Original: {formatCurrency(line.originalAmount)}</small>}
+                              <strong>{formatCurrency(line.amount)}</strong>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="hrRunBreakdown__empty">No earnings were returned for this payroll item.</div>
+                      )}
+                    </div>
+                  </section>
+
+                  <section className="hrRunBreakdown__section">
+                    <div className="hrRunBreakdown__head">
+                      <h3>Deductions</h3>
+                      <span>{selectedBreakdownDeductions.length} line(s)</span>
+                    </div>
+                    <div className="hrRunBreakdown__list">
+                      {selectedBreakdownDeductions.length > 0 ? (
+                        selectedBreakdownDeductions.map((line) => (
+                          <div key={line.key} className="hrRunBreakdown__row">
+                            <div>
+                              <strong>{line.label}</strong>
+                              {(line.adjustedBy || line.adjustedAt) && (
+                                <span>
+                                  {line.adjustedBy ? `Adjusted by ${line.adjustedBy}` : 'Adjusted'}{' '}
+                                  {line.adjustedAt ? `on ${formatDateTime(line.adjustedAt)}` : ''}
+                                </span>
+                              )}
+                            </div>
+                            <div className="hrRunBreakdown__amounts">
+                              {line.originalAmount && <small>Original: {formatCurrency(line.originalAmount)}</small>}
+                              <strong>{formatCurrency(line.amount)}</strong>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="hrRunBreakdown__empty">No deductions were returned for this payroll item.</div>
+                      )}
+                    </div>
+                  </section>
+                </div>
+              </>
+            )}
+          </article>
         </div>
       )}
 

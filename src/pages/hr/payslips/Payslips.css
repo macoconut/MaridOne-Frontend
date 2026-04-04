@@ -529,16 +529,24 @@ body.modal-open {
 
 .hrPayModal h3 {
   margin: 0;
-  text-align: center;
   color: var(--hr-primary-dark);
   font-size: 28px;
   font-weight: 900;
 }
 
+.hrPayModal__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hrPayModal__heading {
+  min-width: 0;
+}
+
 .hrPayModal__close {
-  position: absolute;
-  top: 14px;
-  right: 14px;
+  position: static;
   width: 38px;
   height: 38px;
   border: 0;
@@ -551,12 +559,13 @@ body.modal-open {
 }
 
 .hrPayModal__subtitle {
-  margin: 8px 0 0;
-  text-align: center;
-  color: #5d5472;
+  margin: 7px 0 0;
+  text-align: left;
+  color: rgba(43, 32, 54, 0.72);
   font-size: 15px;
-  font-weight: 600;
-  line-height: 1.5;
+  font-weight: 400;
+  line-height: 1.55;
+  max-width: 680px;
 }
 
 .hrPayModal__rule {

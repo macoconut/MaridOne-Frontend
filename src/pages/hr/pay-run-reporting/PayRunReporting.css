@@ -157,13 +157,17 @@
 }
 
 .hrRunTable__head--employee {
-  grid-template-columns: 120px minmax(220px, 1.6fr) minmax(140px, 1fr) minmax(140px, 1fr);
+  grid-template-columns: 120px minmax(220px, 1.45fr) minmax(140px, 1fr) minmax(140px, 1fr) minmax(132px, 152px);
   gap: 12px;
 }
 
 .hrRunTable__head--employee span:nth-child(3),
 .hrRunTable__head--employee span:nth-child(4) {
   text-align: right;
+}
+
+.hrRunTable__headCell--action {
+  text-align: center;
 }
 
 .hrRunTable__body {
@@ -188,9 +192,27 @@
   padding: 12px 0;
   border-bottom: 1px solid var(--hr-line);
   display: grid;
-  grid-template-columns: 120px minmax(220px, 1.6fr) minmax(140px, 1fr) minmax(140px, 1fr);
+  grid-template-columns: 120px minmax(220px, 1.45fr) minmax(140px, 1fr) minmax(140px, 1fr) minmax(132px, 152px);
   gap: 12px;
   align-items: center;
+}
+
+.hrRunEmployee--interactive {
+  width: 100%;
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hrRunEmployee--interactive:hover {
+  background: #f8f3fc;
+}
+
+.hrRunEmployee--interactive:disabled {
+  cursor: default;
 }
 
 .hrRunEmployee__id {
@@ -213,9 +235,35 @@
 .hrRunEmployee__gross,
 .hrRunEmployee__value {
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 500;
   color: var(--hr-text);
   text-align: right;
+}
+
+.hrRunEmployee__action {
+  display: flex;
+  justify-content: center;
+}
+
+.hrRunPreviewPill {
+  border: 1px solid rgba(123, 74, 143, 0.16);
+  border-radius: 999px;
+  background: rgba(123, 74, 143, 0.12);
+  color: #5d3676;
+  min-height: 34px;
+  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+  cursor: pointer;
+}
+
+.hrRunPreviewPill:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .hrRunTable--summaryView {
@@ -264,7 +312,7 @@
 
 .hrRunTypeRow__value {
   text-align: right;
-  font-weight: 800;
+  font-weight: 500;
 }
 
 .hrRunTypeRow--total {
@@ -345,6 +393,247 @@
   cursor: pointer;
 }
 
+.hrRunModalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 3000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.hrRunModal {
+  width: min(920px, 96vw);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(123, 74, 143, 0.1), transparent 28%),
+    linear-gradient(180deg, #ffffff 0%, #fbf8fe 100%);
+  border: 1px solid rgba(77, 52, 104, 0.18);
+  padding: 18px 18px 16px;
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.22);
+}
+
+.hrRunModal__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hrRunModal__heading {
+  min-width: 0;
+}
+
+.hrRunModal__title {
+  margin: 0;
+  color: var(--hr-primary-dark);
+  font-size: clamp(24px, 2vw, 30px);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+}
+
+.hrRunModal__subtitle {
+  margin: 7px 0 0;
+  color: rgba(43, 32, 54, 0.72);
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.55;
+  max-width: 680px;
+}
+
+.hrRunModal__close {
+  border: 0;
+  background: transparent;
+  color: #5f2f78;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.hrRunModal__close svg {
+  width: 24px;
+  height: 24px;
+}
+
+.hrRunModal__rule {
+  margin: 10px 0 16px;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.hrRunModal__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+}
+
+.hrRunModal__grid label {
+  display: grid;
+  gap: 8px;
+}
+
+.hrRunModal__grid label span {
+  color: #6a4e88;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.hrRunModal__grid input {
+  border: 1px solid rgba(123, 74, 143, 0.16);
+  border-radius: 14px;
+  background: #fff;
+  color: #342743;
+  font-size: 15px;
+  min-height: 46px;
+  padding: 0 14px;
+  width: 100%;
+}
+
+.hrRunBreakdownTotals {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.hrRunBreakdownTotals__card {
+  border: 1px solid rgba(123, 74, 143, 0.14);
+  border-radius: 14px;
+  background: #faf7ff;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hrRunBreakdownTotals__card span {
+  color: #665c7b;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.hrRunBreakdownTotals__card strong {
+  color: #2a1c42;
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.hrRunModal__intro,
+.hrRunModal__message {
+  margin: 14px 0 0;
+  color: #544a69;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.hrRunModal__message {
+  color: #a63f4d;
+  font-weight: 700;
+}
+
+.hrRunBreakdown {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.hrRunBreakdown__section {
+  border: 1px solid rgba(123, 74, 143, 0.14);
+  border-radius: 14px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.hrRunBreakdown__head {
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid rgba(123, 74, 143, 0.12);
+  background: #faf7ff;
+}
+
+.hrRunBreakdown__head h3 {
+  margin: 0;
+  color: #3c2856;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.hrRunBreakdown__head span {
+  color: #705b8a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.hrRunBreakdown__list {
+  display: grid;
+}
+
+.hrRunBreakdown__row {
+  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  border-bottom: 1px solid rgba(123, 74, 143, 0.1);
+}
+
+.hrRunBreakdown__row:last-child {
+  border-bottom: 0;
+}
+
+.hrRunBreakdown__row strong {
+  display: block;
+  color: #2e2445;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.hrRunBreakdown__row span {
+  display: block;
+  margin-top: 4px;
+  color: #6a627c;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.hrRunBreakdown__amounts {
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+  text-align: right;
+}
+
+.hrRunBreakdown__amounts small {
+  color: #7a728b;
+  font-size: 12px;
+}
+
+.hrRunBreakdown__amounts strong {
+  color: #2b1f3f;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.hrRunBreakdown__empty {
+  padding: 14px;
+  color: #655c78;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
 @media (max-width: 1200px) {
   .hrRun__top h1 {
     font-size: 22px;
@@ -403,7 +692,7 @@
 
   .hrRunTable__head--employee,
   .hrRunEmployee {
-    grid-template-columns: 110px minmax(180px, 1fr) minmax(110px, 1fr) minmax(110px, 1fr);
+    grid-template-columns: 110px minmax(180px, 1fr) minmax(110px, 1fr) minmax(110px, 1fr) minmax(124px, 136px);
     gap: 8px;
   }
 
@@ -416,6 +705,12 @@
   .hrRunActions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .hrRunModal__grid,
+  .hrRunBreakdown,
+  .hrRunBreakdownTotals {
+    grid-template-columns: 1fr;
   }
 }
 

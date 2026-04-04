@@ -1506,19 +1506,22 @@ export default function HrPayslips() {
       {selectedPayrollItem && (
         <div className="hrPayModalBackdrop" role="dialog" aria-modal="true" aria-label="Payroll item breakdown">
           <article className="hrPayModal">
-            <button
-              type="button"
-              className="hrPayModal__close"
-              aria-label="Close payroll item breakdown"
-              onClick={() => setSelectedPayrollItem(null)}
-            >
-              X
-            </button>
-            <h3>{selectedPayrollItem.employee} - Payslip Breakdown</h3>
-            <p className="hrPayModal__subtitle">
-              Review the current earnings, deductions, and totals for this in-progress payroll item before posting the
-              run.
-            </p>
+            <div className="hrPayModal__top">
+              <div className="hrPayModal__heading">
+                <h3>{selectedPayrollItem.employee} - Payslip Breakdown</h3>
+                <p className="hrPayModal__subtitle">
+                  Review the current earnings, deductions, and totals before posting this in-progress payroll item.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="hrPayModal__close"
+                aria-label="Close payroll item breakdown"
+                onClick={() => setSelectedPayrollItem(null)}
+              >
+                X
+              </button>
+            </div>
             <div className="hrPayModal__rule" />
 
             <div className="hrPayModal__grid">

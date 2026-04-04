@@ -57,6 +57,11 @@ type DisputeRow = {
   createdAt?: string;
   updatedAt?: string;
   statusReason?: string;
+  approver?: string;
+  approverName?: string;
+  reviewedBy?: string;
+  handledBy?: string;
+  decidedBy?: string;
   itemId?: number;
 };
 
@@ -69,11 +74,15 @@ type PayrollItemRow = {
   };
 };
 
-function extractApprover(statusReason?: string) {
-  if (!statusReason) return '-';
-  const byMatch = statusReason.match(/\bby\s+(.+)$/i);
-  if (byMatch?.[1]) return byMatch[1].trim();
-  return statusReason.trim() || '-';
+function resolveDisputeApprover(row: DisputeRow) {
+  const directApprover =
+    row.approver?.trim() ||
+    row.approverName?.trim() ||
+    row.reviewedBy?.trim() ||
+    row.handledBy?.trim() ||
+    row.decidedBy?.trim();
+
+  return directApprover || '-';
 }
 
 function formatDateTime(value?: string) {
@@ -261,7 +270,7 @@ export default function Approval() {
                 ? payrollPeriodByItemId.get(row.itemId) ?? 'Payroll period unavailable'
                 : 'Payroll period unavailable',
             status,
-            approvedBy: status === 'Pending' ? '-' : extractApprover(row.statusReason),
+            approvedBy: status === 'Pending' ? '-' : resolveDisputeApprover(row),
             requestReason: row.reason ?? '-',
             decisionReason: row.statusReason ?? '-',
             decisionDate: formatDateTime(row.updatedAt),
