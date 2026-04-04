@@ -136,12 +136,6 @@ export default function Training() {
           </section>
         )}
       </div>
-
-      {actionError ? (
-        <p className="trainingPage__error" role="alert">
-          {actionError}
-        </p>
-      ) : null}
     </div>
   );
 }

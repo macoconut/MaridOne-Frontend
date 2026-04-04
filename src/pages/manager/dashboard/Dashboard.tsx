@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import AccountSecuritySection from '../../../components/account/AccountSecuritySection';
 import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import {
   beginTwoFactorSetup,
@@ -208,6 +209,12 @@ export default function ManagerDashboard() {
 
   useErrorDialogEffect(editError, 'Profile changes could not be saved');
   useErrorDialogEffect(securityError, 'Security action could not be completed');
+  useEscapeDismiss(editOpen && !savingEdit, closeEditModal, 10);
+  useEscapeDismiss(
+    securityOpen && !(sendingVerification || startingTwoFactor || confirmingTwoFactor || disablingTwoFactor),
+    closeSecurityModal,
+    10
+  );
 
   useRegisterPageRefresh(handlePageRefresh);
 
@@ -737,8 +744,6 @@ export default function ManagerDashboard() {
         </div>
       </section>
 
-      {editError && <p className="dashEditError">{editError}</p>}
-
       {editOpen && (
         <div className="dashModalBackdrop" role="dialog" aria-modal="true" aria-label="Edit manager info">
           <div className="dashModal">
@@ -798,8 +803,6 @@ export default function ManagerDashboard() {
               </div>
             )}
 
-            {editError && <div className="dashModal__error">{editError}</div>}
-
             <div className="dashModal__actions">
               <button
                 type="button"
@@ -845,7 +848,6 @@ export default function ManagerDashboard() {
               twoFactorCode={twoFactorCode}
               setup={twoFactorSetup}
               statusMessage={securityMessage}
-              errorMessage={securityError}
               sendingVerification={sendingVerification}
               startingTwoFactor={startingTwoFactor}
               confirmingTwoFactor={confirmingTwoFactor}

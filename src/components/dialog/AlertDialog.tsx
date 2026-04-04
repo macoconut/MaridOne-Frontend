@@ -1,4 +1,5 @@
 import { useId } from 'react';
+import { useEscapeDismiss } from '../../hooks/useEscapeDismiss';
 import './AlertDialog.css';
 
 export type AlertDialogVariant = 'error' | 'info' | 'success';
@@ -28,6 +29,7 @@ export default function AlertDialog({
 }: AlertDialogProps) {
   const titleId = useId();
   const messageId = useId();
+  useEscapeDismiss(open, onClose, 200);
 
   if (!open) return null;
 

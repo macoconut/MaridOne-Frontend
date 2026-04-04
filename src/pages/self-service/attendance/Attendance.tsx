@@ -4,6 +4,7 @@ import './Attendance.css';
 import { FiCalendar, FiChevronLeft, FiChevronRight, FiPlusSquare, FiUpload, FiX } from 'react-icons/fi';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { ApiError, apiFetchJson, apiFetchRaw, toArray } from '../../../lib/api';
 import { getUserEmail, getUserRole } from '../../../lib/session';
@@ -385,6 +386,9 @@ export default function Attendance() {
   useErrorDialogEffect(clockError, 'Attendance action failed');
   useErrorDialogEffect(otSubmitError, 'Overtime request could not be submitted');
   useErrorDialogEffect(submitError, 'Leave request could not be submitted');
+  useEscapeDismiss(leaveOpen, closeLeave, 10);
+  useEscapeDismiss(otOpen, closeOt, 10);
+  useEscapeDismiss(requestViewOpen, closeRequestView, 10);
   const userRole = getUserRole();
   const canRequestOvertime = !['hr', 'management', 'manager'].includes(userRole ?? '');
   const maxOtEndDate = otStartDate ? addDays(otStartDate, 1) : '';
@@ -1042,7 +1046,6 @@ export default function Attendance() {
         </div>
       </div>
       {clockMessage && <p className="field__ok">{clockMessage}</p>}
-      {clockError && <p className="field__error">{clockError}</p>}
 
       <section className="attBalanceCard" aria-labelledby="att-leave-balances-title">
         <div className="attBalanceCard__header">
@@ -1342,7 +1345,6 @@ export default function Attendance() {
                   Submit
                 </button>
               </div>
-              {submitError && <p className="field__error">{submitError}</p>}
             </div>
           </div>
         </div>
@@ -1451,7 +1453,6 @@ export default function Attendance() {
                   Submit
                 </button>
               </div>
-              {otSubmitError && <p className="field__error">{otSubmitError}</p>}
             </div>
           </div>
         </div>

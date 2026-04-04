@@ -5,6 +5,7 @@ import AccountSecuritySection from '../../../components/account/AccountSecurityS
 import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
 import MaterialArt from '../../../components/document/MaterialArt';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import {
   beginTwoFactorSetup,
@@ -399,6 +400,14 @@ export default function Dashboard() {
   useErrorDialogEffect(createAnnouncementError, 'Announcement could not be created');
   useErrorDialogEffect(announcementActionError, 'Announcement action failed');
   useErrorDialogEffect(securityError, 'Security action could not be completed');
+  useEscapeDismiss(Boolean(selectedAnnouncementDay), closeAnnouncementDay, 10);
+  useEscapeDismiss(createAnnouncementOpen && !creatingAnnouncement, closeCreateAnnouncementModal, 10);
+  useEscapeDismiss(editOpen && !savingEdit, closeEditModal, 10);
+  useEscapeDismiss(
+    securityOpen && !(sendingVerification || startingTwoFactor || confirmingTwoFactor || disablingTwoFactor),
+    closeSecurityModal,
+    10
+  );
 
   useEffect(() => {
     setLastLoginLabel(formatJwtIssuedAt(getAuthToken()));
@@ -1143,8 +1152,6 @@ export default function Dashboard() {
           </div>
         </div>
       </section>
-      {editError && <p className="dashEditError">{editError}</p>}
-
       {selectedAnnouncementDay && (
         <div className="dashModalBackdrop" role="dialog" aria-modal="true" aria-label="Company announcements">
           <div className="dashModal dashModal--announcement">
@@ -1159,8 +1166,6 @@ export default function Dashboard() {
             </div>
 
             <div className="dashModal__rule" />
-
-            {announcementActionError && <div className="dashModal__error">{announcementActionError}</div>}
 
             <div className="announcementModal__list">
               {selectedAnnouncementDay.events.map((event) => {
@@ -1259,8 +1264,6 @@ export default function Dashboard() {
               {announcementDraft.description.trim().length}/500 description characters
             </div>
 
-            {createAnnouncementError && <div className="dashModal__error">{createAnnouncementError}</div>}
-
             <div className="dashModal__actions">
               <button
                 type="button"
@@ -1345,8 +1348,6 @@ export default function Dashboard() {
               </div>
             )}
 
-            {editError && <div className="dashModal__error">{editError}</div>}
-
             <div className="dashModal__actions">
               <button
                 type="button"
@@ -1392,7 +1393,6 @@ export default function Dashboard() {
               twoFactorCode={twoFactorCode}
               setup={twoFactorSetup}
               statusMessage={securityMessage}
-              errorMessage={securityError}
               sendingVerification={sendingVerification}
               startingTwoFactor={startingTwoFactor}
               confirmingTwoFactor={confirmingTwoFactor}

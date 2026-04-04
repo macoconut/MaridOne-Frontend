@@ -389,14 +389,14 @@ export default function AccountingPayrollDashboard() {
         </button>
       </div>
 
-      <p className={`aDashPay__status${loadError ? ' is-error' : ''}`}>
-        {loadError
-          ? loadError
-          : selectedRun
+      <p className="aDashPay__status">
+        {selectedRun
             ? `${describeRun(selectedRun)} • ${selectedRun.payrollStatus ?? 'Unknown status'} • ${selectedRun.itemCount ?? 0} payroll item${
                 (selectedRun.itemCount ?? 0) === 1 ? '' : 's'
               }`
-            : 'Select a payroll run to review its totals.'}
+            : isLoading
+              ? 'Loading payroll run details...'
+              : 'Select a payroll run to review its totals.'}
       </p>
 
       <section className="aDashPaySummaryGrid">

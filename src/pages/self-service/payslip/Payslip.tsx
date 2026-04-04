@@ -4,6 +4,7 @@ import { getUserEmail } from '../../../lib/session';
 import { FiUpload, FiX } from 'react-icons/fi';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import './Payslip.css';
 
@@ -167,6 +168,7 @@ export default function Payslip() {
 
   useErrorDialogEffect(disputeError, 'Payslip dispute could not be submitted');
   useErrorDialogEffect(payslipActionError, 'Payslip action failed');
+  useEscapeDismiss(disputeOpen, () => setDisputeOpen(false), 10);
 
   useEffect(() => {
     void (async () => {
@@ -722,7 +724,6 @@ export default function Payslip() {
         </button>
         <button className="payBtn" type="button" onClick={openDisputeForm}>File Dispute</button>
       </div>
-      {payslipActionError && <p className="pay__actionError">{payslipActionError}</p>}
 
       {disputeOpen && (
         <div className="payModalBackdrop" role="dialog" aria-modal="true" aria-label="Payslip dispute form">
@@ -787,7 +788,6 @@ export default function Payslip() {
                 Submit
               </button>
             </div>
-            {disputeError && <p className="payModal__error">{disputeError}</p>}
           </div>
         </div>
       )}

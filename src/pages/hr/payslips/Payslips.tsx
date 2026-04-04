@@ -3,6 +3,7 @@ import { FiEdit2, FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import '../approvals/Approvals.css';
@@ -498,6 +499,11 @@ export default function HrPayslips() {
   useErrorDialogEffect(actionError, 'Dispute action failed');
   useErrorDialogEffect(runError, 'Payroll run could not be completed');
   useErrorDialogEffect(correctionError, 'Payroll correction could not be completed');
+  useEscapeDismiss(runModalOpen && !isSubmittingRun, () => setRunModalOpen(false), 10);
+  useEscapeDismiss(postModalOpen && !isPostingRun, () => setPostModalOpen(false), 10);
+  useEscapeDismiss(correctionOpen && !isSubmittingCorrection, resetCorrectionState, 10);
+  useEscapeDismiss(Boolean(selectedPayrollItem), () => setSelectedPayrollItem(null), 10);
+  useEscapeDismiss(Boolean(selectedDispute) && !isSaving, () => setSelectedDispute(null), 10);
 
   function syncRunForm(run: PayrollRunDto) {
     setRunForm((prev) => ({
@@ -1245,13 +1251,11 @@ export default function HrPayslips() {
           </div>
         </section>
       )}
-      {runError && <p className="hrPay__message">{runError}</p>}
       {emptyRunHint && <p className="hrPay__message">{emptyRunHint}</p>}
 
       {isCurrentRunInProgress && currentRun && (
         <section className="hrPayPanel">
           <header className="hrPayPanel__head">Payroll Run in Progress</header>
-          {runItemsError && <p className="hrPay__message">{runItemsError}</p>}
 
           <div className="hrPayTableShell mgrPendTable">
             {isLoadingRunItems ? (
@@ -1302,7 +1306,6 @@ export default function HrPayslips() {
 
       <section className="hrPayPanel">
         <header className="hrPayPanel__head">Payroll Dispute from Employees</header>
-        {loadError && <p className="hrPay__message">{loadError}</p>}
 
         <div className="hrPayToolbar">
           <label className="hrPaySearch" aria-label="Search payroll disputes">
@@ -1607,7 +1610,6 @@ export default function HrPayslips() {
                   </label>
                 </div>
 
-                {correctionError && <p className="hrPay__message">{correctionError}</p>}
               </>
             )}
 
@@ -1694,8 +1696,6 @@ export default function HrPayslips() {
               </p>
             ) : (
               <>
-                {payrollItemError && <p className="hrPay__message">{payrollItemError}</p>}
-
                 <div className="hrPayBreakdown">
                   <section className="hrPayBreakdown__section">
                     <div className="hrPayBreakdown__head">
@@ -1957,8 +1957,6 @@ export default function HrPayslips() {
             {selectedDispute.statusCode === 'CANCELLED' && (
               <p className="hrPay__message">The employee cancelled this dispute before it was fully processed.</p>
             )}
-            {actionError && <p className="hrPay__message">{actionError}</p>}
-
             <div className="hrPayModal__actions">
               <button type="button" className="is-muted" onClick={() => setSelectedDispute(null)} disabled={isSaving}>
                 {canReviewSelectedDispute || canStageSelectedDisputeCorrection ? 'Cancel' : 'Close'}

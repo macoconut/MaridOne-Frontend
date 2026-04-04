@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FiSearch, FiXCircle } from 'react-icons/fi';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
@@ -88,6 +89,7 @@ export default function AccountingPayrollReview() {
   const [loadError, setLoadError] = useState('');
   const [refreshTick, setRefreshTick] = useState(0);
   useErrorDialogEffect(loadError, 'Payroll review data could not be loaded');
+  useEscapeDismiss(Boolean(selectedRow), () => setSelectedRow(null), 10);
   const handlePageRefresh = useCallback(() => {
     setRefreshTick((tick) => tick + 1);
   }, []);
@@ -254,14 +256,14 @@ export default function AccountingPayrollReview() {
         </div>
       </div>
 
-      <p className={`aReviewPay__status${loadError ? ' is-error' : ''}`}>
-        {loadError
-          ? loadError
-          : selectedRun
+      <p className="aReviewPay__status">
+        {selectedRun
             ? `${describeRun(selectedRun)} • ${selectedRun.payrollStatus ?? 'Unknown status'} • ${selectedRun.itemCount ?? 0} payroll item${
                 (selectedRun.itemCount ?? 0) === 1 ? '' : 's'
               }`
-            : 'Select a payroll run to review its payslips.'}
+            : isLoading
+              ? 'Loading payroll run details...'
+              : 'Select a payroll run to review its payslips.'}
       </p>
 
       <section className="aReviewPayTable">

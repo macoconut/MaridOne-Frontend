@@ -45,12 +45,19 @@ export default function VerifyEmail() {
     void submitVerification();
   }, [token]);
 
+  const visibleMessage =
+    status === 'error'
+      ? token
+        ? 'You can try the verification again using the button below.'
+        : 'Open this page from the verification link in your inbox to continue.'
+      : message;
+
   return (
     <main className="verifyEmailPage">
       <div className="verifyEmailCard">
         <div className={`verifyEmailBadge is-${status}`}>{status === 'success' ? 'Verified' : 'Email Check'}</div>
         <h1>Verify your email</h1>
-        <p>{message}</p>
+        <p>{visibleMessage}</p>
 
         <div className="verifyEmailActions">
           {status !== 'success' && token && (

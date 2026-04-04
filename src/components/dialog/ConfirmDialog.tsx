@@ -1,3 +1,4 @@
+import { useEscapeDismiss } from '../../hooks/useEscapeDismiss';
 import './ConfirmDialog.css';
 
 type ConfirmDialogProps = {
@@ -21,6 +22,8 @@ export default function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  useEscapeDismiss(open && !isBusy, onCancel, 100);
+
   if (!open) return null;
 
   return (

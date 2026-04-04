@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getUserEmail } from '../../../lib/session';
 import './Approval.css';
@@ -152,6 +153,7 @@ export default function Approval() {
   const [selectedApproval, setSelectedApproval] = useState<ApprovalItem | null>(null);
   const [searchValue, setSearchValue] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
+  useEscapeDismiss(Boolean(selectedApproval), () => setSelectedApproval(null), 10);
   const [typeFilter, setTypeFilter] = useState<ApprovalTypeFilter>('all');
   const [statusFilter, setStatusFilter] = useState<ApprovalStatusFilter>('all');
 

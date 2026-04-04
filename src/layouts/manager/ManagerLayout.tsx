@@ -13,6 +13,7 @@ import { useEffect, useRef, useState } from 'react';
 import AppFooter from '../../components/layout/AppFooter';
 import HeaderRefreshButton from '../../components/navigation/HeaderRefreshButton';
 import SidebarBrand from '../../components/navigation/SidebarBrand';
+import { useEscapeDismiss } from '../../hooks/useEscapeDismiss';
 import SidebarNavSection, { type NavSection } from '../../components/navigation/SidebarNavSection';
 import '../shared/RoleLayout.css';
 import { getUserEmail } from '../../lib/session';
@@ -94,6 +95,8 @@ export default function ManagerLayout() {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const unreadOnOpenRef = useRef<string[]>([]);
 
+  useEscapeDismiss(notifOpen, closeNotificationBell);
+
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (!notifOpen) return;
@@ -103,16 +106,10 @@ export default function ManagerLayout() {
       closeNotificationBell();
     }
 
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') closeNotificationBell();
-    }
-
-    document.addEventListener('mousedown', handleClick);
-    document.addEventListener('keydown', handleKey);
-    return () => {
-      document.removeEventListener('mousedown', handleClick);
-      document.removeEventListener('keydown', handleKey);
-    };
+      document.addEventListener('mousedown', handleClick);
+      return () => {
+        document.removeEventListener('mousedown', handleClick);
+      };
   }, [notifOpen]);
 
   useEffect(() => {

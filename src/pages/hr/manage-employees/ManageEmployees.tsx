@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { FiEdit2, FiFilter, FiPlus, FiSearch, FiUserX, FiXCircle } from 'react-icons/fi';
 import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
@@ -178,7 +179,6 @@ export default function HrManageEmp() {
   const [loadMessage, setLoadMessage] = useState('');
   const [form, setForm] = useState<FormState>(emptyForm);
   const [submitError, setSubmitError] = useState('');
-  const [submitSuccess, setSubmitSuccess] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
@@ -224,6 +224,9 @@ export default function HrManageEmp() {
 
   useErrorDialogEffect(rosterLoadError, 'Employee roster could not be loaded');
   useErrorDialogEffect(submitError, 'Employee action could not be completed');
+  useEscapeDismiss(Boolean(detailsDialogEmployeeId), closeDetailsDialog, 10);
+  useEscapeDismiss(Boolean(modal) && !isSaving, closeModal, 10);
+  useEscapeDismiss(Boolean(confirmAction) && !isSaving, () => setConfirmAction(null), 50);
 
   useEffect(() => {
     if (modal || detailsDialogEmployeeId) document.body.classList.add('modal-open');
@@ -336,7 +339,6 @@ export default function HrManageEmp() {
 
   function resetMessages() {
     setSubmitError('');
-    setSubmitSuccess('');
   }
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -553,7 +555,6 @@ export default function HrManageEmp() {
         await loadEmployees();
 
         if (accountError) {
-          setSubmitSuccess('Employee record created successfully.');
           setSubmitError(`Employee record was created, but the linked user account could not be saved. (${accountError})`);
         } else {
           closeModal();
@@ -583,7 +584,6 @@ export default function HrManageEmp() {
         await loadEmployees();
 
         if (accountError) {
-          setSubmitSuccess('Employee details updated successfully.');
           setSubmitError(`Employee details were updated, but the linked user account could not be saved. (${accountError})`);
         } else {
           closeModal();
@@ -762,7 +762,9 @@ export default function HrManageEmp() {
 
   const emptyStateMessage =
     employeeRows.length === 0
-      ? loadMessage || 'Waiting for backend data.'
+      ? rosterLoadError
+        ? 'Waiting for the employee roster.'
+        : loadMessage || 'Waiting for backend data.'
       : 'No employees match your search or current filters.';
 
   return (
@@ -1171,9 +1173,6 @@ export default function HrManageEmp() {
                 </>
               )}
             </div>
-
-            {submitError ? <p className="hrEmpForm__error">{submitError}</p> : null}
-            {submitSuccess ? <p className="hrEmpForm__success">{submitSuccess}</p> : null}
 
             <div className="hrEmpModal__actions">
               <button type="button" onClick={closeModal} disabled={isSaving}>

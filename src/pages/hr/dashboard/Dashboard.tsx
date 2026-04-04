@@ -804,8 +804,6 @@ export function AttendanceOverviewDashboard({
         </div>
       </div>
       {isLoading && <p className="hrDash__subtitle">Loading {audience.toLowerCase()} dashboard data...</p>}
-      {!isLoading && loadError && <p className="hrDash__subtitle">Failed to load attendance logs: {loadError}</p>}
-
       <div className="hrDash__grid">
         <div className="hrDash__mainCol" ref={mainColRef}>
           <section className="hrStatRow">

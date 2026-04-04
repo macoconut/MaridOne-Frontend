@@ -3,6 +3,7 @@ import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
 import ApprovalStatusSummary from '../../../components/approvals/ApprovalStatusSummary';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
@@ -214,6 +215,7 @@ export default function ManagerPendingApprovals() {
 
   useErrorDialogEffect(loadError, 'Team requests could not be loaded');
   useErrorDialogEffect(submitError, 'Team request decision could not be completed');
+  useEscapeDismiss(Boolean(selectedId), () => setSelectedId(null), 10);
 
   async function loadRequests() {
     try {
@@ -501,7 +503,6 @@ export default function ManagerPendingApprovals() {
       </div>
 
       <section className="hrApprTable mgrPendTable">
-        {loadError && <p className="hrApprForm__error">{loadError}</p>}
         {visibleRequests.length > 0 ? (
           <>
             <div className="mgrPendTable__head" role="row">
@@ -664,8 +665,6 @@ export default function ManagerPendingApprovals() {
                 />
               </label>
             </div>
-
-            {submitError && <p className="hrApprForm__error">{submitError}</p>}
 
             <div className="hrApprModal__footer">
               {canReviewSelected ? (

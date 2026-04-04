@@ -3,6 +3,7 @@ import { FiSearch, FiFilter, FiXCircle } from 'react-icons/fi';
 import ApprovalStatusSummary from '../../../components/approvals/ApprovalStatusSummary';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
@@ -256,6 +257,7 @@ export default function HrApprovals() {
 
   useErrorDialogEffect(loadError, 'Approval requests could not be loaded');
   useErrorDialogEffect(submitError, 'Approval decision could not be completed');
+  useEscapeDismiss(Boolean(selectedId), () => setSelectedId(null), 10);
 
   async function loadRequests() {
     try {
@@ -642,7 +644,6 @@ export default function HrApprovals() {
       </div>
 
       <section className="hrApprTable hrApprRequestTable">
-        {loadError && <p className="hrApprForm__error">{loadError}</p>}
         {visibleRequests.length > 0 ? (
           <>
             <div className="hrApprRequestTable__head" role="row">
@@ -804,8 +805,6 @@ export default function HrApprovals() {
                 />
               </label>
             </div>
-
-            {submitError && <p className="hrApprForm__error">{submitError}</p>}
 
             <div className="hrApprModal__footer">
               {canReviewSelected ? (

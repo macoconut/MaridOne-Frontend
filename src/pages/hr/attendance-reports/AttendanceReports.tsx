@@ -11,6 +11,7 @@ import {
   FiXCircle,
 } from 'react-icons/fi';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
@@ -980,6 +981,7 @@ export function AttendanceReportsBoard({
       : 'Review daily attendance activity, late entries, incomplete logs, and gaps in one monthly calendar.';
 
   useErrorDialogEffect(loadError, 'Attendance report could not be loaded');
+  useEscapeDismiss(detailOpen, () => setDetailOpen(false), 10);
 
   return (
     <div className="hrAtt">
@@ -1059,7 +1061,6 @@ export function AttendanceReportsBoard({
       </div>
 
       {isLoading && <p className="hrAtt__hint">Loading attendance data...</p>}
-      {!isLoading && loadError && <p className="hrAtt__error">{loadError}</p>}
       {!isLoading && !loadError && rosterMessage && <p className="hrAtt__hint">{rosterMessage}</p>}
 
       <section className="hrAttCard">

@@ -679,8 +679,6 @@ export default function HrAuditLogs() {
         </div>
 
         <div className="hrAuditTable__body">
-          {loadError && <p className="hrAuditForm__error">{loadError}</p>}
-
           {isLoading ? (
             <div className="hrAuditRow">
               <span className="hrAuditRow__actor">

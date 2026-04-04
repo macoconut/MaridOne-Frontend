@@ -16,6 +16,7 @@ import {
 import AppFooter from '../../components/layout/AppFooter';
 import HeaderRefreshButton from '../../components/navigation/HeaderRefreshButton';
 import SidebarBrand from '../../components/navigation/SidebarBrand';
+import { useEscapeDismiss } from '../../hooks/useEscapeDismiss';
 import SidebarNavSection, { type NavSection } from '../../components/navigation/SidebarNavSection';
 import '../shared/RoleLayout.css';
 import '../shared/hr-theme.css';
@@ -445,6 +446,8 @@ export default function HrLayout() {
     void markNotificationsRead(unreadIds);
   }, [markNotificationsRead, notifOpen]);
 
+  useEscapeDismiss(notifOpen, closeNotificationBell);
+
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (!notifOpen) return;
@@ -455,16 +458,10 @@ export default function HrLayout() {
       closeNotificationBell();
     }
 
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') closeNotificationBell();
-    }
-
-    document.addEventListener('mousedown', handleClick);
-    document.addEventListener('keydown', handleKey);
-    return () => {
-      document.removeEventListener('mousedown', handleClick);
-      document.removeEventListener('keydown', handleKey);
-    };
+      document.addEventListener('mousedown', handleClick);
+      return () => {
+        document.removeEventListener('mousedown', handleClick);
+      };
   }, [closeNotificationBell, notifOpen]);
 
   function handleNotificationBellClick() {

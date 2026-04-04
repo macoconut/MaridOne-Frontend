@@ -256,8 +256,6 @@ export default function ManagementDashboard() {
 
   return (
     <section className="mDash">
-      {loadError && <p className="mDash__status is-error">{loadError}</p>}
-
       <section className="mPanel mInfo">
         <div className="mPanel__head mPanel__head--inline">
           <span>Your Information</span>

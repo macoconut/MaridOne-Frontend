@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FiSearch, FiXCircle } from 'react-icons/fi';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
@@ -447,6 +448,8 @@ export default function HrPayRunReporting() {
     setIsLoadingBreakdown(false);
   }, []);
 
+  useEscapeDismiss(Boolean(selectedBreakdownItem), closeBreakdownModal, 10);
+
   useEffect(() => {
     closeBreakdownModal();
   }, [closeBreakdownModal, selectedPayId, view]);
@@ -598,8 +601,6 @@ export default function HrPayRunReporting() {
           </label>
         </div>
       </div>
-
-      {loadError && <p className="hrRun__status hrRun__status--error">{loadError}</p>}
 
       {view === 'employee' ? (
         <section className="hrRunTable" aria-label="Pay run by employee">

@@ -658,8 +658,6 @@ export default function EmployeeLogin() {
               </div>
             )}
 
-            {error && <div className="eloginError">{error}</div>}
-
             <div className="eloginRow">
               {twoFactorChallenge ? (
                 <button

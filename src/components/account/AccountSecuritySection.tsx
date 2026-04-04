@@ -9,7 +9,6 @@ type AccountSecuritySectionProps = {
   twoFactorCode: string;
   setup: TwoFactorSetupResponse | null;
   statusMessage: string;
-  errorMessage: string;
   sendingVerification: boolean;
   startingTwoFactor: boolean;
   confirmingTwoFactor: boolean;
@@ -29,7 +28,6 @@ export default function AccountSecuritySection({
   twoFactorCode,
   setup,
   statusMessage,
-  errorMessage,
   sendingVerification,
   startingTwoFactor,
   confirmingTwoFactor,
@@ -218,7 +216,6 @@ export default function AccountSecuritySection({
       </div>
 
       {statusMessage && <div className="dashSecurity__status">{statusMessage}</div>}
-      {errorMessage && <div className="dashSecurity__error">{errorMessage}</div>}
     </section>
   );
 }
