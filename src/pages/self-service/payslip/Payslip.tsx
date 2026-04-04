@@ -12,6 +12,7 @@ type EmployeeDetails = {
   middleName?: string;
   lastName?: string;
   position?: string;
+  department?: string;
   email?: string;
   address?: {
     permanentAddress?: string;
@@ -315,6 +316,8 @@ export default function Payslip() {
     () => formatPeriodLabel(selectedRun?.periodStart, selectedRun?.periodEnd),
     [selectedRun]
   );
+  const taxNumber = '-';
+  const department = employeeInfo?.department?.trim() || '-';
 
   function handleDownload() {
     const formatLine = (line: PayslipLine) => {
@@ -549,8 +552,8 @@ export default function Payslip() {
         <div className="payCard__header">
             <div className="payCard__company">
               <div className="payCard__companyName">Marid Industries Corporation</div>
-              <div className="payCard__companyMeta">Employee payroll statement</div>
-              <div className="payCard__companyMeta">{displayPayPeriod}</div>
+              <div className="payCard__companyMeta">Address</div>
+              <div className="payCard__companyMeta">marid@marid.com</div>
             </div>
           <div className="payCard__title">PAYSLIP</div>
         </div>
@@ -574,16 +577,16 @@ export default function Payslip() {
               <span className="payInfo__line">{employeeName}</span>
             </div>
             <div className="payInfo__row">
-              <span>Emp No.</span>
-              <span className="payInfo__line">{employeeId ? `EMP-${employeeId}` : '-'}</span>
+              <span>Tax Number</span>
+              <span className="payInfo__line">{taxNumber}</span>
             </div>
             <div className="payInfo__row">
               <span>Designation</span>
               <span className="payInfo__line">{employeeInfo?.position ?? '-'}</span>
             </div>
             <div className="payInfo__row">
-              <span>Email</span>
-              <span className="payInfo__line">{employeeInfo?.email ?? '-'}</span>
+              <span>Department</span>
+              <span className="payInfo__line">{department}</span>
             </div>
           </div>
 
@@ -601,7 +604,7 @@ export default function Payslip() {
               <span className="payInfo__line">{formatDisplayDate(selectedRun?.periodEnd)}</span>
             </div>
             <div className="payInfo__row">
-              <span>Covered Days</span>
+              <span>Worked Days</span>
               <span className="payInfo__line">{workedDays}</span>
             </div>
           </div>

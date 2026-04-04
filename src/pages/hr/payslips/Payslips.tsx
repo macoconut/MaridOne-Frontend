@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
+import { FiEdit2, FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import PageHeader from '../../../components/layout/PageHeader';
@@ -191,6 +191,50 @@ function toOptionalMoneyString(value: unknown) {
 
 function toOptionalText(value: unknown) {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function mapCorrectionLine(
+  row: Record<string, unknown>,
+  idx: number,
+  lineType: CorrectionLine['lineType']
+): CorrectionLine | null {
+  const lineId = Number(row.earningsId ?? row.deductionsId);
+  if (!Number.isFinite(lineId) || lineId <= 0) return null;
+
+  return {
+    key: `${lineType}-${String(row.earningsId ?? row.deductionsId ?? idx + 1)}`,
+    lineId,
+    lineType,
+    label:
+      lineType === 'EARNING'
+        ? String(row.description ?? `Earning ${idx + 1}`)
+        : String(row.description ?? row.deductionType ?? `Deduction ${idx + 1}`),
+    amount: toMoneyString(row.amount),
+    originalAmount: toOptionalMoneyString(row.originalAmount),
+    adjustedBy: toOptionalText(row.adjustedBy),
+    adjustedAt: toOptionalText(row.adjustedAt),
+  };
+}
+
+function summarizePayrollItemLines(
+  earnings: CorrectionLine[],
+  deductions: CorrectionLine[],
+  fallback?: PayrollItemSummaryRow | null
+) {
+  const hasDetailedLines = earnings.length > 0 || deductions.length > 0;
+  const grossPay =
+    earnings.length > 0 ? earnings.reduce((sum, line) => sum + toAmount(line.amount), 0) : toAmount(fallback?.grossPay);
+  const totalDeductions =
+    deductions.length > 0
+      ? deductions.reduce((sum, line) => sum + toAmount(line.amount), 0)
+      : toAmount(fallback?.deductions);
+  const netPay = hasDetailedLines ? grossPay - totalDeductions : toAmount(fallback?.netPay);
+
+  return {
+    grossPay,
+    deductions: totalDeductions,
+    netPay,
+  };
 }
 
 function employeeLabel(employeeName?: string, _employeeId?: number) {
@@ -414,6 +458,9 @@ export default function HrPayslips() {
   const [selectedPayrollItemDeductions, setSelectedPayrollItemDeductions] = useState<CorrectionLine[]>([]);
   const [isLoadingPayrollItem, setIsLoadingPayrollItem] = useState(false);
   const [payrollItemError, setPayrollItemError] = useState('');
+  const [editingPayrollLineKey, setEditingPayrollLineKey] = useState('');
+  const [payrollLineDraftAmount, setPayrollLineDraftAmount] = useState('');
+  const [isSavingPayrollLine, setIsSavingPayrollLine] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [remarks, setRemarks] = useState('');
   const [actionError, setActionError] = useState('');
@@ -500,6 +547,11 @@ export default function HrPayslips() {
     setPendingDisputeDecision(null);
     setConfirmDisputeDecisionOpen(false);
   }, [selectedDispute?.id]);
+
+  useEffect(() => {
+    setEditingPayrollLineKey('');
+    setPayrollLineDraftAmount('');
+  }, [selectedPayrollItem?.itemId]);
 
   useEffect(() => {
     const storedRun = readStoredRun();
@@ -624,6 +676,7 @@ export default function HrPayslips() {
   const canStageSelectedDisputeCorrection =
     selectedDispute ? selectedDispute.statusCode === 'WAITING_ADJUSTMENT' : false;
   const isCurrentRunInProgress = currentRun?.payrollStatus === 'IN_PROGRESS';
+  const canEditSelectedPayrollItem = currentRun?.payrollStatus === 'IN_PROGRESS';
   const selectedPayrollGross = selectedPayrollItem ? selectedPayrollItem.grossPay : 0;
   const selectedPayrollNet = selectedPayrollItem ? selectedPayrollItem.netPay : 0;
   const selectedPayrollDeductions = useMemo(() => {
@@ -691,20 +744,8 @@ export default function HrPayslips() {
 
   function mapCorrectionLines(response: unknown, lineType: CorrectionLine['lineType']) {
     return toArray<Record<string, unknown>>(response)
-      .map((row, idx) => ({
-        key: `${lineType}-${String(row.earningsId ?? row.deductionsId ?? idx + 1)}`,
-        lineId: Number(row.earningsId ?? row.deductionsId),
-        lineType,
-        label:
-          lineType === 'EARNING'
-            ? String(row.description ?? `Earning ${idx + 1}`)
-            : String(row.description ?? row.deductionType ?? `Deduction ${idx + 1}`),
-        amount: toMoneyString(row.amount),
-        originalAmount: toOptionalMoneyString(row.originalAmount),
-        adjustedBy: toOptionalText(row.adjustedBy),
-        adjustedAt: toOptionalText(row.adjustedAt),
-      }))
-      .filter((line) => Number.isFinite(line.lineId) && line.lineId > 0);
+      .map((row, idx) => mapCorrectionLine(row, idx, lineType))
+      .filter((line): line is CorrectionLine => line !== null);
   }
 
   async function openPayrollItemDetail(row: PayrollItemSummaryRow) {
@@ -712,6 +753,8 @@ export default function HrPayslips() {
     setSelectedPayrollItemEarnings([]);
     setSelectedPayrollItemDeductions([]);
     setPayrollItemError('');
+    setEditingPayrollLineKey('');
+    setPayrollLineDraftAmount('');
     setIsLoadingPayrollItem(true);
 
     try {
@@ -726,6 +769,99 @@ export default function HrPayslips() {
       setPayrollItemError(getFriendlyErrorMessage(error, 'payroll-run'));
     } finally {
       setIsLoadingPayrollItem(false);
+    }
+  }
+
+  function startPayrollLineEdit(line: CorrectionLine) {
+    setPayrollItemError('');
+    setEditingPayrollLineKey(line.key);
+    setPayrollLineDraftAmount(line.amount);
+  }
+
+  function cancelPayrollLineEdit() {
+    setEditingPayrollLineKey('');
+    setPayrollLineDraftAmount('');
+    setPayrollItemError('');
+  }
+
+  async function savePayrollLineAmount(line: CorrectionLine) {
+    if (!selectedPayrollItem) return;
+
+    const trimmedAmount = payrollLineDraftAmount.trim();
+    if (!trimmedAmount) {
+      setPayrollItemError('Enter an updated amount before saving this payroll line.');
+      return;
+    }
+
+    const parsedAmount = Number(trimmedAmount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount < 0) {
+      setPayrollItemError('Payroll line amount must be a valid non-negative number.');
+      return;
+    }
+
+    if (parsedAmount.toFixed(2) === toAmount(line.amount).toFixed(2)) {
+      setPayrollItemError('Change the amount before saving. The updated value cannot match the current amount.');
+      return;
+    }
+
+    setPayrollItemError('');
+    setIsSavingPayrollLine(true);
+
+    try {
+      const endpoint =
+        line.lineType === 'EARNING'
+          ? `/api/payroll/item/earnings/update/${line.lineId}`
+          : `/api/payroll/item/deductions/update/${line.lineId}`;
+      const updatedResponse = await apiFetchJson<Record<string, unknown>>(endpoint, {
+        method: 'PATCH',
+        body: JSON.stringify({ amount: trimmedAmount }),
+      });
+
+      const updatedLine = mapCorrectionLine(updatedResponse, 0, line.lineType);
+      if (!updatedLine) {
+        throw new Error('The updated payroll line could not be read.');
+      }
+
+      const nextEarnings =
+        line.lineType === 'EARNING'
+          ? selectedPayrollItemEarnings.map((entry) => (entry.key === line.key ? updatedLine : entry))
+          : selectedPayrollItemEarnings;
+      const nextDeductions =
+        line.lineType === 'DEDUCTION'
+          ? selectedPayrollItemDeductions.map((entry) => (entry.key === line.key ? updatedLine : entry))
+          : selectedPayrollItemDeductions;
+      const nextTotals = summarizePayrollItemLines(nextEarnings, nextDeductions, selectedPayrollItem);
+
+      setSelectedPayrollItemEarnings(nextEarnings);
+      setSelectedPayrollItemDeductions(nextDeductions);
+      setSelectedPayrollItem((prev) =>
+        prev && prev.itemId === selectedPayrollItem.itemId
+          ? {
+              ...prev,
+              grossPay: nextTotals.grossPay,
+              deductions: nextTotals.deductions,
+              netPay: nextTotals.netPay,
+            }
+          : prev
+      );
+      setRunItems((prev) =>
+        prev.map((entry) =>
+          entry.itemId === selectedPayrollItem.itemId
+            ? {
+                ...entry,
+                grossPay: nextTotals.grossPay,
+                deductions: nextTotals.deductions,
+                netPay: nextTotals.netPay,
+              }
+            : entry
+        )
+      );
+      setEditingPayrollLineKey('');
+      setPayrollLineDraftAmount('');
+    } catch (error) {
+      setPayrollItemError(getFriendlyErrorMessage(error, 'payroll-run'));
+    } finally {
+      setIsSavingPayrollLine(false);
     }
   }
 
@@ -1336,13 +1472,6 @@ export default function HrPayslips() {
             <p className="hrPayModal__subtitle">Review the payroll run summary carefully before confirming the final posting step.</p>
             <div className="hrPayModal__rule" />
 
-            <p className="hrPayModal__intro">
-              You are about to post this payroll run. Once posted, the run status will move from
-              <strong> IN_PROGRESS </strong>
-              to
-              <strong> POSTED</strong>.
-            </p>
-
             <div className="hrPayModal__summary">
               <div className="hrPayModal__summaryRow">
                 <span>Run ID</span>
@@ -1510,7 +1639,8 @@ export default function HrPayslips() {
               <div className="hrPayModal__heading">
                 <h3>{selectedPayrollItem.employee} - Payslip Breakdown</h3>
                 <p className="hrPayModal__subtitle">
-                  Review the current earnings, deductions, and totals before posting this in-progress payroll item.
+                  Review the current earnings, deductions, and totals, and edit line amounts while this payroll item is
+                  still in progress.
                 </p>
               </div>
               <button
@@ -1587,7 +1717,51 @@ export default function HrPayslips() {
                             </div>
                             <div className="hrPayBreakdown__amounts">
                               {line.originalAmount && <small>Original: {formatCurrency(line.originalAmount)}</small>}
-                              <strong>{formatCurrency(line.amount)}</strong>
+                              {editingPayrollLineKey === line.key ? (
+                                <div className="hrPayBreakdown__editor">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={payrollLineDraftAmount}
+                                    onChange={(event) => setPayrollLineDraftAmount(event.target.value)}
+                                    aria-label={`Edit amount for ${line.label}`}
+                                  />
+                                  <div className="hrPayBreakdown__editorActions">
+                                    <button
+                                      type="button"
+                                      className="hrPayBreakdown__editorBtn is-muted"
+                                      onClick={cancelPayrollLineEdit}
+                                      disabled={isSavingPayrollLine}
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="hrPayBreakdown__editorBtn"
+                                      onClick={() => void savePayrollLineAmount(line)}
+                                      disabled={isSavingPayrollLine}
+                                    >
+                                      {isSavingPayrollLine ? 'Saving...' : 'Save'}
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="hrPayBreakdown__valueRow">
+                                  <strong>{formatCurrency(line.amount)}</strong>
+                                  {canEditSelectedPayrollItem && (
+                                    <button
+                                      type="button"
+                                      className="hrPayBreakdown__editBtn"
+                                      onClick={() => startPayrollLineEdit(line)}
+                                      disabled={isSavingPayrollLine}
+                                      aria-label={`Edit amount for ${line.label}`}
+                                    >
+                                      <FiEdit2 />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         ))
@@ -1617,7 +1791,51 @@ export default function HrPayslips() {
                             </div>
                             <div className="hrPayBreakdown__amounts">
                               {line.originalAmount && <small>Original: {formatCurrency(line.originalAmount)}</small>}
-                              <strong>{formatCurrency(line.amount)}</strong>
+                              {editingPayrollLineKey === line.key ? (
+                                <div className="hrPayBreakdown__editor">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={payrollLineDraftAmount}
+                                    onChange={(event) => setPayrollLineDraftAmount(event.target.value)}
+                                    aria-label={`Edit amount for ${line.label}`}
+                                  />
+                                  <div className="hrPayBreakdown__editorActions">
+                                    <button
+                                      type="button"
+                                      className="hrPayBreakdown__editorBtn is-muted"
+                                      onClick={cancelPayrollLineEdit}
+                                      disabled={isSavingPayrollLine}
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="hrPayBreakdown__editorBtn"
+                                      onClick={() => void savePayrollLineAmount(line)}
+                                      disabled={isSavingPayrollLine}
+                                    >
+                                      {isSavingPayrollLine ? 'Saving...' : 'Save'}
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="hrPayBreakdown__valueRow">
+                                  <strong>{formatCurrency(line.amount)}</strong>
+                                  {canEditSelectedPayrollItem && (
+                                    <button
+                                      type="button"
+                                      className="hrPayBreakdown__editBtn"
+                                      onClick={() => startPayrollLineEdit(line)}
+                                      disabled={isSavingPayrollLine}
+                                      aria-label={`Edit amount for ${line.label}`}
+                                    >
+                                      <FiEdit2 />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         ))

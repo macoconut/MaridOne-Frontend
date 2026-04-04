@@ -32,6 +32,7 @@ type LeaveRow = {
   leaveType?: string;
   approver?: string;
   approverReason?: string;
+  approvedAt?: string;
   paid?: boolean;
   isPaid?: boolean;
 };
@@ -221,7 +222,7 @@ export default function Approval() {
             approvedBy: status === 'Pending' ? '-' : row.approver?.trim() || '-',
             requestReason: row.reason ?? '-',
             decisionReason: row.approverReason ?? '-',
-            decisionDate: '-',
+            decisionDate: formatDateTime(row.approvedAt),
           };
         });
 

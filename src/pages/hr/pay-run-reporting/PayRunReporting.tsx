@@ -180,11 +180,15 @@ function toCsvValue(value: unknown) {
   return text;
 }
 
-function getEmptyRunMessage(run: PayrollRunRow | null, view: ReportView) {
+function getEmptyRunMessage(run: PayrollRunRow | null, view: ReportView, availableRunCount: number) {
   if (!run) {
-    return view === 'employee'
-      ? 'No employee totals matched this payroll run.'
-      : 'No pay type totals matched this payroll run.';
+    if (view === 'employee') {
+      return availableRunCount > 0
+        ? 'No employee totals matched this payroll run.'
+        : 'No posted payroll runs are available yet.';
+    }
+
+    return availableRunCount > 0 ? 'No pay type totals matched this payroll run.' : 'No payroll runs are available yet.';
   }
 
   if ((run.itemCount ?? 0) > 0) {
@@ -225,6 +229,10 @@ export default function HrPayRunReporting() {
   }, []);
 
   const filterLabel = useMemo(() => (view === 'employee' ? 'Employee:' : 'Category:'), [view]);
+  const selectableRuns = useMemo(
+    () => (view === 'employee' ? runs.filter((run) => run.payrollStatus === 'POSTED') : runs),
+    [runs, view]
+  );
 
   useRegisterPageRefresh(handlePageRefresh);
 
@@ -241,17 +249,6 @@ export default function HrPayRunReporting() {
 
         const nextRuns = [...toArray<PayrollRunRow>(runResponse)].sort(compareRunsDescending);
         setRuns(nextRuns);
-
-        const selectedExists = nextRuns.some((run) => run.payId === selectedPayId);
-        const defaultRun = nextRuns.find((run) => (run.itemCount ?? 0) > 0) ?? nextRuns[0] ?? null;
-        const nextPayId =
-          selectedExists && selectedPayId != null
-            ? selectedPayId
-            : typeof defaultRun?.payId === 'number'
-              ? defaultRun.payId
-              : null;
-
-        setSelectedPayId(nextPayId);
       } catch (error) {
         if (cancelled) return;
         setRuns([]);
@@ -267,10 +264,21 @@ export default function HrPayRunReporting() {
     return () => {
       cancelled = true;
     };
-  }, [refreshTick, selectedPayId]);
+  }, [refreshTick]);
 
   useEffect(() => {
-    if (selectedPayId == null) {
+    const selectedExists = selectableRuns.some((run) => run.payId === selectedPayId);
+    const defaultRun = selectableRuns.find((run) => (run.itemCount ?? 0) > 0) ?? selectableRuns[0] ?? null;
+    const nextPayId =
+      selectedExists && selectedPayId != null ? selectedPayId : typeof defaultRun?.payId === 'number' ? defaultRun.payId : null;
+
+    if (nextPayId !== selectedPayId) {
+      setSelectedPayId(nextPayId);
+    }
+  }, [selectableRuns, selectedPayId]);
+
+  useEffect(() => {
+    if (selectedPayId == null || !selectableRuns.some((run) => run.payId === selectedPayId)) {
       setEmployeeRows([]);
       setPayTypeRows([]);
       setIsLoading(false);
@@ -308,11 +316,11 @@ export default function HrPayRunReporting() {
     return () => {
       cancelled = true;
     };
-  }, [refreshTick, selectedPayId]);
+  }, [refreshTick, selectableRuns, selectedPayId]);
 
   const selectedRun = useMemo(
-    () => runs.find((run) => run.payId === selectedPayId) ?? null,
-    [runs, selectedPayId]
+    () => selectableRuns.find((run) => run.payId === selectedPayId) ?? null,
+    [selectableRuns, selectedPayId]
   );
 
   const selectedBreakdownGross = selectedBreakdownItem ? toAmount(selectedBreakdownItem.grossPay) : 0;
@@ -575,16 +583,16 @@ export default function HrPayRunReporting() {
             <select
               value={selectedPayId ?? ''}
               onChange={(e) => setSelectedPayId(e.target.value ? Number(e.target.value) : null)}
-              disabled={runs.length === 0}
+              disabled={selectableRuns.length === 0}
             >
-              {runs.length > 0 ? (
-                runs.map((run) => (
+              {selectableRuns.length > 0 ? (
+                selectableRuns.map((run) => (
                   <option key={run.payId} value={run.payId}>
                     {formatRunLabel(run)}
                   </option>
                 ))
               ) : (
-                <option value="">No payroll runs yet</option>
+                <option value="">{view === 'employee' ? 'No posted payroll runs yet' : 'No payroll runs yet'}</option>
               )}
             </select>
           </label>
@@ -626,7 +634,7 @@ export default function HrPayRunReporting() {
               ))
             ) : (
               <article className="hrRunEmpty">
-                {isLoading ? 'Loading pay run details...' : getEmptyRunMessage(selectedRun, 'employee')}
+                {isLoading ? 'Loading pay run details...' : getEmptyRunMessage(selectedRun, 'employee', selectableRuns.length)}
               </article>
             )}
           </div>
@@ -691,7 +699,7 @@ export default function HrPayRunReporting() {
             <section className="hrRunTable hrRunTable--summaryView" aria-label="Pay type summary table">
               <div className="hrRunTable__body hrRunTable__body--summary">
                 <article className="hrRunEmpty">
-                  {isLoading ? 'Loading pay type totals...' : getEmptyRunMessage(selectedRun, 'payType')}
+                  {isLoading ? 'Loading pay type totals...' : getEmptyRunMessage(selectedRun, 'payType', selectableRuns.length)}
                 </article>
               </div>
             </section>
