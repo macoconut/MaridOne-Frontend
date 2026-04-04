@@ -409,7 +409,6 @@ body.modal-open{
   position: fixed;
   inset: 0;
   background: rgba(30, 19, 47, 0.44);
-  backdrop-filter: blur(8px);
   display: grid;
   place-items: center;
   z-index: 9999; /* on top of sidebar/footer */

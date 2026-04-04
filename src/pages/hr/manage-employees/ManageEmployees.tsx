@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FiEdit2, FiFilter, FiPlus, FiSearch, FiUserX, FiXCircle } from 'react-icons/fi';
+import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './ManageEmployees.css';
@@ -165,6 +167,7 @@ function mergeRowWithDetails(row: EmployeeRow, details: EmployeeDetails): Employ
 }
 
 export default function HrManageEmp() {
+  const { showSuccess } = useUiDialog();
   const [modal, setModal] = useState<ModalType>(null);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [employeeRows, setEmployeeRows] = useState<EmployeeRow[]>([]);
@@ -217,6 +220,10 @@ export default function HrManageEmp() {
   const phoneHelperMessage = modal !== 'delete' ? getPhoneValidationMessage(form.phoneNumber) : '';
   const phoneHasError =
     modal !== 'delete' && form.phoneNumber.trim().length > 0 && sanitizePhoneNumber(form.phoneNumber).length !== 11;
+  const rosterLoadError = loadMessage.startsWith('Unable to load the employee roster') ? loadMessage : '';
+
+  useErrorDialogEffect(rosterLoadError, 'Employee roster could not be loaded');
+  useErrorDialogEffect(submitError, 'Employee action could not be completed');
 
   useEffect(() => {
     if (modal || detailsDialogEmployeeId) document.body.classList.add('modal-open');
@@ -549,7 +556,8 @@ export default function HrManageEmp() {
           setSubmitSuccess('Employee record created successfully.');
           setSubmitError(`Employee record was created, but the linked user account could not be saved. (${accountError})`);
         } else {
-          setSubmitSuccess('Employee created successfully.');
+          closeModal();
+          showSuccess('Employee created successfully.', 'Employee Created');
         }
         return;
       }
@@ -578,7 +586,8 @@ export default function HrManageEmp() {
           setSubmitSuccess('Employee details updated successfully.');
           setSubmitError(`Employee details were updated, but the linked user account could not be saved. (${accountError})`);
         } else {
-          setSubmitSuccess('Employee updated successfully.');
+          closeModal();
+          showSuccess('Employee updated successfully.', 'Employee Updated');
         }
         return;
       }
@@ -597,7 +606,8 @@ export default function HrManageEmp() {
         });
 
         await loadEmployees();
-        setSubmitSuccess('Employee terminated successfully.');
+        closeModal();
+        showSuccess('Employee terminated successfully.', 'Employee Terminated');
       }
     } catch (error) {
       setSubmitError(

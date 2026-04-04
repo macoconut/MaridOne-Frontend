@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
+import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { clearSession, setSession } from '../../../lib/session';
 import { getRoleHomePath } from '../../../lib/roleRoutes';
 import './Login.css';
@@ -170,6 +171,7 @@ export default function EmployeeLogin() {
   const [remember, setRemember] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  useErrorDialogEffect(error, 'Sign-in failed');
   const [isLoading, setIsLoading] = useState(false);
   const [twoFactorChallenge, setTwoFactorChallenge] = useState<TwoFactorChallenge | null>(null);
   const [twoFactorMode, setTwoFactorMode] = useState<TwoFactorMode>('authenticator');
@@ -698,13 +700,6 @@ export default function EmployeeLogin() {
               </button>
             </div>
 
-            {twoFactorChallenge && twoFactorMode === 'email-otp' && (
-              <div className="eloginPlaceholderAction">
-                <button type="button" className="submitBtn submitBtn--disabled" disabled>
-                  Await Backend Email OTP
-                </button>
-              </div>
-            )}
           </form>
         </div>
       </div>

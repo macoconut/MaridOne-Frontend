@@ -1,14 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { verifyEmailToken } from '../../lib/accountSecurity';
-import { getRoleHomePath } from '../../lib/roleRoutes';
-import { getAuthToken, getUserRole } from '../../lib/session';
+import { useErrorDialogEffect } from '../../hooks/useErrorDialogEffect';
 import { getFriendlyErrorMessage } from '../../lib/uiErrors';
 import './VerifyEmail.css';
-
-function roleHome(role: ReturnType<typeof getUserRole>) {
-  return role ? getRoleHomePath(role) : '/login';
-}
 
 export default function VerifyEmail() {
   const navigate = useNavigate();
@@ -21,6 +16,8 @@ export default function VerifyEmail() {
   const [message, setMessage] = useState(
     token ? 'Verifying your email now...' : 'Open this page from the verification link in your inbox.'
   );
+
+  useErrorDialogEffect(status === 'error' ? message : '', 'Email verification failed');
 
   async function submitVerification() {
     if (!token) {
@@ -48,8 +45,6 @@ export default function VerifyEmail() {
     void submitVerification();
   }, [token]);
 
-  const loggedIn = Boolean(getAuthToken() && getUserRole());
-
   return (
     <main className="verifyEmailPage">
       <div className="verifyEmailCard">
@@ -67,9 +62,9 @@ export default function VerifyEmail() {
           <button
             type="button"
             className="verifyEmailBtn verifyEmailBtn--ghost"
-            onClick={() => navigate(loggedIn ? roleHome(getUserRole()) : '/login')}
+            onClick={() => navigate('/')}
           >
-            {loggedIn ? 'Go to Dashboard' : 'Go to Login'}
+            Back to Landing Page
           </button>
         </div>
       </div>

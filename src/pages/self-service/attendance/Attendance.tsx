@@ -4,6 +4,7 @@ import './Attendance.css';
 import { FiCalendar, FiChevronLeft, FiChevronRight, FiPlusSquare, FiUpload, FiX } from 'react-icons/fi';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { ApiError, apiFetchJson, apiFetchRaw, toArray } from '../../../lib/api';
 import { getUserEmail, getUserRole } from '../../../lib/session';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
@@ -335,6 +336,9 @@ export default function Attendance() {
   const [confirmLeaveSubmit, setConfirmLeaveSubmit] = useState(false);
   const [confirmOtSubmit, setConfirmOtSubmit] = useState(false);
   const [latestAttendanceDirection, setLatestAttendanceDirection] = useState<'IN' | 'OUT' | null>(null);
+  useErrorDialogEffect(clockError, 'Attendance action failed');
+  useErrorDialogEffect(otSubmitError, 'Overtime request could not be submitted');
+  useErrorDialogEffect(submitError, 'Leave request could not be submitted');
   const userRole = getUserRole();
   const canRequestOvertime = !['hr', 'management', 'manager'].includes(userRole ?? '');
   const maxOtEndDate = otStartDate ? addDays(otStartDate, 1) : '';

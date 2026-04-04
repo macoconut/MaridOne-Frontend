@@ -198,6 +198,14 @@ body.modal-open {
   border-bottom: 2px solid rgba(0, 0, 0, 0.82);
 }
 
+.hrPayPanel__subcopy {
+  margin: -4px 0 16px;
+  color: #5c536f;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
 .hrPayToolbar {
   display: flex;
   align-items: center;
@@ -338,6 +346,114 @@ body.modal-open {
   cursor: pointer;
 }
 
+.hrPayTableShell {
+  border: 1px solid rgba(59, 34, 87, 0.12);
+  border-radius: 16px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.hrPayRunTable__head,
+.hrPayRunTable__row {
+  min-width: 980px;
+  display: grid;
+  grid-template-columns:
+    minmax(170px, 1.18fr)
+    minmax(110px, 0.72fr)
+    minmax(130px, 0.78fr)
+    minmax(130px, 0.78fr)
+    minmax(130px, 0.78fr)
+    minmax(150px, 0.92fr);
+  gap: 16px;
+  align-items: center;
+}
+
+.hrPayRunTable__head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 14px 18px 12px;
+  background: linear-gradient(180deg, #f8f4fc, #f3ecfa);
+  border-bottom: 1px solid rgba(59, 34, 87, 0.12);
+}
+
+.hrPayRunTable__head span {
+  color: #5a4d6e;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hrPayRunTable__headCell--action {
+  text-align: center;
+}
+
+.hrPayRunTable__row {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fff;
+  padding: 16px 18px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hrPayRunTable__row:hover {
+  background: #f8f3fc;
+}
+
+.hrPayRunTable__cell--action {
+  display: flex;
+  justify-content: center;
+}
+
+.hrPayPreviewPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 110px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(123, 74, 143, 0.12);
+  color: #5d3676;
+  font-size: 13px;
+  font-weight: 800;
+  border: 1px solid rgba(123, 74, 143, 0.16);
+}
+
+.mgrPendTable__row--waiting-adjustment {
+  background: linear-gradient(90deg, rgba(39, 106, 184, 0.09), rgba(39, 106, 184, 0.03));
+  box-shadow: inset 3px 0 0 rgba(39, 106, 184, 0.46);
+}
+
+.mgrPendTable__row--approved {
+  background: linear-gradient(90deg, rgba(46, 125, 50, 0.08), rgba(46, 125, 50, 0.03));
+  box-shadow: inset 3px 0 0 rgba(46, 125, 50, 0.34);
+}
+
+.mgrPendTable__row--rejected {
+  background: linear-gradient(90deg, rgba(194, 59, 51, 0.08), rgba(194, 59, 51, 0.03));
+  box-shadow: inset 3px 0 0 rgba(194, 59, 51, 0.34);
+}
+
+.mgrPendTable__row--cancelled {
+  background: linear-gradient(90deg, rgba(108, 110, 126, 0.08), rgba(108, 110, 126, 0.03));
+  box-shadow: inset 3px 0 0 rgba(108, 110, 126, 0.28);
+}
+
+.hrApprRow__status--waiting-adjustment {
+  background: rgba(39, 106, 184, 0.12);
+  color: #276ab8;
+  border-color: rgba(39, 106, 184, 0.2);
+}
+
+.hrApprRow__status--cancelled {
+  background: rgba(108, 110, 126, 0.12);
+  color: #575c6e;
+  border-color: rgba(108, 110, 126, 0.18);
+}
+
 .hrPayTable {
   margin: 0;
   border: 0;
@@ -404,6 +520,7 @@ body.modal-open {
   background: #fff;
   padding: 20px;
   box-shadow: 0 22px 56px rgba(0, 0, 0, 0.28);
+  position: relative;
 }
 
 .hrPayModal--run {
@@ -416,6 +533,30 @@ body.modal-open {
   color: var(--hr-primary-dark);
   font-size: 28px;
   font-weight: 900;
+}
+
+.hrPayModal__close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(123, 74, 143, 0.1);
+  color: #41295b;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.hrPayModal__subtitle {
+  margin: 8px 0 0;
+  text-align: center;
+  color: #5d5472;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
 }
 
 .hrPayModal__rule {
@@ -491,6 +632,33 @@ body.modal-open {
   font-weight: 900;
 }
 
+.hrPayBreakdownTotals {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.hrPayBreakdownTotals__card {
+  border: 1px solid rgba(123, 74, 143, 0.14);
+  border-radius: 14px;
+  background: #faf7ff;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hrPayBreakdownTotals__card span {
+  color: #665c7b;
+}
+
+.hrPayBreakdownTotals__card strong {
+  color: #2a1c42;
+  font-size: 20px;
+  font-weight: 900;
+}
+
 .hrPayModal__grid label,
 .hrPayModal__area {
   display: grid;
@@ -527,6 +695,28 @@ body.modal-open {
   min-height: 96px;
   resize: vertical;
   padding: 10px 12px;
+}
+
+.hrPayModal__callout {
+  margin-top: 14px;
+  border: 1px solid rgba(39, 106, 184, 0.16);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f6faff 0%, #ffffff 100%);
+  padding: 14px;
+  display: grid;
+  gap: 6px;
+}
+
+.hrPayModal__callout strong {
+  color: #225991;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.hrPayModal__callout span {
+  color: #4f6177;
+  font-size: 14px;
+  font-weight: 600;
 }
 
 .hrPayModal__line {
@@ -620,6 +810,102 @@ body.modal-open {
   font-weight: 600;
 }
 
+.hrPayBreakdown {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.hrPayBreakdown__section {
+  border: 1px solid rgba(123, 74, 143, 0.14);
+  border-radius: 14px;
+  background: #fcfbff;
+  overflow: hidden;
+}
+
+.hrPayBreakdown__head {
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(123, 74, 143, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hrPayBreakdown__head h4 {
+  margin: 0;
+  color: #2f2048;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.hrPayBreakdown__head span {
+  color: #665b7d;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.hrPayBreakdown__list {
+  display: flex;
+  flex-direction: column;
+}
+
+.hrPayBreakdown__row {
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(123, 74, 143, 0.08);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hrPayBreakdown__row:last-child {
+  border-bottom: 0;
+}
+
+.hrPayBreakdown__row strong {
+  display: block;
+  color: #201833;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.hrPayBreakdown__row span {
+  display: block;
+  margin-top: 4px;
+  color: #655c78;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.hrPayBreakdown__amounts {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  text-align: right;
+}
+
+.hrPayBreakdown__amounts small {
+  color: #6b627d;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hrPayBreakdown__amounts strong {
+  color: #2b1f45;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.hrPayBreakdown__empty {
+  padding: 16px 14px;
+  color: #665c7b;
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .hrPayModal .is-muted {
   background: #e8deef;
   color: #382d51;
@@ -659,14 +945,14 @@ body.modal-open {
     width: 100%;
   }
 
-  .hrPayTable__head,
-  .hrPayRow {
-    grid-template-columns: 1fr 1fr;
+  .hrPayBreakdown,
+  .hrPayBreakdownTotals {
+    grid-template-columns: 1fr;
   }
 
-  .hrPayTable__head,
-  .hrPayRow {
-    row-gap: 6px;
+  .hrPayRunTable__head,
+  .hrPayRunTable__row {
+    min-width: 840px;
   }
 
   .hrPayModal__grid,
@@ -701,7 +987,8 @@ body.modal-open {
   }
 
   .hrPayCorrectionPicker__head,
-  .hrPayCorrectionLine__main {
+  .hrPayCorrectionLine__main,
+  .hrPayBreakdown__row {
     flex-direction: column;
     align-items: flex-start;
   }

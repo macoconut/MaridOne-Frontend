@@ -3,6 +3,7 @@ import { FiSearch, FiFilter, FiXCircle } from 'react-icons/fi';
 import ApprovalStatusSummary from '../../../components/approvals/ApprovalStatusSummary';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './Approvals.css';
@@ -252,6 +253,9 @@ export default function HrApprovals() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [leavePaidFilter, setLeavePaidFilter] = useState<LeavePaidFilter>('all');
   const [overtimeTypeFilter, setOvertimeTypeFilter] = useState<OvertimeTypeFilter>('all');
+
+  useErrorDialogEffect(loadError, 'Approval requests could not be loaded');
+  useErrorDialogEffect(submitError, 'Approval decision could not be completed');
 
   async function loadRequests() {
     try {
@@ -535,12 +539,6 @@ export default function HrApprovals() {
             selected
               ? 'Review the selected employee request before recording an approval or denial.'
               : 'Review leave and overtime requests here. Payroll disputes stay in Manage Payslips.'
-          }
-          meta={
-            <div className="hrAppr__summary">
-              Showing {visibleRequests.length} of {requests.length} request
-              {requests.length === 1 ? '' : 's'}
-            </div>
           }
         />
 

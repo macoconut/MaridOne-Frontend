@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
+import '../approvals/Approvals.css';
+import '../../manager/pending-approvals/PendingApprovals.css';
 import './Payslips.css';
 
 type DisputeDto = {
@@ -29,8 +31,26 @@ type PayrollRunDto = {
   itemCount?: number;
 };
 
-type DisputeStatus = 'Open' | 'Clear';
-type DisputeStatusFilter = 'all' | 'Open' | 'Clear';
+type PayrollItemSummaryDto = {
+  empId?: number;
+  firstName?: string;
+  lastName?: string;
+  itemId?: number;
+  grossPay?: number | string;
+  netPay?: number | string;
+};
+
+type PayrollItemSummaryRow = {
+  itemId: number;
+  empId?: number;
+  employee: string;
+  grossPay: number;
+  deductions: number;
+  netPay: number;
+};
+
+type DisputeStatusCode = 'PENDING' | 'WAITING_ADJUSTMENT' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+type DisputeStatusFilter = 'all' | DisputeStatusCode;
 type DisputeTypeFilter = 'all' | 'Overtime' | 'Late Penalty' | 'Absent Deduction' | 'General' | 'Other';
 
 type DisputeRow = {
@@ -39,10 +59,12 @@ type DisputeRow = {
   employeeId?: number;
   employeeName?: string;
   employee: string;
-  department: string;
   payrollPeriod: string;
-  status: DisputeStatus;
-  rawStatus: string;
+  submittedAt: string;
+  sortStamp: number;
+  statusCode: DisputeStatusCode;
+  statusLabel: string;
+  statusTone: 'pending' | 'waiting-adjustment' | 'approved' | 'rejected' | 'cancelled';
   subject: string;
   reason: string;
   decisionSummary?: string;
@@ -61,10 +83,6 @@ type CorrectionIntent = {
   message: string;
   disputeReason: string;
   decisionReason: string;
-};
-
-type CorrectionRouteState = {
-  correctionIntent?: CorrectionIntent;
 };
 
 type CorrectionSourceItem = {
@@ -95,10 +113,7 @@ type CorrectionLine = {
 };
 
 const PAYROLL_RUN_STORAGE_KEY = 'maridone.hr.latestPayrollRun';
-
-function mapStatus(value: string | undefined): DisputeStatus {
-  return value && value.toUpperCase() === 'PENDING' ? 'Open' : 'Clear';
-}
+const WAITING_DISPUTE_STORAGE_KEY = 'maridone.hr.waitingDisputes';
 
 function normalizeText(value?: string) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
@@ -146,6 +161,22 @@ function formatDateTime(value?: string) {
   });
 }
 
+function toAmount(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
+function formatCurrency(value: unknown) {
+  return `P${toAmount(value).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
 function toMoneyString(value: unknown) {
   if (typeof value === 'number' && Number.isFinite(value)) return value.toFixed(2);
   if (typeof value === 'string' && value.trim().length > 0) return value;
@@ -165,6 +196,17 @@ function toOptionalText(value: unknown) {
 function employeeLabel(employeeName?: string, _employeeId?: number) {
   const trimmedName = typeof employeeName === 'string' ? employeeName.trim() : '';
   if (trimmedName) return trimmedName;
+  return 'Employee unavailable';
+}
+
+function employeeLabelFromParts(firstName?: string, lastName?: string, employeeId?: number) {
+  const fullName = [firstName, lastName]
+    .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+    .join(' ')
+    .trim();
+
+  if (fullName) return fullName;
+  if (typeof employeeId === 'number') return `Employee ID ${employeeId}`;
   return 'Employee unavailable';
 }
 
@@ -214,12 +256,164 @@ function readStoredRun() {
   }
 }
 
+function toSortStamp(value?: string) {
+  if (!value) return 0;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function compareRunsDescending(a: PayrollRunDto, b: PayrollRunDto) {
+  const endDiff = toSortStamp(b.periodEnd) - toSortStamp(a.periodEnd);
+  if (endDiff !== 0) return endDiff;
+
+  const startDiff = toSortStamp(b.periodStart) - toSortStamp(a.periodStart);
+  if (startDiff !== 0) return startDiff;
+
+  return (b.payId ?? 0) - (a.payId ?? 0);
+}
+
+function toDisputeStatusCode(value?: string): DisputeStatusCode {
+  const normalized = String(value ?? 'PENDING').trim().toUpperCase();
+  if (normalized === 'WAITING_ADJUSTMENT') return 'WAITING_ADJUSTMENT';
+  if (normalized === 'APPROVED') return 'APPROVED';
+  if (normalized === 'REJECTED') return 'REJECTED';
+  if (normalized === 'CANCELLED') return 'CANCELLED';
+  return 'PENDING';
+}
+
+function formatDisputeStatusLabel(status: DisputeStatusCode) {
+  if (status === 'WAITING_ADJUSTMENT') return 'Waiting for Adjustment';
+  if (status === 'APPROVED') return 'Approved';
+  if (status === 'REJECTED') return 'Denied';
+  if (status === 'CANCELLED') return 'Cancelled';
+  return 'Pending';
+}
+
+function toDisputeStatusTone(status: DisputeStatusCode): DisputeRow['statusTone'] {
+  if (status === 'WAITING_ADJUSTMENT') return 'waiting-adjustment';
+  if (status === 'APPROVED') return 'approved';
+  if (status === 'REJECTED') return 'rejected';
+  if (status === 'CANCELLED') return 'cancelled';
+  return 'pending';
+}
+
+function toDisputeRow(item: DisputeDto, idx: number): DisputeRow {
+  const statusCode = toDisputeStatusCode(item.status);
+  return {
+    id: item.id ?? idx + 1,
+    itemId: item.itemId,
+    employeeId: item.employeeId,
+    employeeName: item.employeeName,
+    employee: employeeLabel(item.employeeName, item.employeeId),
+    payrollPeriod: item.createdAt ? formatDate(item.createdAt) : 'No date',
+    submittedAt: formatDateTime(item.createdAt),
+    sortStamp: toSortStamp(item.createdAt),
+    statusCode,
+    statusLabel: formatDisputeStatusLabel(statusCode),
+    statusTone: toDisputeStatusTone(statusCode),
+    subject: item.subject || 'Payroll dispute',
+    reason: item.reason || '',
+    decisionSummary: item.statusReason || '',
+  };
+}
+
+function createWaitingDisputeRow(row: DisputeRow, decisionSummary: string): DisputeRow {
+  return {
+    ...row,
+    sortStamp: row.sortStamp || Date.now(),
+    statusCode: 'WAITING_ADJUSTMENT',
+    statusLabel: formatDisputeStatusLabel('WAITING_ADJUSTMENT'),
+    statusTone: toDisputeStatusTone('WAITING_ADJUSTMENT'),
+    decisionSummary,
+  };
+}
+
+function readWaitingDisputes() {
+  try {
+    const raw = window.localStorage.getItem(WAITING_DISPUTE_STORAGE_KEY);
+    if (!raw) return [] as DisputeRow[];
+
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .map((entry, idx) => {
+        if (!entry || typeof entry !== 'object') return null;
+        const row = entry as Partial<DisputeRow>;
+        const id = typeof row.id === 'number' ? row.id : idx + 1;
+        return createWaitingDisputeRow(
+          {
+            id,
+            itemId: typeof row.itemId === 'number' ? row.itemId : undefined,
+            employeeId: typeof row.employeeId === 'number' ? row.employeeId : undefined,
+            employeeName: typeof row.employeeName === 'string' ? row.employeeName : undefined,
+            employee: typeof row.employee === 'string' && row.employee.trim().length > 0 ? row.employee : 'Employee unavailable',
+            payrollPeriod: typeof row.payrollPeriod === 'string' && row.payrollPeriod.trim().length > 0 ? row.payrollPeriod : 'No date',
+            submittedAt: typeof row.submittedAt === 'string' && row.submittedAt.trim().length > 0 ? row.submittedAt : 'Not available',
+            sortStamp: typeof row.sortStamp === 'number' && Number.isFinite(row.sortStamp) ? row.sortStamp : 0,
+            statusCode: 'WAITING_ADJUSTMENT',
+            statusLabel: formatDisputeStatusLabel('WAITING_ADJUSTMENT'),
+            statusTone: toDisputeStatusTone('WAITING_ADJUSTMENT'),
+            subject: typeof row.subject === 'string' && row.subject.trim().length > 0 ? row.subject : 'Payroll dispute',
+            reason: typeof row.reason === 'string' ? row.reason : '',
+            decisionSummary: typeof row.decisionSummary === 'string' ? row.decisionSummary : '',
+          },
+          typeof row.decisionSummary === 'string' ? row.decisionSummary : ''
+        );
+      })
+      .filter((row): row is DisputeRow => row !== null);
+  } catch {
+    return [];
+  }
+}
+
+function writeWaitingDisputes(rows: DisputeRow[]) {
+  try {
+    if (rows.length > 0) {
+      window.localStorage.setItem(WAITING_DISPUTE_STORAGE_KEY, JSON.stringify(rows));
+    } else {
+      window.localStorage.removeItem(WAITING_DISPUTE_STORAGE_KEY);
+    }
+  } catch {
+    // ignore storage write failures
+  }
+}
+
+function upsertWaitingDispute(row: DisputeRow) {
+  const existing = readWaitingDisputes();
+  const next = [...existing.filter((entry) => entry.id !== row.id), createWaitingDisputeRow(row, row.decisionSummary || '')]
+    .sort((left, right) => right.sortStamp - left.sortStamp || left.employee.localeCompare(right.employee));
+  writeWaitingDisputes(next);
+}
+
+function removeWaitingDispute(disputeId: number) {
+  const next = readWaitingDisputes().filter((entry) => entry.id !== disputeId);
+  writeWaitingDisputes(next);
+}
+
+function buildCorrectionIntent(row: DisputeRow): CorrectionIntent | null {
+  if (typeof row.itemId !== 'number') return null;
+  return {
+    disputeId: row.id,
+    itemId: row.itemId,
+    employee: row.employee,
+    message: row.subject,
+    disputeReason: row.reason,
+    decisionReason: row.decisionSummary || '',
+  };
+}
+
 export default function HrPayslips() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const handledCorrectionIntentRef = useRef<string | null>(null);
   const [disputes, setDisputes] = useState<DisputeRow[]>([]);
   const [selectedDispute, setSelectedDispute] = useState<DisputeRow | null>(null);
+  const [runItems, setRunItems] = useState<PayrollItemSummaryRow[]>([]);
+  const [isLoadingRunItems, setIsLoadingRunItems] = useState(false);
+  const [runItemsError, setRunItemsError] = useState('');
+  const [selectedPayrollItem, setSelectedPayrollItem] = useState<PayrollItemSummaryRow | null>(null);
+  const [selectedPayrollItemEarnings, setSelectedPayrollItemEarnings] = useState<CorrectionLine[]>([]);
+  const [selectedPayrollItemDeductions, setSelectedPayrollItemDeductions] = useState<CorrectionLine[]>([]);
+  const [isLoadingPayrollItem, setIsLoadingPayrollItem] = useState(false);
+  const [payrollItemError, setPayrollItemError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [remarks, setRemarks] = useState('');
   const [actionError, setActionError] = useState('');
@@ -251,6 +445,13 @@ export default function HrPayslips() {
   const [disputeStatusFilter, setDisputeStatusFilter] = useState<DisputeStatusFilter>('all');
   const [disputeTypeFilter, setDisputeTypeFilter] = useState<DisputeTypeFilter>('all');
 
+  useErrorDialogEffect(loadError, 'Payroll data could not be loaded');
+  useErrorDialogEffect(runItemsError, 'Payroll run items could not be loaded');
+  useErrorDialogEffect(payrollItemError, 'Payroll item action failed');
+  useErrorDialogEffect(actionError, 'Dispute action failed');
+  useErrorDialogEffect(runError, 'Payroll run could not be completed');
+  useErrorDialogEffect(correctionError, 'Payroll correction could not be completed');
+
   function syncRunForm(run: PayrollRunDto) {
     setRunForm((prev) => ({
       periodStart: run.periodStart ?? prev.periodStart,
@@ -262,10 +463,20 @@ export default function HrPayslips() {
   async function loadCurrentRun(preferredPayId?: number | null) {
     try {
       const response = await apiFetchJson<unknown>('/api/payroll/run');
-      const runs = toArray<PayrollRunDto>(response);
+      const runs = [...toArray<PayrollRunDto>(response)].sort(compareRunsDescending);
       const preferredRun =
         preferredPayId != null ? runs.find((run) => run.payId === preferredPayId) ?? null : null;
-      const nextRun = preferredRun ?? runs.find((run) => (run.itemCount ?? 0) > 0) ?? runs[0] ?? null;
+      const activeRun =
+        runs.find((run) => run.payrollStatus === 'IN_PROGRESS' && (run.itemCount ?? 0) > 0) ??
+        runs.find((run) => run.payrollStatus === 'IN_PROGRESS') ??
+        null;
+      const nextRun =
+        (preferredRun?.payrollStatus === 'IN_PROGRESS' ? preferredRun : null) ??
+        activeRun ??
+        preferredRun ??
+        runs.find((run) => (run.itemCount ?? 0) > 0) ??
+        runs[0] ??
+        null;
 
       setCurrentRun(nextRun);
       if (nextRun) syncRunForm(nextRun);
@@ -275,11 +486,13 @@ export default function HrPayslips() {
   }
 
   useEffect(() => {
-    if (selectedDispute || runModalOpen || postModalOpen || correctionOpen) document.body.classList.add('modal-open');
+    if (selectedDispute || selectedPayrollItem || runModalOpen || postModalOpen || correctionOpen) {
+      document.body.classList.add('modal-open');
+    }
     else document.body.classList.remove('modal-open');
 
     return () => document.body.classList.remove('modal-open');
-  }, [correctionOpen, postModalOpen, runModalOpen, selectedDispute]);
+  }, [correctionOpen, postModalOpen, runModalOpen, selectedDispute, selectedPayrollItem]);
 
   useEffect(() => {
     setRemarks('');
@@ -291,23 +504,8 @@ export default function HrPayslips() {
   useEffect(() => {
     const storedRun = readStoredRun();
     if (storedRun) syncRunForm(storedRun);
-    const routeState = location.state as CorrectionRouteState | null;
-    if (routeState?.correctionIntent) return;
     void loadCurrentRun(storedRun?.payId);
   }, []);
-
-  useEffect(() => {
-    const routeState = location.state as CorrectionRouteState | null;
-    const intent = routeState?.correctionIntent;
-    if (!intent) return;
-
-    const intentKey = `${intent.disputeId}:${intent.itemId}:${intent.decisionReason}`;
-    if (handledCorrectionIntentRef.current === intentKey) return;
-    handledCorrectionIntentRef.current = intentKey;
-
-    void startApprovedDisputeCorrection(intent);
-    navigate(location.pathname, { replace: true, state: null });
-  }, [location.pathname, location.state, navigate]);
 
   useEffect(() => {
     try {
@@ -322,33 +520,84 @@ export default function HrPayslips() {
   }, [currentRun]);
 
   async function loadDisputes() {
+    const waitingDisputes = readWaitingDisputes();
     try {
       setLoadError('');
       const response = await apiFetchJson<unknown>('/api/payroll/item/dispute/all?page=0&size=100');
-      const mapped = toArray<DisputeDto>(response).map((item, idx) => ({
-        id: item.id ?? idx + 1,
-        itemId: item.itemId,
-        employeeId: item.employeeId,
-        employeeName: item.employeeName,
-        employee: employeeLabel(item.employeeName, item.employeeId),
-        department: 'Payroll',
-        payrollPeriod: item.createdAt ? formatDate(item.createdAt) : 'No date',
-        status: mapStatus(item.status),
-        rawStatus: item.status || 'PENDING',
-        subject: item.subject || 'Payroll dispute',
-        reason: item.reason || '',
-        decisionSummary: item.statusReason || '',
-      }));
-      setDisputes(mapped);
+      const pendingDisputes = toArray<DisputeDto>(response).map((item, idx) => toDisputeRow(item, idx));
+      const merged = [...pendingDisputes, ...waitingDisputes]
+        .filter((row, idx, rows) => rows.findIndex((entry) => entry.id === row.id) === idx)
+        .sort((left, right) => right.sortStamp - left.sortStamp || left.employee.localeCompare(right.employee));
+      setDisputes(merged);
+      return merged;
     } catch (error) {
-      setDisputes([]);
-      setLoadError(getFriendlyErrorMessage(error, 'employee-load'));
+      setDisputes(waitingDisputes);
+      setLoadError(getFriendlyErrorMessage(error, 'payroll-dispute'));
+      return waitingDisputes;
     }
   }
 
   useEffect(() => {
     void loadDisputes();
   }, []);
+
+  useEffect(() => {
+    if (!currentRun?.payId || currentRun.payrollStatus !== 'IN_PROGRESS') {
+      setRunItems([]);
+      setRunItemsError('');
+      setIsLoadingRunItems(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadRunItems() {
+      const payId = currentRun?.payId;
+      if (payId == null) {
+        setRunItems([]);
+        setIsLoadingRunItems(false);
+        return;
+      }
+
+      setIsLoadingRunItems(true);
+      setRunItemsError('');
+
+      try {
+        const response = await apiFetchJson<unknown>(`/api/payroll/run/${payId}/items?page=0&size=500`);
+        if (cancelled) return;
+
+        const mapped = toArray<PayrollItemSummaryDto>(response)
+          .map((row, idx) => {
+            const grossPay = toAmount(row.grossPay);
+            const netPay = toAmount(row.netPay);
+            return {
+              itemId: row.itemId ?? idx + 1,
+              empId: row.empId,
+              employee: employeeLabelFromParts(row.firstName, row.lastName, row.empId),
+              grossPay,
+              deductions: Math.max(grossPay - netPay, 0),
+              netPay,
+            } satisfies PayrollItemSummaryRow;
+          })
+          .sort((left, right) => left.employee.localeCompare(right.employee) || left.itemId - right.itemId);
+
+        setRunItems(mapped);
+      } catch (error) {
+        if (!cancelled) {
+          setRunItems([]);
+          setRunItemsError(getFriendlyErrorMessage(error, 'payroll-run'));
+        }
+      } finally {
+        if (!cancelled) setIsLoadingRunItems(false);
+      }
+    }
+
+    void loadRunItems();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentRun?.payId, currentRun?.payrollStatus]);
 
   const displayedPeriodStart = currentRun?.periodStart ?? runForm.periodStart;
   const displayedPeriodEnd = currentRun?.periodEnd ?? runForm.periodEnd;
@@ -371,12 +620,23 @@ export default function HrPayslips() {
     return formatDate(displayedPeriodEnd);
   }, [displayedPeriodEnd]);
   const normalizedDisputeSearch = normalizeText(disputeSearchValue);
-  const canReviewSelectedDispute =
-    selectedDispute ? String(selectedDispute.rawStatus ?? '').toUpperCase() === 'PENDING' : false;
+  const canReviewSelectedDispute = selectedDispute ? selectedDispute.statusCode === 'PENDING' : false;
+  const canStageSelectedDisputeCorrection =
+    selectedDispute ? selectedDispute.statusCode === 'WAITING_ADJUSTMENT' : false;
+  const isCurrentRunInProgress = currentRun?.payrollStatus === 'IN_PROGRESS';
+  const selectedPayrollGross = selectedPayrollItem ? selectedPayrollItem.grossPay : 0;
+  const selectedPayrollNet = selectedPayrollItem ? selectedPayrollItem.netPay : 0;
+  const selectedPayrollDeductions = useMemo(() => {
+    if (!selectedPayrollItem) return 0;
+    if (selectedPayrollItemDeductions.length > 0) {
+      return selectedPayrollItemDeductions.reduce((sum, line) => sum + toAmount(line.amount), 0);
+    }
+    return selectedPayrollItem.deductions;
+  }, [selectedPayrollItem, selectedPayrollItemDeductions]);
 
   const visibleDisputes = useMemo(() => {
     return disputes.filter((row) => {
-      if (disputeStatusFilter !== 'all' && row.status !== disputeStatusFilter) {
+      if (disputeStatusFilter !== 'all' && row.statusCode !== disputeStatusFilter) {
         return false;
       }
 
@@ -390,9 +650,9 @@ export default function HrPayslips() {
 
       const haystack = [
         row.employee,
-        row.department,
         row.payrollPeriod,
-        row.status,
+        row.submittedAt,
+        row.statusLabel,
         row.subject,
         row.reason,
         row.decisionSummary,
@@ -427,6 +687,46 @@ export default function HrPayslips() {
     setIsLoadingCorrection(false);
     setIsSubmittingCorrection(false);
     setAdjustmentRunId(null);
+  }
+
+  function mapCorrectionLines(response: unknown, lineType: CorrectionLine['lineType']) {
+    return toArray<Record<string, unknown>>(response)
+      .map((row, idx) => ({
+        key: `${lineType}-${String(row.earningsId ?? row.deductionsId ?? idx + 1)}`,
+        lineId: Number(row.earningsId ?? row.deductionsId),
+        lineType,
+        label:
+          lineType === 'EARNING'
+            ? String(row.description ?? `Earning ${idx + 1}`)
+            : String(row.description ?? row.deductionType ?? `Deduction ${idx + 1}`),
+        amount: toMoneyString(row.amount),
+        originalAmount: toOptionalMoneyString(row.originalAmount),
+        adjustedBy: toOptionalText(row.adjustedBy),
+        adjustedAt: toOptionalText(row.adjustedAt),
+      }))
+      .filter((line) => Number.isFinite(line.lineId) && line.lineId > 0);
+  }
+
+  async function openPayrollItemDetail(row: PayrollItemSummaryRow) {
+    setSelectedPayrollItem(row);
+    setSelectedPayrollItemEarnings([]);
+    setSelectedPayrollItemDeductions([]);
+    setPayrollItemError('');
+    setIsLoadingPayrollItem(true);
+
+    try {
+      const [earningsResponse, deductionsResponse] = await Promise.all([
+        apiFetchJson<unknown>(`/api/payroll/item/earnings/${row.itemId}`),
+        apiFetchJson<unknown>(`/api/payroll/item/deductions/${row.itemId}`),
+      ]);
+
+      setSelectedPayrollItemEarnings(mapCorrectionLines(earningsResponse, 'EARNING'));
+      setSelectedPayrollItemDeductions(mapCorrectionLines(deductionsResponse, 'DEDUCTION'));
+    } catch (error) {
+      setPayrollItemError(getFriendlyErrorMessage(error, 'payroll-run'));
+    } finally {
+      setIsLoadingPayrollItem(false);
+    }
   }
 
   async function ensureAdjustmentRun(source: CorrectionSourceItem) {
@@ -493,27 +793,9 @@ export default function HrPayslips() {
       ]);
 
       const nextLines: CorrectionLine[] = [
-        ...toArray<Record<string, unknown>>(earningsResponse).map((row, idx) => ({
-          key: `EARNING-${String(row.earningsId ?? idx + 1)}`,
-          lineId: Number(row.earningsId),
-          lineType: 'EARNING' as const,
-          label: String(row.description ?? `Earning ${idx + 1}`),
-          amount: toMoneyString(row.amount),
-          originalAmount: toOptionalMoneyString(row.originalAmount),
-          adjustedBy: toOptionalText(row.adjustedBy),
-          adjustedAt: toOptionalText(row.adjustedAt),
-        })),
-        ...toArray<Record<string, unknown>>(deductionsResponse).map((row, idx) => ({
-          key: `DEDUCTION-${String(row.deductionsId ?? idx + 1)}`,
-          lineId: Number(row.deductionsId),
-          lineType: 'DEDUCTION' as const,
-          label: String(row.description ?? row.deductionType ?? `Deduction ${idx + 1}`),
-          amount: toMoneyString(row.amount),
-          originalAmount: toOptionalMoneyString(row.originalAmount),
-          adjustedBy: toOptionalText(row.adjustedBy),
-          adjustedAt: toOptionalText(row.adjustedAt),
-        })),
-      ].filter((line) => Number.isFinite(line.lineId) && line.lineId > 0);
+        ...mapCorrectionLines(earningsResponse, 'EARNING'),
+        ...mapCorrectionLines(deductionsResponse, 'DEDUCTION'),
+      ];
 
       if (nextLines.length === 0) {
         throw new Error('No earnings or deductions were found for the selected payslip item.');
@@ -573,10 +855,12 @@ export default function HrPayslips() {
       const runId = adjustmentRunId;
       const employee = correctionIntent.employee;
       resetCorrectionState();
+      setSelectedDispute(null);
+      removeWaitingDispute(correctionIntent.disputeId);
       await loadCurrentRun(runId);
       await loadDisputes();
       setRunMessage(
-        `Approved dispute for ${employee} was staged in adjustment run #${runId}. Review the run and post it when you are ready.`
+        `Correction for ${employee} was staged in adjustment run #${runId}. Review the run and post it when you are ready.`
       );
     } catch (error) {
       setCorrectionError(getFriendlyErrorMessage(error, 'payroll-dispute'));
@@ -597,38 +881,43 @@ export default function HrPayslips() {
     setActionError('');
     try {
       const activeDispute = selectedDispute;
-      await apiFetchJson(`/api/payroll/item/dispute/update/${activeDispute.id}`, {
+      await apiFetchJson<DisputeDto>(`/api/payroll/item/dispute/update/${activeDispute.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
           status,
           statusReason: trimmedRemarks,
         }),
       });
-
-      const approvedIntent =
-        status === 'APPROVED' && typeof activeDispute.itemId === 'number'
-          ? {
-              disputeId: activeDispute.id,
-              itemId: activeDispute.itemId,
-              employee: activeDispute.employee,
-              message: activeDispute.subject,
-              disputeReason: activeDispute.reason,
-              decisionReason: trimmedRemarks,
-            }
-          : null;
-
-      setSelectedDispute(null);
       setRemarks('');
-      await loadDisputes();
-
-      if (approvedIntent) {
-        await startApprovedDisputeCorrection(approvedIntent);
+      setPendingDisputeDecision(null);
+      if (status === 'APPROVED') {
+        const waitingRow = createWaitingDisputeRow(activeDispute, trimmedRemarks);
+        upsertWaitingDispute(waitingRow);
+        const refreshedDisputes = await loadDisputes();
+        setSelectedDispute(refreshedDisputes.find((row) => row.id === waitingRow.id) ?? waitingRow);
+      } else {
+        removeWaitingDispute(activeDispute.id);
+        setSelectedDispute(null);
+        await loadDisputes();
       }
     } catch (error) {
       setActionError(getFriendlyErrorMessage(error, 'payroll-dispute'));
     } finally {
       setIsSaving(false);
     }
+  }
+
+  function openSelectedDisputeCorrection() {
+    if (!selectedDispute) return;
+    const intent = buildCorrectionIntent(selectedDispute);
+    if (!intent) {
+      setActionError('This dispute is missing its source payslip item, so no adjustment can be staged yet.');
+      return;
+    }
+
+    setActionError('');
+    setSelectedDispute(null);
+    void startApprovedDisputeCorrection(intent);
   }
 
   async function confirmDisputeDecision() {
@@ -823,6 +1112,58 @@ export default function HrPayslips() {
       {runError && <p className="hrPay__message">{runError}</p>}
       {emptyRunHint && <p className="hrPay__message">{emptyRunHint}</p>}
 
+      {isCurrentRunInProgress && currentRun && (
+        <section className="hrPayPanel">
+          <header className="hrPayPanel__head">Payroll Run in Progress</header>
+          {runItemsError && <p className="hrPay__message">{runItemsError}</p>}
+
+          <div className="hrPayTableShell mgrPendTable">
+            {isLoadingRunItems ? (
+              <div className="mgrPendTable__empty">
+                <span>Loading payroll item summaries.</span>
+                <span>Checking the current run now.</span>
+              </div>
+            ) : runItems.length > 0 ? (
+              <>
+                <div className="hrPayRunTable__head" role="row">
+                  <span>Name</span>
+                  <span>Payroll Item</span>
+                  <span>Gross Pay</span>
+                  <span>Deductions</span>
+                  <span>Net Pay</span>
+                  <span className="hrPayRunTable__headCell--action">Details</span>
+                </div>
+
+                <div className="mgrPendTable__body">
+                  {runItems.map((row) => (
+                    <button
+                      key={row.itemId}
+                      type="button"
+                      className="hrPayRunTable__row"
+                      onClick={() => void openPayrollItemDetail(row)}
+                    >
+                      <span className="mgrPendTable__cell mgrPendTable__cell--name">{row.employee}</span>
+                      <span className="mgrPendTable__cell">#{row.itemId}</span>
+                      <span className="mgrPendTable__cell">{formatCurrency(row.grossPay)}</span>
+                      <span className="mgrPendTable__cell">{formatCurrency(row.deductions)}</span>
+                      <span className="mgrPendTable__cell">{formatCurrency(row.netPay)}</span>
+                      <span className="mgrPendTable__cell hrPayRunTable__cell--action">
+                        <span className="hrPayPreviewPill">View Breakdown</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="mgrPendTable__empty">
+                <span>No payroll items yet for this in-progress run.</span>
+                <span>Process the payroll period or add adjustment items first.</span>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
       <section className="hrPayPanel">
         <header className="hrPayPanel__head">Payroll Dispute from Employees</header>
         {loadError && <p className="hrPay__message">{loadError}</p>}
@@ -879,8 +1220,8 @@ export default function HrPayslips() {
                     onChange={(event) => setDisputeStatusFilter(event.target.value as DisputeStatusFilter)}
                   >
                     <option value="all">All Statuses</option>
-                    <option value="Open">Open</option>
-                    <option value="Clear">Clear</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="WAITING_ADJUSTMENT">Waiting for Adjustment</option>
                   </select>
                 </label>
 
@@ -894,32 +1235,44 @@ export default function HrPayslips() {
           </div>
         </div>
 
-        <div className="hrPayTable">
-          <div className="hrPayTable__head">
-            <span>Employee Name</span>
-            <span>Department</span>
-            <span>Payroll Period</span>
-            <span>Status</span>
-          </div>
-          <div className="hrPayTable__body">
-            {visibleDisputes.length > 0 ? (
-              visibleDisputes.map((row) => (
-                <button key={row.id} className="hrPayRow" type="button" onClick={() => setSelectedDispute(row)}>
-                  <span>{row.employee}</span>
-                  <span>{row.department}</span>
-                  <span>{row.payrollPeriod}</span>
-                  <span className={row.status === 'Open' ? 'is-open' : ''}>{row.status}</span>
-                </button>
-              ))
-            ) : (
-              <div className="hrPayRow">
-                <span>{disputes.length > 0 ? 'No matching disputes' : 'No disputes yet'}</span>
-                <span>{disputes.length > 0 ? 'Adjust search or filters' : '-'}</span>
-                <span>-</span>
-                <span>{disputes.length > 0 ? '-' : 'Clear'}</span>
+        <div className="hrPayTableShell mgrPendTable">
+          {visibleDisputes.length > 0 ? (
+            <>
+              <div className="mgrPendTable__head hrPayDisputeTable__head" role="row">
+                <span>Name</span>
+                <span>Request</span>
+                <span>Specific Type</span>
+                <span>Payroll Period</span>
+                <span>Submitted At</span>
+                <span className="mgrPendTable__headCell--status">Status</span>
               </div>
-            )}
-          </div>
+
+              <div className="mgrPendTable__body">
+                {visibleDisputes.map((row) => (
+                  <button
+                    key={row.id}
+                    type="button"
+                    className={`mgrPendTable__row mgrPendTable__row--${row.statusTone}`}
+                    onClick={() => setSelectedDispute(row)}
+                  >
+                    <span className="mgrPendTable__cell mgrPendTable__cell--name">{row.employee}</span>
+                    <span className="mgrPendTable__cell">Payroll Dispute</span>
+                    <span className="mgrPendTable__cell">{row.subject}</span>
+                    <span className="mgrPendTable__cell">{row.payrollPeriod}</span>
+                    <span className="mgrPendTable__cell">{row.submittedAt}</span>
+                    <span className="mgrPendTable__cell mgrPendTable__cell--status">
+                      <span className={`hrApprRow__status hrApprRow__status--${row.statusTone}`}>{row.statusLabel}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="mgrPendTable__empty">
+              <span>{disputes.length > 0 ? 'No matching disputes.' : 'No disputes yet.'}</span>
+              <span>{disputes.length > 0 ? 'Try clearing the search or adjusting the filters.' : 'New employee disputes will show up here.'}</span>
+            </div>
+          )}
         </div>
       </section>
 
@@ -1106,7 +1459,7 @@ export default function HrPayslips() {
                     <input
                       value={
                         selectedCorrectionLine
-                          ? `${selectedCorrectionLine.lineType === 'EARNING' ? 'Earning' : 'Deduction'} • ${selectedCorrectionLine.label}`
+                          ? `${selectedCorrectionLine.lineType === 'EARNING' ? 'Earning' : 'Deduction'} - ${selectedCorrectionLine.label}`
                           : 'Choose a line first'
                       }
                       readOnly
@@ -1150,21 +1503,152 @@ export default function HrPayslips() {
         </div>
       )}
 
-      {selectedDispute && (
-        <div className="hrPayModalBackdrop" role="dialog" aria-modal="true">
+      {selectedPayrollItem && (
+        <div className="hrPayModalBackdrop" role="dialog" aria-modal="true" aria-label="Payroll item breakdown">
           <article className="hrPayModal">
-            <h3>{selectedDispute.employee} - Payslip Dispute</h3>
-            <p className="hrPayModal__subtitle">Review the employee dispute, choose a decision, and confirm it only after the decision reason is complete.</p>
+            <button
+              type="button"
+              className="hrPayModal__close"
+              aria-label="Close payroll item breakdown"
+              onClick={() => setSelectedPayrollItem(null)}
+            >
+              X
+            </button>
+            <h3>{selectedPayrollItem.employee} - Payslip Breakdown</h3>
+            <p className="hrPayModal__subtitle">
+              Review the current earnings, deductions, and totals for this in-progress payroll item before posting the
+              run.
+            </p>
             <div className="hrPayModal__rule" />
 
             <div className="hrPayModal__grid">
               <label>
-                <span>Department:</span>
-                <input value={selectedDispute.department} readOnly />
+                <span>Payroll Item:</span>
+                <input value={`#${selectedPayrollItem.itemId}`} readOnly />
               </label>
               <label>
+                <span>Run Status:</span>
+                <input value={currentRun?.payrollStatus ?? 'IN_PROGRESS'} readOnly />
+              </label>
+              <label>
+                <span>Pay Period:</span>
+                <input value={`${formatDate(currentRun?.periodStart)} - ${formatDate(currentRun?.periodEnd)}`} readOnly />
+              </label>
+              <label>
+                <span>Run Type:</span>
+                <input value={formatRunType(currentRun?.runType)} readOnly />
+              </label>
+            </div>
+
+            <div className="hrPayBreakdownTotals">
+              <div className="hrPayBreakdownTotals__card">
+                <span>Gross Pay</span>
+                <strong>{formatCurrency(selectedPayrollGross)}</strong>
+              </div>
+              <div className="hrPayBreakdownTotals__card">
+                <span>Total Deductions</span>
+                <strong>{formatCurrency(selectedPayrollDeductions)}</strong>
+              </div>
+              <div className="hrPayBreakdownTotals__card">
+                <span>Net Pay</span>
+                <strong>{formatCurrency(selectedPayrollNet)}</strong>
+              </div>
+            </div>
+
+            {isLoadingPayrollItem ? (
+              <p className="hrPayModal__intro">
+                Loading the payroll lines for this employee so the full payslip breakdown can be reviewed.
+              </p>
+            ) : (
+              <>
+                {payrollItemError && <p className="hrPay__message">{payrollItemError}</p>}
+
+                <div className="hrPayBreakdown">
+                  <section className="hrPayBreakdown__section">
+                    <div className="hrPayBreakdown__head">
+                      <h4>Earnings</h4>
+                      <span>{selectedPayrollItemEarnings.length} line(s)</span>
+                    </div>
+                    <div className="hrPayBreakdown__list">
+                      {selectedPayrollItemEarnings.length > 0 ? (
+                        selectedPayrollItemEarnings.map((line) => (
+                          <div key={line.key} className="hrPayBreakdown__row">
+                            <div>
+                              <strong>{line.label}</strong>
+                              {(line.adjustedBy || line.adjustedAt) && (
+                                <span>
+                                  {line.adjustedBy ? `Adjusted by ${line.adjustedBy}` : 'Adjusted'}{' '}
+                                  {line.adjustedAt ? `on ${formatDateTime(line.adjustedAt)}` : ''}
+                                </span>
+                              )}
+                            </div>
+                            <div className="hrPayBreakdown__amounts">
+                              {line.originalAmount && <small>Original: {formatCurrency(line.originalAmount)}</small>}
+                              <strong>{formatCurrency(line.amount)}</strong>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="hrPayBreakdown__empty">No earnings were returned for this payroll item.</div>
+                      )}
+                    </div>
+                  </section>
+
+                  <section className="hrPayBreakdown__section">
+                    <div className="hrPayBreakdown__head">
+                      <h4>Deductions</h4>
+                      <span>{selectedPayrollItemDeductions.length} line(s)</span>
+                    </div>
+                    <div className="hrPayBreakdown__list">
+                      {selectedPayrollItemDeductions.length > 0 ? (
+                        selectedPayrollItemDeductions.map((line) => (
+                          <div key={line.key} className="hrPayBreakdown__row">
+                            <div>
+                              <strong>{line.label}</strong>
+                              {(line.adjustedBy || line.adjustedAt) && (
+                                <span>
+                                  {line.adjustedBy ? `Adjusted by ${line.adjustedBy}` : 'Adjusted'}{' '}
+                                  {line.adjustedAt ? `on ${formatDateTime(line.adjustedAt)}` : ''}
+                                </span>
+                              )}
+                            </div>
+                            <div className="hrPayBreakdown__amounts">
+                              {line.originalAmount && <small>Original: {formatCurrency(line.originalAmount)}</small>}
+                              <strong>{formatCurrency(line.amount)}</strong>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="hrPayBreakdown__empty">No deductions were returned for this payroll item.</div>
+                      )}
+                    </div>
+                  </section>
+                </div>
+              </>
+            )}
+
+          </article>
+        </div>
+      )}
+
+      {selectedDispute && (
+        <div className="hrPayModalBackdrop" role="dialog" aria-modal="true">
+          <article className="hrPayModal">
+            <h3>{selectedDispute.employee} - Payslip Dispute</h3>
+            <p className="hrPayModal__subtitle">
+              Review the employee dispute, decide whether it should be denied or moved to waiting for adjustment, and
+              reopen it later when you are ready to stage the correction.
+            </p>
+            <div className="hrPayModal__rule" />
+
+            <div className="hrPayModal__grid">
+              <label>
                 <span>Status:</span>
-                <input value={selectedDispute.rawStatus} readOnly />
+                <input value={selectedDispute.statusLabel} readOnly />
+              </label>
+              <label>
+                <span>Submitted At:</span>
+                <input value={selectedDispute.submittedAt} readOnly />
               </label>
               <label>
                 <span>Payroll Period:</span>
@@ -1188,62 +1672,89 @@ export default function HrPayslips() {
               </label>
             )}
 
-            <div className="hrPayModal__area">
-              <span>Administrative Approval:</span>
-              <div className="decisionPicker">
-                <div className="decisionPicker__actions">
-                  <button
-                    type="button"
-                    className={`decisionPicker__button ${pendingDisputeDecision === 'APPROVED' ? 'is-selected' : ''}`}
-                    disabled={isSaving || !canReviewSelectedDispute}
-                    onClick={() => setPendingDisputeDecision('APPROVED')}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    className={`decisionPicker__button ${pendingDisputeDecision === 'REJECTED' ? 'is-selected' : ''}`}
-                    disabled={isSaving || !canReviewSelectedDispute}
-                    onClick={() => setPendingDisputeDecision('REJECTED')}
-                  >
-                    Deny
-                  </button>
+            {canReviewSelectedDispute && (
+              <>
+                <div className="hrPayModal__area">
+                  <span>Administrative Decision:</span>
+                  <div className="decisionPicker">
+                    <div className="decisionPicker__actions">
+                      <button
+                        type="button"
+                        className={`decisionPicker__button ${pendingDisputeDecision === 'APPROVED' ? 'is-selected' : ''}`}
+                        disabled={isSaving}
+                        onClick={() => setPendingDisputeDecision('APPROVED')}
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        className={`decisionPicker__button ${pendingDisputeDecision === 'REJECTED' ? 'is-selected' : ''}`}
+                        disabled={isSaving}
+                        onClick={() => setPendingDisputeDecision('REJECTED')}
+                      >
+                        Deny
+                      </button>
+                    </div>
+                    <p className="decisionPicker__note">
+                      Approving this dispute will move it to <strong>Waiting for Adjustment</strong> so you can stage
+                      the payroll fix later instead of being redirected immediately.
+                    </p>
+                  </div>
                 </div>
-                {canReviewSelectedDispute && (
-                  <p className="decisionPicker__note">
-                    Choose the outcome first, then enter the decision reason below and use the confirm button to submit it.
-                  </p>
-                )}
-              </div>
-            </div>
 
-            <label className="hrPayModal__area">
-              <span>Reason for Approval / Denial:</span>
-              <textarea
-                placeholder="Type at least 5 characters explaining the decision"
-                value={remarks}
-                onChange={(event) => setRemarks(event.target.value)}
-                readOnly={!canReviewSelectedDispute}
-              />
-            </label>
-            {!canReviewSelectedDispute && (
-              <p className="hrPay__message">This dispute already has a final decision. Open a new adjustment from the payroll page if another correction is needed.</p>
+                <label className="hrPayModal__area">
+                  <span>Reason for Approval / Denial:</span>
+                  <textarea
+                    placeholder="Type at least 5 characters explaining the decision"
+                    value={remarks}
+                    onChange={(event) => setRemarks(event.target.value)}
+                  />
+                </label>
+              </>
+            )}
+
+            {canStageSelectedDisputeCorrection && (
+              <div className="hrPayModal__callout">
+                <strong>This dispute is waiting for adjustment.</strong>
+                <span>
+                  The approval is already saved. Open the correction workspace whenever you are ready to edit the
+                  payroll line and stage the adjustment entry.
+                </span>
+              </div>
+            )}
+
+            {selectedDispute.statusCode === 'APPROVED' && (
+              <p className="hrPay__message hrPay__message--ok">
+                This dispute is already settled. Any correction that was needed has been staged or finalized.
+              </p>
+            )}
+
+            {selectedDispute.statusCode === 'REJECTED' && (
+              <p className="hrPay__message">This dispute was denied and no payroll adjustment will be staged from it.</p>
+            )}
+
+            {selectedDispute.statusCode === 'CANCELLED' && (
+              <p className="hrPay__message">The employee cancelled this dispute before it was fully processed.</p>
             )}
             {actionError && <p className="hrPay__message">{actionError}</p>}
 
             <div className="hrPayModal__actions">
               <button type="button" className="is-muted" onClick={() => setSelectedDispute(null)} disabled={isSaving}>
-                Cancel
+                {canReviewSelectedDispute || canStageSelectedDisputeCorrection ? 'Cancel' : 'Close'}
               </button>
               {canReviewSelectedDispute ? (
                 <button type="button" onClick={requestDisputeDecisionConfirmation} disabled={isSaving || !pendingDisputeDecision}>
                   {isSaving
                     ? 'Saving...'
                     : pendingDisputeDecision === 'APPROVED'
-                      ? 'Confirm Approval'
+                      ? 'Move to Waiting Adjustment'
                       : pendingDisputeDecision === 'REJECTED'
                         ? 'Confirm Denial'
                         : 'Confirm Decision'}
+                </button>
+              ) : canStageSelectedDisputeCorrection ? (
+                <button type="button" onClick={openSelectedDisputeCorrection}>
+                  Open Adjustment Workspace
                 </button>
               ) : (
                 <button type="button" onClick={() => setSelectedDispute(null)} disabled={isSaving}>
@@ -1274,10 +1785,12 @@ export default function HrPayslips() {
         title={pendingDisputeDecision === 'REJECTED' ? 'Confirm Dispute Denial' : 'Confirm Dispute Approval'}
         message={
           selectedDispute
-            ? `Apply this ${pendingDisputeDecision === 'REJECTED' ? 'denial' : 'approval'} to ${selectedDispute.employee}'s payroll dispute?`
+            ? pendingDisputeDecision === 'REJECTED'
+              ? `Apply this denial to ${selectedDispute.employee}'s payroll dispute?`
+              : `Approve ${selectedDispute.employee}'s payroll dispute and move it to Waiting for Adjustment?`
             : 'Confirm this dispute decision?'
         }
-        confirmLabel={pendingDisputeDecision === 'REJECTED' ? 'Confirm Denial' : 'Confirm Approval'}
+        confirmLabel={pendingDisputeDecision === 'REJECTED' ? 'Confirm Denial' : 'Move to Waiting Adjustment'}
         cancelLabel="Go Back"
         isBusy={isSaving}
         onConfirm={() => {

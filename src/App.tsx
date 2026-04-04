@@ -32,7 +32,9 @@ import ManagerPendingApprovals from './pages/manager/pending-approvals/PendingAp
 import AccountingLayout from './layouts/accounting/AccountingLayout';
 import AccountingPayrollDashboard from './pages/accounting/payroll-dashboard/PayrollDashboard';
 import AccountingPayrollReview from './pages/accounting/payroll-review/PayrollReview';
+import { UiDialogProvider } from './components/dialog/UiDialogProvider';
 import './styles/popupForms.css';
+import './styles/universal-ui.css';
 
 function roleHome(role: UserRole) {
   return getRoleHomePath(role);
@@ -76,96 +78,98 @@ function LoginRoute() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Public */}
-        <Route path="/" element={<Landing />} />
-        <Route path="/login" element={<LoginRoute />} />
-        <Route path="/verify-email" element={<VerifyEmail />} />
-        <Route path="/employee/login" element={<LoginRoute />} />
-        <Route path="/hr/login" element={<LoginRoute />} />
-        <Route path="/manager/login" element={<LoginRoute />} />
-        <Route path="/management/login" element={<LoginRoute />} />
-        <Route path="/accounting/login" element={<LoginRoute />} />
+    <UiDialogProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Public */}
+          <Route path="/" element={<Landing />} />
+          <Route path="/login" element={<LoginRoute />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/employee/login" element={<LoginRoute />} />
+          <Route path="/hr/login" element={<LoginRoute />} />
+          <Route path="/manager/login" element={<LoginRoute />} />
+          <Route path="/management/login" element={<LoginRoute />} />
+          <Route path="/accounting/login" element={<LoginRoute />} />
 
-        {/* Employee (FRAME) */}
-        <Route path="/employee" element={<RequireRole role="employee"><EmployeeLayout /></RequireRole>}>
-          {/* default */}
-          <Route index element={<Navigate to="dashboard" replace />} />
-
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="attendance" element={<Attendance />} />
-          <Route path="approvals" element={<Approval />} />
-          <Route path="payslip" element={<Payslip />} />
-          <Route path="training" element={<Training />} />
-        </Route>
-
-        {/* HR (FRAME) */}
-        <Route path="/hr" element={<RequireRole role="hr"><HrLayout /></RequireRole>}>
-          <Route index element={<Navigate to="self-service/dashboard" replace />} />
-          <Route path="dashboard" element={<HrDashboard />} />
-          <Route path="attendance-reports" element={<HrAttendanceReports />} />
-          <Route path="approvals" element={<HrApprovals />} />
-          <Route path="payslips" element={<HrPayslips />} />
-          <Route path="pay-run-reporting" element={<HrPayRunReporting />} />
-          <Route path="manage-employees" element={<HrManageEmployees />} />
-          <Route path="manage-emp" element={<Navigate to="/hr/manage-employees" replace />} />
-          <Route path="audit-logs" element={<HrAuditLogs />} />
-          <Route path="self-service">
+          {/* Employee (FRAME) */}
+          <Route path="/employee" element={<RequireRole role="employee"><EmployeeLayout /></RequireRole>}>
+            {/* default */}
             <Route index element={<Navigate to="dashboard" replace />} />
+
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="attendance" element={<Attendance />} />
             <Route path="approvals" element={<Approval />} />
             <Route path="payslip" element={<Payslip />} />
             <Route path="training" element={<Training />} />
           </Route>
-          <Route path="employees" element={<Navigate to="/hr/manage-employees" replace />} />
-        </Route>
 
-        {/* Management (FRAME) */}
-        <Route path="/management" element={<RequireRole role="management"><ManagementLayout /></RequireRole>}>
-          <Route index element={<Navigate to="self-service/dashboard" replace />} />
-          <Route path="dashboard" element={<ManagementAttendance />} />
-          <Route path="attendance" element={<ManagementAttendance />} />
-          <Route path="payroll-dashboard" element={<ManagementPayrollCosts />} />
-          <Route path="pay-run-reporting" element={<ManagementPayRunReporting />} />
-          <Route path="payroll-costs" element={<ManagementPayrollCosts />} />
-          <Route path="self-service">
-            <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="attendance" element={<Attendance />} />
-            <Route path="approvals" element={<Approval />} />
-            <Route path="payslip" element={<Payslip />} />
-            <Route path="training" element={<Training />} />
+          {/* HR (FRAME) */}
+          <Route path="/hr" element={<RequireRole role="hr"><HrLayout /></RequireRole>}>
+            <Route index element={<Navigate to="self-service/dashboard" replace />} />
+            <Route path="dashboard" element={<HrDashboard />} />
+            <Route path="attendance-reports" element={<HrAttendanceReports />} />
+            <Route path="approvals" element={<HrApprovals />} />
+            <Route path="payslips" element={<HrPayslips />} />
+            <Route path="pay-run-reporting" element={<HrPayRunReporting />} />
+            <Route path="manage-employees" element={<HrManageEmployees />} />
+            <Route path="manage-emp" element={<Navigate to="/hr/manage-employees" replace />} />
+            <Route path="audit-logs" element={<HrAuditLogs />} />
+            <Route path="self-service">
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="attendance" element={<Attendance />} />
+              <Route path="approvals" element={<Approval />} />
+              <Route path="payslip" element={<Payslip />} />
+              <Route path="training" element={<Training />} />
+            </Route>
+            <Route path="employees" element={<Navigate to="/hr/manage-employees" replace />} />
           </Route>
-        </Route>
 
-        {/* Manager (FRAME) */}
-        <Route path="/manager" element={<RequireRole role="manager"><ManagerLayout /></RequireRole>}>
-          <Route index element={<Navigate to="self-service/dashboard" replace />} />
-          <Route path="dashboard" element={<Navigate to="/manager/self-service/dashboard" replace />} />
-          <Route path="attendance-dashboard" element={<ManagerAttendanceDashboard />} />
-          <Route path="attendance-reports" element={<ManagerAttendanceReports />} />
-          <Route path="pending-approvals" element={<ManagerPendingApprovals />} />
-          <Route path="self-service">
-            <Route index element={<Navigate to="dashboard" replace />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="attendance" element={<Attendance />} />
-            <Route path="approvals" element={<Approval />} />
-            <Route path="payslip" element={<Payslip />} />
-            <Route path="training" element={<Training />} />
+          {/* Management (FRAME) */}
+          <Route path="/management" element={<RequireRole role="management"><ManagementLayout /></RequireRole>}>
+            <Route index element={<Navigate to="self-service/dashboard" replace />} />
+            <Route path="dashboard" element={<ManagementAttendance />} />
+            <Route path="attendance" element={<ManagementAttendance />} />
+            <Route path="payroll-dashboard" element={<ManagementPayrollCosts />} />
+            <Route path="pay-run-reporting" element={<ManagementPayRunReporting />} />
+            <Route path="payroll-costs" element={<ManagementPayrollCosts />} />
+            <Route path="self-service">
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="attendance" element={<Attendance />} />
+              <Route path="approvals" element={<Approval />} />
+              <Route path="payslip" element={<Payslip />} />
+              <Route path="training" element={<Training />} />
+            </Route>
           </Route>
-        </Route>
 
-        {/* Accounting (FRAME) */}
-        <Route path="/accounting" element={<RequireRole role="accounting"><AccountingLayout /></RequireRole>}>
-          <Route index element={<Navigate to="payroll-dashboard" replace />} />
-          <Route path="payroll-dashboard" element={<AccountingPayrollDashboard />} />
-          <Route path="payroll-review" element={<AccountingPayrollReview />} />
-        </Route>
+          {/* Manager (FRAME) */}
+          <Route path="/manager" element={<RequireRole role="manager"><ManagerLayout /></RequireRole>}>
+            <Route index element={<Navigate to="self-service/dashboard" replace />} />
+            <Route path="dashboard" element={<Navigate to="/manager/self-service/dashboard" replace />} />
+            <Route path="attendance-dashboard" element={<ManagerAttendanceDashboard />} />
+            <Route path="attendance-reports" element={<ManagerAttendanceReports />} />
+            <Route path="pending-approvals" element={<ManagerPendingApprovals />} />
+            <Route path="self-service">
+              <Route index element={<Navigate to="dashboard" replace />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="attendance" element={<Attendance />} />
+              <Route path="approvals" element={<Approval />} />
+              <Route path="payslip" element={<Payslip />} />
+              <Route path="training" element={<Training />} />
+            </Route>
+          </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+          {/* Accounting (FRAME) */}
+          <Route path="/accounting" element={<RequireRole role="accounting"><AccountingLayout /></RequireRole>}>
+            <Route index element={<Navigate to="payroll-dashboard" replace />} />
+            <Route path="payroll-dashboard" element={<AccountingPayrollDashboard />} />
+            <Route path="payroll-review" element={<AccountingPayrollReview />} />
+          </Route>
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </UiDialogProvider>
   );
 }

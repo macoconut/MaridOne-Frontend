@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
 import ApprovalStatusSummary from '../../../components/approvals/ApprovalStatusSummary';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './PendingApprovals.css';
@@ -205,6 +206,8 @@ export default function ManagerPendingApprovals() {
   const [typeFilter, setTypeFilter] = useState<RequestTypeFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
+  useErrorDialogEffect(loadError, 'Team requests could not be loaded');
+
   async function loadRequests() {
     try {
       setLoadError('');
@@ -347,12 +350,6 @@ export default function ManagerPendingApprovals() {
       <div className="hrAppr__head">
         <PageHeader
           title={selected ? 'Review Team Request' : 'Requests from Team Members'}
-          meta={
-            <div className="hrAppr__summary">
-              Showing {visibleRequests.length} of {requests.length} request
-              {requests.length === 1 ? '' : 's'}
-            </div>
-          }
         />
 
         <div className="hrAppr__toolbar">

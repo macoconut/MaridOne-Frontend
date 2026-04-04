@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FiChevronLeft, FiChevronRight, FiCalendar } from 'react-icons/fi';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
 import './Dashboard.css';
@@ -396,6 +397,7 @@ export function AttendanceOverviewDashboard({
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  useErrorDialogEffect(loadError, 'HR dashboard attendance logs could not be loaded');
   const [deptPage, setDeptPage] = useState(0);
   const [refreshTick, setRefreshTick] = useState(0);
   const [selectedDateKey, setSelectedDateKey] = useState(todayKey);

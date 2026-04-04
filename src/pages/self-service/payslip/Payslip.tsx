@@ -4,6 +4,7 @@ import { getUserEmail } from '../../../lib/session';
 import { FiUpload, FiX } from 'react-icons/fi';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import './Payslip.css';
 
 type EmployeeDetails = {
@@ -131,6 +132,9 @@ export default function Payslip() {
   const [confirmDisputeSubmit, setConfirmDisputeSubmit] = useState(false);
   const [printingPayslip, setPrintingPayslip] = useState(false);
   const [payslipActionError, setPayslipActionError] = useState('');
+
+  useErrorDialogEffect(disputeError, 'Payslip dispute could not be submitted');
+  useErrorDialogEffect(payslipActionError, 'Payslip action failed');
 
   useEffect(() => {
     void (async () => {

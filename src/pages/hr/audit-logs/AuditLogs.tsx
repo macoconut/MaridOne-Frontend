@@ -1,6 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './AuditLogs.css';
@@ -17,6 +18,20 @@ type ActivityPage = {
   content?: ActivityLogRow[];
   totalPages?: number;
   last?: boolean;
+  page?: {
+    size?: number;
+    number?: number;
+    totalElements?: number;
+    totalPages?: number;
+  };
+};
+
+type PayrollRunRow = {
+  payId?: number;
+  periodStart?: string;
+  periodEnd?: string;
+  periodDescription?: string;
+  runType?: string;
 };
 
 type EmployeeDirectoryRow = {
@@ -31,6 +46,11 @@ type EmployeeDirectoryRow = {
   userAccount?: {
     username?: string;
   };
+};
+
+type EmployeeDirectory = {
+  byUsername: Map<string, string>;
+  byEmployeeId: Map<string, string>;
 };
 
 type ChangeType = 'CREATE' | 'MODIFY' | 'DELETE';
@@ -97,17 +117,15 @@ function isChangeType(value?: string): value is ChangeType {
   return CHANGE_TYPES.includes((value ?? '').toUpperCase() as ChangeType);
 }
 
-function sentenceCase(value: string) {
-  if (!value) return value;
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
-function titleCaseWords(value: string) {
-  return value
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((part) => sentenceCase(part.toLowerCase()))
-    .join(' ');
+function formatDate(value?: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
 }
 
 function formatDateTime(value?: string) {
@@ -116,7 +134,7 @@ function formatDateTime(value?: string) {
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString(undefined, {
     year: 'numeric',
-    month: 'short',
+    month: 'long',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
@@ -138,6 +156,11 @@ function activityTone(activityType: ChangeType) {
 function extractEndpoint(message: string) {
   const match = message.match(/Endpoint:\s*(\/api\/[^\s|]+)/i);
   return match?.[1] ?? '';
+}
+
+function extractPayrollRunId(endpoint: string) {
+  const match = endpoint.match(/^\/api\/payroll\/run\/(?<payId>\d+)\b/i);
+  return match?.groups?.payId ?? null;
 }
 
 function describeEndpoint(endpoint: string) {
@@ -192,10 +215,19 @@ function possibleUsernames(row: EmployeeDirectoryRow) {
 
 function buildDirectory(rows: EmployeeDirectoryRow[]) {
   const byUsername = new Map<string, string>();
+  const byEmployeeId = new Map<string, string>();
 
   for (const row of rows) {
     const name = buildEmployeeName(row);
     if (!name) continue;
+
+    const employeeId = row.employeeId ?? row.id;
+    if (employeeId !== null && employeeId !== undefined) {
+      const key = String(employeeId);
+      if (!byEmployeeId.has(key)) {
+        byEmployeeId.set(key, name);
+      }
+    }
 
     for (const username of possibleUsernames(row)) {
       if (!byUsername.has(username)) {
@@ -204,13 +236,16 @@ function buildDirectory(rows: EmployeeDirectoryRow[]) {
     }
   }
 
-  return byUsername;
+  return {
+    byUsername,
+    byEmployeeId,
+  };
 }
 
-function actorPresentation(username: string | undefined, directory: Map<string, string>) {
+function actorPresentation(username: string | undefined, directory: EmployeeDirectory) {
   const cleanedUsername = normalizeWhitespace(username);
   const normalizedUsername = normalizeSearch(cleanedUsername);
-  const fullName = normalizedUsername ? directory.get(normalizedUsername) : undefined;
+  const fullName = normalizedUsername ? directory.byUsername.get(normalizedUsername) : undefined;
 
   if (fullName) {
     return {
@@ -239,7 +274,60 @@ function cleanDetailMessage(message: string) {
   return withoutMeta || null;
 }
 
-function buildFriendlyCopy(row: ActivityLogRow, activityType: ChangeType) {
+function buildPayrollRunMap(rows: PayrollRunRow[]) {
+  const byId = new Map<string, PayrollRunRow>();
+
+  for (const row of rows) {
+    if (row.payId === null || row.payId === undefined) continue;
+    byId.set(String(row.payId), row);
+  }
+
+  return byId;
+}
+
+function resolveEmployeeName(employeeId: string, directory: EmployeeDirectory) {
+  return directory.byEmployeeId.get(employeeId) ?? `Employee #${employeeId}`;
+}
+
+function formatPayrollPeriod(periodStart?: string, periodEnd?: string) {
+  const start = formatDate(periodStart);
+  const end = formatDate(periodEnd);
+  if (start && end) return `${start} to ${end}`;
+  return start || end || 'an unavailable payroll period';
+}
+
+function describePayrollRun(run?: PayrollRunRow | null, fallbackId?: string) {
+  const runTypeLabel = run?.runType === 'ADJUSTMENT' ? 'adjustment payroll' : 'payroll run';
+
+  if (!run) {
+    return fallbackId ? `${runTypeLabel} #${fallbackId}` : runTypeLabel;
+  }
+
+  const period = formatPayrollPeriod(run.periodStart, run.periodEnd);
+  return `${runTypeLabel} for ${period}`;
+}
+
+function formatAmount(value: string) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return value;
+  return numeric.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function buildSimpleActionDetail(activityType: ChangeType, subject: string) {
+  if (activityType === 'CREATE') return `Created ${subject}.`;
+  if (activityType === 'MODIFY') return `Updated ${subject}.`;
+  return `Deleted ${subject}.`;
+}
+
+function buildFriendlyCopy(
+  row: ActivityLogRow,
+  activityType: ChangeType,
+  directory: EmployeeDirectory,
+  payrollRunsById: Map<string, PayrollRunRow>
+) {
   const message = normalizeWhitespace(row.message);
   const endpoint = extractEndpoint(message);
   const endpointMeta = endpoint ? describeEndpoint(endpoint) : { subject: 'records', area: 'General operations' };
@@ -247,9 +335,12 @@ function buildFriendlyCopy(row: ActivityLogRow, activityType: ChangeType) {
   const action = activityLabel(activityType);
 
   if (correctionMeta) {
+    const employeeName = resolveEmployeeName(correctionMeta.employeeId, directory);
+    const payrollRunLabel = describePayrollRun(payrollRunsById.get(correctionMeta.runId), correctionMeta.runId);
+
     return {
       title: 'Staged payslip correction',
-      detail: `Adjusted ${correctionMeta.label} for employee #${correctionMeta.employeeId} on payroll item #${correctionMeta.itemId}.`,
+      detail: `Adjusted ${correctionMeta.label} from ${formatAmount(correctionMeta.before)} to ${formatAmount(correctionMeta.after)} for ${employeeName} during ${payrollRunLabel}.`,
       area: 'Payroll',
     };
   }
@@ -264,9 +355,64 @@ function buildFriendlyCopy(row: ActivityLogRow, activityType: ChangeType) {
     };
   }
 
+  if (endpoint) {
+    const payrollRunId = extractPayrollRunId(endpoint);
+    const payrollRunLabel = payrollRunId ? describePayrollRun(payrollRunsById.get(payrollRunId), payrollRunId) : null;
+
+    if (/^\/api\/payroll\/run\/\d+\/adjustment\/correction\b/i.test(endpoint)) {
+      return {
+        title: 'Staged payslip correction',
+        detail: payrollRunLabel
+          ? `Prepared a payslip correction for ${payrollRunLabel}.`
+          : 'Prepared a payslip correction.',
+        area: 'Payroll',
+      };
+    }
+
+    if (/^\/api\/payroll\/run\/\d+\/post\b/i.test(endpoint)) {
+      return {
+        title: 'Posted payroll run',
+        detail: payrollRunLabel ? `Posted ${payrollRunLabel}.` : 'Posted a payroll run.',
+        area: 'Payroll',
+      };
+    }
+
+    if (/^\/api\/payroll\/run\/process\b/i.test(endpoint)) {
+      return {
+        title: 'Processed payroll run',
+        detail: 'Processed a payroll run.',
+        area: 'Payroll',
+      };
+    }
+
+    if (/^\/api\/payroll\/run\/create\b/i.test(endpoint)) {
+      return {
+        title: 'Created adjustment payroll',
+        detail: 'Created an adjustment payroll run.',
+        area: 'Payroll',
+      };
+    }
+
+    if (/^\/api\/payroll\/item\/create\b/i.test(endpoint)) {
+      return {
+        title: 'Created payroll item',
+        detail: 'Added a payroll item.',
+        area: 'Payroll',
+      };
+    }
+
+    if (/^\/api\/payroll\/item\/update\/\d+\b/i.test(endpoint)) {
+      return {
+        title: 'Updated payroll item',
+        detail: 'Updated a payroll item.',
+        area: 'Payroll',
+      };
+    }
+  }
+
   return {
     title: `${action} ${endpointMeta.subject}`,
-    detail: `${titleCaseWords(endpointMeta.area)} activity recorded on ${formatDateTime(row.timestamp)}.`,
+    detail: buildSimpleActionDetail(activityType, endpointMeta.subject),
     area: endpointMeta.area,
   };
 }
@@ -278,12 +424,17 @@ function toSearchIndex(parts: Array<string | number | null | undefined>) {
     .join(' ');
 }
 
-function toAuditEntry(row: ActivityLogRow, index: number, directory: Map<string, string>): AuditEntry | null {
+function toAuditEntry(
+  row: ActivityLogRow,
+  index: number,
+  directory: EmployeeDirectory,
+  payrollRunsById: Map<string, PayrollRunRow>
+): AuditEntry | null {
   const normalizedType = (row.activityType ?? '').toUpperCase();
   if (!isChangeType(normalizedType)) return null;
 
   const actor = actorPresentation(row.username, directory);
-  const copy = buildFriendlyCopy(row, normalizedType);
+  const copy = buildFriendlyCopy(row, normalizedType, directory, payrollRunsById);
   const timestampValue = row.timestamp ? Date.parse(row.timestamp) || 0 : 0;
 
   return {
@@ -352,10 +503,21 @@ async function loadAllActivityRows() {
     }
 
     const resolvedTotalPages =
-      typeof payload.totalPages === 'number' && payload.totalPages > 0 ? payload.totalPages : page + 1;
+      typeof payload.page?.totalPages === 'number' && payload.page.totalPages > 0
+        ? payload.page.totalPages
+        : typeof payload.totalPages === 'number' && payload.totalPages > 0
+          ? payload.totalPages
+          : page + 1;
     totalPages = Math.max(resolvedTotalPages, page + 1);
 
-    const isLast = typeof payload.last === 'boolean' ? payload.last : content.length < SERVER_PAGE_SIZE;
+    const resolvedPageSize =
+      typeof payload.page?.size === 'number' && payload.page.size > 0 ? payload.page.size : SERVER_PAGE_SIZE;
+    const resolvedPageNumber =
+      typeof payload.page?.number === 'number' && payload.page.number >= 0 ? payload.page.number : page;
+    const isLast =
+      typeof payload.last === 'boolean'
+        ? payload.last
+        : resolvedPageNumber >= totalPages - 1 || content.length < resolvedPageSize;
     page += 1;
     if (isLast) break;
   }
@@ -369,13 +531,16 @@ async function loadAllActivityRows() {
 
 export default function HrAuditLogs() {
   const [rows, setRows] = useState<ActivityLogRow[]>([]);
-  const [directory, setDirectory] = useState<Map<string, string>>(new Map());
+  const [directory, setDirectory] = useState<EmployeeDirectory>({ byUsername: new Map(), byEmployeeId: new Map() });
+  const [payrollRunsById, setPayrollRunsById] = useState<Map<string, PayrollRunRow>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [searchValue, setSearchValue] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
+
+  useErrorDialogEffect(loadError, 'Audit logs could not be loaded');
 
   const deferredSearch = useDeferredValue(normalizeSearch(searchValue));
 
@@ -387,9 +552,10 @@ export default function HrAuditLogs() {
         setIsLoading(true);
         setLoadError('');
 
-        const [activityRows, employeePayload] = await Promise.all([
+        const [activityRows, employeePayload, payrollRunsPayload] = await Promise.all([
           loadAllActivityRows(),
           apiFetchJson<unknown>('/api/employees?page=0&size=500').catch(() => null),
+          apiFetchJson<unknown>('/api/payroll/run').catch(() => null),
         ]);
 
         if (cancelled) return;
@@ -398,12 +564,16 @@ export default function HrAuditLogs() {
         setDirectory(
           employeePayload
             ? buildDirectory(toArray<EmployeeDirectoryRow>(employeePayload))
-            : new Map()
+            : { byUsername: new Map(), byEmployeeId: new Map() }
+        );
+        setPayrollRunsById(
+          payrollRunsPayload ? buildPayrollRunMap(toArray<PayrollRunRow>(payrollRunsPayload)) : new Map()
         );
       } catch (error) {
         if (cancelled) return;
         setRows([]);
-        setDirectory(new Map());
+        setDirectory({ byUsername: new Map(), byEmployeeId: new Map() });
+        setPayrollRunsById(new Map());
         setLoadError(getFriendlyErrorMessage(error));
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -419,9 +589,9 @@ export default function HrAuditLogs() {
   const entries = useMemo(
     () =>
       rows
-        .map((row, index) => toAuditEntry(row, index, directory))
+        .map((row, index) => toAuditEntry(row, index, directory, payrollRunsById))
         .filter((entry): entry is AuditEntry => entry !== null),
-    [directory, rows]
+    [directory, payrollRunsById, rows]
   );
 
   const visibleEntries = useMemo(() => {
@@ -446,14 +616,11 @@ export default function HrAuditLogs() {
         <PageHeader
           title="Audit Logs"
           description="Review create, update, and delete activity across the HR system."
-          meta={
-            <div className="hrAudit__summary">
-              Showing {visibleEntries.length} of {entries.length} change log{entries.length === 1 ? '' : 's'}
-            </div>
-          }
         />
+      </div>
 
-        <div className="hrAudit__toolbar">
+      <section className="hrAuditTable">
+        <div className="hrAuditToolbar">
           <label className="hrAuditSearch" aria-label="Search audit logs">
             <FiSearch />
             <input
@@ -510,59 +677,59 @@ export default function HrAuditLogs() {
             )}
           </div>
         </div>
-      </div>
 
-      <section className="hrAuditTable">
-        {loadError && <p className="hrAuditForm__error">{loadError}</p>}
+        <div className="hrAuditTable__body">
+          {loadError && <p className="hrAuditForm__error">{loadError}</p>}
 
-        {isLoading ? (
-          <div className="hrAuditRow">
-            <span className="hrAuditRow__actor">
-              <span className="hrAuditRow__actorName">Loading logs...</span>
-            </span>
-            <span className="hrAuditRow__message">
-              <span className="hrAuditRow__title">Fetching create, update, and delete activity.</span>
-              <span className="hrAuditRow__detail">Please wait a moment.</span>
-            </span>
-            <span className="hrAuditRow__meta">
-              <span className="hrAuditRow__time">-</span>
-            </span>
-          </div>
-        ) : visibleEntries.length > 0 ? (
-          visibleEntries.map((entry) => (
-            <div key={entry.id} className="hrAuditRow">
+          {isLoading ? (
+            <div className="hrAuditRow">
               <span className="hrAuditRow__actor">
-                <span className="hrAuditRow__actorName">{entry.actorName}</span>
-                {entry.actorSubtitle && <span className="hrAuditRow__actorSub">{entry.actorSubtitle}</span>}
+                <span className="hrAuditRow__actorName">Loading logs...</span>
               </span>
-
               <span className="hrAuditRow__message">
-                <span className="hrAuditRow__title">{entry.title}</span>
-                <span className="hrAuditRow__detail">{entry.detail}</span>
+                <span className="hrAuditRow__title">Fetching create, update, and delete activity.</span>
+                <span className="hrAuditRow__detail">Please wait a moment.</span>
               </span>
-
               <span className="hrAuditRow__meta">
-                <span className={`hrAuditRow__badge hrAuditRow__badge--${entry.tone}`}>
-                  {entry.activityLabel}
-                </span>
-                <span className="hrAuditRow__time">{entry.recordedAt}</span>
+                <span className="hrAuditRow__time">-</span>
               </span>
             </div>
-          ))
-        ) : (
-          <div className="hrAuditRow">
-            <span className="hrAuditRow__actor">
-              <span className="hrAuditRow__actorName">No matching logs.</span>
-            </span>
-            <span className="hrAuditRow__message">
-              <span className="hrAuditRow__title">There are no create, update, or delete entries in this view.</span>
-              <span className="hrAuditRow__detail">Try clearing the search or adjusting the filters.</span>
-            </span>
-            <span className="hrAuditRow__meta">
-              <span className="hrAuditRow__time">-</span>
-            </span>
-          </div>
-        )}
+          ) : visibleEntries.length > 0 ? (
+            visibleEntries.map((entry) => (
+              <div key={entry.id} className="hrAuditRow">
+                <span className="hrAuditRow__actor">
+                  <span className="hrAuditRow__actorName">{entry.actorName}</span>
+                  {entry.actorSubtitle && <span className="hrAuditRow__actorSub">{entry.actorSubtitle}</span>}
+                </span>
+
+                <span className="hrAuditRow__message">
+                  <span className="hrAuditRow__title">{entry.title}</span>
+                  <span className="hrAuditRow__detail">{entry.detail}</span>
+                </span>
+
+                <span className="hrAuditRow__meta">
+                  <span className={`hrAuditRow__badge hrAuditRow__badge--${entry.tone}`}>
+                    {entry.activityLabel}
+                  </span>
+                  <span className="hrAuditRow__time">{entry.recordedAt}</span>
+                </span>
+              </div>
+            ))
+          ) : (
+            <div className="hrAuditRow">
+              <span className="hrAuditRow__actor">
+                <span className="hrAuditRow__actorName">No matching logs.</span>
+              </span>
+              <span className="hrAuditRow__message">
+                <span className="hrAuditRow__title">There are no create, update, or delete entries in this view.</span>
+                <span className="hrAuditRow__detail">Try clearing the search or adjusting the filters.</span>
+              </span>
+              <span className="hrAuditRow__meta">
+                <span className="hrAuditRow__time">-</span>
+              </span>
+            </div>
+          )}
+        </div>
       </section>
     </div>
   );

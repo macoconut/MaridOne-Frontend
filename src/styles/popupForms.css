@@ -29,7 +29,6 @@
   padding: 20px !important;
   overflow-y: auto !important;
   background: rgba(30, 19, 47, 0.44) !important;
-  backdrop-filter: blur(8px);
   z-index: 3200 !important;
 }
 
@@ -422,7 +421,6 @@
 
 .hrEmpConfirmLayer {
   background: rgba(16, 12, 24, 0.44) !important;
-  backdrop-filter: blur(6px);
 }
 
 .payModal__uploadCard {

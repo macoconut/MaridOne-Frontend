@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { FiChevronDown, FiDownload, FiFileText } from 'react-icons/fi';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import {
   downloadLibraryDocument,
   materialLibrarySections,
@@ -17,6 +18,8 @@ export default function Training() {
   });
   const [activeActionKey, setActiveActionKey] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
+
+  useErrorDialogEffect(actionError, 'Training document action failed');
 
   const isEmpty = useMemo(
     () =>

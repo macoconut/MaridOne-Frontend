@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { FiPlus, FiTrash2 } from 'react-icons/fi';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AccountSecuritySection from '../../../components/account/AccountSecuritySection';
+import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
 import MaterialArt from '../../../components/document/MaterialArt';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import {
   beginTwoFactorSetup,
   confirmTwoFactorSetup,
@@ -352,6 +354,7 @@ function getCalendarEventsByDay(events: CalendarEvent[], year: number, monthInde
 export default function Dashboard() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { showError, showSuccess } = useUiDialog();
   const userRole = getUserRole() ?? 'employee';
   const canRequestOvertime = userRole === 'employee';
   const [profile, setProfile] = useState<UserDetails | null>(null);
@@ -391,6 +394,11 @@ export default function Dashboard() {
     country: '',
     zipCode: '',
   });
+
+  useErrorDialogEffect(editError, 'Profile changes could not be saved');
+  useErrorDialogEffect(createAnnouncementError, 'Announcement could not be created');
+  useErrorDialogEffect(announcementActionError, 'Announcement action failed');
+  useErrorDialogEffect(securityError, 'Security action could not be completed');
 
   useEffect(() => {
     setLastLoginLabel(formatJwtIssuedAt(getAuthToken()));
@@ -707,7 +715,7 @@ export default function Dashboard() {
     try {
       await openLibraryDocument(handbookLibraryCard.document);
     } catch (error) {
-      window.alert(getFriendlyErrorMessage(error, 'generic'));
+      showError(getFriendlyErrorMessage(error, 'generic'), 'Unable to open handbook');
     }
   }
 
@@ -715,7 +723,7 @@ export default function Dashboard() {
     try {
       await downloadLibraryDocument(handbookLibraryCard.document);
     } catch (error) {
-      window.alert(getFriendlyErrorMessage(error, 'generic'));
+      showError(getFriendlyErrorMessage(error, 'generic'), 'Unable to download handbook');
     }
   }
 
@@ -743,6 +751,11 @@ export default function Dashboard() {
   function closeSecurityModal() {
     if (sendingVerification || startingTwoFactor || confirmingTwoFactor || disablingTwoFactor) return;
     setSecurityOpen(false);
+    clearSecurityFeedback();
+    if (!profile?.twoFactorEnabled) {
+      setTwoFactorSetup(null);
+    }
+    setTwoFactorCode('');
   }
 
   function setEditField<K extends keyof typeof editDraft>(key: K, value: (typeof editDraft)[K]) {
@@ -812,7 +825,12 @@ export default function Dashboard() {
     setSendingVerification(true);
     try {
       await sendEmailVerification();
-      setSecurityMessage('Verification email sent. Check your inbox and open the link to finish.');
+      setSecurityOpen(false);
+      setTwoFactorCode('');
+      showSuccess(
+        'Verification email sent. Check your inbox and open the link to finish.',
+        'Verification Email Sent'
+      );
     } catch (error) {
       setSecurityError(getFriendlyErrorMessage(error, 'generic'));
     } finally {
@@ -850,7 +868,8 @@ export default function Dashboard() {
       setTwoFactorSetup(null);
       setTwoFactorCode('');
       setProfile((prev) => (prev ? { ...prev, twoFactorEnabled: true } : prev));
-      setSecurityMessage(message || 'Two-factor authentication successfully enabled.');
+      setSecurityOpen(false);
+      showSuccess(message || 'Two-factor authentication successfully enabled.', 'Two-Factor Enabled');
     } catch (error) {
       setSecurityError(getFriendlyErrorMessage(error, 'generic'));
     } finally {
@@ -866,7 +885,8 @@ export default function Dashboard() {
       setTwoFactorSetup(null);
       setTwoFactorCode('');
       setProfile((prev) => (prev ? { ...prev, twoFactorEnabled: false } : prev));
-      setSecurityMessage('Two-factor authentication has been disabled.');
+      setSecurityOpen(false);
+      showSuccess('Two-factor authentication has been disabled.', 'Two-Factor Disabled');
     } catch (error) {
       setSecurityError(getFriendlyErrorMessage(error, 'generic'));
     } finally {

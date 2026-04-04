@@ -11,6 +11,7 @@ import {
   FiXCircle,
 } from 'react-icons/fi';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
 import './AttendanceReports.css';
@@ -978,16 +979,12 @@ export function AttendanceReportsBoard({
       ? undefined
       : 'Review daily attendance activity, late entries, incomplete logs, and gaps in one monthly calendar.';
 
-  const headerMeta = (
-    <div className="hrAtt__summary">
-      {`Showing ${filteredEmployees.length} of ${reportableEmployees.length} employee${reportableEmployees.length === 1 ? '' : 's'}`}
-    </div>
-  );
+  useErrorDialogEffect(loadError, 'Attendance report could not be loaded');
 
   return (
     <div className="hrAtt">
       <div className="hrAtt__head">
-        <PageHeader title="Attendance Report" description={attendanceReportDescription} meta={headerMeta} />
+        <PageHeader title="Attendance Report" description={attendanceReportDescription} />
 
         <div className="hrAtt__controls">
           <div className="hrAtt__monthSelectWrap">

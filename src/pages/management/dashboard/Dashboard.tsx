@@ -1,6 +1,7 @@
 import { FiHome, FiMail, FiPhone, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
 import { getAuthToken, getUserEmail } from '../../../lib/session';
@@ -99,6 +100,7 @@ export default function ManagementDashboard() {
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
   const [refreshTick, setRefreshTick] = useState(0);
   const [loadError, setLoadError] = useState('');
+  useErrorDialogEffect(loadError, 'Management dashboard could not be loaded');
   const handlePageRefresh = useCallback(() => {
     setRefreshTick((tick) => tick + 1);
   }, []);

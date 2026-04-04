@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AccountSecuritySection from '../../../components/account/AccountSecuritySection';
+import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import {
   beginTwoFactorSetup,
   confirmTwoFactorSetup,
@@ -162,6 +164,7 @@ function isTodayWithin(start?: string, end?: string, today = new Date()) {
 
 export default function ManagerDashboard() {
   const navigate = useNavigate();
+  const { showSuccess } = useUiDialog();
   const [profile, setProfile] = useState<UserDetails | null>(null);
   const [employee, setEmployee] = useState<UserDetails['employee'] | null>(null);
   const [employeeId, setEmployeeId] = useState<number | null>(null);
@@ -202,6 +205,9 @@ export default function ManagerDashboard() {
   const handlePageRefresh = useCallback(() => {
     setRefreshTick((tick) => tick + 1);
   }, []);
+
+  useErrorDialogEffect(editError, 'Profile changes could not be saved');
+  useErrorDialogEffect(securityError, 'Security action could not be completed');
 
   useRegisterPageRefresh(handlePageRefresh);
 
@@ -415,6 +421,11 @@ export default function ManagerDashboard() {
   function closeSecurityModal() {
     if (sendingVerification || startingTwoFactor || confirmingTwoFactor || disablingTwoFactor) return;
     setSecurityOpen(false);
+    clearSecurityFeedback();
+    if (!profile?.twoFactorEnabled) {
+      setTwoFactorSetup(null);
+    }
+    setTwoFactorCode('');
   }
 
   function setEditField<K extends keyof typeof editDraft>(key: K, value: (typeof editDraft)[K]) {
@@ -484,7 +495,12 @@ export default function ManagerDashboard() {
     setSendingVerification(true);
     try {
       await sendEmailVerification();
-      setSecurityMessage('Verification email sent. Check your inbox and open the link to finish.');
+      setSecurityOpen(false);
+      setTwoFactorCode('');
+      showSuccess(
+        'Verification email sent. Check your inbox and open the link to finish.',
+        'Verification Email Sent'
+      );
     } catch (error) {
       setSecurityError(getFriendlyErrorMessage(error, 'generic'));
     } finally {
@@ -522,7 +538,8 @@ export default function ManagerDashboard() {
       setTwoFactorSetup(null);
       setTwoFactorCode('');
       setProfile((prev) => (prev ? { ...prev, twoFactorEnabled: true } : prev));
-      setSecurityMessage(message || 'Two-factor authentication successfully enabled.');
+      setSecurityOpen(false);
+      showSuccess(message || 'Two-factor authentication successfully enabled.', 'Two-Factor Enabled');
     } catch (error) {
       setSecurityError(getFriendlyErrorMessage(error, 'generic'));
     } finally {
@@ -538,7 +555,8 @@ export default function ManagerDashboard() {
       setTwoFactorSetup(null);
       setTwoFactorCode('');
       setProfile((prev) => (prev ? { ...prev, twoFactorEnabled: false } : prev));
-      setSecurityMessage('Two-factor authentication has been disabled.');
+      setSecurityOpen(false);
+      showSuccess('Two-factor authentication has been disabled.', 'Two-Factor Disabled');
     } catch (error) {
       setSecurityError(getFriendlyErrorMessage(error, 'generic'));
     } finally {

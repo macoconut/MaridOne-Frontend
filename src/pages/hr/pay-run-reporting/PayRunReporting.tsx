@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FiSearch, FiXCircle } from 'react-icons/fi';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
@@ -173,6 +174,7 @@ export default function HrPayRunReporting() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [refreshTick, setRefreshTick] = useState(0);
+  useErrorDialogEffect(loadError, 'Pay run reporting could not be loaded');
   const handlePageRefresh = useCallback(() => {
     setRefreshTick((tick) => tick + 1);
   }, []);
