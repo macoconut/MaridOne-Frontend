@@ -107,6 +107,23 @@ function formatPeriodLabel(start?: string, end?: string) {
   return `${formatDisplayDate(start)} to ${formatDisplayDate(end)}`;
 }
 
+function formatFileDate(value?: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toISOString().slice(0, 10);
+}
+
+function sanitizeFileNamePart(value?: string) {
+  if (!value) return '';
+  return value
+    .trim()
+    .replace(/[<>:"/\\|?*\x00-\x1F]+/g, '-')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
 function formatCurrency(value: number | string | undefined) {
   const parsedValue =
     typeof value === 'number'
@@ -321,42 +338,90 @@ export default function Payslip() {
   const taxNumber = '-';
   const department = employeeInfo?.department?.trim() || '-';
 
-  function handleDownload() {
-    const formatLine = (line: PayslipLine) => {
-      const parts = [`${line.label}: ${formatCurrency(line.amount)}`];
-      if (line.isAdjusted) {
-        parts.push(
-          `[Adjusted${line.originalAmount ? ` | Original: ${formatCurrency(line.originalAmount)}` : ''}${
-            line.adjustedBy ? ` | By: ${line.adjustedBy}` : ''
-          }${line.adjustedAt ? ` | At: ${formatAdjustmentTimestamp(line.adjustedAt)}` : ''}]`
-        );
-      }
-      return parts.join(' ');
-    };
+  function buildPayslipPdfName(document?: DocumentRow) {
+    const lastName = sanitizeFileNamePart(employeeInfo?.lastName);
+    const firstName = sanitizeFileNamePart(employeeInfo?.firstName);
+    const employeeSegment = [lastName, firstName].filter(Boolean).join('_');
+    const periodStart = formatFileDate(selectedRun?.periodStart);
+    const periodEnd = formatFileDate(selectedRun?.periodEnd);
+    const periodSegment =
+      periodStart && periodEnd ? `${periodStart}_to_${periodEnd}` : sanitizeFileNamePart(displayPayPeriod);
+    const documentName = sanitizeFileNamePart(document?.fileName?.replace(/\.pdf$/i, ''));
+    const baseName =
+      [employeeSegment, periodSegment].filter(Boolean).join('_') ||
+      documentName ||
+      `payslip_${selectedItemId ?? 'latest'}`;
 
-    const content = [
-      `Employee ID: ${employeeId ?? '-'}`,
-      `Selected Item ID: ${selectedItemId ?? '-'}`,
-      `Pay Period: ${displayPayPeriod}`,
-      hasAdjustedLines ? `Adjusted Lines: ${adjustedLines.length}` : 'Adjusted Lines: 0',
-      '',
-      'Earnings:',
-      ...(earnings.length > 0 ? earnings.map(formatLine) : ['No earnings data available']),
-      '',
-      'Deductions:',
-      ...(deductions.length > 0 ? deductions.map(formatLine) : ['No deductions data available']),
-      '',
-      `Total Earnings: ${formatCurrency(totalEarnings)}`,
-      `Total Deductions: ${formatCurrency(totalDeductions)}`,
-      `Net Pay: ${formatCurrency(netPay)}`,
-    ].join('\n');
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `payslip-summary-${selectedItemId ?? 'latest'}.txt`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    return `${baseName}.pdf`;
+  }
+
+  async function loadSelectedPayslipPdf() {
+    const username = getUserEmail();
+    if (!username) {
+      throw new Error('Missing username.');
+    }
+
+    const documents = await apiFetchJson<DocumentRow[]>(
+      `/api/user/documents/${encodeURIComponent(username)}?subDir=payslip`
+    );
+    const selectedDocument =
+      documents.find((document) => matchesPayslipPeriod(document, selectedRun?.periodEnd)) ?? documents[0];
+
+    if (!selectedDocument || typeof selectedDocument.pathId !== 'number') {
+      throw new Error('No saved payslip PDF was found for this pay period yet.');
+    }
+
+    const documentViewPaths = [
+      `/api/LOCAL/document/${selectedDocument.pathId}/view`,
+      `/api/document/${selectedDocument.pathId}/view`,
+    ];
+
+    let documentBlob: Blob | null = null;
+
+    for (const path of documentViewPaths) {
+      const response = await apiFetchRaw(path, { method: 'GET' });
+
+      if (response.ok) {
+        documentBlob = await response.blob();
+        break;
+      }
+
+      if (response.status !== 404) {
+        throw new Error(`Failed to open the saved payslip (${response.status}).`);
+      }
+    }
+
+    if (!documentBlob) {
+      throw new Error('The saved payslip document could not be opened.');
+    }
+
+    const fileName = buildPayslipPdfName(selectedDocument);
+    const pdfFile = new File(
+      [documentBlob],
+      fileName,
+      { type: documentBlob.type || selectedDocument.fileType || 'application/pdf' }
+    );
+
+    return { file: pdfFile, fileName };
+  }
+
+  async function handleDownload() {
+    setPayslipActionError('');
+    setPrintingPayslip(true);
+
+    try {
+      const { file, fileName } = await loadSelectedPayslipPdf();
+      const downloadUrl = URL.createObjectURL(file);
+      const anchor = document.createElement('a');
+      anchor.href = downloadUrl;
+      anchor.download = fileName;
+      anchor.click();
+      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 60_000);
+    } catch (error) {
+      setPayslipActionError(error instanceof Error ? error.message : 'Failed to download the saved payslip.');
+    } finally {
+      setPrintingPayslip(false);
+    }
   }
 
   async function handlePrintPayslip() {
@@ -364,56 +429,13 @@ export default function Payslip() {
     setPrintingPayslip(true);
 
     try {
-      const username = getUserEmail();
-      if (!username) {
-        throw new Error('Missing username.');
-      }
-
-      const documents = await apiFetchJson<DocumentRow[]>(
-        `/api/user/documents/${encodeURIComponent(username)}?subDir=payslip`
-      );
-      const selectedDocument =
-        documents.find((document) => matchesPayslipPeriod(document, selectedRun?.periodEnd)) ?? documents[0];
-
-      if (!selectedDocument || typeof selectedDocument.pathId !== 'number') {
-        throw new Error('No saved payslip PDF was found for this pay period yet.');
-      }
-
-      const documentViewPaths = [
-        `/api/LOCAL/document/${selectedDocument.pathId}/view`,
-        `/api/document/${selectedDocument.pathId}/view`,
-      ];
-
-      let documentBlob: Blob | null = null;
-
-      for (const path of documentViewPaths) {
-        const response = await apiFetchRaw(path, { method: 'GET' });
-
-        if (response.ok) {
-          documentBlob = await response.blob();
-          break;
-        }
-
-        if (response.status !== 404) {
-          throw new Error(`Failed to open the saved payslip (${response.status}).`);
-        }
-      }
-
-      if (!documentBlob) {
-        throw new Error('The saved payslip document could not be opened.');
-      }
-
-      const documentUrl = URL.createObjectURL(documentBlob);
-      const openedWindow = window.open(documentUrl, '_blank', 'noopener,noreferrer');
-
-      if (!openedWindow) {
-        const anchor = document.createElement('a');
-        anchor.href = documentUrl;
-        anchor.target = '_blank';
-        anchor.rel = 'noopener noreferrer';
-        anchor.click();
-      }
-
+      const { file } = await loadSelectedPayslipPdf();
+      const documentUrl = URL.createObjectURL(file);
+      const anchor = document.createElement('a');
+      anchor.href = documentUrl;
+      anchor.target = '_blank';
+      anchor.rel = 'noopener noreferrer';
+      anchor.click();
       window.setTimeout(() => URL.revokeObjectURL(documentUrl), 60_000);
     } catch (error) {
       setPayslipActionError(error instanceof Error ? error.message : 'Failed to open the saved payslip.');
@@ -718,7 +740,9 @@ export default function Payslip() {
       </section>
 
       <div className="payActions">
-        <button className="payBtn" type="button" onClick={handleDownload}>Download Summary</button>
+        <button className="payBtn" type="button" onClick={() => void handleDownload()} disabled={printingPayslip}>
+          {printingPayslip ? 'Preparing Payslip...' : 'Download Payslip'}
+        </button>
         <button className="payBtn" type="button" onClick={() => void handlePrintPayslip()} disabled={printingPayslip}>
           {printingPayslip ? 'Opening Payslip...' : 'Print Payslip'}
         </button>
