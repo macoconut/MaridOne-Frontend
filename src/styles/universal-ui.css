@@ -244,11 +244,10 @@ body {
   .hrRunTable__head,
   .mRunTable__head
 ) {
-  border: 1px solid var(--ui-border) !important;
-  border-radius: var(--ui-radius-md) !important;
-  background:
-    linear-gradient(180deg, rgba(246, 239, 251, 0.98), rgba(255, 255, 255, 0.98)) !important;
-  box-shadow: var(--ui-shadow-soft) !important;
+  border: 1px solid rgba(95, 65, 122, 0.28) !important;
+  border-radius: 12px 12px 0 0 !important;
+  background: #7b4a8f !important;
+  box-shadow: 0 12px 24px rgba(47, 27, 66, 0.12) !important;
 }
 
 :where(
@@ -263,10 +262,10 @@ body {
   .hrRunTable__head span,
   .mRunTable__head span
 ) {
-  color: #5a337d !important;
-  font-size: 12px !important;
+  color: rgba(252, 248, 255, 0.96) !important;
+  font-size: 13px !important;
   font-weight: 800 !important;
-  letter-spacing: 0.08em !important;
+  letter-spacing: 0.1em !important;
   text-transform: uppercase !important;
 }
 

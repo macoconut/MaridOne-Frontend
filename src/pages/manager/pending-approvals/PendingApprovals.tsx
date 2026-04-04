@@ -437,7 +437,7 @@ export default function ManagerPendingApprovals() {
                 <button
                   key={request.id}
                   type="button"
-                  className={`mgrPendTable__row mgrPendTable__row--${toStatusCode(request.status).toLowerCase()}`}
+                  className="mgrPendTable__row"
                   onClick={() => setSelectedId(request.id)}
                 >
                   <span className="mgrPendTable__cell mgrPendTable__cell--name">{request.employee}</span>
