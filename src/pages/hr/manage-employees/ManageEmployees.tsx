@@ -1124,9 +1124,6 @@ export default function HrManageEmp() {
                           onChange={(event) => setField('password', event.target.value)}
                           placeholder={modal === 'add' ? 'Required' : 'Leave blank to keep current password'}
                         />
-                        {modal !== 'add' && (
-                          <span className="hrEmpField__hint">Leave this blank if the current password should stay unchanged.</span>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -1193,7 +1190,12 @@ export default function HrManageEmp() {
                   <h3>{confirmAction === 'edit' ? 'Confirm Employee Update' : 'Confirm Termination'}</h3>
                   <p>
                     {confirmAction === 'edit'
-                      ? `Are you sure you want to save the changes for employee ID ${form.employeeId}?`
+                      ? `Are you sure you want to save the changes for ${
+                          [form.firstName, form.middleName, form.lastName]
+                            .map((value) => value.trim())
+                            .filter(Boolean)
+                            .join(' ') || `employee ID ${form.employeeId}`
+                        }?`
                       : `Are you sure you want to mark employee ID ${form.employeeId}${selectedEmployee ? ` (${selectedEmployee.name})` : ''} as terminated?`}
                   </p>
                   <div className="hrEmpConfirmCard__actions">

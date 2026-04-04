@@ -78,6 +78,12 @@ type AttendanceHistory = {
   latestDirection: 'IN' | 'OUT' | null;
 };
 
+type LeaveBalanceRow = {
+  leaveId?: number;
+  balanceHours?: number | string | null;
+  leaveType?: LeaveType | string;
+};
+
 const LEAVE_TYPE_OPTIONS: Array<{ label: string; value: LeaveType }> = [
   { label: 'Sick Leave', value: 'SICK_LEAVE' },
   { label: 'Vacation Leave', value: 'VACATION_LEAVE' },
@@ -87,6 +93,7 @@ const LEAVE_TYPE_OPTIONS: Array<{ label: string; value: LeaveType }> = [
   { label: 'Magna Carta', value: 'MAGNA_CARTA' },
   { label: 'RA 9262', value: 'RA9262' },
 ];
+const HOURS_FORMATTER = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
 
 function pad2(n: number) {
   return String(n).padStart(2, '0');
@@ -224,6 +231,43 @@ function formatAttendanceSession(session: AttendanceSession) {
   return 'Attendance logged';
 }
 
+function formatLeaveTypeLabel(value?: string) {
+  if (!value) return 'Leave';
+  const option = LEAVE_TYPE_OPTIONS.find((entry) => entry.value === value);
+  if (option) return option.label;
+
+  return value
+    .toLowerCase()
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function parseBalanceHours(value?: number | string | null) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function formatBalanceHoursLabel(value?: number | string | null) {
+  const parsed = parseBalanceHours(value);
+  if (parsed !== null) {
+    return `${HOURS_FORMATTER.format(parsed)} hour${Math.abs(parsed - 1) < 0.00001 ? '' : 's'}`;
+  }
+
+  return '0 hours';
+}
+
 function buildAttendanceHistory(logs: unknown): AttendanceHistory {
   const parsedLogs = toArray<AttendanceLog>(logs)
     .map((row) => {
@@ -318,6 +362,8 @@ export default function Attendance() {
   const [requestEntries, setRequestEntries] = useState<RequestEntry[]>([]);
   const [attendanceByDate, setAttendanceByDate] = useState<Record<string, AttendanceSession[]>>({});
   const [shiftSchedule, setShiftSchedule] = useState<ShiftScheduleRow[]>([]);
+  const [leaveBalances, setLeaveBalances] = useState<LeaveBalanceRow[]>([]);
+  const [leaveBalanceStatus, setLeaveBalanceStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [otOpen, setOtOpen] = useState(false);
   const [otStartDate, setOtStartDate] = useState<string>('');
   const [otEndDate, setOtEndDate] = useState<string>('');
@@ -353,6 +399,21 @@ export default function Attendance() {
     }
   }
 
+  async function fetchLeaveBalances(resolvedEmpId: number) {
+    try {
+      const response = await apiFetchJson<unknown>(`/api/leave/balance/${resolvedEmpId}`);
+      return {
+        rows: toArray<LeaveBalanceRow>(response),
+        status: 'ready' as const,
+      };
+    } catch {
+      return {
+        rows: [],
+        status: 'unavailable' as const,
+      };
+    }
+  }
+
   useEffect(() => {
     setMonthValue(monthLabel);
   }, [monthLabel]);
@@ -366,10 +427,23 @@ export default function Attendance() {
   }, [monthIndex, today, todayKey, year]);
 
   useEffect(() => {
+    let cancelled = false;
+
     void (async () => {
       try {
         const username = getUserEmail();
-        if (!username) return;
+        if (!username) {
+          if (!cancelled) {
+            setEmployeeId(null);
+            setRequestEntries([]);
+            setAttendanceByDate({});
+            setShiftSchedule([]);
+            setLeaveBalances([]);
+            setLatestAttendanceDirection(null);
+            setLeaveBalanceStatus('unavailable');
+          }
+          return;
+        }
         const userDetails = await apiFetchJson<Record<string, unknown>>(
           `/api/user/details/${encodeURIComponent(username)}`
         );
@@ -387,16 +461,19 @@ export default function Attendance() {
                 ? selfEmployee.id
                 : null;
 
+        if (cancelled) return;
         setEmployeeId(resolvedEmpId);
 
         if (resolvedEmpId) {
-          const [leaveResponse, overtimeResponse, attendanceHistory, scheduleResponse] = await Promise.all([
+          const [leaveResponse, overtimeResponse, attendanceHistory, scheduleResponse, leaveBalanceResponse] = await Promise.all([
             apiFetchJson<unknown>(`/api/leave/request/${resolvedEmpId}?page=0&size=200`),
             apiFetchJson<unknown>(`/api/overtime/all/${resolvedEmpId}?page=0&size=200`),
             fetchAttendanceHistory(resolvedEmpId),
             apiFetchJson<unknown>(`/api/employee/schedule/${resolvedEmpId}`).catch(() => []),
+            fetchLeaveBalances(resolvedEmpId),
           ]);
 
+          if (cancelled) return;
           setRequestEntries([
             ...mapLeaveRequestEntries(leaveResponse),
             ...mapOvertimeRequestEntries(overtimeResponse),
@@ -404,15 +481,27 @@ export default function Attendance() {
           setShiftSchedule(toArray<ShiftScheduleRow>(scheduleResponse));
           setAttendanceByDate(attendanceHistory?.sessionsByDate ?? {});
           setLatestAttendanceDirection(attendanceHistory?.latestDirection ?? null);
+          setLeaveBalances(leaveBalanceResponse.rows);
+          setLeaveBalanceStatus(leaveBalanceResponse.status);
+        } else {
+          setLeaveBalances([]);
+          setLeaveBalanceStatus('unavailable');
         }
       } catch {
+        if (cancelled) return;
         setEmployeeId(null);
         setRequestEntries([]);
         setAttendanceByDate({});
         setShiftSchedule([]);
+        setLeaveBalances([]);
         setLatestAttendanceDirection(null);
+        setLeaveBalanceStatus('unavailable');
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [monthIndex, year]);
 
   useEffect(() => {
@@ -442,6 +531,56 @@ export default function Attendance() {
         .map((entry) => entry.dateKey)
     );
   }, [requestEntries]);
+
+  const leaveBalancesByType = useMemo(() => {
+    const next = new Map<string, LeaveBalanceRow>();
+    for (const balance of leaveBalances) {
+      if (typeof balance.leaveType !== 'string' || balance.leaveType.length === 0) continue;
+      next.set(balance.leaveType, balance);
+    }
+    return next;
+  }, [leaveBalances]);
+
+  const orderedLeaveBalances = useMemo(() => {
+    const knownTypes = new Set<string>(LEAVE_TYPE_OPTIONS.map((option) => option.value));
+    const known = LEAVE_TYPE_OPTIONS.map((option) => ({
+      key: option.value,
+      label: option.label,
+      balance: leaveBalancesByType.get(option.value) ?? null,
+    }));
+    const extras = leaveBalances
+      .filter(
+        (balance): balance is LeaveBalanceRow & { leaveType: string } =>
+          typeof balance.leaveType === 'string' &&
+          balance.leaveType.length > 0 &&
+          !knownTypes.has(balance.leaveType)
+      )
+      .map((balance, index) => ({
+        key: `${balance.leaveType}-${String(balance.leaveId ?? index)}`,
+        label: formatLeaveTypeLabel(balance.leaveType),
+        balance,
+      }));
+
+    return [...known, ...extras];
+  }, [leaveBalances, leaveBalancesByType]);
+
+  const selectedLeaveBalance = leaveBalancesByType.get(leaveType) ?? null;
+  const selectedLeaveBalanceLabel =
+    leaveBalanceStatus === 'loading'
+      ? 'Loading...'
+      : leaveBalanceStatus === 'unavailable'
+        ? 'Unavailable'
+        : selectedLeaveBalance
+          ? formatBalanceHoursLabel(selectedLeaveBalance.balanceHours)
+          : 'Not assigned yet';
+  const selectedLeaveBalanceNote =
+    leaveBalanceStatus === 'loading'
+      ? 'Checking your available leave balance.'
+      : leaveBalanceStatus === 'unavailable'
+        ? 'Your leave balances could not be loaded right now.'
+        : selectedLeaveBalance
+          ? 'Pending requests may not yet be deducted.'
+          : 'HR has not assigned this leave balance to your account yet.';
 
   const hasApprovedTodayLeave = useMemo(() => {
     return requestEntries.some(
@@ -905,6 +1044,40 @@ export default function Attendance() {
       {clockMessage && <p className="field__ok">{clockMessage}</p>}
       {clockError && <p className="field__error">{clockError}</p>}
 
+      <section className="attBalanceCard" aria-labelledby="att-leave-balances-title">
+        <div className="attBalanceCard__header">
+          <div className="attBalanceCard__copy">
+            <h2 className="attBalanceCard__title" id="att-leave-balances-title">
+              Leave Balances
+            </h2>
+            <p className="attBalanceCard__subtitle">
+              Review your available leave in hours before filing a new request.
+            </p>
+          </div>
+          <p className="attBalanceCard__note">Pending requests may not yet be deducted.</p>
+        </div>
+
+        {leaveBalanceStatus === 'loading' ? (
+          <p className="attBalanceCard__loading">Loading leave balances...</p>
+        ) : leaveBalanceStatus === 'unavailable' ? (
+          <p className="attBalanceCard__loading">Your leave balances are unavailable right now.</p>
+        ) : (
+          <div className="attBalanceGrid">
+            {orderedLeaveBalances.map((item) => (
+              <div
+                key={item.key}
+                className={`attBalancePill${item.balance ? '' : ' attBalancePill--empty'}`}
+              >
+                <span className="attBalancePill__label">{item.label}</span>
+                <strong className="attBalancePill__value">
+                  {item.balance ? formatBalanceHoursLabel(item.balance.balanceHours) : 'Not assigned'}
+                </strong>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
       {/* Calendar card */}
       <section className="attCard">
         <div className="attCalendarShell" aria-label="Attendance calendar">
@@ -1079,6 +1252,17 @@ export default function Attendance() {
                       </option>
                     ))}
                   </select>
+                  <div
+                    className={`requestField__balanceHint${
+                      leaveBalanceStatus === 'ready' && selectedLeaveBalance ? '' : ' requestField__balanceHint--muted'
+                    }`}
+                  >
+                    <span className="requestField__balanceLabel">
+                      {formatLeaveTypeLabel(leaveType)} balance
+                    </span>
+                    <strong className="requestField__balanceValue">{selectedLeaveBalanceLabel}</strong>
+                    <span className="requestField__balanceNote">{selectedLeaveBalanceNote}</span>
+                  </div>
                 </div>
 
                 <div className="requestField">
