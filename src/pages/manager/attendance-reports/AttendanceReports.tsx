@@ -6,6 +6,7 @@ export default function ManagerAttendanceReports() {
       audienceLabel="Manager"
       logsUrl="/api/logs/attendance/team"
       rosterUrl="/api/employees/team"
+      leavesUrl="/api/leave/request/team"
     />
   );
 }

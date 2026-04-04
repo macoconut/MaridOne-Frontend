@@ -102,6 +102,9 @@ type AttendanceOverviewDashboardProps = {
   rosterUrl?: string;
   feedWindowDays?: number;
   primaryPanelMode?: 'department' | 'weekly';
+  feedScope?: 'window' | 'selected-date';
+  feedTitleOverride?: string;
+  feedTimeDisplay?: 'auto' | 'time-only';
 };
 
 type AttendanceStatusKey = 'present' | 'late' | 'absent' | 'onLeave' | 'dayOff';
@@ -596,6 +599,9 @@ export function AttendanceOverviewDashboard({
   rosterUrl = '/api/employees',
   feedWindowDays = 1,
   primaryPanelMode = 'department',
+  feedScope = 'window',
+  feedTitleOverride,
+  feedTimeDisplay = 'auto',
 }: AttendanceOverviewDashboardProps) {
   const today = new Date();
   const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(
@@ -858,7 +864,9 @@ export function AttendanceOverviewDashboard({
   );
 
   const attendanceFeed: FeedItem[] = useMemo(() => {
-    return [...feedLogs]
+    const feedSourceLogs = feedScope === 'selected-date' ? selectedDateLogs : feedLogs;
+
+    return [...feedSourceLogs]
       .sort((a, b) => {
         const at = typeof a.timestamp === 'string' ? Date.parse(a.timestamp) : 0;
         const bt = typeof b.timestamp === 'string' ? Date.parse(b.timestamp) : 0;
@@ -880,10 +888,10 @@ export function AttendanceOverviewDashboard({
           directionLabel: derivedLate ? 'LATE' : directionIndicator(log.direction),
           directionTone: derivedLate ? 'late' : directionIndicatorTone(log.direction),
           position: employee?.position || 'Position unavailable',
-          time: formatFeedTimestamp(log.timestamp, includeWeeklyFeed),
+          time: formatFeedTimestamp(log.timestamp, feedTimeDisplay === 'time-only' ? false : includeWeeklyFeed),
         };
       });
-  }, [employeeById, feedLogs, includeWeeklyFeed]);
+  }, [employeeById, feedLogs, feedScope, feedTimeDisplay, includeWeeklyFeed, selectedDateLogs]);
 
   const onLeave: LeaveCardItem[] = useMemo(() => {
     return selectedApprovedLeaves.map((request, idx) => {
@@ -1125,6 +1133,13 @@ export function AttendanceOverviewDashboard({
       : isSelectedDateToday
         ? 'Attendance Today'
         : `Attendance on ${selectedDateShortLabel}`;
+  const resolvedFeedPanelTitle = feedTitleOverride ?? feedPanelTitle;
+  const feedEmptyStateLabel =
+    feedScope === 'selected-date'
+      ? selectedDateHeading
+      : includeWeeklyFeed
+        ? feedRangeLabel
+        : selectedDateHeading;
 
   return (
     <div className="hrDash">
@@ -1483,7 +1498,7 @@ export function AttendanceOverviewDashboard({
           className="hrPanel hrFeedPanel"
           style={feedPanelHeight ? ({ height: `${feedPanelHeight}px` } as CSSProperties) : undefined}
         >
-          <div className="hrPanel__header">{feedPanelTitle}</div>
+          <div className="hrPanel__header">{resolvedFeedPanelTitle}</div>
           <div className="hrPeopleList">
             {attendanceFeed.length > 0 ? (
               attendanceFeed.map((item) => (
@@ -1504,9 +1519,9 @@ export function AttendanceOverviewDashboard({
               <div className="hrEmptyState">
                 <div className="hrEmptyState__title">No attendance activity yet.</div>
                 <div className="hrEmptyState__note">
-                  {selectedIsHoliday && !includeWeeklyFeed
+                  {selectedIsHoliday && feedScope === 'selected-date'
                     ? `${selectedDateHeading} is a holiday, so no logs are expected unless someone worked.`
-                    : `There are no attendance logs for ${includeWeeklyFeed ? feedRangeLabel : selectedDateHeading}.`}
+                    : `There are no attendance logs for ${feedEmptyStateLabel}.`}
                 </div>
               </div>
             )}

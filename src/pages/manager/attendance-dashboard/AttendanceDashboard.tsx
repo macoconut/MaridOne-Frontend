@@ -9,6 +9,9 @@ export default function ManagerAttendanceDashboard() {
       rosterUrl="/api/employees/team"
       feedWindowDays={7}
       primaryPanelMode="weekly"
+      feedScope="selected-date"
+      feedTitleOverride="Attendance Today"
+      feedTimeDisplay="time-only"
     />
   );
 }

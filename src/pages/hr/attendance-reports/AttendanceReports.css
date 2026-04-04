@@ -235,6 +235,12 @@ body.modal-open {
   cursor: pointer;
 }
 
+.hrAtt__actionBtn:disabled {
+  opacity: 0.68;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 .hrAtt__actionBtn--ghost {
   background: rgba(123, 74, 143, 0.1);
   color: #5f3a82;

@@ -4,6 +4,7 @@ import {
   FiCalendar,
   FiChevronLeft,
   FiChevronRight,
+  FiDownload,
   FiFilter,
   FiSearch,
   FiUsers,
@@ -15,6 +16,7 @@ import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
+import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './AttendanceReports.css';
 
 type AttendanceLog = {
@@ -107,6 +109,14 @@ type DailyEmployeeRecord = {
   logCount: number;
   isLate: boolean;
   isIncomplete: boolean;
+};
+
+type AttendanceExportRow = {
+  employeeId: string;
+  employeeName: string;
+  date: string;
+  timeIn: string;
+  timeOut: string;
 };
 
 type HolidayLookupPayload = {
@@ -437,6 +447,18 @@ function monthCells(year: number, monthIndex: number) {
   return cells;
 }
 
+function toCsvValue(value: unknown) {
+  const text = String(value ?? '');
+  if (/[",\r\n]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
+function buildCsvContent(rows: string[][]) {
+  return rows.map((row) => row.map(toCsvValue).join(',')).join('\r\n');
+}
+
 function employeeName(employee: EmployeeRow | undefined, employeeId: number) {
   return employee?.name || `Employee #${employeeId}`;
 }
@@ -573,6 +595,8 @@ export function AttendanceReportsBoard({
   const [rosterMessage, setRosterMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
   const [selectedDateKey, setSelectedDateKey] = useState(todayDateKey);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -1257,6 +1281,49 @@ export function AttendanceReportsBoard({
     selectedRecords,
   ]);
 
+  const attendanceExportRows = useMemo(() => {
+    const rows: AttendanceExportRow[] = [];
+
+    for (const [dateKey, dayLogs] of logsByDate.entries()) {
+      if (dateKey < monthStartKey || dateKey > monthEndKey) continue;
+
+      const dailyRecords = buildDailyRecords(dayLogs, filteredEmployeeById, dateKey);
+      rows.push(
+        ...dailyRecords.map((record) => ({
+          employeeId: String(record.employeeId),
+          employeeName: record.name,
+          date: dateKey,
+          timeIn: record.inTime ?? '',
+          timeOut: record.outTime ?? '',
+        }))
+      );
+    }
+
+    return rows.sort((a, b) => {
+      const aId = Number(a.employeeId);
+      const bId = Number(b.employeeId);
+      const bothNumeric = Number.isFinite(aId) && Number.isFinite(bId);
+      if (bothNumeric && aId !== bId) return aId - bId;
+
+      const idDiff = a.employeeId.localeCompare(b.employeeId);
+      if (idDiff !== 0) return idDiff;
+
+      const dateDiff = a.date.localeCompare(b.date);
+      if (dateDiff !== 0) return dateDiff;
+
+      return a.employeeName.localeCompare(b.employeeName);
+    });
+  }, [filteredEmployeeById, logsByDate, monthEndKey, monthStartKey]);
+
+  const attendanceExportCsv = useMemo(
+    () =>
+      buildCsvContent([
+        ['Employee ID', 'Employee Name', 'Date', 'Time In', 'Time Out'],
+        ...attendanceExportRows.map((row) => [row.employeeId, row.employeeName, row.date, row.timeIn, row.timeOut]),
+      ]),
+    [attendanceExportRows]
+  );
+
   const monthOptions = useMemo(() => {
     const startYear = Math.min(todayYear, year) - 5;
     const endYear = Math.max(todayYear, year) + 5;
@@ -1299,6 +1366,27 @@ export function AttendanceReportsBoard({
     setDepartmentFilter('all');
   }
 
+  async function downloadAttendanceReport() {
+    setActionError('');
+    setIsExporting(true);
+
+    try {
+      const blob = new Blob([attendanceExportCsv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `attendance-report-${year}-${pad2(monthIndex + 1)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setActionError(getFriendlyErrorMessage(error));
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
   const attendanceReportDescription =
     audienceLabel === 'Manager'
       ? undefined
@@ -1310,6 +1398,7 @@ export function AttendanceReportsBoard({
       : 'Inspect the daily attendance summary, logged employees, and missing logs for the selected date.';
 
   useErrorDialogEffect(loadError, 'Attendance report could not be loaded');
+  useErrorDialogEffect(actionError, 'Attendance report could not be exported');
   useEscapeDismiss(detailOpen, () => setDetailOpen(false), 10);
 
   return (
@@ -1334,6 +1423,16 @@ export function AttendanceReportsBoard({
               ))}
             </select>
           </div>
+
+          <button
+            type="button"
+            className="hrAtt__actionBtn"
+            onClick={() => void downloadAttendanceReport()}
+            disabled={isLoading || isExporting || Boolean(loadError)}
+          >
+            <FiDownload aria-hidden="true" />
+            <span>{isExporting ? 'Preparing CSV...' : 'Export Attendance'}</span>
+          </button>
         </div>
       </div>
 
