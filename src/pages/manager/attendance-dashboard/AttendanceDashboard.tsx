@@ -7,6 +7,8 @@ export default function ManagerAttendanceDashboard() {
       logsUrl="/api/logs/attendance/team"
       leavesUrl="/api/leave/request/team"
       rosterUrl="/api/employees/team"
+      feedWindowDays={7}
+      primaryPanelMode="weekly"
     />
   );
 }

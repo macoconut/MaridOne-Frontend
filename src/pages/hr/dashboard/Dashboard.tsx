@@ -87,11 +87,21 @@ type HolidayLookupPayload = {
   regularHolidayDates?: string[];
 };
 
+type WeeklyAttendanceItem = {
+  id: string;
+  dateKey: string;
+  dayLabel: string;
+  dateLabel: string;
+  summary: AttendanceStatusSummary;
+};
+
 type AttendanceOverviewDashboardProps = {
   audience?: string;
   logsUrl?: string;
   leavesUrl?: string;
   rosterUrl?: string;
+  feedWindowDays?: number;
+  primaryPanelMode?: 'department' | 'weekly';
 };
 
 type AttendanceStatusKey = 'present' | 'late' | 'absent' | 'onLeave' | 'dayOff';
@@ -122,7 +132,7 @@ const STATUS_CONFIG: Record<
 };
 
 const DEFAULT_WORKING_DAYS = new Set([1, 2, 3, 4, 5, 6]);
-const DEPARTMENTS_PER_PAGE = 3;
+const DEPARTMENTS_PER_PAGE = 2;
 const LATE_GRACE_MINUTES = 15;
 const DAY_NAMES = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
 
@@ -171,6 +181,21 @@ function formatLongDateLabel(date: Date) {
 function formatShortDateLabel(date: Date) {
   const month = date.toLocaleDateString(undefined, { month: 'short' }).replace(/\.$/, '');
   return `${month}. ${date.getDate()}`;
+}
+
+function formatFeedTimestamp(value?: string, includeDate = false) {
+  if (!value) return 'N/A';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return includeDate
+    ? date.toLocaleString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
 function formatPeriodLabel(start?: string, end?: string) {
@@ -515,6 +540,19 @@ function buildAttendanceSummary(
   return summary;
 }
 
+function buildOnLeaveSetForDate(leaveRequests: LeaveRequest[], date: Date) {
+  const ids = new Set<number>();
+
+  for (const request of leaveRequests) {
+    if (typeof request.empId !== 'number') continue;
+    if (String(request.requestStatus ?? '').toUpperCase() !== 'APPROVED') continue;
+    if (!isTodayWithin(request.startDateTime, request.endDateTime, date)) continue;
+    ids.add(request.empId);
+  }
+
+  return ids;
+}
+
 function donutPoints(summary: AttendanceStatusSummary) {
   const total = summary.headcount;
   if (total <= 0) return [] as DonutPoint[];
@@ -556,12 +594,18 @@ export function AttendanceOverviewDashboard({
   logsUrl = '/api/logs/attendance',
   leavesUrl = '/api/leave/request',
   rosterUrl = '/api/employees',
+  feedWindowDays = 1,
+  primaryPanelMode = 'department',
 }: AttendanceOverviewDashboardProps) {
   const today = new Date();
   const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(
     today.getDate()
   ).padStart(2, '0')}`;
+  const todayDate = useMemo(() => dateFromKey(todayKey), [todayKey]);
+  const includeWeeklyFeed = feedWindowDays > 1;
+  const isWeeklyPrimaryPanel = primaryPanelMode === 'weekly';
   const [logs, setLogs] = useState<AttendanceLog[]>([]);
+  const [feedLogs, setFeedLogs] = useState<AttendanceLog[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [holidayDateKeys, setHolidayDateKeys] = useState<string[]>([]);
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);
@@ -578,6 +622,33 @@ export function AttendanceOverviewDashboard({
   const isSelectedDateToday = effectiveSelectedDateKey === todayKey;
   const selectedDateHeading = useMemo(() => formatLongDateLabel(selectedDate), [selectedDate]);
   const selectedDateShortLabel = useMemo(() => formatShortDateLabel(selectedDate), [selectedDate]);
+  const feedStartDate = useMemo(() => {
+    if (!includeWeeklyFeed) {
+      const start = new Date(selectedDate);
+      start.setHours(0, 0, 0, 0);
+      return start;
+    }
+
+    const start = new Date(todayDate);
+    start.setDate(start.getDate() - Math.max(feedWindowDays - 1, 0));
+    start.setHours(0, 0, 0, 0);
+    return start;
+  }, [feedWindowDays, includeWeeklyFeed, selectedDate, todayDate]);
+  const feedEndDate = useMemo(() => {
+    if (!includeWeeklyFeed) {
+      const end = new Date(selectedDate);
+      end.setHours(23, 59, 59, 999);
+      return end;
+    }
+
+    const end = new Date(todayDate);
+    end.setHours(23, 59, 59, 999);
+    return end;
+  }, [includeWeeklyFeed, selectedDate, todayDate]);
+  const feedRangeLabel = useMemo(() => {
+    if (!includeWeeklyFeed) return formatLongDateLabel(selectedDate);
+    return `${formatDateLabel(feedStartDate.toISOString())} to ${formatDateLabel(feedEndDate.toISOString())}`;
+  }, [feedEndDate, feedStartDate, includeWeeklyFeed, selectedDate]);
   const handlePageRefresh = useCallback(() => {
     setRefreshTick((tick) => tick + 1);
   }, []);
@@ -624,13 +695,21 @@ export function AttendanceOverviewDashboard({
       const dayEnd = new Date(selectedDate);
       dayEnd.setHours(23, 59, 59, 999);
 
-      const [logsResult, leavesResult, rosterResult, holidayResult] = await Promise.allSettled([
+      const [logsResult, feedLogsResult, leavesResult, rosterResult, holidayResult] = await Promise.allSettled([
         apiFetchJson<unknown>(
           withParams(logsUrl, {
             page: '0',
             size: '5000',
             timestampAfter: dayStart.toISOString(),
             timestampBefore: dayEnd.toISOString(),
+          })
+        ),
+        apiFetchJson<unknown>(
+          withParams(logsUrl, {
+            page: '0',
+            size: '5000',
+            timestampAfter: feedStartDate.toISOString(),
+            timestampBefore: feedEndDate.toISOString(),
           })
         ),
         apiFetchJson<unknown>(withPaging(leavesUrl, 0, 200)),
@@ -650,6 +729,12 @@ export function AttendanceOverviewDashboard({
       } else {
         setLogs([]);
         setLoadError(logsResult.reason instanceof Error ? logsResult.reason.message : 'Failed to load attendance logs.');
+      }
+
+      if (feedLogsResult.status === 'fulfilled') {
+        setFeedLogs(toArray<AttendanceLog>(feedLogsResult.value));
+      } else {
+        setFeedLogs([]);
       }
 
       if (leavesResult.status === 'fulfilled') {
@@ -682,7 +767,7 @@ export function AttendanceOverviewDashboard({
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [effectiveSelectedDateKey, leavesUrl, logsUrl, refreshTick, rosterUrl, selectedDate]);
+  }, [effectiveSelectedDateKey, feedEndDate, feedStartDate, leavesUrl, logsUrl, refreshTick, rosterUrl, selectedDate]);
 
   const employeeById = useMemo(() => {
     const map = new Map<number, EmployeeRow>();
@@ -759,39 +844,6 @@ export function AttendanceOverviewDashboard({
     [dailyRecords]
   );
 
-  const lateAttendanceIds = useMemo(() => {
-    const ids = new Set<number>();
-    const seen = new Set<number>();
-
-    for (const log of [...selectedDateLogs].sort((a, b) => {
-      const at = typeof a.timestamp === 'string' ? Date.parse(a.timestamp) : 0;
-      const bt = typeof b.timestamp === 'string' ? Date.parse(b.timestamp) : 0;
-      return at - bt;
-    })) {
-      if (typeof log.employeeId !== 'number') continue;
-      if (!isInDirection(log.direction)) continue;
-      if (seen.has(log.employeeId)) continue;
-      seen.add(log.employeeId);
-      const employee = employeeById.get(log.employeeId);
-      const leaveRequests = selectedLeaveRequestsByEmployee.get(log.employeeId) ?? [];
-      if (
-        !isLateAfterGrace(
-          log.timestamp,
-          employee,
-          effectiveSelectedDateKey,
-          log.direction,
-          leaveRequests,
-          selectedIsHoliday
-        )
-      ) {
-        continue;
-      }
-      if (typeof log.attendanceId === 'number') ids.add(log.attendanceId);
-    }
-
-    return ids;
-  }, [effectiveSelectedDateKey, employeeById, selectedDateLogs, selectedIsHoliday, selectedLeaveRequestsByEmployee]);
-
   const activeEmployees = useMemo(() => {
     return employees.filter((employee) => employee.status.toUpperCase() !== 'TERMINATED');
   }, [employees]);
@@ -806,26 +858,32 @@ export function AttendanceOverviewDashboard({
   );
 
   const attendanceFeed: FeedItem[] = useMemo(() => {
-    return [...selectedDateLogs]
+    return [...feedLogs]
       .sort((a, b) => {
         const at = typeof a.timestamp === 'string' ? Date.parse(a.timestamp) : 0;
         const bt = typeof b.timestamp === 'string' ? Date.parse(b.timestamp) : 0;
         return bt - at;
       })
-      .map((log, idx) => {
-        const date = typeof log.timestamp === 'string' ? new Date(log.timestamp) : null;
+      .filter((log) => {
         const employee = employeeById.get(log.employeeId ?? -1);
-        const derivedLate = typeof log.attendanceId === 'number' && lateAttendanceIds.has(log.attendanceId);
+        return String(employee?.status ?? '').toUpperCase() !== 'TERMINATED';
+      })
+      .map((log, idx) => {
+        const employee = employeeById.get(log.employeeId ?? -1);
+        const logDateKey = localDateKey(log.timestamp);
+        const derivedLate =
+          isInDirection(log.direction) &&
+          isLateAfterGrace(log.timestamp, employee, logDateKey, log.direction);
         return {
           id: String(log.attendanceId ?? idx),
           name: employeeName(employee),
           directionLabel: derivedLate ? 'LATE' : directionIndicator(log.direction),
           directionTone: derivedLate ? 'late' : directionIndicatorTone(log.direction),
           position: employee?.position || 'Position unavailable',
-          time: date ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A',
+          time: formatFeedTimestamp(log.timestamp, includeWeeklyFeed),
         };
       });
-  }, [employeeById, lateAttendanceIds, selectedDateLogs]);
+  }, [employeeById, feedLogs, includeWeeklyFeed]);
 
   const onLeave: LeaveCardItem[] = useMemo(() => {
     return selectedApprovedLeaves.map((request, idx) => {
@@ -976,6 +1034,71 @@ export function AttendanceOverviewDashboard({
     selectedIsHoliday,
   ]);
 
+  const weeklyAttendance = useMemo(() => {
+    if (!isWeeklyPrimaryPanel) return [] as WeeklyAttendanceItem[];
+
+    const logsByDate = new Map<string, AttendanceLog[]>();
+    const approvedLeaveRequests = leaveRequests.filter(
+      (request) => String(request.requestStatus ?? '').toUpperCase() === 'APPROVED'
+    );
+    const approvedLeavesByEmployee = groupLeavesByEmployee(approvedLeaveRequests);
+
+    for (const log of feedLogs) {
+      const dateKey = localDateKey(log.timestamp);
+      if (!dateKey) continue;
+
+      const employee = employeeById.get(log.employeeId ?? -1);
+      if (String(employee?.status ?? '').toUpperCase() === 'TERMINATED') continue;
+
+      const current = logsByDate.get(dateKey) ?? [];
+      current.push(log);
+      logsByDate.set(dateKey, current);
+    }
+
+    const items: WeeklyAttendanceItem[] = [];
+    const cursor = new Date(feedStartDate);
+
+    while (cursor.getTime() <= feedEndDate.getTime()) {
+      const dateKey = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(
+        cursor.getDate()
+      ).padStart(2, '0')}`;
+      const dayLogs = logsByDate.get(dateKey) ?? [];
+      const dayIsHoliday = holidayDateSet.has(dateKey);
+      const dayDailyRecords = buildDailyRecords(dayLogs, employeeById, dateKey, approvedLeavesByEmployee, holidayDateSet);
+      const dayLateSet = new Set(
+        dayDailyRecords
+          .filter((record) => record.isLate)
+          .map((record) => record.employeeId)
+      );
+      const dayPresentSet = new Set(
+        dayDailyRecords
+          .filter((record) => !record.isLate)
+          .map((record) => record.employeeId)
+      );
+      const dayOnLeaveSet = buildOnLeaveSetForDate(approvedLeaveRequests, cursor);
+
+      items.push({
+        id: dateKey,
+        dateKey,
+        dayLabel: cursor.toLocaleDateString(undefined, { weekday: 'short' }),
+        dateLabel: cursor.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        summary: buildAttendanceSummary(
+          activeEmployeeIds,
+          dayPresentSet,
+          dayLateSet,
+          dayOnLeaveSet,
+          employeeById,
+          dateKey,
+          dayIsHoliday
+        ),
+      });
+
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    return items;
+  }, [activeEmployeeIds, employeeById, feedEndDate, feedLogs, feedStartDate, holidayDateSet, isWeeklyPrimaryPanel, leaveRequests]);
+
   const totalDeptPages = Math.max(Math.ceil(departmentBreakdown.length / DEPARTMENTS_PER_PAGE), 1);
   const activeDeptPage = Math.min(deptPage, totalDeptPages - 1);
   const visibleDepartments = departmentBreakdown.slice(
@@ -983,10 +1106,25 @@ export function AttendanceOverviewDashboard({
     (activeDeptPage + 1) * DEPARTMENTS_PER_PAGE
   );
   const showDepartmentNav = totalDeptPages > 1;
+  const totalWeekPages = Math.max(Math.ceil(weeklyAttendance.length / DEPARTMENTS_PER_PAGE), 1);
+  const activeWeekPage = Math.min(deptPage, totalWeekPages - 1);
+  const visibleWeeklyAttendance = weeklyAttendance.slice(
+    activeWeekPage * DEPARTMENTS_PER_PAGE,
+    (activeWeekPage + 1) * DEPARTMENTS_PER_PAGE
+  );
+  const showWeeklyNav = totalWeekPages > 1;
   const attendanceDashboardDescription =
     audience.toLowerCase() === 'manager'
       ? undefined
       : 'Track attendance activity, late logs, and department trends from the latest records.';
+  const centerPanelTitle = isWeeklyPrimaryPanel ? 'Weekly Attendance' : 'Attendance by Department';
+  const feedPanelTitle = isWeeklyPrimaryPanel
+    ? 'Attendance Activity'
+    : includeWeeklyFeed
+      ? 'Weekly Attendance'
+      : isSelectedDateToday
+        ? 'Attendance Today'
+        : `Attendance on ${selectedDateShortLabel}`;
 
   return (
     <div className="hrDash">
@@ -1053,8 +1191,97 @@ export function AttendanceOverviewDashboard({
           </section>
 
           <section className="hrPanel">
-            <div className="hrPanel__header">Attendance by Department</div>
-            {departmentBreakdown.length > 0 ? (
+            <div className="hrPanel__header">{centerPanelTitle}</div>
+            {isWeeklyPrimaryPanel ? (
+              weeklyAttendance.length > 0 ? (
+                <>
+                  <div className={`hrDept${showWeeklyNav ? '' : ' hrDept--single'}`}>
+                    {showWeeklyNav ? (
+                      <button
+                        className="hrCircleBtn"
+                        type="button"
+                        aria-label="Previous weekly attendance page"
+                        onClick={() => setDeptPage((page) => Math.max(0, page - 1))}
+                        disabled={activeWeekPage === 0}
+                      >
+                        <FiChevronLeft />
+                      </button>
+                    ) : null}
+
+                    <div className={`hrDeptGrid${visibleWeeklyAttendance.length === 1 ? ' hrDeptGrid--single' : ''}`}>
+                      {visibleWeeklyAttendance.map((item) => {
+                        const chartPoints = donutPoints(item.summary);
+                        const donutBackground = buildDonutBackground(chartPoints);
+                        const donutStyle = donutBackground
+                          ? ({ background: donutBackground } as CSSProperties)
+                          : undefined;
+
+                        return (
+                          <article key={item.id} className="hrDeptCard hrWeekDeptCard">
+                            <div className="hrDeptCard__name hrWeekDeptCard__name">
+                              <span>{item.dayLabel}</span>
+                              <small>{item.dateLabel}</small>
+                            </div>
+                            <div className="hrDeptCard__body">
+                              <div className="hrDeptCard__chartWrap">
+                                <div
+                                  className={`hrDeptDonut${chartPoints.length === 0 ? ' hrDeptDonut--empty' : ''}`}
+                                  style={donutStyle}
+                                  aria-hidden="true"
+                                >
+                                  <div className="hrDeptDonut__center">
+                                    <strong>{item.summary.headcount}</strong>
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="hrDeptCard__stats">
+                                {(Object.keys(STATUS_CONFIG) as AttendanceStatusKey[]).map((key) => (
+                                  <div
+                                    key={`${item.id}-${key}`}
+                                    className="hrDeptStatRow"
+                                    aria-label={`${STATUS_CONFIG[key].label}: ${item.summary[key]}`}
+                                    title={STATUS_CONFIG[key].label}
+                                  >
+                                    <span className={`hrDeptStatRow__dot hrDeptStatRow__dot--${key}`} />
+                                    <strong className="hrDeptStatRow__value">{item.summary[key]}</strong>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+
+                    {showWeeklyNav ? (
+                      <button
+                        className="hrCircleBtn"
+                        type="button"
+                        aria-label="Next weekly attendance page"
+                        onClick={() => setDeptPage((page) => (page + 1 < totalWeekPages ? page + 1 : page))}
+                        disabled={activeWeekPage + 1 >= totalWeekPages}
+                      >
+                        <FiChevronRight />
+                      </button>
+                    ) : null}
+                  </div>
+
+                  {totalWeekPages > 1 && (
+                    <div className="hrPager" aria-hidden="true">
+                      {Array.from({ length: totalWeekPages }).map((_, index) => (
+                        <span key={`week-page-${index}`} className={index === activeWeekPage ? 'is-active' : ''} />
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="hrDeptGrid">
+                  <div className="hrDeptCard hrDeptCard--empty">
+                    <div className="hrDeptCard__name">No weekly attendance data yet.</div>
+                  </div>
+                </div>
+              )
+            ) : departmentBreakdown.length > 0 ? (
               <>
                 <div className={`hrDept${showDepartmentNav ? '' : ' hrDept--single'}`}>
                   {showDepartmentNav ? (
@@ -1261,9 +1488,7 @@ export function AttendanceOverviewDashboard({
           className="hrPanel hrFeedPanel"
           style={feedPanelHeight ? ({ height: `${feedPanelHeight}px` } as CSSProperties) : undefined}
         >
-          <div className="hrPanel__header">
-            {isSelectedDateToday ? 'Attendance Today' : `Attendance on ${selectedDateShortLabel}`}
-          </div>
+          <div className="hrPanel__header">{feedPanelTitle}</div>
           <div className="hrPeopleList">
             {attendanceFeed.length > 0 ? (
               attendanceFeed.map((item) => (
@@ -1280,18 +1505,18 @@ export function AttendanceOverviewDashboard({
                   </div>
                 </article>
               ))
-                ) : (
-                  <div className="hrEmptyState">
-                    <div className="hrEmptyState__title">No attendance activity yet.</div>
-                    <div className="hrEmptyState__note">
-                      {selectedIsHoliday
-                        ? `${selectedDateHeading} is a holiday, so no logs are expected unless someone worked.`
-                        : `There are no attendance logs for ${selectedDateHeading}.`}
-                    </div>
-                  </div>
-                )}
+            ) : (
+              <div className="hrEmptyState">
+                <div className="hrEmptyState__title">No attendance activity yet.</div>
+                <div className="hrEmptyState__note">
+                  {selectedIsHoliday && !includeWeeklyFeed
+                    ? `${selectedDateHeading} is a holiday, so no logs are expected unless someone worked.`
+                    : `There are no attendance logs for ${includeWeeklyFeed ? feedRangeLabel : selectedDateHeading}.`}
+                </div>
               </div>
-            </section>
+            )}
+          </div>
+        </section>
       </div>
     </div>
   );

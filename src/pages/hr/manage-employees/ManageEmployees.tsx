@@ -113,6 +113,12 @@ function normalizeText(value: string) {
   return value.trim().toLowerCase();
 }
 
+function isTerminatedStatus(value?: string | null) {
+  return String(value ?? '')
+    .trim()
+    .toUpperCase() === 'TERMINATED';
+}
+
 function buildEmployeeSearchIndex(row: Omit<EmployeeRow, 'searchIndex'>) {
   return normalizeText([row.id, row.name, row.username, row.status, row.email, row.phone, row.position].join(' '));
 }
@@ -448,6 +454,10 @@ export default function HrManageEmp() {
   function openDeleteModal(row: EmployeeRow) {
     resetMessages();
     setConfirmAction(null);
+    if (isTerminatedStatus(row.status)) {
+      setSubmitError('This employee is already terminated.');
+      return;
+    }
     setForm({
       ...emptyForm,
       employeeId: row.id,
@@ -596,6 +606,9 @@ export default function HrManageEmp() {
         const employeeId = Number(form.employeeId);
         if (!Number.isFinite(employeeId)) {
           throw new Error('Employee ID is required for termination.');
+        }
+        if (isTerminatedStatus(selectedEmployee?.status)) {
+          throw new Error('This employee is already terminated.');
         }
 
         await apiFetchJson(`/api/employees/status/${employeeId}`, {
@@ -854,43 +867,58 @@ export default function HrManageEmp() {
 
         <div className="hrEmpTable__body">
           {visibleEmployeeRows.length > 0 ? (
-            visibleEmployeeRows.map((row) => (
-              <div
-                key={row.id}
-                className="hrEmpRow"
-                role="button"
-                tabIndex={0}
-                onClick={() => openDetailsDialog(row.id)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    openDetailsDialog(row.id);
-                  }
-                }}
-              >
-                <div>{row.id}</div>
-                <div className="hrEmpRow__name">
-                  <span className="hrEmpRow__nameText">{row.name}</span>
+            visibleEmployeeRows.map((row) => {
+              const isTerminated = isTerminatedStatus(row.status);
+
+              return (
+                <div
+                  key={row.id}
+                  className={`hrEmpRow ${isTerminated ? 'is-terminated' : ''}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openDetailsDialog(row.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      openDetailsDialog(row.id);
+                    }
+                  }}
+                >
+                  <div>{row.id}</div>
+                  <div className="hrEmpRow__name">
+                    <span className="hrEmpRow__nameText">{row.name}</span>
+                  </div>
+                  <div>{row.username}</div>
+                  <div>
+                    <span className={`hrEmpRow__statusBadge ${isTerminated ? 'is-terminated' : ''}`}>
+                      {isTerminated ? 'TERMINATED' : row.status}
+                    </span>
+                  </div>
+                  <div>{row.position}</div>
+                  <div className="hrEmpRow__actions" onClick={(event) => event.stopPropagation()}>
+                    {isTerminated ? (
+                      <span className="hrEmpRow__terminatedFlag">Employee is terminated</span>
+                    ) : (
+                      <>
+                        <button type="button" className="hrEmpRow__action" onClick={() => void openEditModal(row)}>
+                          <FiEdit2 aria-hidden="true" />
+                          <span>Edit</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="hrEmpRow__action hrEmpRow__action--danger"
+                          onClick={() => openDeleteModal(row)}
+                          title="Terminate employee"
+                        >
+                          <FiUserX aria-hidden="true" />
+                          <span>Terminate</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <div>{row.username}</div>
-                <div>{row.status}</div>
-                <div>{row.position}</div>
-                <div className="hrEmpRow__actions" onClick={(event) => event.stopPropagation()}>
-                  <button type="button" className="hrEmpRow__action" onClick={() => void openEditModal(row)}>
-                    <FiEdit2 aria-hidden="true" />
-                    <span>Edit</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="hrEmpRow__action hrEmpRow__action--danger"
-                    onClick={() => openDeleteModal(row)}
-                  >
-                    <FiUserX aria-hidden="true" />
-                    <span>Terminate</span>
-                  </button>
-                </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div className="hrEmpTable__empty">
               <strong>No employee records to show.</strong>

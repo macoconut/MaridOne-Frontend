@@ -231,8 +231,8 @@
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr) 36px;
   align-items: center;
-  gap: 10px;
-  padding: 14px 12px 8px;
+  gap: 18px;
+  padding: 18px 18px 8px;
 }
 
 .hrDept--single {
@@ -258,25 +258,35 @@
 }
 
 .hrDeptGrid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 340px));
   justify-content: center;
-  gap: 18px;
+  align-items: start;
+  gap: 30px;
   width: 100%;
+  min-width: 0;
 }
 
 .hrDeptGrid--single {
-  justify-content: center;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
 }
 
 .hrDeptCard {
-  padding: 0 4px 6px;
+  padding: 0 10px 8px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   min-height: 0;
-  flex: 1 1 280px;
-  max-width: 360px;
+  min-width: 0;
+  width: 100%;
+  max-width: 300px;
+  justify-self: center;
+}
+
+.hrDeptGrid--single .hrDeptCard {
+  width: min(100%, 320px);
+  max-width: 320px;
 }
 
 .hrDeptCard--empty {
@@ -301,10 +311,10 @@
 
 .hrDeptCard__body {
   display: grid;
-  grid-template-columns: minmax(132px, 160px) auto;
+  grid-template-columns: minmax(126px, 148px) auto;
   align-items: center;
   justify-content: center;
-  gap: 18px;
+  gap: 24px;
 }
 
 .hrDeptCard__chartWrap {
@@ -410,6 +420,21 @@
   color: var(--hr-primary-dark);
   font-size: 18px;
   font-weight: 900;
+}
+
+.hrWeekDeptCard__name {
+  min-height: calc(1.15em * 3);
+  max-width: 11ch;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  justify-content: center;
+}
+
+.hrWeekDeptCard__name small {
+  color: #685b81;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .hrLegend {
@@ -732,6 +757,8 @@
   }
 
   .hrDeptGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
     padding: 14px 12px 10px;
   }
 
@@ -786,8 +813,8 @@
   }
 
   .hrDeptGrid {
-    flex-direction: column;
-    align-items: center;
+    grid-template-columns: 1fr;
+    justify-items: center;
   }
 
   .hrDeptCard__body {

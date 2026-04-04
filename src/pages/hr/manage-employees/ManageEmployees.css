@@ -231,6 +231,18 @@
   background: #f1ebfa;
 }
 
+.hrEmpRow.is-terminated {
+  background: linear-gradient(90deg, rgba(157, 55, 77, 0.12), rgba(157, 55, 77, 0.05));
+  border-left: 4px solid #b74458;
+  color: #7d2434;
+}
+
+.hrEmpRow.is-terminated:nth-child(odd),
+.hrEmpRow.is-terminated:hover,
+.hrEmpRow.is-terminated:nth-child(odd):hover {
+  background: linear-gradient(90deg, rgba(157, 55, 77, 0.14), rgba(157, 55, 77, 0.06));
+}
+
 .hrEmpRow > div,
 .hrEmpTable__head > div {
   min-width: 0;
@@ -250,6 +262,10 @@
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.hrEmpRow.is-terminated .hrEmpRow__nameText {
+  color: #8f1f34;
 }
 
 .hrEmpRow__actions {
@@ -451,6 +467,40 @@
   color: #9d374d;
   border-color: rgba(157, 55, 77, 0.22);
   background: #fff6f8;
+}
+
+.hrEmpRow__statusBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(123, 74, 143, 0.10);
+  color: #5f3a7b;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.hrEmpRow__statusBadge.is-terminated {
+  background: rgba(183, 68, 88, 0.14);
+  color: #92263a;
+}
+
+.hrEmpRow__terminatedFlag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(183, 68, 88, 0.14);
+  color: #92263a;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
 }
 
 .hrEmpTable__empty {
