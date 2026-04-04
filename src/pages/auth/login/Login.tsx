@@ -312,7 +312,8 @@ export default function EmployeeLogin() {
   async function handleTwoFactorVerification() {
     if (!twoFactorChallenge) return;
 
-    const code = twoFactorCode.trim();
+    const isEmail = twoFactorMode === 'email-otp';
+    const code = (isEmail ? emailOtpCode : twoFactorCode).trim();
     if (!/^\d{6}$/.test(code)) {
       setError('Enter the current 6-digit code from your authenticator app.');
       return;
@@ -372,13 +373,38 @@ export default function EmployeeLogin() {
     }
   }
 
+  async function requestEmailOtp() {
+    if (!twoFactorChallenge) return;
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/2fa/send-login-code`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${twoFactorChallenge.preAuthToken}`,
+        },
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        setError('Failed to send the verification email. Please try again.');
+        setTwoFactorMode('authenticator'); 
+        return;
+      }
+      
+    } catch {
+      setError('Cannot reach backend to send email. Make sure API is running.');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
     if (twoFactorChallenge) {
-      if (twoFactorMode === 'email-otp') {
-        return;
-      }
       await handleTwoFactorVerification();
       return;
     }
@@ -557,6 +583,7 @@ export default function EmployeeLogin() {
                           setError('');
                           setEmailOtpCode('');
                           setTwoFactorMode('email-otp');
+                          requestEmailOtp();
                         }}
                       >
                         Send OTP to verified email
@@ -659,14 +686,14 @@ export default function EmployeeLogin() {
               <button
                 className="submitBtn"
                 type="submit"
-                disabled={isLoading || (Boolean(twoFactorChallenge) && twoFactorMode === 'email-otp')}
+                disabled={isLoading}
               >
                 {isLoading
                   ? (twoFactorChallenge ? 'Verifying...' : 'Logging in...')
                   : twoFactorChallenge
                     ? twoFactorMode === 'authenticator'
                       ? 'Verify Code'
-                      : 'Email OTP Pending'
+                      : 'Verify Email OTP'
                     : 'Log in'}
               </button>
             </div>
