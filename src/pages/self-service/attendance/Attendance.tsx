@@ -29,6 +29,31 @@ type RequestEntry = {
   endTime?: string;
 };
 
+type LeaveRequestRow = {
+  requestId?: number;
+  startDateTime?: string;
+  endDateTime?: string;
+  requestStatus?: string;
+  reason?: string;
+};
+
+type OvertimeRequestRow = {
+  overtimeId?: number;
+  workDate?: string;
+  startTime?: string;
+  endTime?: string;
+  requestStatus?: string;
+  reason?: string;
+  overtimeType?: string;
+};
+
+type ShiftScheduleRow = {
+  shiftId?: number;
+  startTime?: string;
+  endTime?: string;
+  dayOfWeek?: string;
+};
+
 type DayCell = {
   day: number | null;
   statusNotes?: string[];
@@ -52,7 +77,6 @@ type AttendanceHistory = {
   latestDirection: 'IN' | 'OUT' | null;
 };
 
-const LEAVE_CACHE_PREFIX = 'employee-leave-requests';
 const LEAVE_TYPE_OPTIONS: Array<{ label: string; value: LeaveType }> = [
   { label: 'Sick Leave', value: 'SICK_LEAVE' },
   { label: 'Vacation Leave', value: 'VACATION_LEAVE' },
@@ -62,37 +86,6 @@ const LEAVE_TYPE_OPTIONS: Array<{ label: string; value: LeaveType }> = [
   { label: 'Magna Carta', value: 'MAGNA_CARTA' },
   { label: 'RA 9262', value: 'RA9262' },
 ];
-
-function readCachedLeaveRequests(empId: number): RequestEntry[] {
-  try {
-    const raw = window.localStorage.getItem(`${LEAVE_CACHE_PREFIX}-${empId}`);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((row): row is RequestEntry => {
-      if (!row || typeof row !== 'object') return false;
-      const rec = row as Record<string, unknown>;
-      return (
-        rec.kind === 'LEAVE' &&
-        typeof rec.id === 'string' &&
-        typeof rec.dateKey === 'string' &&
-        typeof rec.status === 'string' &&
-        typeof rec.reason === 'string'
-      );
-    });
-  } catch {
-    return [];
-  }
-}
-
-function writeCachedLeaveRequests(empId: number, entries: RequestEntry[]) {
-  const leaveOnly = entries.filter(
-    (entry) =>
-      entry.kind === 'LEAVE' &&
-      !['REJECTED', 'DENIED', 'CANCELLED'].includes(entry.status.toUpperCase())
-  );
-  window.localStorage.setItem(`${LEAVE_CACHE_PREFIX}-${empId}`, JSON.stringify(leaveOnly));
-}
 
 function pad2(n: number) {
   return String(n).padStart(2, '0');
@@ -117,6 +110,110 @@ function dateKeysBetween(start: string, end: string) {
     cursor.setDate(cursor.getDate() + 1);
   }
   return out;
+}
+
+function formatDisplayDate(value?: string) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+function formatDisplayTime(value?: string) {
+  if (!value) return '-';
+
+  if (/^\d{2}:\d{2}(:\d{2})?$/.test(value)) {
+    const [hoursText, minutesText] = value.split(':');
+    const hours = Number(hoursText);
+    const minutes = Number(minutesText);
+
+    if (Number.isFinite(hours) && Number.isFinite(minutes)) {
+      const date = new Date();
+      date.setHours(hours, minutes, 0, 0);
+      return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    }
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+function addDays(dateValue: string, days: number) {
+  if (!dateValue) return '';
+  const date = new Date(`${dateValue}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return '';
+  date.setDate(date.getDate() + days);
+  return toISODate(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function buildDateTime(dateValue: string, timeValue: string) {
+  return new Date(`${dateValue}T${timeValue}:00`);
+}
+
+function normalizeTimeValue(value?: string) {
+  if (!value) return '';
+  const match = value.match(/^(\d{2}:\d{2})/);
+  return match?.[1] ?? value;
+}
+
+function resolveDayOfWeek(dateValue: string) {
+  const date = new Date(`${dateValue}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return '';
+  return ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'][date.getDay()] ?? '';
+}
+
+function mapLeaveRequestEntries(rows: unknown): RequestEntry[] {
+  return toArray<LeaveRequestRow>(rows).flatMap((row, index) => {
+    const startDate = typeof row.startDateTime === 'string' ? row.startDateTime.slice(0, 10) : '';
+    const endDate =
+      typeof row.endDateTime === 'string' ? row.endDateTime.slice(0, 10) : startDate;
+    if (!startDate || !endDate) return [];
+
+    const rawStatus = String(row.requestStatus ?? 'PENDING').toUpperCase();
+    if (['REJECTED', 'DENIED', 'CANCELLED'].includes(rawStatus)) return [];
+
+    return dateKeysBetween(startDate, endDate).map((dateKey, offset) => ({
+      id: `leave-${String(row.requestId ?? index)}-${offset}`,
+      kind: 'LEAVE' as const,
+      dateKey,
+      status: rawStatus,
+      reason: String(row.reason ?? ''),
+    }));
+  });
+}
+
+function mapOvertimeRequestEntries(rows: unknown): RequestEntry[] {
+  return toArray<OvertimeRequestRow>(rows)
+    .map((row, index): RequestEntry | null => {
+      const dateKey =
+        typeof row.workDate === 'string'
+          ? row.workDate.slice(0, 10)
+          : typeof row.startTime === 'string'
+            ? row.startTime.slice(0, 10)
+            : '';
+      if (!dateKey) return null;
+
+      const rawStatus = String(row.requestStatus ?? 'PENDING').toUpperCase();
+      if (['REJECTED', 'DENIED', 'CANCELLED'].includes(rawStatus)) return null;
+
+      return {
+        id: `ot-${String(row.overtimeId ?? index)}`,
+        kind: 'OT' as const,
+        dateKey,
+        status: rawStatus,
+        reason: String(row.reason ?? ''),
+        overtimeType: String(row.overtimeType ?? ''),
+        startTime: formatDisplayTime(row.startTime),
+        endTime: formatDisplayTime(row.endTime),
+      };
+    })
+    .filter((item): item is RequestEntry => item !== null);
 }
 
 function formatAttendanceSession(session: AttendanceSession) {
@@ -179,7 +276,11 @@ function buildAttendanceHistory(logs: unknown): AttendanceHistory {
 }
 
 export default function Attendance() {
-  const today = new Date();
+  const today = useMemo(() => new Date(), []);
+  const todayKey = useMemo(
+    () => `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`,
+    [today]
+  );
   const [year, setYear] = useState(today.getFullYear());
   const [monthIndex, setMonthIndex] = useState(today.getMonth());
   const monthLabel = new Date(year, monthIndex, 1).toLocaleDateString(undefined, {
@@ -199,7 +300,7 @@ export default function Attendance() {
         year: 'numeric',
       })
     );
-  }, [today.getFullYear(), year]);
+  }, [today, year]);
 
   // Leave modal state
   const [leaveOpen, setLeaveOpen] = useState(false);
@@ -215,8 +316,10 @@ export default function Attendance() {
   const [employeeId, setEmployeeId] = useState<number | null>(null);
   const [requestEntries, setRequestEntries] = useState<RequestEntry[]>([]);
   const [attendanceByDate, setAttendanceByDate] = useState<Record<string, AttendanceSession[]>>({});
+  const [shiftSchedule, setShiftSchedule] = useState<ShiftScheduleRow[]>([]);
   const [otOpen, setOtOpen] = useState(false);
-  const [otDate, setOtDate] = useState<string>('');
+  const [otStartDate, setOtStartDate] = useState<string>('');
+  const [otEndDate, setOtEndDate] = useState<string>('');
   const [otStartTime, setOtStartTime] = useState<string>('18:00');
   const [otEndTime, setOtEndTime] = useState<string>('20:00');
   const [otType, setOtType] = useState<OvertimeType>('OVERTIME');
@@ -234,6 +337,8 @@ export default function Attendance() {
   const [latestAttendanceDirection, setLatestAttendanceDirection] = useState<'IN' | 'OUT' | null>(null);
   const userRole = getUserRole();
   const canRequestOvertime = !['hr', 'management', 'manager'].includes(userRole ?? '');
+  const maxOtEndDate = otStartDate ? addDays(otStartDate, 1) : '';
+  const isOtNextDay = Boolean(otStartDate && otEndDate && otEndDate === maxOtEndDate);
 
   async function fetchAttendanceHistory(resolvedEmpId: number) {
     try {
@@ -249,13 +354,12 @@ export default function Attendance() {
   }, [monthLabel]);
 
   useEffect(() => {
-    const todayKey = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
     if (today.getFullYear() === year && today.getMonth() === monthIndex) {
       setSelectedDateKey(todayKey);
     } else {
       setSelectedDateKey('');
     }
-  }, [monthIndex, today, year]);
+  }, [monthIndex, today, todayKey, year]);
 
   useEffect(() => {
     void (async () => {
@@ -282,35 +386,18 @@ export default function Attendance() {
         setEmployeeId(resolvedEmpId);
 
         if (resolvedEmpId) {
-          const cachedLeaveEntries = readCachedLeaveRequests(resolvedEmpId);
-          const myOt = await apiFetchJson<unknown>(`/api/overtime/all/${resolvedEmpId}?page=0&size=200`);
-          const otEntries = toArray<Record<string, unknown>>(myOt)
-            .map((row) => {
-              const dateKey = typeof row.workDate === 'string' ? row.workDate.slice(0, 10) : '';
-              if (!dateKey) return null;
-              const rawStatus = String(row.requestStatus ?? 'PENDING').toUpperCase();
-              if (['REJECTED', 'DENIED', 'CANCELLED'].includes(rawStatus)) return null;
-              return {
-                id: `ot-${String(row.overtimeId ?? crypto.randomUUID())}`,
-                kind: 'OT' as const,
-                dateKey,
-                status: rawStatus,
-                reason: String(row.reason ?? ''),
-                overtimeType: String(row.overtimeType ?? ''),
-                startTime:
-                  typeof row.startTime === 'string'
-                    ? new Date(row.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                    : undefined,
-                endTime:
-                  typeof row.endTime === 'string'
-                    ? new Date(row.endTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                    : undefined,
-              } as RequestEntry;
-            })
-            .filter((item): item is RequestEntry => item !== null);
-          setRequestEntries([...otEntries, ...cachedLeaveEntries]);
+          const [leaveResponse, overtimeResponse, attendanceHistory, scheduleResponse] = await Promise.all([
+            apiFetchJson<unknown>(`/api/leave/request/${resolvedEmpId}?page=0&size=200`),
+            apiFetchJson<unknown>(`/api/overtime/all/${resolvedEmpId}?page=0&size=200`),
+            fetchAttendanceHistory(resolvedEmpId),
+            apiFetchJson<unknown>(`/api/employee/schedule/${resolvedEmpId}`).catch(() => []),
+          ]);
 
-          const attendanceHistory = await fetchAttendanceHistory(resolvedEmpId);
+          setRequestEntries([
+            ...mapLeaveRequestEntries(leaveResponse),
+            ...mapOvertimeRequestEntries(overtimeResponse),
+          ]);
+          setShiftSchedule(toArray<ShiftScheduleRow>(scheduleResponse));
           setAttendanceByDate(attendanceHistory?.sessionsByDate ?? {});
           setLatestAttendanceDirection(attendanceHistory?.latestDirection ?? null);
         }
@@ -318,10 +405,24 @@ export default function Attendance() {
         setEmployeeId(null);
         setRequestEntries([]);
         setAttendanceByDate({});
+        setShiftSchedule([]);
         setLatestAttendanceDirection(null);
       }
     })();
   }, [monthIndex, year]);
+
+  useEffect(() => {
+    if (!otStartDate) return;
+
+    if (!otEndDate || otEndDate < otStartDate || (maxOtEndDate && otEndDate > maxOtEndDate)) {
+      setOtEndDate(otStartDate);
+      return;
+    }
+
+    if (otEndDate === maxOtEndDate && otEndTime > '06:00') {
+      setOtEndTime('06:00');
+    }
+  }, [maxOtEndDate, otEndDate, otEndTime, otStartDate]);
 
   useEffect(() => {
     if (leaveOpen || otOpen || requestViewOpen || confirmClockAction) document.body.classList.add('modal-open');
@@ -339,14 +440,13 @@ export default function Attendance() {
   }, [requestEntries]);
 
   const hasApprovedTodayLeave = useMemo(() => {
-    const todayKey = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
     return requestEntries.some(
       (entry) =>
         entry.dateKey === todayKey &&
         entry.kind === 'LEAVE' &&
         entry.status.toUpperCase() === 'APPROVED'
     );
-  }, [requestEntries, today]);
+  }, [requestEntries, todayKey]);
 
   const isClockOutAction = latestAttendanceDirection === 'IN';
   const firstDay = new Date(year, monthIndex, 1);
@@ -447,7 +547,8 @@ export default function Attendance() {
     if (!canRequestOvertime) return;
     const now = new Date();
     const iso = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
-    setOtDate(iso);
+    setOtStartDate(iso);
+    setOtEndDate(iso);
     setOtStartTime('18:00');
     setOtEndTime('20:00');
     setOtType('OVERTIME');
@@ -464,7 +565,7 @@ export default function Attendance() {
     setClockMessage('');
     setClockError('');
     if (!employeeId) {
-      setClockError('Employee ID not found.');
+      setClockError('Employee record could not be resolved.');
       return false;
     }
     if (hasApprovedTodayLeave) {
@@ -536,14 +637,28 @@ export default function Attendance() {
       return false;
     }
 
-    if (!otDate) {
-      setOtSubmitError('OT date is required.');
+    if (!otStartDate) {
+      setOtSubmitError('Start date is required.');
       return false;
     }
 
-    const todayKey = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
-    if (otDate < todayKey) {
-      setOtSubmitError('OT date cannot be in the past.');
+    if (!otEndDate) {
+      setOtSubmitError('End date is required.');
+      return false;
+    }
+
+    if (otStartDate < todayKey) {
+      setOtSubmitError('Start date cannot be earlier than today.');
+      return false;
+    }
+
+    if (otEndDate < otStartDate) {
+      setOtSubmitError('End date cannot be earlier than the start date.');
+      return false;
+    }
+
+    if (maxOtEndDate && otEndDate > maxOtEndDate) {
+      setOtSubmitError('End date can only be up to the day after the selected start date.');
       return false;
     }
 
@@ -552,13 +667,39 @@ export default function Attendance() {
       return false;
     }
 
-    if (otEndTime <= otStartTime) {
-      setOtSubmitError('End time must be later than start time.');
+    if (isOtNextDay && otEndTime > '06:00') {
+      setOtSubmitError('If the overtime ends the next day, the latest allowed end time is 6:00 AM.');
       return false;
     }
 
     if (otReason.trim().length < 5) {
       setOtSubmitError('Reason must be at least 5 characters.');
+      return false;
+    }
+
+    const requestStart = buildDateTime(otStartDate, otStartTime);
+    const requestEnd = buildDateTime(otEndDate, otEndTime);
+    if (Number.isNaN(requestStart.getTime()) || Number.isNaN(requestEnd.getTime()) || requestEnd <= requestStart) {
+      setOtSubmitError('End date and time must be later than the start date and time.');
+      return false;
+    }
+
+    const scheduleForDay = shiftSchedule.find((schedule) => schedule.dayOfWeek === resolveDayOfWeek(otStartDate));
+    if (!scheduleForDay) {
+      setOtSubmitError('Your work schedule is not set up yet, so overtime cannot be filed.');
+      return false;
+    }
+
+    const shiftStartTime = normalizeTimeValue(scheduleForDay.startTime);
+    const shiftEndTime = normalizeTimeValue(scheduleForDay.endTime);
+    const shiftStart = buildDateTime(otStartDate, shiftStartTime);
+    const shiftEnd = buildDateTime(
+      shiftEndTime > shiftStartTime || shiftEndTime === shiftStartTime ? otStartDate : addDays(otStartDate, 1),
+      shiftEndTime
+    );
+    const isOutsideShift = requestEnd <= shiftStart || requestStart >= shiftEnd;
+    if (!isOutsideShift) {
+      setOtSubmitError('Overtime can only be filed outside your scheduled shift hours.');
       return false;
     }
 
@@ -576,14 +717,14 @@ export default function Attendance() {
     }
     setConfirmOtSubmit(false);
 
-    const startDateTime = `${otDate}T${otStartTime}:00`;
-    const endDateTime = `${otDate}T${otEndTime}:00`;
+    const startDateTime = `${otStartDate}T${otStartTime}:00`;
+    const endDateTime = `${otEndDate}T${otEndTime}:00`;
 
     try {
       await apiFetchJson('/api/overtime/create', {
         method: 'POST',
         body: JSON.stringify({
-          workDate: otDate,
+          workDate: otStartDate,
           startTime: startDateTime,
           endTime: endDateTime,
           overtimeType: otType,
@@ -596,12 +737,12 @@ export default function Attendance() {
         {
           id: `ot-local-${Date.now()}`,
           kind: 'OT',
-          dateKey: otDate,
+          dateKey: otStartDate,
           status: 'PENDING',
           reason: otReason.trim(),
           overtimeType: otType,
-          startTime: otStartTime,
-          endTime: otEndTime,
+          startTime: formatDisplayTime(otStartTime),
+          endTime: formatDisplayTime(otEndTime),
         },
       ]);
     } catch (error) {
@@ -709,20 +850,9 @@ export default function Attendance() {
         throw new ApiError(response.status, text || `Request failed (${response.status})`);
       }
 
+      const createdRequests = (await response.json()) as unknown;
       setLeaveOpen(false);
-      const keys = dateKeysBetween(startDate, endDate || startDate);
-      const newLeaveEntries = keys.map((k, idx) => ({
-          id: `leave-local-${Date.now()}-${idx}`,
-          kind: 'LEAVE' as const,
-          dateKey: k,
-          status: 'PENDING',
-          reason: reason.trim(),
-        }));
-      setRequestEntries((prev) => {
-        const next = [...prev, ...newLeaveEntries];
-        if (employeeId) writeCachedLeaveRequests(employeeId, next);
-        return next;
-      });
+      setRequestEntries((prev) => [...prev, ...mapLeaveRequestEntries(createdRequests)]);
     } catch (error) {
       setSubmitError(getFriendlyErrorMessage(error, 'leave-request'));
     }
@@ -1065,21 +1195,53 @@ export default function Attendance() {
                 </div>
 
                 <div className="requestField">
-                  <label className="label">OT Date</label>
+                  <label className="label">Start Date</label>
                   <div className="inputIcon">
-                    <input className="input" type="date" value={otDate} onChange={(e) => setOtDate(e.target.value)} />
+                    <input
+                      className="input"
+                      type="date"
+                      value={otStartDate}
+                      min={todayKey}
+                      onChange={(e) => setOtStartDate(e.target.value)}
+                    />
                     <FiCalendar className="inputIcon__icon" />
                   </div>
                 </div>
 
                 <div className="requestField">
                   <label className="label">Start Time</label>
-                  <input className="input" type="time" value={otStartTime} onChange={(e) => setOtStartTime(e.target.value)} />
+                  <input
+                    className="input"
+                    type="time"
+                    value={otStartTime}
+                    onChange={(e) => setOtStartTime(e.target.value)}
+                  />
                 </div>
 
-                <div className="requestField requestField--span2">
+                <div className="requestField">
+                  <label className="label">End Date</label>
+                  <div className="inputIcon">
+                    <input
+                      className="input"
+                      type="date"
+                      value={otEndDate}
+                      min={otStartDate || todayKey}
+                      max={maxOtEndDate || undefined}
+                      onChange={(e) => setOtEndDate(e.target.value)}
+                    />
+                    <FiCalendar className="inputIcon__icon" />
+                  </div>
+                </div>
+
+                <div className="requestField">
                   <label className="label">End Time</label>
-                  <input className="input" type="time" value={otEndTime} onChange={(e) => setOtEndTime(e.target.value)} />
+                  <input
+                    className="input"
+                    type="time"
+                    value={otEndTime}
+                    max={isOtNextDay ? '06:00' : undefined}
+                    onChange={(e) => setOtEndTime(e.target.value)}
+                  />
                 </div>
 
                 <div className="requestField requestField--span2">
@@ -1120,7 +1282,7 @@ export default function Attendance() {
             <div className="form">
               <div className="formRow">
                 <label className="label">Date:</label>
-                <input className="input" value={requestViewDate} readOnly />
+                <input className="input" value={formatDisplayDate(requestViewDate)} readOnly />
               </div>
               {(requestEntries.filter((entry) => entry.dateKey === requestViewDate)).map((entry) => (
                 <div key={entry.id} className="formRow">
@@ -1164,7 +1326,9 @@ export default function Attendance() {
       <ConfirmDialog
         open={confirmLeaveSubmit}
         title="Confirm Leave Request"
-        message={`Submit this ${leaveType.replaceAll('_', ' ').toLowerCase()} request from ${startDate} ${startTime} to ${endDate} ${endTime}?`}
+        message={`Submit this ${leaveType.replaceAll('_', ' ').toLowerCase()} request from ${formatDisplayDate(
+          startDate
+        )} ${formatDisplayTime(startTime)} to ${formatDisplayDate(endDate)} ${formatDisplayTime(endTime)}?`}
         confirmLabel="Submit Leave Request"
         cancelLabel="Go Back"
         onConfirm={() => void submitLeave()}
@@ -1173,7 +1337,9 @@ export default function Attendance() {
       <ConfirmDialog
         open={confirmOtSubmit}
         title="Confirm Overtime Request"
-        message={`Submit this ${otType.replaceAll('_', ' ').toLowerCase()} request for ${otDate} from ${otStartTime} to ${otEndTime}?`}
+        message={`Submit this ${otType.replaceAll('_', ' ').toLowerCase()} request from ${formatDisplayDate(
+          otStartDate
+        )} ${formatDisplayTime(otStartTime)} to ${formatDisplayDate(otEndDate)} ${formatDisplayTime(otEndTime)}?`}
         confirmLabel="Submit Overtime Request"
         cancelLabel="Go Back"
         onConfirm={() => void submitOt()}

@@ -3,8 +3,8 @@ import type { ReactElement } from 'react';
 import { getAuthToken, getUserRole, type UserRole } from './lib/session';
 import { getRoleHomePath } from './lib/roleRoutes';
 
-import Landing from './pages/Public/Landing';
-import VerifyEmail from './pages/Public/VerifyEmail';
+import Landing from './pages/public/Landing';
+import VerifyEmail from './pages/public/VerifyEmail';
 import EmployeeLogin from './pages/auth/login/Login';
 
 import EmployeeLayout from './layouts/employee/EmployeeLayout';
@@ -26,7 +26,6 @@ import ManagementAttendance from './pages/management/attendance/Attendance';
 import ManagementPayrollCosts from './pages/management/payroll-costs/PayrollCosts';
 import ManagementPayRunReporting from './pages/management/pay-run-reporting/PayRunReporting';
 import ManagerLayout from './layouts/manager/ManagerLayout';
-import ManagerDashboard from './pages/manager/dashboard/Dashboard';
 import ManagerAttendanceDashboard from './pages/manager/attendance-dashboard/AttendanceDashboard';
 import ManagerAttendanceReports from './pages/manager/attendance-reports/AttendanceReports';
 import ManagerPendingApprovals from './pages/manager/pending-approvals/PendingApprovals';
@@ -144,7 +143,7 @@ export default function App() {
         {/* Manager (FRAME) */}
         <Route path="/manager" element={<RequireRole role="manager"><ManagerLayout /></RequireRole>}>
           <Route index element={<Navigate to="self-service/dashboard" replace />} />
-          <Route path="dashboard" element={<ManagerDashboard />} />
+          <Route path="dashboard" element={<Navigate to="/manager/self-service/dashboard" replace />} />
           <Route path="attendance-dashboard" element={<ManagerAttendanceDashboard />} />
           <Route path="attendance-reports" element={<ManagerAttendanceReports />} />
           <Route path="pending-approvals" element={<ManagerPendingApprovals />} />

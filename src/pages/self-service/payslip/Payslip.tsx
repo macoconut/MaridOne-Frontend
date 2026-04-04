@@ -76,7 +76,7 @@ function formatAdjustmentTimestamp(value?: string) {
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString(undefined, {
     year: 'numeric',
-    month: 'short',
+    month: 'long',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
@@ -89,7 +89,7 @@ function formatDisplayDate(value?: string) {
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString(undefined, {
     year: 'numeric',
-    month: 'short',
+    month: 'long',
     day: 'numeric',
   });
 }
@@ -748,7 +748,7 @@ export default function Payslip() {
       <ConfirmDialog
         open={confirmDisputeSubmit}
         title="Confirm Payslip Dispute"
-        message={`Submit this dispute for payroll item #${selectedItemId ?? '-'}?`}
+        message={`Submit this dispute for the payroll period ${displayPayPeriod}?`}
         confirmLabel="Submit Dispute"
         cancelLabel="Go Back"
         isBusy={disputeSubmitting}

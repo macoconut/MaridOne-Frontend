@@ -139,7 +139,7 @@ function formatDateTime(value?: string) {
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString(undefined, {
     year: 'numeric',
-    month: 'short',
+    month: 'long',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
@@ -162,10 +162,10 @@ function toOptionalText(value: unknown) {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 }
 
-function employeeLabel(employeeName?: string, employeeId?: number) {
+function employeeLabel(employeeName?: string, _employeeId?: number) {
   const trimmedName = typeof employeeName === 'string' ? employeeName.trim() : '';
   if (trimmedName) return trimmedName;
-  return typeof employeeId === 'number' ? `Employee ID ${employeeId}` : 'Employee unavailable';
+  return 'Employee unavailable';
 }
 
 function createDefaultRunForm(): RunFormState {
@@ -1257,7 +1257,9 @@ export default function HrPayslips() {
       <ConfirmDialog
         open={confirmRunOpen}
         title={runForm.runType === 'ADJUSTMENT' ? 'Confirm Adjustment Run' : 'Confirm New Payroll Run'}
-        message={`Create a ${runForm.runType === 'ADJUSTMENT' ? 'payroll adjustment' : 'new payroll'} run for ${runForm.periodStart} to ${runForm.periodEnd}?`}
+        message={`Create a ${runForm.runType === 'ADJUSTMENT' ? 'payroll adjustment' : 'new payroll'} run for ${formatDate(
+          runForm.periodStart
+        )} to ${formatDate(runForm.periodEnd)}?`}
         confirmLabel={runForm.runType === 'ADJUSTMENT' ? 'Create Adjustment Run' : 'Create New Payroll Run'}
         cancelLabel="Go Back"
         isBusy={isSubmittingRun}

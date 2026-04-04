@@ -30,6 +30,7 @@ type LeaveRow = {
   requestStatus?: string;
   reason?: string;
   leaveType?: string;
+  approver?: string;
   approverReason?: string;
   paid?: boolean;
   isPaid?: boolean;
@@ -57,6 +58,15 @@ type DisputeRow = {
   updatedAt?: string;
   statusReason?: string;
   itemId?: number;
+};
+
+type PayrollItemRow = {
+  id?: number;
+  itemId?: number;
+  runDetails?: {
+    periodStart?: string;
+    periodEnd?: string;
+  };
 };
 
 function extractApprover(statusReason?: string) {
@@ -120,6 +130,13 @@ function buildDisputeDetail(subject?: string) {
   return trimmed.length > 0 ? trimmed : 'Payroll dispute';
 }
 
+function buildPayrollPeriodLabel(start?: string, end?: string) {
+  if (!start && !end) return 'Payroll period unavailable';
+  const startLabel = formatDate(start);
+  const endLabel = formatDate(end);
+  return startLabel === endLabel ? startLabel : `${startLabel} to ${endLabel}`;
+}
+
 export default function Approval() {
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
   const [selectedApproval, setSelectedApproval] = useState<ApprovalItem | null>(null);
@@ -157,11 +174,23 @@ export default function Approval() {
                 : null;
 
         if (!empId) throw new Error('Missing employee ID');
-        const [leaveResponse, otResponse, disputeResponse] = await Promise.all([
+        const [leaveResponse, otResponse, disputeResponse, payrollItemsResponse] = await Promise.all([
           apiFetchJson<unknown>(`/api/leave/request/${empId}?page=0&size=20`),
           apiFetchJson<unknown>(`/api/overtime/all/${empId}?page=0&size=20`),
           apiFetchJson<unknown>(`/api/payroll/item/dispute/self?empId=${empId}&page=0&size=20`),
+          apiFetchJson<unknown>(`/api/payroll/item/${empId}`),
         ]);
+
+        const payrollPeriodByItemId = new Map<number, string>();
+        for (const row of toArray<PayrollItemRow>(payrollItemsResponse)) {
+          const itemId = typeof row.id === 'number' ? row.id : typeof row.itemId === 'number' ? row.itemId : null;
+          if (itemId == null) continue;
+
+          payrollPeriodByItemId.set(
+            itemId,
+            buildPayrollPeriodLabel(row.runDetails?.periodStart, row.runDetails?.periodEnd)
+          );
+        }
 
         const leaveItems = toArray<LeaveRow>(leaveResponse).map((row, index) => {
           const statusRaw = String(row.requestStatus ?? '').toUpperCase();
@@ -180,7 +209,7 @@ export default function Approval() {
             requestDetail: buildLeaveDetail(row.leaveType, row.paid ?? row.isPaid),
             requestTarget: `${formatDate(row.startDateTime)} to ${formatDate(row.endDateTime)}`,
             status,
-            approvedBy: status === 'Pending' ? '-' : extractApprover(row.approverReason),
+            approvedBy: status === 'Pending' ? '-' : row.approver?.trim() || '-',
             requestReason: row.reason ?? '-',
             decisionReason: row.approverReason ?? '-',
             decisionDate: '-',
@@ -227,7 +256,10 @@ export default function Approval() {
             dateOfRequest: formatDateTime(row.createdAt),
             requestType: 'Payslip Dispute',
             requestDetail: buildDisputeDetail(row.subject),
-            requestTarget: `Item #${row.itemId ?? '-'}`,
+            requestTarget:
+              typeof row.itemId === 'number'
+                ? payrollPeriodByItemId.get(row.itemId) ?? 'Payroll period unavailable'
+                : 'Payroll period unavailable',
             status,
             approvedBy: status === 'Pending' ? '-' : extractApprover(row.statusReason),
             requestReason: row.reason ?? '-',

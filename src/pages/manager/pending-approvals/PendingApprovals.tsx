@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
+import ApprovalStatusSummary from '../../../components/approvals/ApprovalStatusSummary';
 import PageHeader from '../../../components/layout/PageHeader';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
+import './PendingApprovals.css';
 import '../../hr/approvals/Approvals.css';
 
 type EmployeeRow = {
@@ -15,6 +17,7 @@ type LeaveDto = {
   empId?: number;
   startDateTime?: string;
   endDateTime?: string;
+  requestAt?: string;
   requestStatus?: string;
   reason?: string;
   isPaid?: boolean;
@@ -44,13 +47,17 @@ type ManagerRequest = {
   id: string;
   employee: string;
   message: string;
-  time: string;
+  submittedAt: string;
   type: RequestType;
   source: SourceType;
   status: string;
   reason: string;
   referenceLabel: string;
   referenceValue: string;
+  requestLabel: string;
+  requestKind: string;
+  durationLabel: string;
+  requestDateTime: string;
   decisionSummary?: string;
   sortStamp: number;
   leaveType?: string;
@@ -66,7 +73,7 @@ function formatDateTime(value?: string) {
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString(undefined, {
     year: 'numeric',
-    month: 'short',
+    month: 'long',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
@@ -79,8 +86,18 @@ function formatDateOnly(value?: string) {
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString(undefined, {
     year: 'numeric',
-    month: 'short',
+    month: 'long',
     day: 'numeric',
+  });
+}
+
+function formatTimeOnly(value?: string) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
   });
 }
 
@@ -90,9 +107,59 @@ function formatPeriod(start?: string, end?: string) {
   return startLabel === endLabel ? startLabel : `${startLabel} to ${endLabel}`;
 }
 
+function formatRequestType(value?: string) {
+  if (!value) return '-';
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function formatLeaveDuration(start?: string, end?: string) {
+  if (!start || !end) return '-';
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return '-';
+
+  const startDay = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+  const endDay = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+  const diffDays = Math.max(1, Math.round((endDay.getTime() - startDay.getTime()) / 86400000) + 1);
+  return `${diffDays} day${diffDays === 1 ? '' : 's'}`;
+}
+
+function formatClockWindow(start?: string, end?: string) {
+  const startDate = start ? new Date(start) : null;
+  const endDate = end ? new Date(end) : null;
+  if (!startDate || !endDate || Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return '-';
+  }
+
+  const diffMs = Math.max(0, endDate.getTime() - startDate.getTime());
+  const totalMinutes = Math.round(diffMs / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours > 0 && minutes > 0) return `${hours} hr ${minutes} min`;
+  if (hours > 0) return `${hours} hr${hours === 1 ? '' : 's'}`;
+  if (minutes > 0) return `${minutes} min`;
+  return '0 min';
+}
+
+function formatRequestDateTime(source: SourceType, start?: string, end?: string, workDate?: string) {
+  const resolvedStart = source === 'overtime' ? start || workDate : start;
+  const resolvedEnd = source === 'overtime' ? end || start || workDate : end;
+  const startDateLabel = formatDateOnly(resolvedStart);
+  const endDateLabel = formatDateOnly(resolvedEnd);
+  const startTimeLabel = formatTimeOnly(start);
+  const endTimeLabel = formatTimeOnly(end);
+  if (startDateLabel === '-' && endDateLabel === '-') return '-';
+  return `${startDateLabel} to ${endDateLabel} (${startTimeLabel} - ${endTimeLabel})`;
+}
+
 function employeeLabel(employeeById: Map<number, EmployeeRow>, employeeId?: number) {
   if (typeof employeeId !== 'number') return 'Employee unavailable';
-  return employeeById.get(employeeId)?.name || `Employee ID ${employeeId}`;
+  return employeeById.get(employeeId)?.name || 'Employee unavailable';
 }
 
 function normalizeText(value?: string) {
@@ -119,7 +186,7 @@ function rosterMap(payload: unknown) {
     name:
       [row.firstName, row.middleName, row.lastName]
         .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
-        .join(' ') || `Employee #${row.employeeId ?? row.id ?? idx + 1}`,
+        .join(' ') || 'Employee unavailable',
   }));
 
   return new Map(
@@ -156,15 +223,20 @@ export default function ManagerPendingApprovals() {
         message: `${item.leaveType?.replaceAll('_', ' ') || 'Leave'} - ${
           item.isPaid === false ? 'Unpaid' : 'Paid'
         }`,
-        time: formatDateOnly(item.startDateTime),
+        submittedAt: formatDateTime(item.requestAt ?? item.startDateTime),
         type: 'Leave' as const,
         source: 'leave' as const,
         status: item.requestStatus || 'PENDING',
         reason: item.reason || '',
         referenceLabel: 'Leave Period',
         referenceValue: formatPeriod(item.startDateTime, item.endDateTime),
+        requestLabel: 'Leave Request',
+        requestKind: `${formatRequestType(item.leaveType)} - ${item.isPaid === false ? 'Unpaid' : 'Paid'}`,
+        durationLabel: formatLeaveDuration(item.startDateTime, item.endDateTime),
+        requestDateTime: formatRequestDateTime('leave', item.startDateTime, item.endDateTime),
         decisionSummary: item.approverReason || '',
-        sortStamp: item.startDateTime ? Date.parse(item.startDateTime) || 0 : 0,
+        sortStamp:
+          item.requestAt ? Date.parse(item.requestAt) || 0 : item.startDateTime ? Date.parse(item.startDateTime) || 0 : 0,
         leaveType: item.leaveType,
         startDateTime: item.startDateTime,
         endDateTime: item.endDateTime,
@@ -175,13 +247,17 @@ export default function ManagerPendingApprovals() {
         overtimeId: item.overtimeId,
         employee: employeeLabel(employeeById, item.employeeId),
         message: `${item.overtimeType || 'Overtime'} request on ${formatDateOnly(item.workDate)}`,
-        time: formatDateTime(item.requestAt),
+        submittedAt: formatDateTime(item.requestAt),
         type: 'Overtime' as const,
         source: 'overtime' as const,
         status: item.requestStatus || 'PENDING',
         reason: item.reason || '',
         referenceLabel: 'Work Window',
         referenceValue: `${formatDateTime(item.startTime)} to ${formatDateTime(item.endTime)}`,
+        requestLabel: 'Overtime Request',
+        requestKind: formatRequestType(item.overtimeType || 'Overtime'),
+        durationLabel: formatClockWindow(item.startTime, item.endTime),
+        requestDateTime: formatRequestDateTime('overtime', item.startTime, item.endTime, item.workDate),
         decisionSummary: item.approveReason || '',
         sortStamp: item.requestAt ? Date.parse(item.requestAt) || 0 : 0,
       }));
@@ -230,7 +306,10 @@ export default function ManagerPendingApprovals() {
         request.referenceLabel,
         request.referenceValue,
         request.type,
-        request.time,
+        request.requestLabel,
+        request.requestKind,
+        request.durationLabel,
+        request.requestDateTime,
         request.decisionSummary,
         statusLabel(request.status),
       ]
@@ -246,9 +325,9 @@ export default function ManagerPendingApprovals() {
     const denied = visibleRequests.filter((request) => toStatusCode(request.status) === 'REJECTED').length;
     const pending = visibleRequests.filter((request) => toStatusCode(request.status) === 'PENDING').length;
     return [
-      { label: 'Approved', value: approved, tone: 'approved' },
-      { label: 'Denied', value: denied, tone: 'denied' },
-      { label: 'Pending', value: pending, tone: 'pending' },
+      { label: 'Approved', value: approved, tone: 'approved' as const },
+      { label: 'Denied', value: denied, tone: 'denied' as const },
+      { label: 'Pending', value: pending, tone: 'pending' as const },
     ];
   }, [visibleRequests]);
 
@@ -340,44 +419,48 @@ export default function ManagerPendingApprovals() {
       </div>
 
       <div className="hrAppr__cards">
-        {cards.map((card) => (
-          <article key={card.label} className="hrApprCard">
-            <div className={`hrApprCard__ring hrApprCard__ring--${card.tone}`} />
-            <div className="hrApprCard__body">
-              <div className="hrApprCard__label">{card.label}</div>
-              <div className="hrApprCard__value">{card.value}</div>
-            </div>
-          </article>
-        ))}
+        <ApprovalStatusSummary items={cards} />
       </div>
 
-      <section className="hrApprTable">
+      <section className="hrApprTable mgrPendTable">
         {loadError && <p className="hrApprForm__error">{loadError}</p>}
         {visibleRequests.length > 0 ? (
-          visibleRequests.map((request) => (
-            <button
-              key={request.id}
-              type="button"
-              className={`hrApprRow hrApprRow--${toStatusCode(request.status).toLowerCase()}`}
-              onClick={() => setSelectedId(request.id)}
-            >
-              <span className="hrApprRow__employee">{request.employee}</span>
-              <span className="hrApprRow__message">{request.message}</span>
-              <span className="hrApprRow__meta">
-                <span className={`hrApprRow__status hrApprRow__status--${toStatusCode(request.status).toLowerCase()}`}>
-                  {statusLabel(request.status)}
-                </span>
-                <span className="hrApprRow__time">{request.time}</span>
-              </span>
-            </button>
-          ))
+          <>
+            <div className="mgrPendTable__head" role="row">
+              <span>Name</span>
+              <span>Request</span>
+              <span>Specific Type</span>
+              <span>Duration</span>
+              <span>Date and Time</span>
+              <span className="mgrPendTable__headCell--status">Status</span>
+            </div>
+
+            <div className="mgrPendTable__body">
+              {visibleRequests.map((request) => (
+                <button
+                  key={request.id}
+                  type="button"
+                  className={`mgrPendTable__row mgrPendTable__row--${toStatusCode(request.status).toLowerCase()}`}
+                  onClick={() => setSelectedId(request.id)}
+                >
+                  <span className="mgrPendTable__cell mgrPendTable__cell--name">{request.employee}</span>
+                  <span className="mgrPendTable__cell">{request.requestLabel}</span>
+                  <span className="mgrPendTable__cell">{request.requestKind}</span>
+                  <span className="mgrPendTable__cell">{request.durationLabel}</span>
+                  <span className="mgrPendTable__cell">{request.requestDateTime}</span>
+                  <span className="mgrPendTable__cell mgrPendTable__cell--status">
+                    <span className={`hrApprRow__status hrApprRow__status--${toStatusCode(request.status).toLowerCase()}`}>
+                      {statusLabel(request.status)}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </>
         ) : (
-          <div className="hrApprRow">
-            <span className="hrApprRow__employee">No matching requests.</span>
-            <span className="hrApprRow__message">Try clearing the search or adjusting the filters.</span>
-            <span className="hrApprRow__meta">
-              <span className="hrApprRow__time">-</span>
-            </span>
+          <div className="mgrPendTable__empty">
+            <span>No matching requests.</span>
+            <span>Try clearing the search or adjusting the filters.</span>
           </div>
         )}
       </section>
@@ -426,7 +509,7 @@ export default function ManagerPendingApprovals() {
             <div className="hrApprForm__row hrApprForm__row--2">
               <label>
                 <span>Recorded At:</span>
-                <input value={selected.time} readOnly />
+                <input value={selected.submittedAt} readOnly />
               </label>
               <label>
                 <span>Type:</span>

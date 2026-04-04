@@ -583,6 +583,22 @@ input[type='time'] {
 .inputIcon {
   position: relative;
 }
+
+.inputIcon .input {
+  padding-right: 46px;
+}
+
+.inputIcon input[type='date']::-webkit-calendar-picker-indicator,
+.inputIcon input[type='time']::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
 .inputIcon__icon {
   position: absolute;
   right: 12px;
@@ -645,8 +661,8 @@ input[type='time'] {
 }
 
 .requestField__group {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -739,6 +755,11 @@ input[type='time'] {
   .requestActions {
     flex-direction: column-reverse;
   }
+
+  .requestField__group {
+    grid-template-columns: 1fr;
+  }
+
   .btn {
     width: 100%;
   }

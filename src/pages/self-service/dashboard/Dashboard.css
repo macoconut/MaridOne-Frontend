@@ -86,8 +86,8 @@ body.modal-open{
 .infoCardX__photo{
   width: 92px;
   height: 92px;
-  border-radius: 12px;
-  background: #efefef;
+  border-radius: 50%;
+  background: center / cover no-repeat url('/images/default-pfp.jpg');
   border: 1px solid rgba(0,0,0,.18);
 }
 

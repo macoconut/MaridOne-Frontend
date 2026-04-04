@@ -45,6 +45,12 @@ function fromOvertimeMessage(error: ApiError) {
   if (message.includes('conflicting schedules')) {
     return 'This overtime request conflicts with an existing schedule or overtime request.';
   }
+  if (message.includes('work schedule is not set up')) {
+    return 'Your work schedule is not set up yet, so overtime cannot be filed.';
+  }
+  if (message.includes('outside your scheduled shift')) {
+    return 'Overtime can only be filed outside your scheduled shift hours.';
+  }
   if (message.includes('not pending')) {
     return 'This overtime request was already processed and cannot be updated again.';
   }

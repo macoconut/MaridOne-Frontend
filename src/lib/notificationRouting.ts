@@ -50,11 +50,11 @@ function resolveDestination(role: NotificationRole, message: string) {
   const normalized = message.trim().toLowerCase();
 
   if (role === 'hr') {
-    if (
-      normalized.includes('leave request') ||
-      normalized.includes('overtime') ||
-      normalized.includes('dispute')
-    ) {
+    if (normalized.includes('dispute')) {
+      return '/hr/payslips';
+    }
+
+    if (normalized.includes('leave request') || normalized.includes('overtime')) {
       return '/hr/approvals';
     }
 

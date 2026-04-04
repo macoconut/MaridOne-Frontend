@@ -176,27 +176,105 @@
 }
 
 .hrAppr__cards {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
+}
+
+.hrApprSummary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.hrApprSummary__card {
+  background: #fff;
+  border: 1.5px solid rgba(0, 0, 0, 0.14);
+  border-radius: 12px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.hrApprSummary__ring {
+  --hr-appr-ring-color: #7b4a8f;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  position: relative;
+  flex: 0 0 auto;
+  background:
+    conic-gradient(var(--hr-appr-ring-color) var(--hr-appr-ring-progress, 0%), rgba(123, 74, 143, 0.12) 0);
+}
+
+.hrApprSummary__ring::after {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.hrApprSummary__ring--approved {
+  --hr-appr-ring-color: #7b4a8f;
+}
+
+.hrApprSummary__ring--denied {
+  --hr-appr-ring-color: #b24c4c;
+}
+
+.hrApprSummary__ring--pending {
+  --hr-appr-ring-color: #8a6bb0;
+}
+
+.hrApprSummary__empty {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(43, 32, 54, 0.28);
+  color: rgba(43, 32, 54, 0.45);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.hrApprSummary__body {
+  min-width: 0;
+}
+
+.hrApprSummary__label {
+  font-weight: 800;
+  font-size: 16px;
+  color: #2b2036;
+}
+
+.hrApprSummary__value {
+  font-size: 15px;
+  color: rgba(0, 0, 0, 0.6);
 }
 
 .hrApprCard {
   border: 1.5px solid rgba(0, 0, 0, 0.2);
   border-radius: 8px;
   background: #fff;
-  min-width: 102px;
+  min-width: 0;
   min-height: 54px;
-  padding: 8px 10px;
+  width: 100%;
+  padding: 10px 12px;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   box-shadow: 0 4px 9px rgba(0, 0, 0, 0.1);
 }
 
 .hrApprCard__ring {
-  width: 28px;
-  height: 28px;
+  width: clamp(32px, 7vw, 44px);
+  height: clamp(32px, 7vw, 44px);
   border-radius: 50%;
+  flex: 0 0 auto;
 }
 
 .hrApprCard__ring--approved {
@@ -214,9 +292,9 @@
 .hrApprCard__ring::after {
   content: '';
   display: block;
-  width: 16px;
-  height: 16px;
-  margin: 6px;
+  width: calc(100% - 14px);
+  height: calc(100% - 14px);
+  margin: 7px;
   border-radius: 50%;
   background: #fff;
 }
@@ -232,6 +310,12 @@
   color: #2f2050;
 }
 
+@media (max-width: 640px) {
+  .hrAppr__cards {
+    grid-template-columns: 1fr;
+  }
+}
+
 .hrApprTable {
   border: 1.5px solid var(--hr-border);
   border-radius: 16px;
@@ -240,6 +324,97 @@
   padding: 14px 18px;
   max-height: 460px;
   overflow: auto;
+}
+
+.hrApprRequestTable {
+  padding: 0;
+}
+
+.hrApprRequestTable__head,
+.hrApprRequestTable__row {
+  min-width: 980px;
+  display: grid;
+  grid-template-columns:
+    minmax(170px, 1.15fr)
+    minmax(130px, 0.85fr)
+    minmax(190px, 1.15fr)
+    minmax(120px, 0.8fr)
+    minmax(280px, 1.6fr)
+    minmax(120px, 0.72fr);
+  gap: 16px;
+  align-items: center;
+}
+
+.hrApprRequestTable__head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 14px 18px 12px;
+  background: linear-gradient(180deg, #f8f4fc, #f3ecfa);
+  border-bottom: 1px solid rgba(59, 34, 87, 0.12);
+}
+
+.hrApprRequestTable__head span {
+  color: #5a4d6e;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hrApprRequestTable__headCell--status {
+  text-align: center;
+}
+
+.hrApprRequestTable__body {
+  display: grid;
+}
+
+.hrApprRequestTable__row {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fff;
+  padding: 16px 18px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hrApprRequestTable__row:hover {
+  background: #f8f3fc;
+}
+
+.hrApprRequestTable__row--pending {
+  background: linear-gradient(90deg, rgba(184, 53, 115, 0.08), rgba(184, 53, 115, 0.03));
+  box-shadow: inset 3px 0 0 rgba(184, 53, 115, 0.45);
+}
+
+.hrApprRequestTable__cell {
+  min-width: 0;
+  color: #2f2c39;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.hrApprRequestTable__cell--name {
+  color: #1e1c2e;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.hrApprRequestTable__cell--status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: stretch;
+}
+
+.hrApprRequestTable__empty {
+  padding: 22px 18px;
+  display: grid;
+  gap: 6px;
+  color: #5c546d;
+  font-size: 15px;
 }
 
 .hrApprRow {
@@ -286,12 +461,13 @@
 }
 
 .hrApprRow__meta {
-  min-width: 260px;
+  min-width: 228px;
   display: grid;
-  grid-template-columns: 92px 156px;
+  grid-template-columns: 96px minmax(120px, 1fr);
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
+  margin-left: auto;
 }
 
 .hrApprRow__status {
@@ -530,6 +706,10 @@
     min-width: 0;
   }
 
+  .hrApprRequestTable {
+    overflow: auto;
+  }
+
   .hrApprRow {
     grid-template-columns: 1fr;
     gap: 4px;
@@ -540,6 +720,8 @@
   }
 
   .hrApprRow__meta {
+    min-width: 0;
+    grid-template-columns: auto;
     justify-content: flex-start;
   }
 
@@ -549,6 +731,12 @@
 
   .hrApprForm__row label {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .hrApprSummary__card {
+    padding: 10px 12px;
   }
 }
 

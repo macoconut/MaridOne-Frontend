@@ -1,24 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FiSearch, FiFilter, FiXCircle } from 'react-icons/fi';
+import ApprovalStatusSummary from '../../../components/approvals/ApprovalStatusSummary';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import PageHeader from '../../../components/layout/PageHeader';
-import { useNavigate } from 'react-router-dom';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './Approvals.css';
-
-type DisputeDto = {
-  id?: number;
-  subject?: string;
-  reason?: string;
-  status?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  statusReason?: string;
-  itemId?: number;
-  employeeId?: number;
-  employeeName?: string;
-};
 
 type OvertimeDto = {
   overtimeId?: number;
@@ -26,6 +13,8 @@ type OvertimeDto = {
   requestStatus?: string;
   requestAt?: string;
   workDate?: string;
+  startTime?: string;
+  endTime?: string;
   overtimeType?: string;
   reason?: string;
   approveReason?: string;
@@ -38,6 +27,7 @@ type LeaveDto = {
   lastName?: string;
   startDateTime?: string;
   endDateTime?: string;
+  requestAt?: string;
   requestStatus?: string;
   reason?: string;
   leaveType?: string;
@@ -53,8 +43,8 @@ type EmployeeDirectoryRow = {
   lastName?: string;
 };
 
-type RequestType = 'Dispute' | 'Overtime' | 'Leave';
-type SourceType = 'dispute' | 'overtime' | 'leave';
+type RequestType = 'Overtime' | 'Leave';
+type SourceType = 'overtime' | 'leave';
 type RequestTypeFilter = 'all' | SourceType;
 type StatusFilter = 'all' | 'PENDING' | 'APPROVED' | 'REJECTED';
 type LeavePaidFilter = 'all' | 'paid' | 'unpaid';
@@ -71,33 +61,26 @@ type OvertimeTypeFilter =
 
 type HrRequest = {
   id: string;
-  disputeId?: number;
   leaveRequestId?: number;
-  itemId?: number;
   employeeId?: number;
   employee: string;
   message: string;
-  time: string;
+  submittedAt: string;
   type: RequestType;
   source: SourceType;
   status: string;
   reason: string;
   referenceLabel: string;
   referenceValue: string;
+  requestLabel: string;
+  requestKind: string;
+  durationLabel: string;
+  requestDateTime: string;
   decisionSummary?: string;
   isPaid?: boolean;
   overtimeType?: string;
   leaveType?: string;
   sortStamp: number;
-};
-
-type CorrectionIntent = {
-  disputeId: number;
-  itemId: number;
-  employee: string;
-  message: string;
-  disputeReason: string;
-  decisionReason: string;
 };
 
 function formatDateTime(value?: string) {
@@ -106,7 +89,7 @@ function formatDateTime(value?: string) {
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleString(undefined, {
     year: 'numeric',
-    month: 'short',
+    month: 'long',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
@@ -119,15 +102,75 @@ function formatDateOnly(value?: string) {
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString(undefined, {
     year: 'numeric',
-    month: 'short',
+    month: 'long',
     day: 'numeric',
   });
 }
 
-function employeeLabel(employeeName?: string, employeeId?: number) {
+function formatTimeOnly(value?: string) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function formatRequestType(value?: string) {
+  if (!value) return '-';
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function formatLeaveDuration(start?: string, end?: string) {
+  if (!start || !end) return '-';
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return '-';
+
+  const startDay = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+  const endDay = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+  const diffDays = Math.max(1, Math.round((endDay.getTime() - startDay.getTime()) / 86400000) + 1);
+  return `${diffDays} day${diffDays === 1 ? '' : 's'}`;
+}
+
+function formatClockWindow(start?: string, end?: string) {
+  const startDate = start ? new Date(start) : null;
+  const endDate = end ? new Date(end) : null;
+  if (!startDate || !endDate || Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return '-';
+  }
+
+  const diffMs = Math.max(0, endDate.getTime() - startDate.getTime());
+  const totalMinutes = Math.round(diffMs / 60000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours > 0 && minutes > 0) return `${hours} hr ${minutes} min`;
+  if (hours > 0) return `${hours} hr${hours === 1 ? '' : 's'}`;
+  if (minutes > 0) return `${minutes} min`;
+  return '0 min';
+}
+
+function formatRequestDateTime(source: SourceType, start?: string, end?: string, workDate?: string) {
+  const resolvedStart = source === 'overtime' ? start || workDate : start;
+  const resolvedEnd = source === 'overtime' ? end || start || workDate : end;
+  const startDateLabel = formatDateOnly(resolvedStart);
+  const endDateLabel = formatDateOnly(resolvedEnd);
+  const startTimeLabel = formatTimeOnly(start);
+  const endTimeLabel = formatTimeOnly(end);
+  if (startDateLabel === '-' && endDateLabel === '-') return '-';
+  return `${startDateLabel} to ${endDateLabel} (${startTimeLabel} - ${endTimeLabel})`;
+}
+
+function employeeLabel(employeeName?: string, _employeeId?: number) {
   const trimmedName = typeof employeeName === 'string' ? employeeName.trim() : '';
   if (trimmedName) return trimmedName;
-  return typeof employeeId === 'number' ? `Employee ID ${employeeId}` : 'Employee unavailable';
+  return 'Employee unavailable';
 }
 
 function employeeDirectoryLabel(row?: EmployeeDirectoryRow) {
@@ -195,7 +238,6 @@ function normalizeText(value?: string) {
 }
 
 export default function HrApprovals() {
-  const navigate = useNavigate();
   const [requests, setRequests] = useState<HrRequest[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -227,20 +269,14 @@ export default function HrApprovals() {
         requestStatus: statusFilter !== 'all' ? statusFilter : undefined,
         overtimeType: overtimeTypeFilter !== 'all' ? overtimeTypeFilter : undefined,
       });
-      const [employeesRes, disputesRes, overtimeRes, leaveRes] = await Promise.allSettled([
+      const [employeesRes, overtimeRes, leaveRes] = await Promise.allSettled([
         apiFetchJson<unknown>('/api/employees?page=0&size=200'),
-        apiFetchJson<unknown>('/api/payroll/item/dispute/all?page=0&size=50'),
         apiFetchJson<unknown>(overtimePath),
         apiFetchJson<unknown>(leavePath),
       ]);
 
-      if (
-        disputesRes.status !== 'fulfilled' ||
-        overtimeRes.status !== 'fulfilled' ||
-        leaveRes.status !== 'fulfilled'
-      ) {
+      if (overtimeRes.status !== 'fulfilled' || leaveRes.status !== 'fulfilled') {
         throw (
-          (disputesRes.status === 'rejected' && disputesRes.reason) ||
           (overtimeRes.status === 'rejected' && overtimeRes.reason) ||
           (leaveRes.status === 'rejected' && leaveRes.reason) ||
           new Error('Failed to load approval requests.')
@@ -258,36 +294,22 @@ export default function HrApprovals() {
         }
       }
 
-      const disputeRows = toArray<DisputeDto>(disputesRes.value).map((item, idx) => ({
-        id: `dispute-${item.id ?? idx}`,
-        disputeId: item.id,
-        itemId: item.itemId,
-        employeeId: item.employeeId,
-        employee: resolvedEmployeeLabel(employeeNameById, item.employeeId, item.employeeName),
-        message: item.subject?.trim() || `Payroll dispute for payslip item #${item.itemId ?? '-'}`,
-        time: formatDateTime(item.createdAt),
-        type: 'Dispute' as const,
-        source: 'dispute' as const,
-        status: item.status || 'PENDING',
-        reason: item.reason || '',
-        referenceLabel: 'Payslip Item',
-        referenceValue: typeof item.itemId === 'number' ? `#${item.itemId}` : 'Unavailable',
-        decisionSummary: item.statusReason || '',
-        sortStamp: item.createdAt ? Date.parse(item.createdAt) || 0 : 0,
-      }));
-
       const overtimeRows = toArray<OvertimeDto>(overtimeRes.value).map((item, idx) => ({
         id: `overtime-${item.overtimeId ?? idx}`,
         employeeId: item.employeeId,
         employee: resolvedEmployeeLabel(employeeNameById, item.employeeId),
         message: `${item.overtimeType || 'Overtime'} request on ${formatDateOnly(item.workDate)}`,
-        time: formatDateTime(item.requestAt),
+        submittedAt: formatDateTime(item.requestAt),
         type: 'Overtime' as const,
         source: 'overtime' as const,
         status: item.requestStatus || 'PENDING',
         reason: item.reason || '',
         referenceLabel: 'Work Date',
         referenceValue: formatDateOnly(item.workDate),
+        requestLabel: 'Overtime Request',
+        requestKind: formatRequestType(item.overtimeType || 'Overtime'),
+        durationLabel: formatClockWindow(item.startTime, item.endTime),
+        requestDateTime: formatRequestDateTime('overtime', item.startTime, item.endTime, item.workDate),
         decisionSummary: item.approveReason || '',
         overtimeType: item.overtimeType,
         sortStamp: item.requestAt ? Date.parse(item.requestAt) || 0 : 0,
@@ -299,20 +321,25 @@ export default function HrApprovals() {
         employeeId: item.empId,
         employee: resolvedEmployeeLabel(employeeNameById, item.empId, leaveEmployeeLabel(item)),
         message: `Leave request from ${formatDateOnly(item.startDateTime)} to ${formatDateOnly(item.endDateTime)}`,
-        time: formatDateTime(item.startDateTime),
+        submittedAt: formatDateTime(item.requestAt ?? item.startDateTime),
         type: 'Leave' as const,
         source: 'leave' as const,
         status: item.requestStatus || 'PENDING',
         reason: item.reason || '',
         referenceLabel: 'Leave Period',
         referenceValue: `${formatDateOnly(item.startDateTime)} - ${formatDateOnly(item.endDateTime)}`,
+        requestLabel: 'Leave Request',
+        requestKind: `${formatRequestType(item.leaveType)} - ${item.paid === false ? 'Unpaid' : 'Paid'}`,
+        durationLabel: formatLeaveDuration(item.startDateTime, item.endDateTime),
+        requestDateTime: formatRequestDateTime('leave', item.startDateTime, item.endDateTime),
         decisionSummary: item.approverReason || '',
         isPaid: item.paid,
         leaveType: item.leaveType,
-        sortStamp: item.startDateTime ? Date.parse(item.startDateTime) || 0 : 0,
+        sortStamp:
+          item.requestAt ? Date.parse(item.requestAt) || 0 : item.startDateTime ? Date.parse(item.startDateTime) || 0 : 0,
       }));
 
-      const merged = [...leaveRows, ...disputeRows, ...overtimeRows].sort(
+      const merged = [...leaveRows, ...overtimeRows].sort(
         (a, b) =>
           requestStatusPriority(a.status) - requestStatusPriority(b.status) ||
           b.sortStamp - a.sortStamp ||
@@ -372,7 +399,10 @@ export default function HrApprovals() {
         request.referenceValue,
         request.type,
         statusLabel(request.status),
-        request.time,
+        request.requestLabel,
+        request.requestKind,
+        request.durationLabel,
+        request.requestDateTime,
       ]
         .map(normalizeText)
         .join(' ');
@@ -386,9 +416,9 @@ export default function HrApprovals() {
     const denied = visibleRequests.filter((r) => toStatusCode(r.status) === 'REJECTED').length;
     const pending = visibleRequests.filter((r) => toStatusCode(r.status) === 'PENDING').length;
     return [
-      { label: 'Approved', value: approved, tone: 'approved' },
-      { label: 'Denied', value: denied, tone: 'denied' },
-      { label: 'Pending', value: pending, tone: 'pending' },
+      { label: 'Approved', value: approved, tone: 'approved' as const },
+      { label: 'Denied', value: denied, tone: 'denied' as const },
+      { label: 'Pending', value: pending, tone: 'pending' as const },
     ];
   }, [visibleRequests]);
 
@@ -425,9 +455,6 @@ export default function HrApprovals() {
       setOvertimeTypeFilter('all');
     } else if (nextType === 'overtime') {
       setLeavePaidFilter('all');
-    } else if (nextType === 'dispute') {
-      setLeavePaidFilter('all');
-      setOvertimeTypeFilter('all');
     }
   }
 
@@ -453,8 +480,6 @@ export default function HrApprovals() {
     setSubmitError('');
     setIsSaving(true);
     try {
-      let correctionIntent: CorrectionIntent | null = null;
-
       if (selected.source === 'leave') {
         const leaveId = Number(selected.id.replace('leave-', ''));
         await apiFetchJson(`/api/leave/update/${leaveId}`, {
@@ -465,30 +490,6 @@ export default function HrApprovals() {
             approverReason: trimmedReason,
           }),
         });
-      } else if (selected.source === 'dispute') {
-        const id = selected.id.replace('dispute-', '');
-        await apiFetchJson(`/api/payroll/item/dispute/update/${id}`, {
-          method: 'PATCH',
-          body: JSON.stringify({
-            status: pendingDecision,
-            statusReason: trimmedReason,
-          }),
-        });
-
-        if (
-          pendingDecision === 'APPROVED' &&
-          typeof selected.disputeId === 'number' &&
-          typeof selected.itemId === 'number'
-        ) {
-          correctionIntent = {
-            disputeId: selected.disputeId,
-            itemId: selected.itemId,
-            employee: selected.employee,
-            message: selected.message,
-            disputeReason: selected.reason,
-            decisionReason: trimmedReason,
-          };
-        }
       } else {
         const overtimeId = Number(selected.id.replace('overtime-', ''));
         await apiFetchJson('/api/overtime/update', {
@@ -503,14 +504,6 @@ export default function HrApprovals() {
 
       setSelectedId(null);
       await loadRequests();
-
-      if (correctionIntent) {
-        navigate('/hr/payslips', {
-          state: {
-            correctionIntent,
-          },
-        });
-      }
     } catch (error) {
       setSubmitError(getFriendlyErrorMessage(error, 'approval-decision'));
     } finally {
@@ -541,7 +534,7 @@ export default function HrApprovals() {
           description={
             selected
               ? 'Review the selected employee request before recording an approval or denial.'
-              : 'Review leave, overtime, and dispute requests submitted by employees.'
+              : 'Review leave and overtime requests here. Payroll disputes stay in Manage Payslips.'
           }
           meta={
             <div className="hrAppr__summary">
@@ -590,7 +583,6 @@ export default function HrApprovals() {
                     <option value="all">All Requests</option>
                     <option value="leave">Leave</option>
                     <option value="overtime">Overtime</option>
-                    <option value="dispute">Dispute</option>
                   </select>
                 </label>
 
@@ -609,7 +601,7 @@ export default function HrApprovals() {
                   <select
                     value={leavePaidFilter}
                     onChange={(e) => setLeavePaidFilter(e.target.value as LeavePaidFilter)}
-                    disabled={typeFilter === 'overtime' || typeFilter === 'dispute'}
+                    disabled={typeFilter === 'overtime'}
                   >
                     <option value="all">All Leave</option>
                     <option value="paid">Paid Only</option>
@@ -622,7 +614,7 @@ export default function HrApprovals() {
                   <select
                     value={overtimeTypeFilter}
                     onChange={(e) => setOvertimeTypeFilter(e.target.value as OvertimeTypeFilter)}
-                    disabled={typeFilter === 'leave' || typeFilter === 'dispute'}
+                    disabled={typeFilter === 'leave'}
                   >
                     <option value="all">All OT Types</option>
                     <option value="BASIC">Basic</option>
@@ -648,44 +640,48 @@ export default function HrApprovals() {
       </div>
 
       <div className="hrAppr__cards">
-        {cards.map((card) => (
-          <article key={card.label} className="hrApprCard">
-            <div className={`hrApprCard__ring hrApprCard__ring--${card.tone}`} />
-            <div className="hrApprCard__body">
-              <div className="hrApprCard__label">{card.label}</div>
-              <div className="hrApprCard__value">{card.value}</div>
-            </div>
-          </article>
-        ))}
+        <ApprovalStatusSummary items={cards} />
       </div>
 
-      <section className="hrApprTable">
+      <section className="hrApprTable hrApprRequestTable">
         {loadError && <p className="hrApprForm__error">{loadError}</p>}
         {visibleRequests.length > 0 ? (
-          visibleRequests.map((request) => (
-            <button
-              key={request.id}
-              type="button"
-              className={`hrApprRow hrApprRow--${toStatusCode(request.status).toLowerCase()}`}
-              onClick={() => setSelectedId(request.id)}
-            >
-              <span className="hrApprRow__employee">{request.employee}</span>
-              <span className="hrApprRow__message">{request.message}</span>
-              <span className="hrApprRow__meta">
-                <span className={`hrApprRow__status hrApprRow__status--${toStatusCode(request.status).toLowerCase()}`}>
-                  {statusLabel(request.status)}
-                </span>
-                <span className="hrApprRow__time">{request.time}</span>
-              </span>
-            </button>
-          ))
+          <>
+            <div className="hrApprRequestTable__head" role="row">
+              <span>Name</span>
+              <span>Request</span>
+              <span>Specific Type</span>
+              <span>Duration</span>
+              <span>Date and Time</span>
+              <span className="hrApprRequestTable__headCell--status">Status</span>
+            </div>
+
+            <div className="hrApprRequestTable__body">
+              {visibleRequests.map((request) => (
+                <button
+                  key={request.id}
+                  type="button"
+                  className={`hrApprRequestTable__row hrApprRequestTable__row--${toStatusCode(request.status).toLowerCase()}`}
+                  onClick={() => setSelectedId(request.id)}
+                >
+                  <span className="hrApprRequestTable__cell hrApprRequestTable__cell--name">{request.employee}</span>
+                  <span className="hrApprRequestTable__cell">{request.requestLabel}</span>
+                  <span className="hrApprRequestTable__cell">{request.requestKind}</span>
+                  <span className="hrApprRequestTable__cell">{request.durationLabel}</span>
+                  <span className="hrApprRequestTable__cell">{request.requestDateTime}</span>
+                  <span className="hrApprRequestTable__cell hrApprRequestTable__cell--status">
+                    <span className={`hrApprRow__status hrApprRow__status--${toStatusCode(request.status).toLowerCase()}`}>
+                      {statusLabel(request.status)}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </>
         ) : (
-          <div className="hrApprRow">
-            <span className="hrApprRow__employee">No matching requests.</span>
-            <span className="hrApprRow__message">Try clearing the search or adjusting the filters.</span>
-            <span className="hrApprRow__meta">
-              <span className="hrApprRow__time">-</span>
-            </span>
+          <div className="hrApprRequestTable__empty">
+            <span>No matching requests.</span>
+            <span>Try clearing the search or adjusting the filters.</span>
           </div>
         )}
       </section>
@@ -730,7 +726,7 @@ export default function HrApprovals() {
             <div className="hrApprForm__row hrApprForm__row--2">
               <label>
                 <span>Requested At:</span>
-                <input value={selected.time} readOnly />
+                <input value={selected.submittedAt} readOnly />
               </label>
               <label>
                 <span>Type:</span>
@@ -761,11 +757,6 @@ export default function HrApprovals() {
               </div>
             )}
 
-            {selected.source === 'dispute' && (
-              <p className="hrApprForm__hint">
-                Approving a payroll dispute opens the correction workspace so HR can stage the actual adjustment.
-              </p>
-            )}
             {selected.source === 'leave' && !leaveReadyForReview && (
               <p className="hrApprForm__hint">This leave request is missing the details needed to submit an HR decision.</p>
             )}

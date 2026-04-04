@@ -286,7 +286,7 @@
 
 .hrDeptCard__name {
   color: var(--hr-primary-dark);
-  font-size: clamp(1.75rem, 2vw, 2.15rem);
+  font-size: clamp(1rem, 1.2vw, 1.3rem);
   font-weight: 900;
   line-height: 1.15;
   text-align: center;

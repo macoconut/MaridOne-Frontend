@@ -71,7 +71,6 @@ const navSections: NavSection[] = [
     label: 'Team Management',
     defaultOpen: true,
     items: [
-      { to: '/manager/dashboard', label: 'Dashboard', icon: FiGrid },
       { to: '/manager/attendance-dashboard', label: 'Attendance Dashboard', icon: FiCalendar },
       { to: '/manager/attendance-reports', label: 'Attendance Reports', icon: FiCalendar },
       { to: '/manager/pending-approvals', label: 'Pending Approvals', icon: FiClock },
