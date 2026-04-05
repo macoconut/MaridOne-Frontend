@@ -15,12 +15,13 @@ import AppFooter from '../../components/layout/AppFooter';
 import HeaderRefreshButton from '../../components/navigation/HeaderRefreshButton';
 import SidebarBrand from '../../components/navigation/SidebarBrand';
 import { useEscapeDismiss } from '../../hooks/useEscapeDismiss';
+import { useNotificationPolling } from '../../hooks/useNotificationPolling';
 import '../shared/RoleLayout.css';
 import { getUserEmail } from '../../lib/session';
 import { BACKEND_TEST_MODE } from '../../config/flags';
 import { apiFetchRaw, expireCurrentSession, getApiBaseUrl } from '../../lib/api';
 import { resolveHeaderTitle } from '../../lib/headerProfile';
-import { mapNotificationItem, type NotificationItem } from '../../lib/notificationRouting';
+import { type NotificationItem } from '../../lib/notificationRouting';
 import { routeWheelToScrollableChild } from '../../lib/scrollContain';
 import {
   applyBodyPlaceholders,
@@ -191,7 +192,7 @@ const backendActions: BackendTestAction[] = [
 export default function EmployeeLayout() {
   const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const { notifications, setNotifications } = useNotificationPolling('employee');
   const [headerTitle, setHeaderTitle] = useState('Employee');
   const [backendAction, setBackendAction] = useState<string>('None');
   const [backendResult, setBackendResult] = useState<string>('');
@@ -225,27 +226,6 @@ export default function EmployeeLayout() {
         setHeaderTitle(await resolveHeaderTitle(getUserEmail(), 'Employee'));
       } catch {
         setHeaderTitle('Employee');
-      }
-    })();
-  }, []);
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const response = await apiFetchRaw('/api/notifications?page=0&size=20', { method: 'GET' });
-        if (!response.ok) {
-          setNotifications([]);
-          return;
-        }
-
-        const payload = (await response.json()) as { content?: Array<Record<string, unknown>> };
-        const mapped = Array.isArray(payload?.content)
-          ? payload.content.map((row) => mapNotificationItem('employee', row))
-          : [];
-
-        setNotifications(mapped);
-      } catch {
-        setNotifications([]);
       }
     })();
   }, []);

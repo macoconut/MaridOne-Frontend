@@ -14,13 +14,18 @@ import AppFooter from '../../components/layout/AppFooter';
 import HeaderRefreshButton from '../../components/navigation/HeaderRefreshButton';
 import SidebarBrand from '../../components/navigation/SidebarBrand';
 import { useEscapeDismiss } from '../../hooks/useEscapeDismiss';
+import { useNotificationPolling } from '../../hooks/useNotificationPolling';
 import SidebarNavSection, { type NavSection } from '../../components/navigation/SidebarNavSection';
 import '../shared/RoleLayout.css';
 import { getUserEmail } from '../../lib/session';
 import { BACKEND_TEST_MODE } from '../../config/flags';
 import { apiFetchRaw, expireCurrentSession, getApiBaseUrl } from '../../lib/api';
 import { resolveHeaderTitle } from '../../lib/headerProfile';
+<<<<<<< Updated upstream
 import { mapNotificationItem, type NotificationItem } from '../../lib/notificationRouting';
+=======
+import { type NotificationItem } from '../../lib/notificationRouting';
+>>>>>>> Stashed changes
 import { routeWheelToScrollableChild } from '../../lib/scrollContain';
 import {
   applyBodyPlaceholders,
@@ -75,7 +80,7 @@ export default function ManagerLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const { notifications, setNotifications } = useNotificationPolling('manager');
   const [headerTitle, setHeaderTitle] = useState('Manager');
   const [backendAction, setBackendAction] = useState<string>('None');
   const [backendResult, setBackendResult] = useState<string>('Waiting for backend test.');
@@ -108,6 +113,7 @@ export default function ManagerLayout() {
     void (async () => {
       try {
         setHeaderTitle(await resolveHeaderTitle(getUserEmail(), 'Manager'));
+<<<<<<< Updated upstream
 
         const notifResponse = await apiFetchRaw('/api/notifications?page=0&size=20', { method: 'GET' });
         if (!notifResponse.ok) {
@@ -120,9 +126,10 @@ export default function ManagerLayout() {
           ? notifPayload.content.map((row) => mapNotificationItem('manager', row))
           : [];
         setNotifications(mapped);
+=======
+>>>>>>> Stashed changes
       } catch {
         setHeaderTitle('Manager');
-        setNotifications([]);
       }
     })();
   }, []);

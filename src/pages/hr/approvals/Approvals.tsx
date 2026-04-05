@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { FiSearch, FiFilter, FiXCircle } from 'react-icons/fi';
 import ApprovalStatusSummary from '../../../components/approvals/ApprovalStatusSummary';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
+import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
@@ -371,9 +373,11 @@ export default function HrApprovals() {
     }
   }
 
+  const refreshRequests = useAutoRefreshingPage(loadRequests, { intervalMs: 15000 });
+
   useEffect(() => {
-    void loadRequests();
-  }, [statusFilter, leavePaidFilter, overtimeTypeFilter]);
+    void refreshRequests();
+  }, [refreshRequests, statusFilter, leavePaidFilter, overtimeTypeFilter]);
 
   const normalizedSearch = normalizeText(searchValue);
 
@@ -720,14 +724,7 @@ export default function HrApprovals() {
                 </h2>
                 <p className="hrApprModal__subtitle">Review the request details, choose an approval outcome, and confirm the decision after the reason is complete.</p>
               </div>
-              <button
-                type="button"
-                className="hrApprModal__close"
-                onClick={() => setSelectedId(null)}
-                aria-label="Close"
-              >
-                <FiXCircle />
-              </button>
+              <ModalCloseButton className="hrApprModal__close" onClick={() => setSelectedId(null)} />
             </div>
 
             <div className="hrApprModal__rule" />

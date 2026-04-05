@@ -8,14 +8,14 @@ import {
   FiFilter,
   FiSearch,
   FiUsers,
-  FiX,
   FiXCircle,
 } from 'react-icons/fi';
+import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
+import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
-import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './AttendanceReports.css';
 
@@ -611,7 +611,7 @@ export function AttendanceReportsBoard({
     setRefreshTick((tick) => tick + 1);
   }, []);
 
-  useRegisterPageRefresh(handlePageRefresh);
+  useAutoRefreshingPage(handlePageRefresh, { intervalMs: 15000 });
 
   useEffect(() => {
     if (detailOpen) document.body.classList.add('modal-open');
@@ -1716,9 +1716,7 @@ export function AttendanceReportsBoard({
                 <div className="hrAttModal__title">{selectedDateLabel}</div>
                 <p className="hrAttModal__subtitle">{selectedDetailSubtitle}</p>
               </div>
-              <button className="hrAttModal__close" type="button" onClick={() => setDetailOpen(false)} aria-label="Close">
-                <FiX />
-              </button>
+              <ModalCloseButton className="hrAttModal__close" onClick={() => setDetailOpen(false)} />
             </div>
 
             <div className="hrAttModal__rule" />

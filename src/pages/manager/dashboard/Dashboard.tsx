@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AccountSecuritySection from '../../../components/account/AccountSecuritySection';
 import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
+import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import {
@@ -14,7 +16,6 @@ import {
 } from '../../../lib/accountSecurity';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { mapNotificationItem } from '../../../lib/notificationRouting';
-import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
 import { getAuthToken, getUserEmail } from '../../../lib/session';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import '../../self-service/dashboard/Dashboard.css';
@@ -217,7 +218,7 @@ export default function ManagerDashboard() {
     10
   );
 
-  useRegisterPageRefresh(handlePageRefresh);
+  useAutoRefreshingPage(handlePageRefresh, { intervalMs: 15000 });
 
   useEffect(() => {
     setLastLoginLabel(formatJwtIssuedAt(getAuthToken()));
@@ -750,9 +751,7 @@ export default function ManagerDashboard() {
           <div className="dashModal">
             <div className="dashModal__top">
               <div className="dashModal__title">EDIT INFO</div>
-              <button type="button" className="dashModal__close" onClick={closeEditModal} disabled={savingEdit}>
-                x
-              </button>
+              <ModalCloseButton className="dashModal__close" onClick={closeEditModal} disabled={savingEdit} />
             </div>
 
             <div className="dashModal__rule" />
@@ -860,9 +859,11 @@ export default function ManagerDashboard() {
                 <div className="dashModal__title">ACCOUNT SECURITY</div>
                 <div className="dashModal__subtitle">Manage email verification and two-factor authentication.</div>
               </div>
-              <button type="button" className="dashModal__close" onClick={closeSecurityModal} disabled={sendingVerification || startingTwoFactor || confirmingTwoFactor || disablingTwoFactor}>
-                x
-              </button>
+              <ModalCloseButton
+                className="dashModal__close"
+                onClick={closeSecurityModal}
+                disabled={sendingVerification || startingTwoFactor || confirmingTwoFactor || disablingTwoFactor}
+              />
             </div>
 
             <div className="dashModal__rule" />

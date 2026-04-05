@@ -4,7 +4,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import AccountSecuritySection from '../../../components/account/AccountSecuritySection';
 import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
 import MaterialArt from '../../../components/document/MaterialArt';
+import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import {
@@ -366,6 +368,7 @@ export default function Dashboard() {
   const [lastAttendanceLabel, setLastAttendanceLabel] = useState<string>('Not available');
   const [calendarMonthIndex, setCalendarMonthIndex] = useState(new Date().getMonth());
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
+  const [refreshTick, setRefreshTick] = useState(0);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState('');
   const [editOpen, setEditOpen] = useState(false);
@@ -400,6 +403,9 @@ export default function Dashboard() {
   useErrorDialogEffect(createAnnouncementError, 'Announcement could not be created');
   useErrorDialogEffect(announcementActionError, 'Announcement action failed');
   useErrorDialogEffect(securityError, 'Security action could not be completed');
+  const handlePageRefresh = () => {
+    setRefreshTick((tick) => tick + 1);
+  };
   useEscapeDismiss(Boolean(selectedAnnouncementDay), closeAnnouncementDay, 10);
   useEscapeDismiss(createAnnouncementOpen && !creatingAnnouncement, closeCreateAnnouncementModal, 10);
   useEscapeDismiss(editOpen && !savingEdit, closeEditModal, 10);
@@ -408,10 +414,24 @@ export default function Dashboard() {
     closeSecurityModal,
     10
   );
+  useAutoRefreshingPage(handlePageRefresh, {
+    intervalMs: 15000,
+    enabled:
+      !editOpen &&
+      !securityOpen &&
+      !createAnnouncementOpen &&
+      !selectedAnnouncementDay &&
+      !savingEdit &&
+      !creatingAnnouncement &&
+      !sendingVerification &&
+      !startingTwoFactor &&
+      !confirmingTwoFactor &&
+      !disablingTwoFactor,
+  });
 
   useEffect(() => {
     setLastLoginLabel(formatJwtIssuedAt(getAuthToken()));
-  }, []);
+  }, [refreshTick]);
 
   useEffect(() => {
     if (editOpen || securityOpen || createAnnouncementOpen || selectedAnnouncementDay) document.body.classList.add('modal-open');
@@ -502,7 +522,7 @@ export default function Dashboard() {
         setCalendarEvents([]);
       }
     })();
-  }, [calendarMonthIndex, calendarYear]);
+  }, [calendarMonthIndex, calendarYear, refreshTick]);
 
   const monthLabel = new Date(calendarYear, calendarMonthIndex, 1).toLocaleDateString(undefined, {
     month: 'long',
@@ -1160,9 +1180,7 @@ export default function Dashboard() {
                 <div className="dashModal__title">{announcementHeaderEvent?.employeeName || 'MaridOne Staff'}</div>
                 <div className="dashModal__subtitle">{formatAnnouncementCreatedAt(announcementHeaderEvent?.createdAt)}</div>
               </div>
-              <button type="button" className="dashModal__close" onClick={closeAnnouncementDay}>
-                x
-              </button>
+              <ModalCloseButton className="dashModal__close" onClick={closeAnnouncementDay} />
             </div>
 
             <div className="dashModal__rule" />
@@ -1210,14 +1228,11 @@ export default function Dashboard() {
                 <div className="dashModal__title">CREATE ANNOUNCEMENT</div>
                 <div className="dashModal__subtitle">Share a company-wide announcement on the calendar.</div>
               </div>
-              <button
-                type="button"
+              <ModalCloseButton
                 className="dashModal__close"
                 onClick={closeCreateAnnouncementModal}
                 disabled={creatingAnnouncement}
-              >
-                x
-              </button>
+              />
             </div>
 
             <div className="dashModal__rule" />
@@ -1295,9 +1310,7 @@ export default function Dashboard() {
                 <div className="dashModal__title">EDIT INFO</div>
                 <div className="dashModal__subtitle">Update your contact details and address information before saving the changes.</div>
               </div>
-              <button type="button" className="dashModal__close" onClick={closeEditModal} disabled={savingEdit}>
-                x
-              </button>
+              <ModalCloseButton className="dashModal__close" onClick={closeEditModal} disabled={savingEdit} />
             </div>
 
             <div className="dashModal__rule" />
@@ -1405,9 +1418,11 @@ export default function Dashboard() {
                 <div className="dashModal__title">ACCOUNT SECURITY</div>
                 <div className="dashModal__subtitle">Manage email verification and two-factor authentication.</div>
               </div>
-              <button type="button" className="dashModal__close" onClick={closeSecurityModal} disabled={sendingVerification || startingTwoFactor || confirmingTwoFactor || disablingTwoFactor}>
-                x
-              </button>
+              <ModalCloseButton
+                className="dashModal__close"
+                onClick={closeSecurityModal}
+                disabled={sendingVerification || startingTwoFactor || confirmingTwoFactor || disablingTwoFactor}
+              />
             </div>
 
             <div className="dashModal__rule" />

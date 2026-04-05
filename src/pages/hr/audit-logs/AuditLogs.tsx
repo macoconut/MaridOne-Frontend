@@ -1,6 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
@@ -539,8 +540,13 @@ export default function HrAuditLogs() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
+  const [refreshTick, setRefreshTick] = useState(0);
 
   useErrorDialogEffect(loadError, 'Audit logs could not be loaded');
+  const handlePageRefresh = () => {
+    setRefreshTick((tick) => tick + 1);
+  };
+  useAutoRefreshingPage(handlePageRefresh, { intervalMs: 15000 });
 
   const deferredSearch = useDeferredValue(normalizeSearch(searchValue));
 
@@ -584,7 +590,7 @@ export default function HrAuditLogs() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshTick]);
 
   const entries = useMemo(
     () =>

@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { apiFetchJson, apiFetchRaw, toArray } from '../../../lib/api';
 import { uploadDocument } from '../../../lib/documentUpload';
 import { getUserEmail } from '../../../lib/session';
-import { FiX } from 'react-icons/fi';
+import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import FileUploadField from '../../../components/form/FileUploadField';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import './Payslip.css';
@@ -185,10 +186,25 @@ export default function Payslip() {
   const [confirmDisputeSubmit, setConfirmDisputeSubmit] = useState(false);
   const [printingPayslip, setPrintingPayslip] = useState(false);
   const [payslipActionError, setPayslipActionError] = useState('');
+  const [refreshTick, setRefreshTick] = useState(0);
 
   useErrorDialogEffect(disputeError, 'Payslip dispute could not be submitted');
   useErrorDialogEffect(payslipActionError, 'Payslip action failed');
+  const handlePageRefresh = () => {
+    setRefreshTick((tick) => tick + 1);
+  };
   useEscapeDismiss(disputeOpen, () => setDisputeOpen(false), 10);
+  useAutoRefreshingPage(handlePageRefresh, {
+    intervalMs: 15000,
+    enabled: !disputeOpen && !confirmDisputeSubmit && !disputeSubmitting && !printingPayslip,
+  });
+
+  useEffect(() => {
+    if (disputeOpen || confirmDisputeSubmit) document.body.classList.add('modal-open');
+    else document.body.classList.remove('modal-open');
+
+    return () => document.body.classList.remove('modal-open');
+  }, [confirmDisputeSubmit, disputeOpen]);
 
   useEffect(() => {
     void (async () => {
@@ -223,16 +239,22 @@ export default function Payslip() {
             return start && end ? formatPeriodLabel(start, end) : `Payslip ${idx + 1}`;
           })
         );
-        const first = rows[0];
-        setSelectedItemId(
-          typeof first?.id === 'number'
-            ? first.id
-            : typeof first?.itemId === 'number'
-              ? first.itemId
-              : null
-        );
-        setSelectedRun(first?.runDetails ?? null);
-        setSelectedPeriodIndex(0);
+        setSelectedPeriodIndex((currentIndex) => {
+          const nextIndex =
+            currentIndex >= 0 && currentIndex < rows.length ? currentIndex : 0;
+          const selected = rows[nextIndex];
+
+          setSelectedItemId(
+            typeof selected?.id === 'number'
+              ? selected.id
+              : typeof selected?.itemId === 'number'
+                ? selected.itemId
+                : null
+          );
+          setSelectedRun(selected?.runDetails ?? null);
+
+          return nextIndex;
+        });
       } catch {
         setEmployeeId(null);
         setEmployeeInfo(null);
@@ -243,7 +265,7 @@ export default function Payslip() {
         setSelectedRun(null);
       }
     })();
-  }, []);
+  }, [refreshTick]);
 
   function handlePeriodChange(index: number) {
     setSelectedPeriodIndex(index);
@@ -733,9 +755,7 @@ export default function Payslip() {
                 <div className="payModal__title">PAYSLIP DISPUTE FORM</div>
                 <p className="payModal__subtitle">Describe the payroll discrepancy clearly and attach supporting proof only when it helps validate the dispute.</p>
               </div>
-              <button type="button" className="payModal__close" onClick={() => setDisputeOpen(false)} aria-label="Close">
-                <FiX />
-              </button>
+              <ModalCloseButton className="payModal__close" onClick={() => setDisputeOpen(false)} />
             </div>
 
             <div className="payModal__rule" />

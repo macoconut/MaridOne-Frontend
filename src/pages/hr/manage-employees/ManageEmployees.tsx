@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FiEdit2, FiFilter, FiPlus, FiSearch, FiUserX, FiXCircle } from 'react-icons/fi';
+import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
@@ -275,6 +277,7 @@ export default function HrManageEmp() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
   const [positionFilter, setPositionFilter] = useState('all');
+  const [refreshTick, setRefreshTick] = useState(0);
 
   const selectedEmployee = useMemo(
     () => employeeRows.find((row) => row.id === form.employeeId) ?? null,
@@ -343,9 +346,16 @@ export default function HrManageEmp() {
 
   useErrorDialogEffect(rosterLoadError, 'Employee roster could not be loaded');
   useErrorDialogEffect(submitError, 'Employee action could not be completed');
+  const handlePageRefresh = () => {
+    setRefreshTick((tick) => tick + 1);
+  };
   useEscapeDismiss(Boolean(detailsDialogEmployeeId), closeDetailsDialog, 10);
   useEscapeDismiss(Boolean(modal) && !isSaving, closeModal, 10);
   useEscapeDismiss(Boolean(confirmAction) && !isSaving, () => setConfirmAction(null), 50);
+  useAutoRefreshingPage(handlePageRefresh, {
+    intervalMs: 15000,
+    enabled: !modal && !detailsDialogEmployeeId && !confirmAction && !isSaving,
+  });
 
   useEffect(() => {
     if (modal || detailsDialogEmployeeId) document.body.classList.add('modal-open');
@@ -356,7 +366,7 @@ export default function HrManageEmp() {
 
   useEffect(() => {
     void loadEmployees();
-  }, []);
+  }, [refreshTick]);
 
   useEffect(() => {
     if (!activeLeaveBalanceEmployeeId) {
@@ -1393,9 +1403,11 @@ export default function HrManageEmp() {
                   Review the full employee profile, account information, and employment details in one view.
                 </p>
               </div>
-              <button type="button" className="hrEmpDetailsDialog__close" onClick={closeDetailsDialog} aria-label="Close employee details">
-                <FiXCircle />
-              </button>
+              <ModalCloseButton
+                className="hrEmpDetailsDialog__close"
+                onClick={closeDetailsDialog}
+                aria-label="Close employee details"
+              />
             </div>
             <div className="hrEmpModal__rule" />
             <div className="hrEmpDetails hrEmpDetails--dialog" role="region" aria-label={`${detailsDialogEmployee.name} details`}>

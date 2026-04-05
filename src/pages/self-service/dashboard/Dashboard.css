@@ -322,7 +322,7 @@ body.modal-open{
 
 .miniFolder__intro{
   margin: 0;
-  font-size: 13px;
+  font-size: 12px;
   color: rgba(43, 32, 54, 0.78);
   line-height: 1.38;
   text-align:left;
@@ -407,7 +407,7 @@ body.modal-open{
 
 .handbookRow__intro{
   margin: 0;
-  font-size: 13px;
+  font-size: 12px;
   color: rgba(43, 32, 54, 0.78);
   line-height: 1.38;
   text-align:left;

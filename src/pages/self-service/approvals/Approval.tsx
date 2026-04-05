@@ -1,7 +1,9 @@
 import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
+import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getUserEmail } from '../../../lib/session';
@@ -150,12 +152,16 @@ function buildPayrollPeriodLabel(start?: string, end?: string) {
 
 export default function Approval() {
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
-  const [selectedApproval, setSelectedApproval] = useState<ApprovalItem | null>(null);
+  const [selectedApprovalId, setSelectedApprovalId] = useState<string | null>(null);
   const [searchValue, setSearchValue] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
-  useEscapeDismiss(Boolean(selectedApproval), () => setSelectedApproval(null), 10);
+  useEscapeDismiss(Boolean(selectedApprovalId), () => setSelectedApprovalId(null), 10);
   const [typeFilter, setTypeFilter] = useState<ApprovalTypeFilter>('all');
   const [statusFilter, setStatusFilter] = useState<ApprovalStatusFilter>('all');
+  const selectedApproval = useMemo(
+    () => approvals.find((item) => item.id === selectedApprovalId) ?? null,
+    [approvals, selectedApprovalId]
+  );
 
   useEffect(() => {
     if (selectedApproval) document.body.classList.add('modal-open');
@@ -164,132 +170,138 @@ export default function Approval() {
     return () => document.body.classList.remove('modal-open');
   }, [selectedApproval]);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const username = getUserEmail();
-        if (!username) throw new Error('Missing username');
-        const userDetails = await apiFetchJson<Record<string, unknown>>(
-          `/api/user/details/${encodeURIComponent(username)}`
+  async function loadApprovals() {
+    try {
+      const username = getUserEmail();
+      if (!username) throw new Error('Missing username');
+      const userDetails = await apiFetchJson<Record<string, unknown>>(
+        `/api/user/details/${encodeURIComponent(username)}`
+      );
+      const selfEmployee =
+        userDetails.employee && typeof userDetails.employee === 'object'
+          ? (userDetails.employee as Record<string, unknown>)
+          : null;
+      const empId =
+        typeof userDetails.employeeId === 'number'
+          ? userDetails.employeeId
+          : typeof selfEmployee?.employeeId === 'number'
+            ? selfEmployee.employeeId
+            : typeof selfEmployee?.id === 'number'
+              ? selfEmployee.id
+              : null;
+
+      if (!empId) throw new Error('Missing employee ID');
+      const [leaveResponse, otResponse, disputeResponse, payrollItemsResponse] = await Promise.all([
+        apiFetchJson<unknown>(`/api/leave/request/${empId}?page=0&size=20`),
+        apiFetchJson<unknown>(`/api/overtime/all/${empId}?page=0&size=20`),
+        apiFetchJson<unknown>(`/api/payroll/item/dispute/self?empId=${empId}&page=0&size=20`),
+        apiFetchJson<unknown>(`/api/payroll/item/${empId}`),
+      ]);
+
+      const payrollPeriodByItemId = new Map<number, string>();
+      for (const row of toArray<PayrollItemRow>(payrollItemsResponse)) {
+        const itemId = typeof row.id === 'number' ? row.id : typeof row.itemId === 'number' ? row.itemId : null;
+        if (itemId == null) continue;
+
+        payrollPeriodByItemId.set(
+          itemId,
+          buildPayrollPeriodLabel(row.runDetails?.periodStart, row.runDetails?.periodEnd)
         );
-        const selfEmployee =
-          userDetails.employee && typeof userDetails.employee === 'object'
-            ? (userDetails.employee as Record<string, unknown>)
-            : null;
-        const empId =
-          typeof userDetails.employeeId === 'number'
-            ? userDetails.employeeId
-            : typeof selfEmployee?.employeeId === 'number'
-              ? selfEmployee.employeeId
-              : typeof selfEmployee?.id === 'number'
-                ? selfEmployee.id
-                : null;
-
-        if (!empId) throw new Error('Missing employee ID');
-        const [leaveResponse, otResponse, disputeResponse, payrollItemsResponse] = await Promise.all([
-          apiFetchJson<unknown>(`/api/leave/request/${empId}?page=0&size=20`),
-          apiFetchJson<unknown>(`/api/overtime/all/${empId}?page=0&size=20`),
-          apiFetchJson<unknown>(`/api/payroll/item/dispute/self?empId=${empId}&page=0&size=20`),
-          apiFetchJson<unknown>(`/api/payroll/item/${empId}`),
-        ]);
-
-        const payrollPeriodByItemId = new Map<number, string>();
-        for (const row of toArray<PayrollItemRow>(payrollItemsResponse)) {
-          const itemId = typeof row.id === 'number' ? row.id : typeof row.itemId === 'number' ? row.itemId : null;
-          if (itemId == null) continue;
-
-          payrollPeriodByItemId.set(
-            itemId,
-            buildPayrollPeriodLabel(row.runDetails?.periodStart, row.runDetails?.periodEnd)
-          );
-        }
-
-        const leaveItems = toArray<LeaveRow>(leaveResponse).map((row, index) => {
-          const statusRaw = String(row.requestStatus ?? '').toUpperCase();
-          const status: ApprovalItem['status'] =
-            statusRaw === 'APPROVED'
-              ? 'Approved'
-              : statusRaw === 'REJECTED' || statusRaw === 'DENIED'
-                ? 'Denied'
-                : 'Pending';
-          const requestStamp = row.startDateTime ? Date.parse(row.startDateTime) || 0 : 0;
-          return {
-            id: `leave-${String(row.requestId ?? index)}`,
-            sortStamp: requestStamp,
-            dateOfRequest: formatDate(row.startDateTime),
-            requestType: 'Leave',
-            requestDetail: buildLeaveDetail(row.leaveType, row.paid ?? row.isPaid),
-            requestTarget: `${formatDate(row.startDateTime)} to ${formatDate(row.endDateTime)}`,
-            status,
-            approvedBy: status === 'Pending' ? '-' : row.approver?.trim() || '-',
-            requestReason: row.reason ?? '-',
-            decisionReason: row.approverReason ?? '-',
-            decisionDate: formatDateTime(row.approvedAt),
-          };
-        });
-
-        const overtimeItems = toArray<OvertimeRow>(otResponse).map((row) => {
-          const statusRaw = String(row.requestStatus ?? '').toUpperCase();
-          const status: ApprovalItem['status'] =
-            statusRaw === 'APPROVED'
-              ? 'Approved'
-              : statusRaw === 'REJECTED' || statusRaw === 'DENIED'
-                ? 'Denied'
-                : 'Pending';
-          return {
-            id: String(row.overtimeId ?? Math.random()),
-            sortStamp: row.requestAt ? Date.parse(row.requestAt) || 0 : 0,
-            dateOfRequest: formatDateTime(row.requestAt),
-            requestType: 'Overtime',
-            requestDetail: formatLeaveType(row.overtimeType || 'OT'),
-            requestTarget:
-              row.startTime
-                ? `${formatDate(row.workDate)} at ${formatTime(row.startTime)}`
-                : formatDate(row.workDate),
-            status,
-            approvedBy: row.approver ?? '-',
-            requestReason: row.reason ?? '-',
-            decisionReason: row.approveReason ?? '-',
-            decisionDate: formatDateTime(row.approvedAt),
-          };
-        });
-
-        const disputeItems = toArray<DisputeRow>(disputeResponse).map((row) => {
-          const statusRaw = String(row.status ?? '').toUpperCase();
-          const status: ApprovalItem['status'] =
-            statusRaw === 'APPROVED'
-              ? 'Approved'
-              : statusRaw === 'REJECTED' || statusRaw === 'DENIED'
-                ? 'Denied'
-                : 'Pending';
-          return {
-            id: `dispute-${String(row.id ?? Math.random())}`,
-            sortStamp: row.createdAt ? Date.parse(row.createdAt) || 0 : 0,
-            dateOfRequest: formatDateTime(row.createdAt),
-            requestType: 'Payslip Dispute',
-            requestDetail: buildDisputeDetail(row.subject),
-            requestTarget:
-              typeof row.itemId === 'number'
-                ? payrollPeriodByItemId.get(row.itemId) ?? 'Payroll period unavailable'
-                : 'Payroll period unavailable',
-            status,
-            approvedBy: status === 'Pending' ? '-' : resolveDisputeApprover(row),
-            requestReason: row.reason ?? '-',
-            decisionReason: row.statusReason ?? '-',
-            decisionDate: formatDateTime(row.updatedAt),
-          };
-        });
-
-        const merged = [...leaveItems, ...overtimeItems, ...disputeItems].sort(
-          (a, b) => b.sortStamp - a.sortStamp || a.id.localeCompare(b.id)
-        );
-
-        setApprovals(merged);
-      } catch {
-        setApprovals([]);
       }
-    })();
-  }, []);
+
+      const leaveItems = toArray<LeaveRow>(leaveResponse).map((row, index) => {
+        const statusRaw = String(row.requestStatus ?? '').toUpperCase();
+        const status: ApprovalItem['status'] =
+          statusRaw === 'APPROVED'
+            ? 'Approved'
+            : statusRaw === 'REJECTED' || statusRaw === 'DENIED'
+              ? 'Denied'
+              : 'Pending';
+        const requestStamp = row.startDateTime ? Date.parse(row.startDateTime) || 0 : 0;
+        return {
+          id: `leave-${String(row.requestId ?? index)}`,
+          sortStamp: requestStamp,
+          dateOfRequest: formatDate(row.startDateTime),
+          requestType: 'Leave',
+          requestDetail: buildLeaveDetail(row.leaveType, row.paid ?? row.isPaid),
+          requestTarget: `${formatDate(row.startDateTime)} to ${formatDate(row.endDateTime)}`,
+          status,
+          approvedBy: status === 'Pending' ? '-' : row.approver?.trim() || '-',
+          requestReason: row.reason ?? '-',
+          decisionReason: row.approverReason ?? '-',
+          decisionDate: formatDateTime(row.approvedAt),
+        };
+      });
+
+      const overtimeItems = toArray<OvertimeRow>(otResponse).map((row) => {
+        const statusRaw = String(row.requestStatus ?? '').toUpperCase();
+        const status: ApprovalItem['status'] =
+          statusRaw === 'APPROVED'
+            ? 'Approved'
+            : statusRaw === 'REJECTED' || statusRaw === 'DENIED'
+              ? 'Denied'
+              : 'Pending';
+        return {
+          id: String(row.overtimeId ?? Math.random()),
+          sortStamp: row.requestAt ? Date.parse(row.requestAt) || 0 : 0,
+          dateOfRequest: formatDateTime(row.requestAt),
+          requestType: 'Overtime',
+          requestDetail: formatLeaveType(row.overtimeType || 'OT'),
+          requestTarget:
+            row.startTime
+              ? `${formatDate(row.workDate)} at ${formatTime(row.startTime)}`
+              : formatDate(row.workDate),
+          status,
+          approvedBy: row.approver ?? '-',
+          requestReason: row.reason ?? '-',
+          decisionReason: row.approveReason ?? '-',
+          decisionDate: formatDateTime(row.approvedAt),
+        };
+      });
+
+      const disputeItems = toArray<DisputeRow>(disputeResponse).map((row) => {
+        const statusRaw = String(row.status ?? '').toUpperCase();
+        const status: ApprovalItem['status'] =
+          statusRaw === 'APPROVED'
+            ? 'Approved'
+            : statusRaw === 'REJECTED' || statusRaw === 'DENIED'
+              ? 'Denied'
+              : 'Pending';
+        return {
+          id: `dispute-${String(row.id ?? Math.random())}`,
+          sortStamp: row.createdAt ? Date.parse(row.createdAt) || 0 : 0,
+          dateOfRequest: formatDateTime(row.createdAt),
+          requestType: 'Payslip Dispute',
+          requestDetail: buildDisputeDetail(row.subject),
+          requestTarget:
+            typeof row.itemId === 'number'
+              ? payrollPeriodByItemId.get(row.itemId) ?? 'Payroll period unavailable'
+              : 'Payroll period unavailable',
+          status,
+          approvedBy: status === 'Pending' ? '-' : resolveDisputeApprover(row),
+          requestReason: row.reason ?? '-',
+          decisionReason: row.statusReason ?? '-',
+          decisionDate: formatDateTime(row.updatedAt),
+        };
+      });
+
+      const merged = [...leaveItems, ...overtimeItems, ...disputeItems].sort(
+        (a, b) => b.sortStamp - a.sortStamp || a.id.localeCompare(b.id)
+      );
+
+      setApprovals(merged);
+      setSelectedApprovalId((current) => (current && merged.some((item) => item.id === current) ? current : null));
+    } catch {
+      setApprovals([]);
+      setSelectedApprovalId(null);
+    }
+  }
+
+  const refreshApprovals = useAutoRefreshingPage(loadApprovals, { intervalMs: 15000 });
+
+  useEffect(() => {
+    void refreshApprovals();
+  }, [refreshApprovals]);
 
   const normalizedSearch = searchValue.trim().toLowerCase();
   const visibleApprovals = useMemo(() => {
@@ -469,7 +481,7 @@ export default function Approval() {
                 key={row.id}
                 type="button"
                 className="apprRow apprRow--button is-openable"
-                onClick={() => setSelectedApproval(row)}
+                onClick={() => setSelectedApprovalId(row.id)}
               >
                 <div>{row.dateOfRequest}</div>
                 <div>{row.requestType}</div>
@@ -507,9 +519,7 @@ export default function Approval() {
                   Review the request timeline, current status, and recorded decision notes for this approval item.
                 </p>
               </div>
-              <button type="button" className="apprModal__close" onClick={() => setSelectedApproval(null)}>
-                x
-              </button>
+              <ModalCloseButton className="apprModal__close" onClick={() => setSelectedApprovalId(null)} />
             </div>
 
             <div className="apprModal__hero">
@@ -560,7 +570,7 @@ export default function Approval() {
             </div>
 
             <div className="apprModal__actions">
-              <button type="button" onClick={() => setSelectedApproval(null)}>
+              <button type="button" onClick={() => setSelectedApprovalId(null)}>
                 Close
               </button>
             </div>

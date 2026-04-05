@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { useEscapeDismiss } from '../../hooks/useEscapeDismiss';
 import './ConfirmDialog.css';
 
@@ -26,7 +27,7 @@ export default function ConfirmDialog({
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div className="confirmDialog__backdrop" role="dialog" aria-modal="true" aria-label={title}>
       <div className="confirmDialog__card">
         <h3 className="confirmDialog__title">{title}</h3>
@@ -51,6 +52,7 @@ export default function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

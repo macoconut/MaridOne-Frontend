@@ -19,6 +19,15 @@
 html,body{ height:100%; }
 body{ margin:0; background:var(--page); overflow:hidden; }
 
+body.modal-open .eSide{
+  z-index:0;
+  pointer-events:none;
+}
+
+body.modal-open .eMain{
+  z-index:4;
+}
+
 /* frame layout */
 .employeeLayout{
   height:100vh;

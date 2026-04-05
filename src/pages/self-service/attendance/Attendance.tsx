@@ -1,10 +1,12 @@
 import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import './Attendance.css';
-import { FiCalendar, FiChevronLeft, FiChevronRight, FiPlusSquare, FiX } from 'react-icons/fi';
+import { FiCalendar, FiChevronLeft, FiChevronRight, FiPlusSquare } from 'react-icons/fi';
+import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import FileUploadField from '../../../components/form/FileUploadField';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { ApiError, apiFetchJson, apiFetchRaw, toArray } from '../../../lib/api';
@@ -389,12 +391,20 @@ export default function Attendance() {
   const [confirmLeaveSubmit, setConfirmLeaveSubmit] = useState(false);
   const [confirmOtSubmit, setConfirmOtSubmit] = useState(false);
   const [latestAttendanceDirection, setLatestAttendanceDirection] = useState<'IN' | 'OUT' | null>(null);
+  const [refreshTick, setRefreshTick] = useState(0);
   useErrorDialogEffect(clockError, 'Attendance action failed');
   useErrorDialogEffect(otSubmitError, 'Overtime request could not be submitted');
   useErrorDialogEffect(submitError, 'Leave request could not be submitted');
+  const handlePageRefresh = () => {
+    setRefreshTick((tick) => tick + 1);
+  };
   useEscapeDismiss(leaveOpen, closeLeave, 10);
   useEscapeDismiss(otOpen, closeOt, 10);
   useEscapeDismiss(requestViewOpen, closeRequestView, 10);
+  useAutoRefreshingPage(handlePageRefresh, {
+    intervalMs: 15000,
+    enabled: !leaveOpen && !otOpen && !requestViewOpen && !confirmClockAction && !isClocking,
+  });
   const userRole = getUserRole();
   const canRequestOvertime = !['hr', 'management', 'manager'].includes(userRole ?? '');
   const maxOtEndDate = otStartDate ? addDays(otStartDate, 1) : '';
@@ -512,7 +522,7 @@ export default function Attendance() {
     return () => {
       cancelled = true;
     };
-  }, [monthIndex, year]);
+  }, [monthIndex, refreshTick, year]);
 
   useEffect(() => {
     if (!otStartDate) return;
@@ -943,6 +953,16 @@ export default function Attendance() {
       return false;
     }
 
+    if (startDate < todayKey) {
+      setSubmitError('Start date cannot be earlier than today.');
+      return false;
+    }
+
+    if (endDate < startDate) {
+      setSubmitError('End date cannot be earlier than the start date.');
+      return false;
+    }
+
     const startDateTime = `${startDate}T${startTime}:00`;
     const endDateTime = `${endDate}T${endTime}:00`;
 
@@ -1236,9 +1256,7 @@ export default function Attendance() {
                   Submit the coverage window, leave type, and any supporting details for approval.
                 </p>
               </div>
-              <button className="modal__close" type="button" onClick={closeLeave} aria-label="Close">
-                <FiX />
-              </button>
+              <ModalCloseButton className="modal__close" onClick={closeLeave} />
             </div>
 
             <div className="modal__rule modal__rule--request" />
@@ -1280,6 +1298,7 @@ export default function Attendance() {
                         className="input"
                         type="date"
                         value={startDate}
+                        min={todayKey}
                         onChange={(e) => setStartDate(e.target.value)}
                       />
                       <FiCalendar className="inputIcon__icon" />
@@ -1301,6 +1320,7 @@ export default function Attendance() {
                         className="input"
                         type="date"
                         value={endDate}
+                        min={startDate || todayKey}
                         onChange={(e) => setEndDate(e.target.value)}
                       />
                       <FiCalendar className="inputIcon__icon" />
@@ -1358,9 +1378,7 @@ export default function Attendance() {
                   Request overtime coverage with the exact date, time window, and reason for the additional work.
                 </p>
               </div>
-              <button className="modal__close" type="button" onClick={closeOt} aria-label="Close">
-                <FiX />
-              </button>
+              <ModalCloseButton className="modal__close" onClick={closeOt} />
             </div>
 
             <div className="modal__rule modal__rule--request" />
@@ -1471,9 +1489,7 @@ export default function Attendance() {
           <div className="modal">
             <div className="modal__top">
               <div className="modal__title">REQUEST DETAILS</div>
-              <button className="modal__close" type="button" onClick={closeRequestView} aria-label="Close">
-                <FiX />
-              </button>
+              <ModalCloseButton className="modal__close" onClick={closeRequestView} />
             </div>
             <div className="modal__rule" />
             <div className="form">

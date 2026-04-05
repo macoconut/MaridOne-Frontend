@@ -2,9 +2,9 @@ import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FiChevronLeft, FiChevronRight, FiCalendar } from 'react-icons/fi';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
-import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
 import './Dashboard.css';
 
 type AttendanceLog = {
@@ -669,7 +669,7 @@ export function AttendanceOverviewDashboard({
     setSelectedDateKey(nextKey);
   }
 
-  useRegisterPageRefresh(handlePageRefresh);
+  useAutoRefreshingPage(handlePageRefresh, { intervalMs: 15000 });
 
   useEffect(() => {
     const element = mainColRef.current;

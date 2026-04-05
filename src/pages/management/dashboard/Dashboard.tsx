@@ -1,9 +1,9 @@
 import { FiHome, FiMail, FiPhone, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
-import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
 import { getAuthToken, getUserEmail } from '../../../lib/session';
 import { mapNotificationItem, type NotificationItem } from '../../../lib/notificationRouting';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
@@ -105,7 +105,7 @@ export default function ManagementDashboard() {
     setRefreshTick((tick) => tick + 1);
   }, []);
 
-  useRegisterPageRefresh(handlePageRefresh);
+  useAutoRefreshingPage(handlePageRefresh, { intervalMs: 15000 });
 
   useEffect(() => {
     setLastLoginLabel(formatJwtIssuedAt(getAuthToken()));

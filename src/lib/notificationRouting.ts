@@ -1,4 +1,4 @@
-import { getRoleHomePath, getSelfServicePath } from './roleRoutes';
+import { getRoleHomePath, getSelfServicePath, type SelfServiceRole } from './roleRoutes';
 
 export type NotificationRole = 'employee' | 'hr' | 'manager' | 'management';
 
@@ -43,7 +43,7 @@ export function formatNotificationTime(createdAt: Date | null) {
 }
 
 function defaultDestination(role: NotificationRole) {
-  return role === 'employee' ? getRoleHomePath('employee') : getRoleHomePath(role);
+  return getRoleHomePath(role);
 }
 
 function selfServiceNotificationPath(role: Extract<NotificationRole, 'employee' | 'manager' | 'management'>, page: 'payslip' | 'approvals' | 'training') {
@@ -52,6 +52,7 @@ function selfServiceNotificationPath(role: Extract<NotificationRole, 'employee' 
 
 function resolveDestination(role: NotificationRole, message: string) {
   const normalized = message.trim().toLowerCase();
+  const selfServiceRole = role as SelfServiceRole;
 
   if (role === 'hr') {
     if (normalized.includes('dispute')) {
@@ -107,7 +108,22 @@ function resolveDestination(role: NotificationRole, message: string) {
     }
   }
 
+  if (role === 'manager') {
+    if (normalized.includes('leave request') || normalized.includes('overtime')) {
+      return '/manager/pending-approvals';
+    }
+
+    if (normalized.includes('attendance')) {
+      return '/manager/attendance-dashboard';
+    }
+
+    if (normalized.includes('calendar') || normalized.includes('event')) {
+      return getRoleHomePath('manager');
+    }
+  }
+
   if (normalized.includes('pay run posted') || normalized.includes('payslip')) {
+<<<<<<< Updated upstream
     if (role === 'manager') {
       return selfServiceNotificationPath('manager', 'payslip');
     }
@@ -117,6 +133,9 @@ function resolveDestination(role: NotificationRole, message: string) {
     }
 
     return selfServiceNotificationPath('employee', 'payslip');
+=======
+    return getSelfServicePath(selfServiceRole, 'payslip');
+>>>>>>> Stashed changes
   }
 
   if (
@@ -125,6 +144,7 @@ function resolveDestination(role: NotificationRole, message: string) {
     normalized.includes('dispute request') ||
     normalized.includes('dispute')
   ) {
+<<<<<<< Updated upstream
     if (role === 'manager') {
       return selfServiceNotificationPath('manager', 'approvals');
     }
@@ -134,6 +154,9 @@ function resolveDestination(role: NotificationRole, message: string) {
     }
 
     return selfServiceNotificationPath('employee', 'approvals');
+=======
+    return getSelfServicePath(selfServiceRole, 'approvals');
+>>>>>>> Stashed changes
   }
 
   if (
@@ -143,6 +166,7 @@ function resolveDestination(role: NotificationRole, message: string) {
     normalized.includes('calendar') ||
     normalized.includes('event')
   ) {
+<<<<<<< Updated upstream
     if (role === 'manager') {
       return selfServiceNotificationPath('manager', 'training');
     }
@@ -152,6 +176,9 @@ function resolveDestination(role: NotificationRole, message: string) {
     }
 
     return selfServiceNotificationPath('employee', 'training');
+=======
+    return getSelfServicePath(selfServiceRole, 'training');
+>>>>>>> Stashed changes
   }
 
   return defaultDestination(role);

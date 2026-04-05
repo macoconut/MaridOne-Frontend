@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { FiEdit2, FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
 import { ApiError, apiFetchJson, toArray } from '../../../lib/api';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
+import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { extractAttachmentReference, openDocumentAttachment } from '../../../lib/documentAttachments';
@@ -511,6 +513,7 @@ export default function HrPayslips() {
   const [remarks, setRemarks] = useState('');
   const [actionError, setActionError] = useState('');
   const [loadError, setLoadError] = useState('');
+  const [refreshTick, setRefreshTick] = useState(0);
 
   const [runModalOpen, setRunModalOpen] = useState(false);
   const [confirmRunOpen, setConfirmRunOpen] = useState(false);
@@ -551,6 +554,22 @@ export default function HrPayslips() {
   useEscapeDismiss(correctionOpen && !isSubmittingCorrection, resetCorrectionState, 10);
   useEscapeDismiss(Boolean(selectedPayrollItem), () => setSelectedPayrollItem(null), 10);
   useEscapeDismiss(Boolean(selectedDispute) && !isSaving, () => setSelectedDispute(null), 10);
+  const handlePageRefresh = () => {
+    setRefreshTick((tick) => tick + 1);
+  };
+  useAutoRefreshingPage(handlePageRefresh, {
+    intervalMs: 15000,
+    enabled:
+      !selectedDispute &&
+      !selectedPayrollItem &&
+      !runModalOpen &&
+      !postModalOpen &&
+      !correctionOpen &&
+      !isSaving &&
+      !isSubmittingRun &&
+      !isPostingRun &&
+      !isSubmittingCorrection,
+  });
 
   function syncRunForm(run: PayrollRunDto) {
     setRunForm((prev) => ({
@@ -612,7 +631,7 @@ export default function HrPayslips() {
   useEffect(() => {
     const storedRun = readStoredRun();
     void loadCurrentRun(storedRun?.payId);
-  }, []);
+  }, [refreshTick]);
 
   useEffect(() => {
     try {
@@ -646,7 +665,7 @@ export default function HrPayslips() {
 
   useEffect(() => {
     void loadDisputes();
-  }, []);
+  }, [refreshTick]);
 
   useEffect(() => {
     if (!currentRun?.payId || currentRun.payrollStatus !== 'IN_PROGRESS') {
@@ -1564,15 +1583,12 @@ export default function HrPayslips() {
                   active adjustment run.
                 </p>
               </div>
-              <button
-                type="button"
+              <ModalCloseButton
                 className="hrPayModal__close"
                 aria-label="Close dispute correction workspace"
                 onClick={() => resetCorrectionState()}
                 disabled={isSubmittingCorrection}
-              >
-                X
-              </button>
+              />
             </div>
             <div className="hrPayModal__rule" />
 
@@ -1724,14 +1740,11 @@ export default function HrPayslips() {
                   still in progress.
                 </p>
               </div>
-              <button
-                type="button"
+              <ModalCloseButton
                 className="hrPayModal__close"
                 aria-label="Close payroll item breakdown"
                 onClick={() => setSelectedPayrollItem(null)}
-              >
-                X
-              </button>
+              />
             </div>
             <div className="hrPayModal__rule" />
 
@@ -1934,11 +1947,20 @@ export default function HrPayslips() {
       {selectedDispute && (
         <div className="hrPayModalBackdrop" role="dialog" aria-modal="true">
           <article className="hrPayModal">
-            <h3>{selectedDispute.employee} - Payslip Dispute</h3>
-            <p className="hrPayModal__subtitle">
-              Review the employee dispute, decide whether it should be denied or moved to waiting for adjustment, and
-              reopen it later when you are ready to stage the correction.
-            </p>
+            <div className="hrPayModal__top">
+              <div className="hrPayModal__heading">
+                <h3>{selectedDispute.employee} - Payslip Dispute</h3>
+                <p className="hrPayModal__subtitle">
+                  Review the employee dispute, decide whether it should be denied or moved to waiting for adjustment,
+                  and reopen it later when you are ready to stage the correction.
+                </p>
+              </div>
+              <ModalCloseButton
+                className="hrPayModal__close"
+                aria-label="Close payslip dispute review"
+                onClick={() => setSelectedDispute(null)}
+              />
+            </div>
             <div className="hrPayModal__rule" />
 
             <div className="hrPayModal__grid">

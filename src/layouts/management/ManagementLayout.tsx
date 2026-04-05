@@ -15,13 +15,14 @@ import AppFooter from '../../components/layout/AppFooter';
 import HeaderRefreshButton from '../../components/navigation/HeaderRefreshButton';
 import SidebarBrand from '../../components/navigation/SidebarBrand';
 import { useEscapeDismiss } from '../../hooks/useEscapeDismiss';
+import { useNotificationPolling } from '../../hooks/useNotificationPolling';
 import SidebarNavSection, { type NavSection } from '../../components/navigation/SidebarNavSection';
 import '../shared/RoleLayout.css';
 import { getUserEmail } from '../../lib/session';
 import { BACKEND_TEST_MODE } from '../../config/flags';
 import { apiFetchRaw, expireCurrentSession, getApiBaseUrl } from '../../lib/api';
 import { resolveHeaderTitle } from '../../lib/headerProfile';
-import { mapNotificationItem, type NotificationItem } from '../../lib/notificationRouting';
+import { type NotificationItem } from '../../lib/notificationRouting';
 import { routeWheelToScrollableChild } from '../../lib/scrollContain';
 import {
   applyBodyPlaceholders,
@@ -103,7 +104,7 @@ export default function ManagementLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const { notifications, setNotifications } = useNotificationPolling('management');
   const [headerTitle, setHeaderTitle] = useState('Management');
   const [backendAction, setBackendAction] = useState<string>('None');
   const [backendResult, setBackendResult] = useState<string>('Waiting for backend test.');
@@ -154,21 +155,8 @@ export default function ManagementLayout() {
   async function loadHeaderAndNotifications() {
     try {
       setHeaderTitle(await resolveHeaderTitle(getUserEmail(), 'Management'));
-
-      const notifResponse = await apiFetchRaw('/api/notifications?page=0&size=20', { method: 'GET' });
-      if (!notifResponse.ok) {
-        setNotifications([]);
-        return;
-      }
-
-      const notifPayload = (await notifResponse.json()) as { content?: Array<Record<string, unknown>> };
-      const mapped = Array.isArray(notifPayload?.content)
-        ? notifPayload.content.map((row) => mapNotificationItem('management', row))
-        : [];
-      setNotifications(mapped);
     } catch {
       setHeaderTitle('Management');
-      setNotifications([]);
     }
   }
 

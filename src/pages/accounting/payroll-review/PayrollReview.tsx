@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FiSearch, FiXCircle } from 'react-icons/fi';
+import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
+import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
-import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './PayrollReview.css';
 
@@ -218,7 +219,14 @@ export default function AccountingPayrollReview() {
     [runs, view]
   );
 
-  useRegisterPageRefresh(handlePageRefresh);
+  useAutoRefreshingPage(handlePageRefresh, { intervalMs: 15000 });
+
+  useEffect(() => {
+    if (selectedBreakdownItem) document.body.classList.add('modal-open');
+    else document.body.classList.remove('modal-open');
+
+    return () => document.body.classList.remove('modal-open');
+  }, [selectedBreakdownItem]);
 
   useEffect(() => {
     let cancelled = false;
@@ -597,14 +605,11 @@ export default function AccountingPayrollReview() {
                   Review the earnings, deductions, and totals for this payroll item before printing or cross-checking values.
                 </p>
               </div>
-              <button
-                type="button"
+              <ModalCloseButton
                 className="aReviewRunModal__close"
                 aria-label="Close payroll item breakdown"
                 onClick={closeBreakdownModal}
-              >
-                <FiXCircle />
-              </button>
+              />
             </div>
             <div className="aReviewRunModal__rule" />
 

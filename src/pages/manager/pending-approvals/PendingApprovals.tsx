@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
 import ApprovalStatusSummary from '../../../components/approvals/ApprovalStatusSummary';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
+import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import PageHeader from '../../../components/layout/PageHeader';
+import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
@@ -297,9 +299,11 @@ export default function ManagerPendingApprovals() {
     }
   }
 
+  const refreshRequests = useAutoRefreshingPage(loadRequests, { intervalMs: 15000 });
+
   useEffect(() => {
-    void loadRequests();
-  }, []);
+    void refreshRequests();
+  }, [refreshRequests]);
 
   useEffect(() => {
     if (selectedId) document.body.classList.add('modal-open');
@@ -581,14 +585,7 @@ export default function ManagerPendingApprovals() {
                   Review the team request details and current status.
                 </p>
               </div>
-              <button
-                type="button"
-                className="hrApprModal__close"
-                onClick={() => setSelectedId(null)}
-                aria-label="Close"
-              >
-                <FiXCircle />
-              </button>
+              <ModalCloseButton className="hrApprModal__close" onClick={() => setSelectedId(null)} />
             </div>
 
             <div className="hrApprModal__rule" />

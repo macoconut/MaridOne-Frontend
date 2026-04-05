@@ -1,4 +1,5 @@
 import { useId } from 'react';
+import { createPortal } from 'react-dom';
 import { useEscapeDismiss } from '../../hooks/useEscapeDismiss';
 import './AlertDialog.css';
 
@@ -33,7 +34,7 @@ export default function AlertDialog({
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div
       className="alertDialog__backdrop"
       role="alertdialog"
@@ -60,6 +61,7 @@ export default function AlertDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
