@@ -241,6 +241,10 @@ body.modal-open {
   box-shadow: none;
 }
 
+.hrAtt__actionBtn--centered {
+  width: min(100%, 240px);
+}
+
 .hrAtt__actionBtn--ghost {
   background: rgba(123, 74, 143, 0.1);
   color: #5f3a82;
@@ -266,6 +270,12 @@ body.modal-open {
 .hrAttCard {
   width: 100%;
   max-width: 100%;
+}
+
+.hrAtt__calendarActions {
+  display: flex;
+  justify-content: center;
+  width: 100%;
 }
 
 .hrAttCalendarShell {
@@ -984,6 +994,10 @@ body.modal-open {
   .hrAtt__topActions,
   .hrAtt__actionBtn {
     width: 100%;
+  }
+
+  .hrAtt__actionBtn--centered {
+    width: min(100%, 320px);
   }
 
   .hrAttCalendarShell {

@@ -198,8 +198,10 @@ export default function AccountingPayrollDashboard() {
   const [refreshTick, setRefreshTick] = useState(0);
   const [canScrollHistoryLeft, setCanScrollHistoryLeft] = useState(false);
   const [canScrollHistoryRight, setCanScrollHistoryRight] = useState(false);
+  const silentRefreshRef = useRef(false);
   useErrorDialogEffect(loadError, 'Payroll dashboard could not be loaded');
   const handlePageRefresh = useCallback(() => {
+    silentRefreshRef.current = true;
     setRefreshTick((tick) => tick + 1);
   }, []);
 
@@ -209,8 +211,11 @@ export default function AccountingPayrollDashboard() {
     let cancelled = false;
 
     async function loadRuns() {
-      setIsLoading(true);
-      setLoadError('');
+      const isSilentRefresh = silentRefreshRef.current;
+      if (!isSilentRefresh) {
+        setIsLoading(true);
+        setLoadError('');
+      }
 
       try {
         const response = await apiFetchJson<unknown>('/api/payroll/run');
@@ -218,6 +223,7 @@ export default function AccountingPayrollDashboard() {
 
         const nextRuns = [...toArray<PayrollRunRow>(response)].sort(compareRunsDescending);
         setRuns(nextRuns);
+        setLoadError('');
         setSelectedPayId((currentPayId) => {
           if (currentPayId != null && nextRuns.some((run) => run.payId === currentPayId)) {
             return currentPayId;
@@ -228,13 +234,17 @@ export default function AccountingPayrollDashboard() {
         });
       } catch (error) {
         if (cancelled) return;
-        setRuns([]);
-        setSelectedPayId(null);
-        setSelectedItems([]);
-        setSelectedSummary([]);
-        setHistoryPoints([]);
-        setLoadError(getFriendlyErrorMessage(error, 'payroll-run'));
-        setIsLoading(false);
+        if (!isSilentRefresh) {
+          setRuns([]);
+          setSelectedPayId(null);
+          setSelectedItems([]);
+          setSelectedSummary([]);
+          setHistoryPoints([]);
+          setLoadError(getFriendlyErrorMessage(error, 'payroll-run'));
+          setIsLoading(false);
+        } else {
+          silentRefreshRef.current = false;
+        }
       }
     }
 
@@ -249,15 +259,20 @@ export default function AccountingPayrollDashboard() {
       setSelectedItems([]);
       setSelectedSummary([]);
       setHistoryPoints([]);
+      setLoadError('');
       setIsLoading(false);
+      silentRefreshRef.current = false;
       return;
     }
 
     let cancelled = false;
 
     async function loadDashboardData() {
-      setIsLoading(true);
-      setLoadError('');
+      const isSilentRefresh = silentRefreshRef.current;
+      if (!isSilentRefresh) {
+        setIsLoading(true);
+        setLoadError('');
+      }
 
       try {
         const selectedItemsPromise = apiFetchJson<unknown>(
@@ -294,14 +309,20 @@ export default function AccountingPayrollDashboard() {
         setSelectedItems(toArray<PayrollItemRow>(itemsResponse));
         setSelectedSummary(toArray<PayTypeSummaryRow>(summaryResponse));
         setHistoryPoints(nextHistoryPoints);
+        setLoadError('');
       } catch (error) {
         if (cancelled) return;
-        setSelectedItems([]);
-        setSelectedSummary([]);
-        setHistoryPoints([]);
-        setLoadError(getFriendlyErrorMessage(error, 'payroll-run'));
+        if (!isSilentRefresh) {
+          setSelectedItems([]);
+          setSelectedSummary([]);
+          setHistoryPoints([]);
+          setLoadError(getFriendlyErrorMessage(error, 'payroll-run'));
+        }
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) {
+          if (!isSilentRefresh) setIsLoading(false);
+          silentRefreshRef.current = false;
+        }
       }
     }
 

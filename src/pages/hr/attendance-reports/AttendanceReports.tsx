@@ -606,8 +606,10 @@ export function AttendanceReportsBoard({
   const [focusOvertime, setFocusOvertime] = useState<OvertimeRequest[]>([]);
   const [isFocusDataLoading, setIsFocusDataLoading] = useState(false);
   const filterRef = useRef<HTMLDivElement | null>(null);
+  const silentRefreshRef = useRef(false);
 
   const handlePageRefresh = useCallback(() => {
+    silentRefreshRef.current = true;
     setRefreshTick((tick) => tick + 1);
   }, []);
 
@@ -654,8 +656,11 @@ export function AttendanceReportsBoard({
     let cancelled = false;
 
     async function loadPageData() {
-      setIsLoading(true);
-      setLoadError('');
+      const isSilentRefresh = silentRefreshRef.current;
+      if (!isSilentRefresh) {
+        setIsLoading(true);
+        setLoadError('');
+      }
       try {
         const start = new Date(year, monthIndex, 1, 0, 0, 0, 0);
         const end = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
@@ -700,7 +705,7 @@ export function AttendanceReportsBoard({
           setEmployees(rosterRows(employeeResult.value).filter((row) => Number.isFinite(row.id)));
           setHasFullRoster(true);
           setRosterMessage('');
-        } else {
+        } else if (!isSilentRefresh) {
           const ids = new Set<number>();
           for (const log of nextLogs) {
             if (typeof log.employeeId === 'number') ids.add(log.employeeId);
@@ -720,47 +725,60 @@ export function AttendanceReportsBoard({
           );
           setHasFullRoster(false);
           setRosterMessage(
-            `${audienceLabel} can load attendance logs, but full employee roster access is restricted.`
+              `${audienceLabel} can load attendance logs, but full employee roster access is restricted.`
           );
         }
 
-        const nextApprovedLeaves =
-          leaveResult.status === 'fulfilled'
-            ? toArray<LeaveRequest>(leaveResult.value).filter((request) => {
-                const startKey = localDateKey(request.startDateTime);
-                const endKey = localDateKey(request.endDateTime);
-                return (
-                  Boolean(startKey) &&
-                  Boolean(endKey) &&
-                  startKey <= monthEndKey &&
-                  endKey >= monthStartKey &&
-                  String(request.requestStatus ?? '').toUpperCase() === 'APPROVED'
-                );
-              })
-            : [];
-        setApprovedLeaves(nextApprovedLeaves);
-        setDailyShifts(dailyShiftResult.status === 'fulfilled' ? toArray<DailyShift>(dailyShiftResult.value) : []);
+        if (leaveResult.status === 'fulfilled') {
+          const nextApprovedLeaves = toArray<LeaveRequest>(leaveResult.value).filter((request) => {
+            const startKey = localDateKey(request.startDateTime);
+            const endKey = localDateKey(request.endDateTime);
+            return (
+              Boolean(startKey) &&
+              Boolean(endKey) &&
+              startKey <= monthEndKey &&
+              endKey >= monthStartKey &&
+              String(request.requestStatus ?? '').toUpperCase() === 'APPROVED'
+            );
+          });
+          setApprovedLeaves(nextApprovedLeaves);
+        } else if (!isSilentRefresh) {
+          setApprovedLeaves([]);
+        }
+
+        if (dailyShiftResult.status === 'fulfilled') {
+          setDailyShifts(toArray<DailyShift>(dailyShiftResult.value));
+        } else if (!isSilentRefresh) {
+          setDailyShifts([]);
+        }
+
         if (holidayResult.status === 'fulfilled') {
           const parsed = parseHolidayLookup(holidayResult.value);
           setHolidayDateKeys(parsed.holidayDates);
           setRegularHolidayDateKeys(parsed.regularHolidayDates);
-        } else {
+        } else if (!isSilentRefresh) {
           setHolidayDateKeys([]);
           setRegularHolidayDateKeys([]);
         }
+        setLoadError('');
       } catch (error) {
         if (cancelled) return;
-        setLogs([]);
-        setEmployees([]);
-        setApprovedLeaves([]);
-        setDailyShifts([]);
-        setHolidayDateKeys([]);
-        setRegularHolidayDateKeys([]);
-        setHasFullRoster(false);
-        setRosterMessage('');
-        setLoadError(error instanceof Error ? error.message : 'Failed to load attendance data.');
+        if (!isSilentRefresh) {
+          setLogs([]);
+          setEmployees([]);
+          setApprovedLeaves([]);
+          setDailyShifts([]);
+          setHolidayDateKeys([]);
+          setRegularHolidayDateKeys([]);
+          setHasFullRoster(false);
+          setRosterMessage('');
+          setLoadError(error instanceof Error ? error.message : 'Failed to load attendance data.');
+        }
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) {
+          if (!isSilentRefresh) setIsLoading(false);
+          silentRefreshRef.current = false;
+        }
       }
     }
 
@@ -1423,16 +1441,6 @@ export function AttendanceReportsBoard({
               ))}
             </select>
           </div>
-
-          <button
-            type="button"
-            className="hrAtt__actionBtn"
-            onClick={() => void downloadAttendanceReport()}
-            disabled={isLoading || isExporting || Boolean(loadError)}
-          >
-            <FiDownload aria-hidden="true" />
-            <span>{isExporting ? 'Preparing CSV...' : 'Export Attendance'}</span>
-          </button>
         </div>
       </div>
 
@@ -1706,6 +1714,18 @@ export function AttendanceReportsBoard({
           )}
         </div>
       </section>
+
+      <div className="hrAtt__calendarActions">
+        <button
+          type="button"
+          className="hrAtt__actionBtn hrAtt__actionBtn--centered"
+          onClick={() => void downloadAttendanceReport()}
+          disabled={isLoading || isExporting || Boolean(loadError)}
+        >
+          <FiDownload aria-hidden="true" />
+          <span>{isExporting ? 'Preparing CSV...' : 'Export Attendance'}</span>
+        </button>
+      </div>
 
       {detailOpen && (
         <div className="hrAttModalBackdrop" role="dialog" aria-modal="true" aria-label="Attendance breakdown">

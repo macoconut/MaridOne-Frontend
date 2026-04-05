@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FiSearch, FiXCircle } from 'react-icons/fi';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import PageHeader from '../../../components/layout/PageHeader';
@@ -208,8 +208,10 @@ export default function AccountingPayrollReview() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [refreshTick, setRefreshTick] = useState(0);
+  const silentRefreshRef = useRef(false);
   useErrorDialogEffect(loadError, 'Payroll review data could not be loaded');
   const handlePageRefresh = useCallback(() => {
+    silentRefreshRef.current = true;
     setRefreshTick((tick) => tick + 1);
   }, []);
 
@@ -232,8 +234,11 @@ export default function AccountingPayrollReview() {
     let cancelled = false;
 
     async function loadRuns() {
-      setIsLoading(true);
-      setLoadError('');
+      const isSilentRefresh = silentRefreshRef.current;
+      if (!isSilentRefresh) {
+        setIsLoading(true);
+        setLoadError('');
+      }
 
       try {
         const runResponse = await apiFetchJson<unknown>('/api/payroll/run');
@@ -241,14 +246,19 @@ export default function AccountingPayrollReview() {
 
         const nextRuns = [...toArray<PayrollRunRow>(runResponse)].sort(compareRunsDescending);
         setRuns(nextRuns);
+        setLoadError('');
       } catch (error) {
         if (cancelled) return;
-        setRuns([]);
-        setSelectedPayId(null);
-        setEmployeeRows([]);
-        setPayTypeRows([]);
-        setLoadError(getFriendlyErrorMessage(error, 'payroll-run'));
-        setIsLoading(false);
+        if (!isSilentRefresh) {
+          setRuns([]);
+          setSelectedPayId(null);
+          setEmployeeRows([]);
+          setPayTypeRows([]);
+          setLoadError(getFriendlyErrorMessage(error, 'payroll-run'));
+          setIsLoading(false);
+        } else {
+          silentRefreshRef.current = false;
+        }
       }
     }
 
@@ -273,15 +283,20 @@ export default function AccountingPayrollReview() {
     if (selectedPayId == null || !selectableRuns.some((run) => run.payId === selectedPayId)) {
       setEmployeeRows([]);
       setPayTypeRows([]);
+      setLoadError('');
       setIsLoading(false);
+      silentRefreshRef.current = false;
       return;
     }
 
     let cancelled = false;
 
     async function loadRunDetails() {
-      setIsLoading(true);
-      setLoadError('');
+      const isSilentRefresh = silentRefreshRef.current;
+      if (!isSilentRefresh) {
+        setIsLoading(true);
+        setLoadError('');
+      }
 
       try {
         const [itemsResponse, summaryResponse] = await Promise.all([
@@ -293,13 +308,19 @@ export default function AccountingPayrollReview() {
 
         setEmployeeRows(toArray<PayrollItemRow>(itemsResponse));
         setPayTypeRows(toArray<PayTypeSummaryRow>(summaryResponse));
+        setLoadError('');
       } catch (error) {
         if (cancelled) return;
-        setEmployeeRows([]);
-        setPayTypeRows([]);
-        setLoadError(getFriendlyErrorMessage(error, 'payroll-run'));
+        if (!isSilentRefresh) {
+          setEmployeeRows([]);
+          setPayTypeRows([]);
+          setLoadError(getFriendlyErrorMessage(error, 'payroll-run'));
+        }
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) {
+          if (!isSilentRefresh) setIsLoading(false);
+          silentRefreshRef.current = false;
+        }
       }
     }
 
@@ -308,7 +329,7 @@ export default function AccountingPayrollReview() {
     return () => {
       cancelled = true;
     };
-  }, [refreshTick, selectableRuns, selectedPayId]);
+  }, [selectableRuns, selectedPayId]);
 
   const selectedRun = useMemo(
     () => selectableRuns.find((run) => run.payId === selectedPayId) ?? null,

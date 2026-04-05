@@ -1,4 +1,4 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
@@ -541,9 +541,11 @@ export default function HrAuditLogs() {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const [refreshTick, setRefreshTick] = useState(0);
+  const silentRefreshRef = useRef(false);
 
   useErrorDialogEffect(loadError, 'Audit logs could not be loaded');
   const handlePageRefresh = () => {
+    silentRefreshRef.current = true;
     setRefreshTick((tick) => tick + 1);
   };
   useAutoRefreshingPage(handlePageRefresh, { intervalMs: 15000 });
@@ -554,9 +556,12 @@ export default function HrAuditLogs() {
     let cancelled = false;
 
     async function loadLogs() {
+      const isSilentRefresh = silentRefreshRef.current;
       try {
-        setIsLoading(true);
-        setLoadError('');
+        if (!isSilentRefresh) {
+          setIsLoading(true);
+          setLoadError('');
+        }
 
         const [activityRows, employeePayload, payrollRunsPayload] = await Promise.all([
           loadAllActivityRows(),
@@ -575,14 +580,20 @@ export default function HrAuditLogs() {
         setPayrollRunsById(
           payrollRunsPayload ? buildPayrollRunMap(toArray<PayrollRunRow>(payrollRunsPayload)) : new Map()
         );
+        setLoadError('');
       } catch (error) {
         if (cancelled) return;
-        setRows([]);
-        setDirectory({ byUsername: new Map(), byEmployeeId: new Map() });
-        setPayrollRunsById(new Map());
-        setLoadError(getFriendlyErrorMessage(error));
+        if (!isSilentRefresh) {
+          setRows([]);
+          setDirectory({ byUsername: new Map(), byEmployeeId: new Map() });
+          setPayrollRunsById(new Map());
+          setLoadError(getFriendlyErrorMessage(error));
+        }
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) {
+          if (!isSilentRefresh) setIsLoading(false);
+          silentRefreshRef.current = false;
+        }
       }
     }
 

@@ -623,6 +623,7 @@ export function AttendanceOverviewDashboard({
   const [selectedDateKey, setSelectedDateKey] = useState(todayKey);
   const [feedPanelHeight, setFeedPanelHeight] = useState<number | null>(null);
   const mainColRef = useRef<HTMLDivElement | null>(null);
+  const silentRefreshRef = useRef(false);
   const effectiveSelectedDateKey = selectedDateKey && selectedDateKey <= todayKey ? selectedDateKey : todayKey;
   const selectedDate = useMemo(() => dateFromKey(effectiveSelectedDateKey), [effectiveSelectedDateKey]);
   const isSelectedDateToday = effectiveSelectedDateKey === todayKey;
@@ -656,6 +657,7 @@ export function AttendanceOverviewDashboard({
     return `${formatDateLabel(feedStartDate.toISOString())} to ${formatDateLabel(feedEndDate.toISOString())}`;
   }, [feedEndDate, feedStartDate, includeWeeklyFeed, selectedDate]);
   const handlePageRefresh = useCallback(() => {
+    silentRefreshRef.current = true;
     setRefreshTick((tick) => tick + 1);
   }, []);
 
@@ -692,9 +694,12 @@ export function AttendanceOverviewDashboard({
   useEffect(() => {
     let cancelled = false;
 
-    async function fetchDashboardData(silent = false) {
-      if (!silent) setIsLoading(true);
-      setLoadError(null);
+    async function fetchDashboardData() {
+      const isSilentRefresh = silentRefreshRef.current;
+      if (!isSilentRefresh) {
+        setIsLoading(true);
+        setLoadError(null);
+      }
 
       const dayStart = new Date(selectedDate);
       dayStart.setHours(0, 0, 0, 0);
@@ -732,46 +737,47 @@ export function AttendanceOverviewDashboard({
 
       if (logsResult.status === 'fulfilled') {
         setLogs(toArray<AttendanceLog>(logsResult.value));
-      } else {
+        setLoadError(null);
+      } else if (!isSilentRefresh) {
         setLogs([]);
         setLoadError(logsResult.reason instanceof Error ? logsResult.reason.message : 'Failed to load attendance logs.');
       }
 
       if (feedLogsResult.status === 'fulfilled') {
         setFeedLogs(toArray<AttendanceLog>(feedLogsResult.value));
-      } else {
+      } else if (!isSilentRefresh) {
         setFeedLogs([]);
       }
 
       if (leavesResult.status === 'fulfilled') {
         setLeaveRequests(toArray<LeaveRequest>(leavesResult.value));
-      } else {
+      } else if (!isSilentRefresh) {
         setLeaveRequests([]);
       }
 
       if (rosterResult.status === 'fulfilled') {
         setEmployees(rosterRows(rosterResult.value).filter((row) => Number.isFinite(row.id)));
-      } else {
+      } else if (!isSilentRefresh) {
         setEmployees([]);
       }
 
       if (holidayResult.status === 'fulfilled') {
         setHolidayDateKeys(parseHolidayLookup(holidayResult.value).holidayDates);
-      } else {
+      } else if (!isSilentRefresh) {
         setHolidayDateKeys([]);
       }
 
-      if (!silent) setIsLoading(false);
+      if (!isSilentRefresh) {
+        setIsLoading(false);
+      }
+      silentRefreshRef.current = false;
     }
 
-    void fetchDashboardData(false);
-    const timer = window.setInterval(() => {
-      void fetchDashboardData(true);
-    }, 15000);
+    void fetchDashboardData();
 
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      silentRefreshRef.current = false;
     };
   }, [effectiveSelectedDateKey, feedEndDate, feedStartDate, leavesUrl, logsUrl, refreshTick, rosterUrl, selectedDate]);
 
