@@ -20,7 +20,7 @@ import { getUserEmail } from '../../lib/session';
 import { BACKEND_TEST_MODE } from '../../config/flags';
 import { apiFetchRaw, expireCurrentSession, getApiBaseUrl } from '../../lib/api';
 import { resolveHeaderTitle } from '../../lib/headerProfile';
-import { formatNotificationTime } from '../../lib/notificationRouting';
+import { mapNotificationItem, type NotificationItem } from '../../lib/notificationRouting';
 import { routeWheelToScrollableChild } from '../../lib/scrollContain';
 import {
   applyBodyPlaceholders,
@@ -29,14 +29,6 @@ import {
   type PlaceholderContext,
 } from '../../lib/backendTest';
 import { PageRefreshProvider } from '../../lib/pageRefresh';
-
-type NotificationItem = {
-  id: string;
-  title: string;
-  description?: string;
-  time: string;
-  isRead?: boolean;
-};
 
 const API_BASE_URL = getApiBaseUrl();
 
@@ -125,18 +117,7 @@ export default function ManagerLayout() {
 
         const notifPayload = (await notifResponse.json()) as { content?: Array<Record<string, unknown>> };
         const mapped = Array.isArray(notifPayload?.content)
-          ? notifPayload.content.map((row) => {
-              const idRaw = row.notificationId;
-              const id = typeof idRaw === 'number' ? String(idRaw) : String(idRaw ?? crypto.randomUUID());
-              const createdAt = typeof row.createdAt === 'string' ? new Date(row.createdAt) : null;
-              return {
-                id,
-                title: typeof row.message === 'string' ? row.message : 'Notification',
-                description: undefined,
-                time: formatNotificationTime(createdAt),
-                isRead: Boolean(row.readStatus),
-              } as NotificationItem;
-            })
+          ? notifPayload.content.map((row) => mapNotificationItem('manager', row))
           : [];
         setNotifications(mapped);
       } catch {
@@ -228,6 +209,11 @@ export default function ManagerLayout() {
 
   function handleNotificationPanelWheel(event: Parameters<typeof routeWheelToScrollableChild>[0]) {
     routeWheelToScrollableChild(event, '.notifPanel__list');
+  }
+
+  async function handleNotificationClick(notification: NotificationItem) {
+    closeNotificationBell();
+    navigate(notification.destination);
   }
 
   async function fetchJsonWithAuth(path: string) {
@@ -393,7 +379,7 @@ export default function ManagerLayout() {
                           <button
                             type="button"
                             className="notifItem__main"
-                            onClick={closeNotificationBell}
+                            onClick={() => void handleNotificationClick(n)}
                           >
                             <div className="notifItem__body">
                               <div className="notifItem__title">{n.title}</div>

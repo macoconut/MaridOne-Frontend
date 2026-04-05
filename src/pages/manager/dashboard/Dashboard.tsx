@@ -13,6 +13,7 @@ import {
   type TwoFactorSetupResponse,
 } from '../../../lib/accountSecurity';
 import { apiFetchJson, toArray } from '../../../lib/api';
+import { mapNotificationItem } from '../../../lib/notificationRouting';
 import { useRegisterPageRefresh } from '../../../lib/pageRefresh';
 import { getAuthToken, getUserEmail } from '../../../lib/session';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
@@ -314,7 +315,7 @@ export default function ManagerDashboard() {
       if (notificationsResponse.status === 'fulfilled') {
         setUpdateItems(
           toArray<Record<string, unknown>>(notificationsResponse.value)
-            .map((item) => String(item.message ?? '').trim())
+            .map((item) => mapNotificationItem('manager', item).title.trim())
             .filter((message) => message.length > 0)
             .slice(0, 3)
         );

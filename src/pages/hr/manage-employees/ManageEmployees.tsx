@@ -10,6 +10,15 @@ import './ManageEmployees.css';
 
 type ModalType = 'add' | 'edit' | 'delete' | null;
 type ConfirmAction = 'edit' | 'delete';
+type LeaveBalanceAdjustmentType = 'add' | 'subtract';
+type LeaveType =
+  | 'SICK_LEAVE'
+  | 'VACATION_LEAVE'
+  | 'MATERNITY_LEAVE'
+  | 'PATERNITY_LEAVE'
+  | 'SOLO_PARENT_LEAVE'
+  | 'MAGNA_CARTA'
+  | 'RA9262';
 
 type EmployeeRow = {
   id: string;
@@ -53,6 +62,22 @@ type EmployeeMutationResponse = {
   employeeId?: number;
 };
 
+type LeaveBalanceRow = {
+  leaveId?: number;
+  balanceHours?: number | string | null;
+  leaveType?: LeaveType | string;
+};
+
+type LeaveBalanceCreateForm = {
+  leaveType: LeaveType;
+  balanceHours: string;
+};
+
+type LeaveBalanceAdjustForm = {
+  balanceHours: string;
+  type: LeaveBalanceAdjustmentType;
+};
+
 type FormState = {
   employeeId: string;
   firstName: string;
@@ -82,6 +107,16 @@ type FormState = {
 const employmentStatusOptions = ['REGULAR', 'NEW_HIRE', 'PART_TIME', 'SUSPENDED', 'TERMINATED'] as const;
 const exemptionStatusOptions = ['EXEMPT', 'NON_EXEMPT'] as const;
 const positionOptions = ['EMPLOYEE', 'MANAGER', 'HR', 'MANAGEMENT', 'ACCOUNTING', 'UNKNOWN'] as const;
+const leaveTypeOptions: Array<{ label: string; value: LeaveType }> = [
+  { label: 'Sick Leave', value: 'SICK_LEAVE' },
+  { label: 'Vacation Leave', value: 'VACATION_LEAVE' },
+  { label: 'Maternity Leave', value: 'MATERNITY_LEAVE' },
+  { label: 'Paternity Leave', value: 'PATERNITY_LEAVE' },
+  { label: 'Solo Parent Leave', value: 'SOLO_PARENT_LEAVE' },
+  { label: 'Magna Carta', value: 'MAGNA_CARTA' },
+  { label: 'RA 9262', value: 'RA9262' },
+];
+const HOURS_FORMATTER = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
 
 const emptyForm: FormState = {
   employeeId: '',
@@ -107,6 +142,11 @@ const emptyForm: FormState = {
   country: '',
   zipCode: '',
   reason: '',
+};
+
+const emptyLeaveBalanceCreateForm: LeaveBalanceCreateForm = {
+  leaveType: 'SICK_LEAVE',
+  balanceHours: '',
 };
 
 function normalizeText(value: string) {
@@ -150,6 +190,43 @@ function formatCurrencyValue(value?: number | string | null) {
   }).format(numeric);
 }
 
+function formatLeaveTypeLabel(value?: string) {
+  if (!value) return 'Leave';
+  const option = leaveTypeOptions.find((entry) => entry.value === value);
+  if (option) return option.label;
+
+  return value
+    .toLowerCase()
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function parseBalanceHours(value?: number | string | null) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function formatBalanceHoursLabel(value?: number | string | null) {
+  const parsed = parseBalanceHours(value);
+  if (parsed !== null) {
+    return `${HOURS_FORMATTER.format(parsed)} hour${Math.abs(parsed - 1) < 0.00001 ? '' : 's'}`;
+  }
+
+  return '0 hours';
+}
+
 function displayValue(value?: string | number | null) {
   if (value === null || value === undefined) return '-';
   const text = String(value).trim();
@@ -182,6 +259,14 @@ export default function HrManageEmp() {
   const [detailLoadingIds, setDetailLoadingIds] = useState<Record<string, boolean>>({});
   const [detailErrors, setDetailErrors] = useState<Record<string, string>>({});
   const [detailsDialogEmployeeId, setDetailsDialogEmployeeId] = useState<string | null>(null);
+  const [leaveBalances, setLeaveBalances] = useState<LeaveBalanceRow[]>([]);
+  const [leaveBalanceStatus, setLeaveBalanceStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [leaveBalanceError, setLeaveBalanceError] = useState('');
+  const [leaveBalanceCreateForm, setLeaveBalanceCreateForm] = useState<LeaveBalanceCreateForm>(
+    emptyLeaveBalanceCreateForm
+  );
+  const [leaveBalanceAdjustForms, setLeaveBalanceAdjustForms] = useState<Record<string, LeaveBalanceAdjustForm>>({});
+  const [leaveBalanceSavingKey, setLeaveBalanceSavingKey] = useState<string | null>(null);
   const [loadMessage, setLoadMessage] = useState('');
   const [form, setForm] = useState<FormState>(emptyForm);
   const [submitError, setSubmitError] = useState('');
@@ -199,6 +284,34 @@ export default function HrManageEmp() {
   const detailsDialogEmployee = useMemo(
     () => employeeRows.find((row) => row.id === detailsDialogEmployeeId) ?? null,
     [detailsDialogEmployeeId, employeeRows]
+  );
+  const activeLeaveBalanceEmployeeId = detailsDialogEmployeeId ?? (modal === 'edit' && form.employeeId ? form.employeeId : null);
+
+  const leaveBalancesByType = useMemo(() => {
+    const next = new Map<string, LeaveBalanceRow>();
+    for (const balance of leaveBalances) {
+      if (typeof balance.leaveType !== 'string' || balance.leaveType.length === 0) continue;
+      next.set(balance.leaveType, balance);
+    }
+    return next;
+  }, [leaveBalances]);
+
+  const orderedLeaveBalances = useMemo(() => {
+    const knownTypes = new Set<string>(leaveTypeOptions.map((option) => option.value));
+    const known = leaveTypeOptions
+      .map((option) => leaveBalancesByType.get(option.value))
+      .filter((balance): balance is LeaveBalanceRow & { leaveType: string } => Boolean(balance?.leaveType));
+    const extras = leaveBalances.filter(
+      (balance): balance is LeaveBalanceRow & { leaveType: string } =>
+        typeof balance.leaveType === 'string' && balance.leaveType.length > 0 && !knownTypes.has(balance.leaveType)
+    );
+
+    return [...known, ...extras];
+  }, [leaveBalances, leaveBalancesByType]);
+
+  const availableLeaveTypeOptions = useMemo(
+    () => leaveTypeOptions.filter((option) => !leaveBalancesByType.has(option.value)),
+    [leaveBalancesByType]
   );
 
   const statusOptions = useMemo(
@@ -244,6 +357,20 @@ export default function HrManageEmp() {
   useEffect(() => {
     void loadEmployees();
   }, []);
+
+  useEffect(() => {
+    if (!activeLeaveBalanceEmployeeId) {
+      setLeaveBalances([]);
+      setLeaveBalanceStatus('idle');
+      setLeaveBalanceError('');
+      setLeaveBalanceCreateForm(emptyLeaveBalanceCreateForm);
+      setLeaveBalanceAdjustForms({});
+      setLeaveBalanceSavingKey(null);
+      return;
+    }
+
+    void loadLeaveBalances(activeLeaveBalanceEmployeeId);
+  }, [activeLeaveBalanceEmployeeId]);
 
   async function loadEmployees() {
     try {
@@ -301,6 +428,24 @@ export default function HrManageEmp() {
 
   function sanitizeNumericId(value: string) {
     return value.replace(/\D/g, '');
+  }
+
+  function parseLeaveBalanceHours(value: string, allowZero: boolean) {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      throw new Error(allowZero ? 'Balance hours are required.' : 'Adjustment hours are required.');
+    }
+
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed)) {
+      throw new Error('Balance hours must be a valid number.');
+    }
+
+    if (allowZero ? parsed < 0 : parsed <= 0) {
+      throw new Error(allowZero ? 'Balance hours must be 0 or greater.' : 'Adjustment hours must be greater than 0.');
+    }
+
+    return parsed;
   }
 
   function getPhoneValidationMessage(value: string) {
@@ -374,6 +519,46 @@ export default function HrManageEmp() {
     setPositionFilter('all');
   }
 
+  function syncLeaveBalanceForms(balances: LeaveBalanceRow[]) {
+    setLeaveBalanceAdjustForms((current) => {
+      const next: Record<string, LeaveBalanceAdjustForm> = {};
+      for (const balance of balances) {
+        if (typeof balance.leaveType !== 'string' || !balance.leaveType) continue;
+        next[balance.leaveType] = current[balance.leaveType] ?? { balanceHours: '', type: 'add' };
+      }
+      return next;
+    });
+
+    setLeaveBalanceCreateForm((current) => {
+      const nextLeaveType =
+        leaveTypeOptions.find((option) => !balances.some((balance) => balance.leaveType === option.value))?.value ??
+        current.leaveType;
+
+      return {
+        leaveType: nextLeaveType,
+        balanceHours: current.balanceHours,
+      };
+    });
+  }
+
+  async function loadLeaveBalances(employeeId: string) {
+    setLeaveBalanceStatus('loading');
+    setLeaveBalanceError('');
+
+    try {
+      const payload = await apiFetchJson<unknown>(`/api/leave/balance/${employeeId}`);
+      const rows = toArray<LeaveBalanceRow>(payload);
+      setLeaveBalances(rows);
+      syncLeaveBalanceForms(rows);
+      setLeaveBalanceStatus('ready');
+    } catch (error) {
+      setLeaveBalances([]);
+      setLeaveBalanceAdjustForms({});
+      setLeaveBalanceStatus('error');
+      setLeaveBalanceError(getFriendlyErrorMessage(error, 'employee-load'));
+    }
+  }
+
   async function fetchEmployeeDetails(employeeId: string) {
     if (employeeDetailsById[employeeId]) {
       return employeeDetailsById[employeeId];
@@ -411,6 +596,89 @@ export default function HrManageEmp() {
 
   function closeDetailsDialog() {
     setDetailsDialogEmployeeId(null);
+  }
+
+  function setLeaveBalanceCreateField<K extends keyof LeaveBalanceCreateForm>(key: K, value: LeaveBalanceCreateForm[K]) {
+    setLeaveBalanceCreateForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function setLeaveBalanceAdjustField(leaveType: string, field: keyof LeaveBalanceAdjustForm, value: string) {
+    setLeaveBalanceAdjustForms((current) => ({
+      ...current,
+      [leaveType]: {
+        balanceHours: current[leaveType]?.balanceHours ?? '',
+        type: current[leaveType]?.type ?? 'add',
+        [field]: value,
+      } as LeaveBalanceAdjustForm,
+    }));
+  }
+
+  async function handleCreateLeaveBalance() {
+    if (!activeLeaveBalanceEmployeeId) return;
+
+    const employeeId = Number(activeLeaveBalanceEmployeeId);
+    if (!Number.isFinite(employeeId)) {
+      setLeaveBalanceError('A valid employee ID is required before assigning leave balance.');
+      return;
+    }
+
+    setLeaveBalanceError('');
+    setLeaveBalanceSavingKey('create');
+
+    try {
+      await apiFetchJson(`/api/leave/balance/${employeeId}`, {
+        method: 'POST',
+        body: JSON.stringify({
+          empId: employeeId,
+          leaveType: leaveBalanceCreateForm.leaveType,
+          balanceHours: parseLeaveBalanceHours(leaveBalanceCreateForm.balanceHours, true),
+        }),
+      });
+
+      setLeaveBalanceCreateForm((current) => ({ ...current, balanceHours: '' }));
+      await loadLeaveBalances(String(employeeId));
+      showSuccess('Leave balance assigned successfully.', 'Leave Balance Created');
+    } catch (error) {
+      setLeaveBalanceError(getFriendlyErrorMessage(error, 'employee-save'));
+    } finally {
+      setLeaveBalanceSavingKey(null);
+    }
+  }
+
+  async function handleAdjustLeaveBalance(leaveType: string) {
+    if (!activeLeaveBalanceEmployeeId) return;
+
+    const employeeId = Number(activeLeaveBalanceEmployeeId);
+    const formState = leaveBalanceAdjustForms[leaveType] ?? { balanceHours: '', type: 'add' };
+    if (!Number.isFinite(employeeId)) {
+      setLeaveBalanceError('A valid employee ID is required before adjusting leave balance.');
+      return;
+    }
+
+    setLeaveBalanceError('');
+    setLeaveBalanceSavingKey(leaveType);
+
+    try {
+      await apiFetchJson(`/api/leave/balance/update/${employeeId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          leaveType,
+          type: formState.type,
+          balanceHours: parseLeaveBalanceHours(formState.balanceHours, false),
+        }),
+      });
+
+      setLeaveBalanceAdjustForms((current) => ({
+        ...current,
+        [leaveType]: { balanceHours: '', type: current[leaveType]?.type ?? 'add' },
+      }));
+      await loadLeaveBalances(String(employeeId));
+      showSuccess('Leave balance updated successfully.', 'Leave Balance Updated');
+    } catch (error) {
+      setLeaveBalanceError(getFriendlyErrorMessage(error, 'employee-save'));
+    } finally {
+      setLeaveBalanceSavingKey(null);
+    }
   }
 
   async function openEditModal(row: EmployeeRow) {
@@ -649,6 +917,183 @@ export default function HrManageEmp() {
     await executeSubmit(nextAction);
   }
 
+  function renderLeaveBalanceSummary() {
+    if (leaveBalanceStatus === 'loading') {
+      return <div className="hrEmpLeaveBalance__feedback">Loading leave balances...</div>;
+    }
+
+    if (leaveBalanceStatus === 'error') {
+      return <div className="hrEmpLeaveBalance__feedback is-error">{leaveBalanceError}</div>;
+    }
+
+    if (orderedLeaveBalances.length === 0) {
+      return <div className="hrEmpLeaveBalance__feedback">No leave balances are assigned yet for this employee.</div>;
+    }
+
+    return (
+      <div className="hrEmpLeaveBalance__list hrEmpLeaveBalance__list--summary">
+        {orderedLeaveBalances.map((balance) => {
+          const leaveType = String(balance.leaveType ?? '');
+
+          return (
+            <article key={leaveType || String(balance.leaveId)} className="hrEmpLeaveBalance__card">
+              <div className="hrEmpLeaveBalance__meta">
+                <div>
+                  <span className="hrEmpLeaveBalance__label">Leave Type</span>
+                  <strong>{formatLeaveTypeLabel(leaveType)}</strong>
+                </div>
+                <div>
+                  <span className="hrEmpLeaveBalance__label">Current Balance</span>
+                  <strong>{formatBalanceHoursLabel(balance.balanceHours)}</strong>
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    );
+  }
+
+  function renderLeaveBalanceEditor() {
+    if (leaveBalanceStatus === 'loading') {
+      return <div className="hrEmpLeaveBalance__feedback">Loading leave balances...</div>;
+    }
+
+    if (leaveBalanceStatus === 'error') {
+      return <div className="hrEmpLeaveBalance__feedback is-error">{leaveBalanceError}</div>;
+    }
+
+    return (
+      <>
+        <div className="hrEmpLeaveBalance__create">
+          <div className="hrEmpLeaveBalance__createHead">
+            <strong>Standard balances are created automatically</strong>
+            <span>Use this section for corrections and for adding special leave types only when the employee is eligible.</span>
+          </div>
+        </div>
+
+        {orderedLeaveBalances.length > 0 ? (
+          <div className="hrEmpLeaveBalance__list">
+            {orderedLeaveBalances.map((balance) => {
+              const leaveType = String(balance.leaveType ?? '');
+              const adjustForm = leaveBalanceAdjustForms[leaveType] ?? { balanceHours: '', type: 'add' };
+              const isSavingBalance = leaveBalanceSavingKey === leaveType;
+
+              return (
+                <article key={leaveType || String(balance.leaveId)} className="hrEmpLeaveBalance__card">
+                  <div className="hrEmpLeaveBalance__meta">
+                    <div>
+                      <span className="hrEmpLeaveBalance__label">Leave Type</span>
+                      <strong>{formatLeaveTypeLabel(leaveType)}</strong>
+                    </div>
+                    <div>
+                      <span className="hrEmpLeaveBalance__label">Current Balance</span>
+                      <strong>{formatBalanceHoursLabel(balance.balanceHours)}</strong>
+                    </div>
+                  </div>
+
+                  <div className="hrEmpLeaveBalance__controls">
+                    <div className="hrEmpField">
+                      <label>Adjustment Type</label>
+                      <select
+                        value={adjustForm.type}
+                        onChange={(event) =>
+                          setLeaveBalanceAdjustField(
+                            leaveType,
+                            'type',
+                            event.target.value as LeaveBalanceAdjustmentType
+                          )
+                        }
+                      >
+                        <option value="add">Add Hours</option>
+                        <option value="subtract">Subtract Hours</option>
+                      </select>
+                    </div>
+
+                    <div className="hrEmpField">
+                      <label>Hours</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={adjustForm.balanceHours}
+                        onChange={(event) => setLeaveBalanceAdjustField(leaveType, 'balanceHours', event.target.value)}
+                        placeholder="0.00"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      className="hrEmpLeaveBalance__submit"
+                      disabled={isSavingBalance}
+                      onClick={() => void handleAdjustLeaveBalance(leaveType)}
+                    >
+                      {isSavingBalance ? 'Saving...' : 'Update Balance'}
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="hrEmpLeaveBalance__feedback">No leave balances are assigned yet for this employee.</div>
+        )}
+
+        <div className="hrEmpLeaveBalance__create">
+          <div className="hrEmpLeaveBalance__createHead">
+            <strong>Add Special Leave Type</strong>
+            <span>Only add leave types that this employee is actually entitled to receive.</span>
+          </div>
+
+          {availableLeaveTypeOptions.length > 0 ? (
+            <div className="hrEmpLeaveBalance__controls hrEmpLeaveBalance__controls--create">
+              <div className="hrEmpField">
+                <label>Leave Type</label>
+                <select
+                  value={leaveBalanceCreateForm.leaveType}
+                  onChange={(event) => setLeaveBalanceCreateField('leaveType', event.target.value as LeaveType)}
+                >
+                  {availableLeaveTypeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="hrEmpField">
+                <label>Starting Hours</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={leaveBalanceCreateForm.balanceHours}
+                  onChange={(event) => setLeaveBalanceCreateField('balanceHours', event.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+
+              <button
+                type="button"
+                className="hrEmpLeaveBalance__submit"
+                disabled={leaveBalanceSavingKey === 'create'}
+                onClick={() => void handleCreateLeaveBalance()}
+              >
+                {leaveBalanceSavingKey === 'create' ? 'Saving...' : 'Add Leave Type'}
+              </button>
+            </div>
+          ) : (
+            <div className="hrEmpLeaveBalance__feedback">
+              All supported leave types are already assigned to this employee.
+            </div>
+          )}
+        </div>
+
+        {leaveBalanceError ? <div className="hrEmpLeaveBalance__feedback is-error">{leaveBalanceError}</div> : null}
+      </>
+    );
+  }
+
   function renderExpandedDetails(row: EmployeeRow) {
     const details = employeeDetailsById[row.id];
     const isLoading = Boolean(detailLoadingIds[row.id]);
@@ -737,6 +1182,16 @@ export default function HrManageEmp() {
                 <strong>{displayValue(details.managerId)}</strong>
               </div>
             </div>
+          </section>
+
+          <section className="hrEmpDetails__card hrEmpDetails__card--full">
+            <div className="hrEmpLeaveBalance__header">
+              <div>
+                <h3>Leave Balances</h3>
+                <p>Review the employee's current leave balances here. Use Edit Employee to adjust them.</p>
+              </div>
+            </div>
+            {renderLeaveBalanceSummary()}
           </section>
 
           <section className="hrEmpDetails__card hrEmpDetails__card--full">
@@ -1087,6 +1542,13 @@ export default function HrManageEmp() {
                       </div>
                     </div>
                   </div>
+
+                  {modal === 'edit' ? (
+                    <div className="hrEmpForm__section">
+                      <div className="hrEmpForm__sectionTitle">Leave Balances</div>
+                      {renderLeaveBalanceEditor()}
+                    </div>
+                  ) : null}
 
                   <div className="hrEmpForm__section">
                     <div className="hrEmpForm__sectionTitle">Personal Information</div>

@@ -1,6 +1,6 @@
 import { getRoleHomePath, getSelfServicePath } from './roleRoutes';
 
-export type NotificationRole = 'employee' | 'hr' | 'management';
+export type NotificationRole = 'employee' | 'hr' | 'manager' | 'management';
 
 type NotificationPayload = Record<string, unknown>;
 
@@ -46,6 +46,10 @@ function defaultDestination(role: NotificationRole) {
   return role === 'employee' ? getRoleHomePath('employee') : getRoleHomePath(role);
 }
 
+function selfServiceNotificationPath(role: Extract<NotificationRole, 'employee' | 'manager' | 'management'>, page: 'payslip' | 'approvals' | 'training') {
+  return getSelfServicePath(role, page);
+}
+
 function resolveDestination(role: NotificationRole, message: string) {
   const normalized = message.trim().toLowerCase();
 
@@ -71,6 +75,24 @@ function resolveDestination(role: NotificationRole, message: string) {
     }
   }
 
+  if (role === 'manager') {
+    if (
+      normalized.startsWith('new leave request') ||
+      normalized.startsWith('new overtime request') ||
+      normalized.startsWith('new payroll dispute')
+    ) {
+      return '/manager/pending-approvals';
+    }
+
+    if (normalized.includes('attendance')) {
+      return '/manager/attendance-dashboard';
+    }
+
+    if (normalized.includes('calendar') || normalized.includes('event')) {
+      return getRoleHomePath('manager');
+    }
+  }
+
   if (role === 'management') {
     if (normalized.includes('pay run') || normalized.includes('payroll') || normalized.includes('payslip')) {
       return '/management/payroll-dashboard';
@@ -86,15 +108,32 @@ function resolveDestination(role: NotificationRole, message: string) {
   }
 
   if (normalized.includes('pay run posted') || normalized.includes('payslip')) {
-    return getSelfServicePath('employee', 'payslip');
+    if (role === 'manager') {
+      return selfServiceNotificationPath('manager', 'payslip');
+    }
+
+    if (role === 'management') {
+      return selfServiceNotificationPath('management', 'payslip');
+    }
+
+    return selfServiceNotificationPath('employee', 'payslip');
   }
 
   if (
     normalized.includes('leave request') ||
     normalized.includes('overtime request') ||
-    normalized.includes('dispute request')
+    normalized.includes('dispute request') ||
+    normalized.includes('dispute')
   ) {
-    return getSelfServicePath('employee', 'approvals');
+    if (role === 'manager') {
+      return selfServiceNotificationPath('manager', 'approvals');
+    }
+
+    if (role === 'management') {
+      return selfServiceNotificationPath('management', 'approvals');
+    }
+
+    return selfServiceNotificationPath('employee', 'approvals');
   }
 
   if (
@@ -104,7 +143,15 @@ function resolveDestination(role: NotificationRole, message: string) {
     normalized.includes('calendar') ||
     normalized.includes('event')
   ) {
-    return getSelfServicePath('employee', 'training');
+    if (role === 'manager') {
+      return selfServiceNotificationPath('manager', 'training');
+    }
+
+    if (role === 'management') {
+      return selfServiceNotificationPath('management', 'training');
+    }
+
+    return selfServiceNotificationPath('employee', 'training');
   }
 
   return defaultDestination(role);

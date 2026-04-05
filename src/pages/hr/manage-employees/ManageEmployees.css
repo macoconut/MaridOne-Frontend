@@ -381,6 +381,114 @@
   font-weight: 900;
 }
 
+.hrEmpLeaveBalance__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.hrEmpLeaveBalance__header p,
+.hrEmpLeaveBalance__createHead span {
+  margin: 4px 0 0;
+  color: #64587a;
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 600;
+}
+
+.hrEmpLeaveBalance__list {
+  display: grid;
+  gap: 12px;
+}
+
+.hrEmpLeaveBalance__card {
+  border: 1px solid rgba(61, 38, 90, 0.08);
+  border-radius: 14px;
+  background: #fcfbfe;
+  padding: 12px;
+  display: grid;
+  gap: 12px;
+}
+
+.hrEmpLeaveBalance__meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
+}
+
+.hrEmpLeaveBalance__label {
+  display: block;
+  color: #7b708e;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.hrEmpLeaveBalance__meta strong {
+  color: var(--hr-text);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.hrEmpLeaveBalance__controls {
+  display: grid;
+  grid-template-columns: minmax(0, 180px) minmax(0, 160px) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.hrEmpLeaveBalance__submit {
+  border: 0;
+  background: var(--hr-primary);
+  color: #fff;
+  min-height: 40px;
+  border-radius: 10px;
+  padding: 0 18px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: var(--hr-button-shadow);
+}
+
+.hrEmpLeaveBalance__submit:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.hrEmpLeaveBalance__create {
+  margin-top: 14px;
+  border-top: 1px solid rgba(61, 38, 90, 0.08);
+  padding-top: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.hrEmpLeaveBalance__createHead {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hrEmpLeaveBalance__createHead strong {
+  color: var(--hr-primary-dark);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.hrEmpLeaveBalance__feedback {
+  color: var(--hr-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.hrEmpLeaveBalance__feedback.is-error {
+  color: #b24651;
+}
+
 .hrEmpDetails__items {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -945,7 +1053,9 @@ body.modal-open .eMain {
   }
 
   .hrEmpDetails__grid,
-  .hrEmpDetails__items {
+  .hrEmpDetails__items,
+  .hrEmpLeaveBalance__meta,
+  .hrEmpLeaveBalance__controls {
     grid-template-columns: 1fr;
   }
 
