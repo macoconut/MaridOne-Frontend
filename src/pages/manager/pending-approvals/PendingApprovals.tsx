@@ -366,10 +366,7 @@ export default function ManagerPendingApprovals() {
   );
   const activeFilterCount = [typeFilter, statusFilter].filter((value) => value !== 'all').length;
   const hasFinalDecision = selected ? toStatusCode(selected.status) !== 'PENDING' : false;
-  const canReviewSelected =
-    selected &&
-    toStatusCode(selected.status) === 'PENDING' &&
-    (selected.source !== 'leave' || (typeof selected.leaveType === 'string' && selected.leaveType.length > 0));
+  const canReviewSelected = selected && toStatusCode(selected.status) === 'PENDING';
 
   useEffect(() => {
     setDecisionReason('');

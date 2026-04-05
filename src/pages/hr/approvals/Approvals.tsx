@@ -453,10 +453,7 @@ export default function HrApprovals() {
     (value) => value !== 'all'
   ).length;
   const hasFinalDecision = selected ? toStatusCode(selected.status) !== 'PENDING' : false;
-  const leaveReadyForReview =
-    selected?.source !== 'leave' || (typeof selected.leaveType === 'string' && selected.leaveType.length > 0);
-  const canReviewSelected =
-    selected ? toStatusCode(selected.status) === 'PENDING' && leaveReadyForReview : false;
+  const canReviewSelected = selected ? toStatusCode(selected.status) === 'PENDING' : false;
 
   useEffect(() => {
     setDecisionReason('');
@@ -799,9 +796,6 @@ export default function HrApprovals() {
               </div>
             )}
 
-            {selected.source === 'leave' && !leaveReadyForReview && (
-              <p className="hrApprForm__hint">This leave request is missing the details needed to submit an HR decision.</p>
-            )}
             {hasFinalDecision && (
               <p className="hrApprForm__hint">This request already has a final decision recorded.</p>
             )}
