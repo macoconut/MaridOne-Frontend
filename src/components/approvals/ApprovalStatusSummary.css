@@ -55,6 +55,11 @@
   --approval-status-ring-track: rgba(138, 107, 176, 0.12);
 }
 
+.approvalStatusSummary__ring--cancelled {
+  --approval-status-ring-color: #6b7280;
+  --approval-status-ring-track: rgba(107, 114, 128, 0.12);
+}
+
 .approvalStatusSummary__empty {
   width: 40px;
   height: 40px;

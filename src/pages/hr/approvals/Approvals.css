@@ -302,6 +302,11 @@
   box-shadow: inset 3px 0 0 rgba(184, 53, 115, 0.45);
 }
 
+.hrApprRequestTable__row--cancelled {
+  background: linear-gradient(90deg, rgba(90, 84, 109, 0.08), rgba(90, 84, 109, 0.03));
+  box-shadow: inset 3px 0 0 rgba(90, 84, 109, 0.35);
+}
+
 .hrApprRequestTable__cell {
   min-width: 0;
   color: #2f2c39;
@@ -413,6 +418,12 @@
   background: rgba(194, 59, 51, 0.12);
   color: #c23b33;
   border-color: rgba(194, 59, 51, 0.18);
+}
+
+.hrApprRow__status--cancelled {
+  background: rgba(90, 84, 109, 0.12);
+  color: #4f485f;
+  border-color: rgba(90, 84, 109, 0.18);
 }
 
 .hrApprRow__time {
@@ -529,6 +540,12 @@
   background: rgba(194, 59, 51, 0.12);
   color: #c23b33;
   border-color: rgba(194, 59, 51, 0.18);
+}
+
+.hrApprForm__statusBadge--cancelled {
+  background: rgba(90, 84, 109, 0.12);
+  color: #4f485f;
+  border-color: rgba(90, 84, 109, 0.18);
 }
 
 .hrApprForm__row textarea {

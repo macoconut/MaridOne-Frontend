@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import './ApprovalStatusSummary.css';
 
-type ApprovalStatusTone = 'approved' | 'denied' | 'pending';
+type ApprovalStatusTone = 'approved' | 'denied' | 'pending' | 'cancelled';
 
 type ApprovalStatusSummaryItem = {
   label: string;

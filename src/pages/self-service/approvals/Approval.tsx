@@ -1,22 +1,31 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
 import ApprovalStatusSummary from '../../../components/approvals/ApprovalStatusSummary';
+import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
+import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
+import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getUserEmail } from '../../../lib/session';
+import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './Approval.css';
+
+type ApprovalSource = 'leave' | 'overtime' | 'dispute';
+type ApprovalStatus = 'Pending' | 'Approved' | 'Denied' | 'Cancelled';
 
 type ApprovalItem = {
   id: string;
+  source: ApprovalSource;
+  sourceId: number;
   sortStamp: number;
   dateOfRequest: string;
   requestType: string;
   requestDetail: string;
   requestTarget: string;
-  status: 'Pending' | 'Approved' | 'Denied';
+  status: ApprovalStatus;
   approvedBy: string;
   requestReason: string;
   decisionReason: string;
@@ -24,7 +33,7 @@ type ApprovalItem = {
 };
 
 type ApprovalTypeFilter = 'all' | 'Leave' | 'Overtime' | 'Payslip Dispute';
-type ApprovalStatusFilter = 'all' | 'Pending' | 'Approved' | 'Denied';
+type ApprovalStatusFilter = 'all' | ApprovalStatus;
 
 type LeaveRow = {
   requestId?: number;
@@ -150,6 +159,14 @@ function buildPayrollPeriodLabel(start?: string, end?: string) {
   return startLabel === endLabel ? startLabel : `${startLabel} to ${endLabel}`;
 }
 
+function mapApprovalStatus(status?: string): ApprovalStatus {
+  const normalized = String(status ?? '').toUpperCase();
+  if (normalized === 'APPROVED') return 'Approved';
+  if (normalized === 'REJECTED' || normalized === 'DENIED') return 'Denied';
+  if (normalized === 'CANCELLED') return 'Cancelled';
+  return 'Pending';
+}
+
 function displayRequestDate(item: ApprovalItem) {
   return item.requestType === 'Overtime' || item.requestType === 'Payslip Dispute'
     ? formatDate(item.dateOfRequest)
@@ -164,10 +181,16 @@ export default function Approval() {
   useEscapeDismiss(Boolean(selectedApprovalId), () => setSelectedApprovalId(null), 10);
   const [typeFilter, setTypeFilter] = useState<ApprovalTypeFilter>('all');
   const [statusFilter, setStatusFilter] = useState<ApprovalStatusFilter>('all');
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
+  const [cancelError, setCancelError] = useState('');
+  const { showSuccess } = useUiDialog();
+  useErrorDialogEffect(cancelError, 'Request could not be cancelled');
   const selectedApproval = useMemo(
     () => approvals.find((item) => item.id === selectedApprovalId) ?? null,
     [approvals, selectedApprovalId]
   );
+  const canCancelSelected = selectedApproval?.status === 'Pending';
 
   useEffect(() => {
     if (selectedApproval) document.body.classList.add('modal-open');
@@ -175,6 +198,11 @@ export default function Approval() {
 
     return () => document.body.classList.remove('modal-open');
   }, [selectedApproval]);
+
+  useEffect(() => {
+    setConfirmCancelOpen(false);
+    setCancelError('');
+  }, [selectedApprovalId]);
 
   async function loadApprovals() {
     try {
@@ -197,12 +225,17 @@ export default function Approval() {
               : null;
 
       if (!empId) throw new Error('Missing employee ID');
-      const [leaveResponse, otResponse, disputeResponse, payrollItemsResponse] = await Promise.all([
-        apiFetchJson<unknown>(`/api/leave/request/${empId}?page=0&size=20`),
-        apiFetchJson<unknown>(`/api/overtime/all/${empId}?page=0&size=20`),
-        apiFetchJson<unknown>(`/api/payroll/item/dispute/self?empId=${empId}&page=0&size=20`),
+      const requests = await Promise.allSettled([
+        apiFetchJson<unknown>(`/api/leave/request/${empId}?page=0&size=100&sort=requestId,desc`),
+        apiFetchJson<unknown>(`/api/overtime/all/${empId}?page=0&size=100&sort=requestAt,desc`),
+        apiFetchJson<unknown>(`/api/payroll/item/dispute/self?empId=${empId}&page=0&size=100&sort=createdAt,desc`),
         apiFetchJson<unknown>(`/api/payroll/item/${empId}`),
       ]);
+
+      const leaveResponse = requests[0].status === 'fulfilled' ? requests[0].value : [];
+      const otResponse = requests[1].status === 'fulfilled' ? requests[1].value : [];
+      const disputeResponse = requests[2].status === 'fulfilled' ? requests[2].value : [];
+      const payrollItemsResponse = requests[3].status === 'fulfilled' ? requests[3].value : [];
 
       const payrollPeriodByItemId = new Map<number, string>();
       for (const row of toArray<PayrollItemRow>(payrollItemsResponse)) {
@@ -216,39 +249,33 @@ export default function Approval() {
       }
 
       const leaveItems = toArray<LeaveRow>(leaveResponse).map((row, index) => {
-        const statusRaw = String(row.requestStatus ?? '').toUpperCase();
-        const status: ApprovalItem['status'] =
-          statusRaw === 'APPROVED'
-            ? 'Approved'
-            : statusRaw === 'REJECTED' || statusRaw === 'DENIED'
-              ? 'Denied'
-              : 'Pending';
+        const status = mapApprovalStatus(row.requestStatus);
         const requestStamp = row.startDateTime ? Date.parse(row.startDateTime) || 0 : 0;
+        const requestId = row.requestId ?? index;
         return {
-          id: `leave-${String(row.requestId ?? index)}`,
+          id: `leave-${String(requestId)}`,
+          source: 'leave' as const,
+          sourceId: requestId,
           sortStamp: requestStamp,
           dateOfRequest: formatDate(row.startDateTime),
           requestType: 'Leave',
           requestDetail: buildLeaveDetail(row.leaveType, row.paid ?? row.isPaid),
           requestTarget: `${formatDate(row.startDateTime)} to ${formatDate(row.endDateTime)}`,
           status,
-          approvedBy: status === 'Pending' ? '-' : row.approver?.trim() || '-',
+          approvedBy: status === 'Pending' ? '-' : status === 'Cancelled' ? '-' : row.approver?.trim() || '-',
           requestReason: row.reason ?? '-',
-          decisionReason: row.approverReason ?? '-',
+          decisionReason: status === 'Cancelled' ? 'Request cancelled by employee.' : row.approverReason ?? '-',
           decisionDate: formatDateTime(row.approvedAt),
         };
       });
 
-      const overtimeItems = toArray<OvertimeRow>(otResponse).map((row) => {
-        const statusRaw = String(row.requestStatus ?? '').toUpperCase();
-        const status: ApprovalItem['status'] =
-          statusRaw === 'APPROVED'
-            ? 'Approved'
-            : statusRaw === 'REJECTED' || statusRaw === 'DENIED'
-              ? 'Denied'
-              : 'Pending';
+      const overtimeItems = toArray<OvertimeRow>(otResponse).map((row, index) => {
+        const status = mapApprovalStatus(row.requestStatus);
+        const overtimeId = row.overtimeId ?? index;
         return {
-          id: String(row.overtimeId ?? Math.random()),
+          id: `overtime-${String(overtimeId)}`,
+          source: 'overtime' as const,
+          sourceId: overtimeId,
           sortStamp: row.requestAt ? Date.parse(row.requestAt) || 0 : 0,
           dateOfRequest: formatDate(row.requestAt),
           requestType: 'Overtime',
@@ -258,23 +285,20 @@ export default function Approval() {
               ? `${formatDate(row.workDate)} at ${formatTime(row.startTime)}`
               : formatDate(row.workDate),
           status,
-          approvedBy: row.approver ?? '-',
+          approvedBy: status === 'Pending' ? '-' : status === 'Cancelled' ? '-' : row.approver ?? '-',
           requestReason: row.reason ?? '-',
-          decisionReason: row.approveReason ?? '-',
+          decisionReason: status === 'Cancelled' ? 'Request cancelled by employee.' : row.approveReason ?? '-',
           decisionDate: formatDateTime(row.approvedAt),
         };
       });
 
-      const disputeItems = toArray<DisputeRow>(disputeResponse).map((row) => {
-        const statusRaw = String(row.status ?? '').toUpperCase();
-        const status: ApprovalItem['status'] =
-          statusRaw === 'APPROVED'
-            ? 'Approved'
-            : statusRaw === 'REJECTED' || statusRaw === 'DENIED'
-              ? 'Denied'
-              : 'Pending';
+      const disputeItems = toArray<DisputeRow>(disputeResponse).map((row, index) => {
+        const status = mapApprovalStatus(row.status);
+        const disputeId = row.id ?? index;
         return {
-          id: `dispute-${String(row.id ?? Math.random())}`,
+          id: `dispute-${String(disputeId)}`,
+          source: 'dispute' as const,
+          sourceId: disputeId,
           sortStamp: row.createdAt ? Date.parse(row.createdAt) || 0 : 0,
           dateOfRequest: formatDate(row.createdAt),
           requestType: 'Payslip Dispute',
@@ -284,9 +308,9 @@ export default function Approval() {
               ? payrollPeriodByItemId.get(row.itemId) ?? 'Payroll period unavailable'
               : 'Payroll period unavailable',
           status,
-          approvedBy: status === 'Pending' ? '-' : resolveDisputeApprover(row),
+          approvedBy: status === 'Pending' ? '-' : status === 'Cancelled' ? '-' : resolveDisputeApprover(row),
           requestReason: row.reason ?? '-',
-          decisionReason: row.statusReason ?? '-',
+          decisionReason: status === 'Cancelled' ? 'Request cancelled by employee.' : row.statusReason ?? '-',
           decisionDate: formatDateTime(row.updatedAt),
         };
       });
@@ -303,11 +327,42 @@ export default function Approval() {
     }
   }
 
-  const refreshApprovals = useAutoRefreshingPage(loadApprovals, { intervalMs: 15000 });
+  const refreshApprovals = useAutoRefreshingPage(loadApprovals, { intervalMs: 10000 });
 
   useEffect(() => {
     void refreshApprovals();
   }, [refreshApprovals]);
+
+  async function cancelSelectedApproval() {
+    if (!selectedApproval || !canCancelSelected) return;
+
+    setCancelError('');
+    setIsCancelling(true);
+    try {
+      const path =
+        selectedApproval.source === 'leave'
+          ? `/api/leave/request/cancel/${selectedApproval.sourceId}`
+          : selectedApproval.source === 'overtime'
+            ? `/api/overtime/cancel/${selectedApproval.sourceId}`
+            : `/api/payroll/item/dispute/cancel/${selectedApproval.sourceId}`;
+
+      await apiFetchJson(path, { method: 'PATCH' });
+      setConfirmCancelOpen(false);
+      setSelectedApprovalId(null);
+      await loadApprovals();
+      showSuccess(`${selectedApproval.requestType} request cancelled successfully.`, 'Request Cancelled');
+    } catch (error) {
+      const context =
+        selectedApproval.source === 'leave'
+          ? 'leave-request'
+          : selectedApproval.source === 'overtime'
+            ? 'overtime-request'
+            : 'payroll-dispute';
+      setCancelError(getFriendlyErrorMessage(error, context));
+    } finally {
+      setIsCancelling(false);
+    }
+  }
 
   const normalizedSearch = searchValue.trim().toLowerCase();
   const visibleApprovals = useMemo(() => {
@@ -358,6 +413,11 @@ export default function Approval() {
         label: 'Pending',
         value: visibleApprovals.filter((item) => item.status === 'Pending').length,
         tone: 'pending' as const,
+      },
+      {
+        label: 'Cancelled',
+        value: visibleApprovals.filter((item) => item.status === 'Cancelled').length,
+        tone: 'cancelled' as const,
       },
     ],
     [visibleApprovals]
@@ -428,6 +488,7 @@ export default function Approval() {
                   <option value="Pending">Pending</option>
                   <option value="Approved">Approved</option>
                   <option value="Denied">Denied</option>
+                  <option value="Cancelled">Cancelled</option>
                 </select>
               </label>
 
@@ -544,19 +605,40 @@ export default function Approval() {
                 <p className="apprModal__sectionBody">{selectedApproval.requestReason}</p>
               </div>
               <div className="apprModal__section">
-                <div className="apprModal__sectionTitle">Approval / Denial Reason</div>
+                <div className="apprModal__sectionTitle">
+                  {selectedApproval.status === 'Cancelled' ? 'Cancellation Note' : 'Approval / Denial Reason'}
+                </div>
                 <p className="apprModal__sectionBody">{selectedApproval.decisionReason}</p>
               </div>
             </div>
 
             <div className="apprModal__actions">
-              <button type="button" onClick={() => setSelectedApprovalId(null)}>
+              <button type="button" className="is-secondary" onClick={() => setSelectedApprovalId(null)}>
                 Close
               </button>
+              {canCancelSelected && (
+                <button type="button" className="is-danger" onClick={() => setConfirmCancelOpen(true)}>
+                  Cancel Request
+                </button>
+              )}
             </div>
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={confirmCancelOpen}
+        title="Cancel Request"
+        message={
+          selectedApproval
+            ? `Cancel your pending ${selectedApproval.requestType.toLowerCase()} request for ${selectedApproval.requestTarget}?`
+            : 'Cancel this pending request?'
+        }
+        confirmLabel="Cancel Request"
+        cancelLabel="Go Back"
+        isBusy={isCancelling}
+        onConfirm={() => void cancelSelectedApproval()}
+        onCancel={() => setConfirmCancelOpen(false)}
+      />
     </div>
   );
 }

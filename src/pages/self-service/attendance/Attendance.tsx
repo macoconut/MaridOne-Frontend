@@ -375,7 +375,7 @@ export default function Attendance() {
   const [otOpen, setOtOpen] = useState(false);
   const [otStartDate, setOtStartDate] = useState<string>('');
   const [otEndDate, setOtEndDate] = useState<string>('');
-  const [otStartTime, setOtStartTime] = useState<string>('18:00');
+  const [otStartTime, setOtStartTime] = useState<string>('17:00');
   const [otEndTime, setOtEndTime] = useState<string>('20:00');
   const [otType, setOtType] = useState<OvertimeType>('OVERTIME');
   const [otReason, setOtReason] = useState<string>('');
@@ -713,7 +713,7 @@ export default function Attendance() {
     const iso = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
     setOtStartDate(iso);
     setOtEndDate(iso);
-    setOtStartTime('18:00');
+    setOtStartTime('17:00');
     setOtEndTime('20:00');
     setOtType('OVERTIME');
     setOtReason('');

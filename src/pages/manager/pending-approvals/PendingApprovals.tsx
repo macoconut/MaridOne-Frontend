@@ -47,7 +47,7 @@ type OvertimeDto = {
 type RequestType = 'Leave' | 'Overtime';
 type SourceType = 'leave' | 'overtime';
 type RequestTypeFilter = 'all' | SourceType;
-type StatusFilter = 'all' | 'PENDING' | 'APPROVED' | 'REJECTED';
+type StatusFilter = 'all' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 
 type ManagerRequest = {
   id: string;
@@ -184,6 +184,7 @@ function statusLabel(status: string) {
   if (normalized === 'PENDING') return 'Pending';
   if (normalized === 'APPROVED') return 'Approved';
   if (normalized === 'REJECTED') return 'Denied';
+  if (normalized === 'CANCELLED') return 'Cancelled';
   return status;
 }
 
@@ -299,7 +300,7 @@ export default function ManagerPendingApprovals() {
     }
   }
 
-  const refreshRequests = useAutoRefreshingPage(loadRequests, { intervalMs: 15000 });
+  const refreshRequests = useAutoRefreshingPage(loadRequests, { intervalMs: 10000 });
 
   useEffect(() => {
     void refreshRequests();
@@ -353,10 +354,12 @@ export default function ManagerPendingApprovals() {
     const approved = visibleRequests.filter((request) => toStatusCode(request.status) === 'APPROVED').length;
     const denied = visibleRequests.filter((request) => toStatusCode(request.status) === 'REJECTED').length;
     const pending = visibleRequests.filter((request) => toStatusCode(request.status) === 'PENDING').length;
+    const cancelled = visibleRequests.filter((request) => toStatusCode(request.status) === 'CANCELLED').length;
     return [
       { label: 'Approved', value: approved, tone: 'approved' as const },
       { label: 'Denied', value: denied, tone: 'denied' as const },
       { label: 'Pending', value: pending, tone: 'pending' as const },
+      { label: 'Cancelled', value: cancelled, tone: 'cancelled' as const },
     ];
   }, [visibleRequests]);
 
@@ -510,6 +513,7 @@ export default function ManagerPendingApprovals() {
                     <option value="PENDING">Pending</option>
                     <option value="APPROVED">Approved</option>
                     <option value="REJECTED">Denied</option>
+                    <option value="CANCELLED">Cancelled</option>
                   </select>
                 </label>
 

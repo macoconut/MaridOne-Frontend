@@ -11,6 +11,7 @@ import { apiFetchJson, toArray } from '../../../lib/api';
 import { extractAttachmentReference, openDocumentAttachment } from '../../../lib/documentAttachments';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './Approvals.css';
+import '../../manager/pending-approvals/PendingApprovals.css';
 
 type OvertimeDto = {
   overtimeId?: number;
@@ -51,7 +52,7 @@ type EmployeeDirectoryRow = {
 type RequestType = 'Overtime' | 'Leave';
 type SourceType = 'overtime' | 'leave';
 type RequestTypeFilter = 'all' | SourceType;
-type StatusFilter = 'all' | 'PENDING' | 'APPROVED' | 'REJECTED';
+type StatusFilter = 'all' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 type LeavePaidFilter = 'all' | 'paid' | 'unpaid';
 type OvertimeTypeFilter =
   | 'all'
@@ -211,7 +212,8 @@ function requestStatusPriority(status: string) {
   if (normalized === 'PENDING') return 0;
   if (normalized === 'APPROVED') return 1;
   if (normalized === 'REJECTED') return 2;
-  return 3;
+  if (normalized === 'CANCELLED') return 3;
+  return 4;
 }
 
 function statusLabel(status: string) {
@@ -219,6 +221,7 @@ function statusLabel(status: string) {
   if (normalized === 'PENDING') return 'Pending';
   if (normalized === 'APPROVED') return 'Approved';
   if (normalized === 'REJECTED') return 'Denied';
+  if (normalized === 'CANCELLED') return 'Cancelled';
   return status;
 }
 
@@ -373,7 +376,7 @@ export default function HrApprovals() {
     }
   }
 
-  const refreshRequests = useAutoRefreshingPage(loadRequests, { intervalMs: 15000 });
+  const refreshRequests = useAutoRefreshingPage(loadRequests, { intervalMs: 10000 });
 
   useEffect(() => {
     void refreshRequests();
@@ -438,10 +441,12 @@ export default function HrApprovals() {
     const approved = visibleRequests.filter((r) => toStatusCode(r.status) === 'APPROVED').length;
     const denied = visibleRequests.filter((r) => toStatusCode(r.status) === 'REJECTED').length;
     const pending = visibleRequests.filter((r) => toStatusCode(r.status) === 'PENDING').length;
+    const cancelled = visibleRequests.filter((r) => toStatusCode(r.status) === 'CANCELLED').length;
     return [
       { label: 'Approved', value: approved, tone: 'approved' as const },
       { label: 'Denied', value: denied, tone: 'denied' as const },
       { label: 'Pending', value: pending, tone: 'pending' as const },
+      { label: 'Cancelled', value: cancelled, tone: 'cancelled' as const },
     ];
   }, [visibleRequests]);
 
@@ -619,6 +624,7 @@ export default function HrApprovals() {
                     <option value="PENDING">Pending</option>
                     <option value="APPROVED">Approved</option>
                     <option value="REJECTED">Denied</option>
+                    <option value="CANCELLED">Cancelled</option>
                   </select>
                 </label>
 
@@ -667,32 +673,32 @@ export default function HrApprovals() {
 
       <ApprovalStatusSummary items={cards} />
 
-      <section className="hrApprTable hrApprRequestTable">
+      <section className="hrApprTable mgrPendTable">
         {visibleRequests.length > 0 ? (
           <>
-            <div className="hrApprRequestTable__head" role="row">
+            <div className="mgrPendTable__head" role="row">
               <span>Name</span>
               <span>Request</span>
               <span>Specific Type</span>
               <span>Duration</span>
               <span>Date and Time</span>
-              <span className="hrApprRequestTable__headCell--status">Status</span>
+              <span className="mgrPendTable__headCell--status">Status</span>
             </div>
 
-            <div className="hrApprRequestTable__body">
+            <div className="mgrPendTable__body">
               {visibleRequests.map((request) => (
                 <button
                   key={request.id}
                   type="button"
-                  className={`hrApprRequestTable__row hrApprRequestTable__row--${toStatusCode(request.status).toLowerCase()}`}
+                  className="mgrPendTable__row"
                   onClick={() => setSelectedId(request.id)}
                 >
-                  <span className="hrApprRequestTable__cell hrApprRequestTable__cell--name">{request.employee}</span>
-                  <span className="hrApprRequestTable__cell">{request.requestLabel}</span>
-                  <span className="hrApprRequestTable__cell">{request.requestKind}</span>
-                  <span className="hrApprRequestTable__cell">{request.durationLabel}</span>
-                  <span className="hrApprRequestTable__cell">{request.requestDateTime}</span>
-                  <span className="hrApprRequestTable__cell hrApprRequestTable__cell--status">
+                  <span className="mgrPendTable__cell mgrPendTable__cell--name">{request.employee}</span>
+                  <span className="mgrPendTable__cell">{request.requestLabel}</span>
+                  <span className="mgrPendTable__cell">{request.requestKind}</span>
+                  <span className="mgrPendTable__cell">{request.durationLabel}</span>
+                  <span className="mgrPendTable__cell">{request.requestDateTime}</span>
+                  <span className="mgrPendTable__cell mgrPendTable__cell--status">
                     <span className={`hrApprRow__status hrApprRow__status--${toStatusCode(request.status).toLowerCase()}`}>
                       {statusLabel(request.status)}
                     </span>
@@ -702,7 +708,7 @@ export default function HrApprovals() {
             </div>
           </>
         ) : (
-          <div className="hrApprRequestTable__empty">
+          <div className="mgrPendTable__empty">
             <span>No matching requests.</span>
             <span>Try clearing the search or adjusting the filters.</span>
           </div>

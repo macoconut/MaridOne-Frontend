@@ -29,16 +29,21 @@ const HR_APPROVAL_PREFIXES = [
   'new overtime request',
   'an employee cancelled a leave request',
   'an employee cancelled an overtime request',
+  'leave request from',
+  'overtime request from',
 ] as const;
 
 const HR_PAYSLIP_PREFIXES = [
   'new payroll dispute',
   'an employee cancelled a dispute request',
+  'dispute request from',
 ] as const;
 
 const MANAGER_APPROVAL_PREFIXES = [
   'new team leave request',
   'new team overtime request',
+  'team leave request',
+  'team overtime request',
   'new leave request',
   'new overtime request',
   'new payroll dispute',

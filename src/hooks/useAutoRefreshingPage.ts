@@ -11,7 +11,7 @@ export function useAutoRefreshingPage(
   handler: () => void | Promise<void>,
   options: UseAutoRefreshingPageOptions = {}
 ) {
-  const { enabled = true, intervalMs = 15000, refreshOnFocus = true } = options;
+  const { enabled = true, intervalMs = 10000, refreshOnFocus = true } = options;
   const handlerRef = useRef(handler);
   const isRefreshingRef = useRef(false);
 

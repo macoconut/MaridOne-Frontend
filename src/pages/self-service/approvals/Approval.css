@@ -243,6 +243,9 @@ body.modal-open{
 .apprStatus--denied{
   color:#b24c4c;
 }
+.apprStatus--cancelled{
+  color:#5f6370;
+}
 
 .apprModalBackdrop{
   position: fixed;
@@ -348,6 +351,12 @@ body.modal-open{
 .apprModal__status--pending{
   background:#efe7f8;
   color:#5a3778;
+  border-color:transparent;
+}
+
+.apprModal__status--cancelled{
+  background:#eceff3;
+  color:#4f5868;
   border-color:transparent;
 }
 
@@ -461,6 +470,17 @@ body.modal-open{
   border-radius:12px;
   cursor:pointer;
   box-shadow: 0 10px 18px rgba(123,74,143,0.22);
+}
+
+.apprModal__actions button.is-secondary{
+  background:#ede7f5;
+  color:#4d3d60;
+  box-shadow:none;
+}
+
+.apprModal__actions button.is-danger{
+  background:linear-gradient(135deg, #b04d58 0%, #cf6b74 100%);
+  box-shadow: 0 10px 18px rgba(176, 77, 88, 0.2);
 }
 
 @media (max-width: 1200px){
