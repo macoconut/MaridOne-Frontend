@@ -131,6 +131,11 @@ type AttendanceReportsBoardProps = {
   leavesUrl?: string;
 };
 
+type OvernightShiftWindow = {
+  workDateKey: string;
+  cutoffTime: number;
+};
+
 const DAYS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
 const BASE_LEGEND_ITEMS: Array<{ label: string; tone: EmployeeCalendarTone }> = [
   { label: 'Present', tone: 'present' },
@@ -148,6 +153,7 @@ const FOCUS_LEGEND_ITEMS: Array<{ label: string; tone: EmployeeCalendarTone }> =
 const DEFAULT_WORKING_DAYS = new Set([1, 2, 3, 4, 5, 6]);
 const LATE_GRACE_MINUTES = 15;
 const DAY_NAMES = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+const NIGHT_SHIFT_REPORT_CUTOFF_HOUR = 6;
 
 function pad2(value: number) {
   return String(value).padStart(2, '0');
@@ -155,6 +161,20 @@ function pad2(value: number) {
 
 function toISODate(year: number, monthIndex: number, day: number) {
   return `${year}-${pad2(monthIndex + 1)}-${pad2(day)}`;
+}
+
+function shiftDateKey(dateKey: string, days: number) {
+  const date = dateFromKey(dateKey);
+  if (Number.isNaN(date.getTime())) return '';
+  date.setDate(date.getDate() + days);
+  return toISODate(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function dateKeyAtHour(dateKey: string, hour: number) {
+  const date = dateFromKey(dateKey);
+  if (Number.isNaN(date.getTime())) return null;
+  date.setHours(hour, 0, 0, 0);
+  return date;
 }
 
 function dateFromKey(dateKey: string) {
@@ -518,6 +538,71 @@ function buildDailyRecords(
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+function buildOvernightShiftWindows(
+  dailyShifts: DailyShift[],
+  eligibleEmployeeIds: Set<number>
+) {
+  const windows = new Map<string, OvernightShiftWindow>();
+
+  for (const shift of dailyShifts) {
+    const employeeId = Number(shift.employeeId);
+    const workDateKey = localDateKey(shift.workDate ?? shift.startDateTime);
+    const shiftStart = shift.startDateTime ? new Date(shift.startDateTime) : null;
+    const shiftEnd = shift.endDateTime ? new Date(shift.endDateTime) : null;
+
+    if (
+      !Number.isFinite(employeeId) ||
+      !eligibleEmployeeIds.has(employeeId) ||
+      !workDateKey ||
+      !shiftStart ||
+      !shiftEnd ||
+      Number.isNaN(shiftStart.getTime()) ||
+      Number.isNaN(shiftEnd.getTime())
+    ) {
+      continue;
+    }
+
+    const crossesMidnight =
+      localDateKey(shift.startDateTime) !== localDateKey(shift.endDateTime) ||
+      shiftEnd.getTime() <= shiftStart.getTime();
+    if (!crossesMidnight) continue;
+
+    const nextDateKey = shiftDateKey(workDateKey, 1);
+    const nextMorningCutoff = dateKeyAtHour(nextDateKey, NIGHT_SHIFT_REPORT_CUTOFF_HOUR);
+    if (!nextDateKey || !nextMorningCutoff) continue;
+
+    const cutoffTime = Math.max(shiftEnd.getTime(), nextMorningCutoff.getTime());
+    const key = `${employeeId}:${nextDateKey}`;
+    const current = windows.get(key);
+
+    if (!current || cutoffTime > current.cutoffTime) {
+      windows.set(key, { workDateKey, cutoffTime });
+    }
+  }
+
+  return windows;
+}
+
+function resolveAttendanceReportDateKey(
+  log: AttendanceLog,
+  overnightShiftWindows: Map<string, OvernightShiftWindow>
+) {
+  const logDateKey = localDateKey(log.timestamp);
+  if (typeof log.employeeId !== 'number' || !logDateKey || !log.timestamp) {
+    return logDateKey;
+  }
+
+  const logTime = Date.parse(log.timestamp);
+  if (Number.isNaN(logTime)) return logDateKey;
+
+  const overnightWindow = overnightShiftWindows.get(`${log.employeeId}:${logDateKey}`);
+  if (overnightWindow && logTime <= overnightWindow.cutoffTime) {
+    return overnightWindow.workDateKey;
+  }
+
+  return logDateKey;
+}
+
 function withParams(path: string, params: Record<string, string>) {
   const query = new URLSearchParams(params).toString();
   const separator = path.includes('?') ? '&' : '?';
@@ -663,7 +748,14 @@ export function AttendanceReportsBoard({
       }
       try {
         const start = new Date(year, monthIndex, 1, 0, 0, 0, 0);
-        const end = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+        const end = new Date(year, monthIndex + 1, 1, NIGHT_SHIFT_REPORT_CUTOFF_HOUR, 0, 0, 0);
+        const dailyShiftStart = new Date(year, monthIndex, 1, 0, 0, 0, 0);
+        dailyShiftStart.setDate(dailyShiftStart.getDate() - 1);
+        const dailyShiftStartKey = toISODate(
+          dailyShiftStart.getFullYear(),
+          dailyShiftStart.getMonth(),
+          dailyShiftStart.getDate()
+        );
         const logResponse = await apiFetchJson<unknown>(
           withParams(logsUrl, {
             page: '0',
@@ -694,7 +786,7 @@ export function AttendanceReportsBoard({
           ),
           apiFetchJson<unknown>(
             withParams('/api/employee/schedule/daily', {
-              startDate: monthStartKey,
+              startDate: dailyShiftStartKey,
               endDate: monthEndKey,
             })
           ),
@@ -895,16 +987,18 @@ export function AttendanceReportsBoard({
 
   const logsByDate = useMemo(() => {
     const grouped = new Map<string, AttendanceLog[]>();
+    const overnightShiftWindows = buildOvernightShiftWindows(dailyShifts, filteredEmployeeIdSet);
+
     for (const log of logs) {
       if (typeof log.employeeId !== 'number' || !filteredEmployeeIdSet.has(log.employeeId)) continue;
-      const key = localDateKey(log.timestamp);
+      const key = resolveAttendanceReportDateKey(log, overnightShiftWindows);
       if (!key) continue;
       const current = grouped.get(key) ?? [];
       current.push(log);
       grouped.set(key, current);
     }
     return grouped;
-  }, [filteredEmployeeIdSet, logs]);
+  }, [dailyShifts, filteredEmployeeIdSet, logs]);
 
   const approvedLeavesByDate = useMemo(() => {
     const grouped = new Map<string, LeaveRequest[]>();
