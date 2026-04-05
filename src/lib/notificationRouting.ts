@@ -1,4 +1,9 @@
-import { getRoleHomePath, getSelfServicePath, type SelfServiceRole } from './roleRoutes';
+import {
+  getRoleHomePath,
+  getSelfServicePath,
+  type SelfServicePage,
+  type SelfServiceRole,
+} from './roleRoutes';
 
 export type NotificationRole = 'employee' | 'hr' | 'manager' | 'management';
 
@@ -13,6 +18,31 @@ export type NotificationItem = {
   destination: string;
   rawMessage: string;
 };
+
+type NotificationSelfServicePage = Extract<
+  SelfServicePage,
+  'attendance' | 'approvals' | 'payslip' | 'training'
+>;
+
+const HR_APPROVAL_PREFIXES = [
+  'new leave request',
+  'new overtime request',
+  'an employee cancelled a leave request',
+  'an employee cancelled an overtime request',
+] as const;
+
+const HR_PAYSLIP_PREFIXES = [
+  'new payroll dispute',
+  'an employee cancelled a dispute request',
+] as const;
+
+const MANAGER_APPROVAL_PREFIXES = [
+  'new team leave request',
+  'new team overtime request',
+  'new leave request',
+  'new overtime request',
+  'new payroll dispute',
+] as const;
 
 function isSameCalendarDay(left: Date, right: Date) {
   return (
@@ -46,139 +76,100 @@ function defaultDestination(role: NotificationRole) {
   return getRoleHomePath(role);
 }
 
-function selfServiceNotificationPath(role: Extract<NotificationRole, 'employee' | 'manager' | 'management'>, page: 'payslip' | 'approvals' | 'training') {
+function selfServiceNotificationPath(role: SelfServiceRole, page: NotificationSelfServicePage) {
   return getSelfServicePath(role, page);
+}
+
+function includesAny(value: string, patterns: readonly string[]) {
+  return patterns.some((pattern) => value.includes(pattern));
+}
+
+function startsWithAny(value: string, patterns: readonly string[]) {
+  return patterns.some((pattern) => value.startsWith(pattern));
+}
+
+function parseReadStatus(value: unknown) {
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true') return true;
+    if (normalized === 'false') return false;
+  }
+
+  if (typeof value === 'number') {
+    return value !== 0;
+  }
+
+  return Boolean(value);
 }
 
 function resolveDestination(role: NotificationRole, message: string) {
   const normalized = message.trim().toLowerCase();
-  const selfServiceRole = role as SelfServiceRole;
+  const selfServiceRole: SelfServiceRole = role;
 
   if (role === 'hr') {
-    if (normalized.includes('dispute')) {
-      return '/hr/payslips';
-    }
-
-    if (normalized.includes('leave request') || normalized.includes('overtime')) {
+    if (startsWithAny(normalized, HR_APPROVAL_PREFIXES)) {
       return '/hr/approvals';
     }
 
-    if (normalized.includes('pay run') || normalized.includes('payroll')) {
-      return '/hr/pay-run-reporting';
-    }
-
-    if (normalized.includes('payslip')) {
+    if (startsWithAny(normalized, HR_PAYSLIP_PREFIXES)) {
       return '/hr/payslips';
     }
 
-    if (normalized.includes('employee')) {
-      return '/hr/manage-employees';
+    if (includesAny(normalized, ['pay run', 'payroll run'])) {
+      return '/hr/pay-run-reporting';
     }
   }
 
-  if (role === 'manager') {
-    if (
-      normalized.startsWith('new leave request') ||
-      normalized.startsWith('new overtime request') ||
-      normalized.startsWith('new payroll dispute')
-    ) {
-      return '/manager/pending-approvals';
-    }
-
-    if (normalized.includes('attendance')) {
-      return '/manager/attendance-dashboard';
-    }
-
-    if (normalized.includes('calendar') || normalized.includes('event')) {
-      return getRoleHomePath('manager');
-    }
+  if (role === 'manager' && startsWithAny(normalized, MANAGER_APPROVAL_PREFIXES)) {
+    return '/manager/pending-approvals';
   }
 
-  if (role === 'management') {
-    if (normalized.includes('pay run') || normalized.includes('payroll') || normalized.includes('payslip')) {
-      return '/management/payroll-dashboard';
-    }
-
-    if (normalized.includes('attendance')) {
-      return '/management/attendance';
-    }
-
-    if (normalized.includes('calendar') || normalized.includes('event')) {
-      return getRoleHomePath('management');
-    }
+  if (role === 'management' && includesAny(normalized, ['pay run', 'payroll run'])) {
+    return '/management/payroll-dashboard';
   }
 
-  if (role === 'manager') {
-    if (normalized.includes('leave request') || normalized.includes('overtime')) {
-      return '/manager/pending-approvals';
-    }
-
-    if (normalized.includes('attendance')) {
-      return '/manager/attendance-dashboard';
-    }
-
-    if (normalized.includes('calendar') || normalized.includes('event')) {
-      return getRoleHomePath('manager');
-    }
-  }
-
-  if (normalized.includes('pay run posted') || normalized.includes('payslip')) {
-<<<<<<< Updated upstream
-    if (role === 'manager') {
-      return selfServiceNotificationPath('manager', 'payslip');
-    }
-
-    if (role === 'management') {
-      return selfServiceNotificationPath('management', 'payslip');
-    }
-
-    return selfServiceNotificationPath('employee', 'payslip');
-=======
-    return getSelfServicePath(selfServiceRole, 'payslip');
->>>>>>> Stashed changes
+  if (includesAny(normalized, ['payslip', 'deductions summary'])) {
+    return selfServiceNotificationPath(selfServiceRole, 'payslip');
   }
 
   if (
-    normalized.includes('leave request') ||
-    normalized.includes('overtime request') ||
-    normalized.includes('dispute request') ||
-    normalized.includes('dispute')
+    includesAny(normalized, [
+      'leave request',
+      'leave update',
+      'overtime request',
+      'overtime update',
+      'dispute request',
+      'dispute update',
+      'awaiting review',
+      'has been received',
+      'your dispute',
+    ])
   ) {
-<<<<<<< Updated upstream
-    if (role === 'manager') {
-      return selfServiceNotificationPath('manager', 'approvals');
-    }
-
-    if (role === 'management') {
-      return selfServiceNotificationPath('management', 'approvals');
-    }
-
-    return selfServiceNotificationPath('employee', 'approvals');
-=======
-    return getSelfServicePath(selfServiceRole, 'approvals');
->>>>>>> Stashed changes
+    return selfServiceNotificationPath(selfServiceRole, 'approvals');
   }
 
-  if (
-    normalized.includes('training') ||
-    normalized.includes('onboarding') ||
-    normalized.includes('handbook') ||
-    normalized.includes('calendar') ||
-    normalized.includes('event')
-  ) {
-<<<<<<< Updated upstream
-    if (role === 'manager') {
-      return selfServiceNotificationPath('manager', 'training');
-    }
+  if (includesAny(normalized, ['attendance reminder', 'time log', 'time logs'])) {
+    return selfServiceNotificationPath(selfServiceRole, 'attendance');
+  }
 
-    if (role === 'management') {
-      return selfServiceNotificationPath('management', 'training');
-    }
+  if (role === 'manager' && normalized.includes('attendance')) {
+    return '/manager/attendance-dashboard';
+  }
 
-    return selfServiceNotificationPath('employee', 'training');
-=======
-    return getSelfServicePath(selfServiceRole, 'training');
->>>>>>> Stashed changes
+  if (role === 'management' && normalized.includes('attendance')) {
+    return '/management/attendance';
+  }
+
+  if (includesAny(normalized, ['training', 'onboarding', 'handbook'])) {
+    return selfServiceNotificationPath(selfServiceRole, 'training');
+  }
+
+  if (includesAny(normalized, ['calendar', 'event', 'announcement'])) {
+    return defaultDestination(role);
   }
 
   return defaultDestination(role);
@@ -199,7 +190,7 @@ export function mapNotificationItem(
     rawMessage,
     description: undefined,
     time: formatNotificationTime(createdAt),
-    isRead: Boolean(row.readStatus),
+    isRead: parseReadStatus(row.readStatus),
     destination: resolveDestination(role, rawMessage),
   };
 }
