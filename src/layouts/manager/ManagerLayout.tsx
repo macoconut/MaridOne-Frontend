@@ -21,11 +21,7 @@ import { getUserEmail } from '../../lib/session';
 import { BACKEND_TEST_MODE } from '../../config/flags';
 import { apiFetchRaw, expireCurrentSession, getApiBaseUrl } from '../../lib/api';
 import { resolveHeaderTitle } from '../../lib/headerProfile';
-<<<<<<< Updated upstream
-import { mapNotificationItem, type NotificationItem } from '../../lib/notificationRouting';
-=======
 import { type NotificationItem } from '../../lib/notificationRouting';
->>>>>>> Stashed changes
 import { routeWheelToScrollableChild } from '../../lib/scrollContain';
 import {
   applyBodyPlaceholders,
@@ -113,21 +109,6 @@ export default function ManagerLayout() {
     void (async () => {
       try {
         setHeaderTitle(await resolveHeaderTitle(getUserEmail(), 'Manager'));
-<<<<<<< Updated upstream
-
-        const notifResponse = await apiFetchRaw('/api/notifications?page=0&size=20', { method: 'GET' });
-        if (!notifResponse.ok) {
-          setNotifications([]);
-          return;
-        }
-
-        const notifPayload = (await notifResponse.json()) as { content?: Array<Record<string, unknown>> };
-        const mapped = Array.isArray(notifPayload?.content)
-          ? notifPayload.content.map((row) => mapNotificationItem('manager', row))
-          : [];
-        setNotifications(mapped);
-=======
->>>>>>> Stashed changes
       } catch {
         setHeaderTitle('Manager');
       }
