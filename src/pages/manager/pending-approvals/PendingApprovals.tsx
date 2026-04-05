@@ -238,13 +238,13 @@ export default function ManagerPendingApprovals() {
 
       const leaveRows = toArray<LeaveDto>(leaveRes).map((item, idx) => {
         const attachment = extractAttachmentReference(item.reason);
+        const leaveTypeLabel = formatRequestType(item.leaveType);
+        const payLabel = item.isPaid === false ? 'Unpaid' : 'Paid';
         return {
           id: `leave-${item.requestId ?? idx}`,
           requestId: item.requestId,
           employee: employeeLabel(employeeById, item.empId),
-          message: `${item.leaveType?.replaceAll('_', ' ') || 'Leave'} - ${
-            item.isPaid === false ? 'Unpaid' : 'Paid'
-          }`,
+          message: `${leaveTypeLabel} - ${payLabel} (${formatDateOnly(item.startDateTime)} to ${formatDateOnly(item.endDateTime)})`,
           submittedAt: formatDateTime(item.requestAt ?? item.startDateTime),
           type: 'Leave' as const,
           source: 'leave' as const,
@@ -253,7 +253,7 @@ export default function ManagerPendingApprovals() {
           referenceLabel: 'Leave Period',
           referenceValue: formatPeriod(item.startDateTime, item.endDateTime),
           requestLabel: 'Leave Request',
-          requestKind: `${formatRequestType(item.leaveType)} - ${item.isPaid === false ? 'Unpaid' : 'Paid'}`,
+          requestKind: `${leaveTypeLabel} - ${payLabel}`,
           durationLabel: formatLeaveDuration(item.startDateTime, item.endDateTime),
           requestDateTime: formatRequestDateTime('leave', item.startDateTime, item.endDateTime),
           decisionSummary: item.approverReason || '',

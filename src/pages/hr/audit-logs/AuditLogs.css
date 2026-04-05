@@ -182,6 +182,16 @@
   transition: background 0.15s ease;
 }
 
+.hrAuditRow--button {
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-decoration: none;
+  margin: 0;
+}
+
 .hrAuditRow:nth-child(odd) {
   background: #faf9fc;
 }
@@ -193,6 +203,11 @@
 
 .hrAuditRow:last-child {
   border-bottom: 0;
+}
+
+.hrAuditRow--button:focus-visible {
+  outline: 2px solid rgba(123, 74, 143, 0.5);
+  outline-offset: -2px;
 }
 
 .hrAuditRow__actor {
@@ -244,8 +259,7 @@
   gap: 12px;
 }
 
-.hrAuditRow__badge,
-.hrAuditForm__badge {
+.hrAuditRow__badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -259,8 +273,7 @@
   gap: 6px;
 }
 
-.hrAuditRow__badge::before,
-.hrAuditForm__badge::before {
+.hrAuditRow__badge::before {
   content: '';
   width: 8px;
   height: 8px;
@@ -269,22 +282,19 @@
   flex: 0 0 auto;
 }
 
-.hrAuditRow__badge--create,
-.hrAuditForm__badge--create {
+.hrAuditRow__badge--create {
   background: rgba(46, 125, 50, 0.12);
   color: #2e7d32;
   border-color: rgba(46, 125, 50, 0.18);
 }
 
-.hrAuditRow__badge--modify,
-.hrAuditForm__badge--modify {
+.hrAuditRow__badge--modify {
   background: rgba(214, 161, 0, 0.14);
   color: #8a6700;
   border-color: rgba(214, 161, 0, 0.25);
 }
 
-.hrAuditRow__badge--delete,
-.hrAuditForm__badge--delete {
+.hrAuditRow__badge--delete {
   background: rgba(194, 59, 51, 0.12);
   color: #c23b33;
   border-color: rgba(194, 59, 51, 0.18);
@@ -309,11 +319,12 @@
 }
 
 .hrAuditModal {
-  width: min(840px, 94vw);
+  width: min(780px, 94vw);
   border-radius: 18px;
   background: #fff;
-  padding: 16px 20px 14px;
+  padding: 18px 22px 16px;
   position: relative;
+  box-shadow: 0 24px 48px rgba(27, 20, 43, 0.22);
 }
 
 .hrAuditModal__close {
@@ -329,68 +340,91 @@
 
 .hrAuditModal__title {
   margin: 0;
-  text-align: center;
-  font-size: 22px;
+  text-align: left;
+  font-size: 24px;
   font-weight: 900;
   color: var(--hr-primary-dark);
+}
+
+.hrAuditModal__subtitle {
+  margin: 6px 0 0;
+  color: #6b637b;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .hrAuditModal__rule {
   height: 2px;
   background: rgba(0, 0, 0, 0.22);
-  margin: 8px 0;
+  margin: 10px 0 14px;
 }
 
-.hrAuditForm__row {
-  margin-bottom: 8px;
-}
-
-.hrAuditForm__row--2 {
+.hrAuditModal__summaryGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  gap: 14px;
+  margin-bottom: 14px;
 }
 
-.hrAuditForm__row label {
+.hrAuditModal__card,
+.hrAuditModal__block {
+  border: 1px solid rgba(59, 34, 87, 0.12);
+  background: #faf8fc;
+  border-radius: 14px;
+  padding: 14px 16px;
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 8px;
-  align-items: center;
+  gap: 6px;
 }
 
-.hrAuditForm__row span {
-  font-size: 16px;
-  font-weight: 800;
+.hrAuditModal__block {
+  margin-bottom: 12px;
+}
+
+.hrAuditModal__label {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6b637b;
+}
+
+.hrAuditModal__value {
+  font-size: 18px;
+  font-weight: 900;
   color: #241b34;
 }
 
-.hrAuditForm__row input,
-.hrAuditForm__row textarea {
-  border: 1px solid rgba(0, 0, 0, 0.34);
-  background: #f8f8f8;
-  border-radius: 3px;
-  padding: 4px 8px;
+.hrAuditModal__value--small {
   font-size: 16px;
-  color: #2f2b38;
 }
 
-.hrAuditForm__row textarea {
-  min-height: 72px;
-  resize: none;
-}
-
-.hrAuditForm__error {
-  margin: 4px 0 0;
-  color: #b24651;
-  font-size: 16px;
+.hrAuditModal__subvalue {
+  font-size: 13px;
   font-weight: 700;
+  color: #7a728b;
+}
+
+.hrAuditModal__text,
+.hrAuditModal__raw {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: #2f2b38;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.hrAuditModal__raw {
+  font-family: Consolas, 'Courier New', monospace;
+  font-size: 13px;
+  color: #514a61;
 }
 
 .hrAuditModal__footer {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  padding-top: 4px;
+  padding-top: 8px;
 }
 
 .hrAuditModal__footer button {
@@ -446,11 +480,23 @@
     justify-self: start;
   }
 
-  .hrAuditForm__row--2 {
+  .hrAuditModal__summaryGrid {
     grid-template-columns: 1fr;
   }
+}
 
-  .hrAuditForm__row label {
+@media (max-width: 860px) {
+  .hrAuditRow {
     grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .hrAuditRow__meta {
+    align-items: flex-start;
+  }
+
+  .hrAuditRow__time {
+    text-align: left;
+    justify-self: start;
   }
 }

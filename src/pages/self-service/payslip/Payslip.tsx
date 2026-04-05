@@ -167,6 +167,27 @@ function matchesPayslipPeriod(document: DocumentRow, periodEnd?: string) {
   return searchableText.includes(target);
 }
 
+function toManilaDateKey(value?: string) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+
+  const parts = formatter.formatToParts(date);
+  const year = parts.find((part) => part.type === 'year')?.value;
+  const month = parts.find((part) => part.type === 'month')?.value;
+  const day = parts.find((part) => part.type === 'day')?.value;
+
+  if (!year || !month || !day) return null;
+  return `${year}-${month}-${day}`;
+}
+
 export default function Payslip() {
   const [employeeId, setEmployeeId] = useState<number | null>(null);
   const [payrollItems, setPayrollItems] = useState<PayrollItemRow[]>([]);
@@ -177,6 +198,7 @@ export default function Payslip() {
   const [employeeInfo, setEmployeeInfo] = useState<EmployeeDetails | null>(null);
   const [earnings, setEarnings] = useState<PayslipLine[]>([]);
   const [deductions, setDeductions] = useState<PayslipLine[]>([]);
+  const [workedDays, setWorkedDays] = useState('-');
   const [disputeOpen, setDisputeOpen] = useState(false);
   const [disputeSubject, setDisputeSubject] = useState('Overtime pay dispute');
   const [disputeReason, setDisputeReason] = useState('');
@@ -345,23 +367,59 @@ export default function Payslip() {
     return parts || '-';
   }, [employeeInfo]);
 
-  const workedDays = useMemo(() => {
-    const startRaw = selectedRun?.periodStart;
-    const endRaw = selectedRun?.periodEnd;
-    if (!startRaw || !endRaw) return '-';
-    const start = new Date(startRaw);
-    const end = new Date(endRaw);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return '-';
-    const diffDays = Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    return diffDays > 0 ? String(diffDays) : '-';
-  }, [selectedRun]);
-
   const displayPayPeriod = useMemo(
     () => formatPeriodLabel(selectedRun?.periodStart, selectedRun?.periodEnd),
     [selectedRun]
   );
   const taxNumber = '-';
   const department = employeeInfo?.department?.trim() || '-';
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadWorkedDays() {
+      const startRaw = selectedRun?.periodStart;
+      const endRaw = selectedRun?.periodEnd;
+      if (!employeeId || !startRaw || !endRaw) {
+        if (!cancelled) setWorkedDays('-');
+        return;
+      }
+
+      const periodStart = new Date(`${startRaw}T00:00:00`);
+      const periodEnd = new Date(`${endRaw}T23:59:59.999`);
+
+      if (Number.isNaN(periodStart.getTime()) || Number.isNaN(periodEnd.getTime())) {
+        if (!cancelled) setWorkedDays('-');
+        return;
+      }
+
+      try {
+        const logs = await apiFetchJson<unknown>(
+          `/api/logs/attendance/self/${employeeId}?direction=IN&timestampAfter=${encodeURIComponent(periodStart.toISOString())}&timestampBefore=${encodeURIComponent(periodEnd.toISOString())}&page=0&size=500`
+        );
+
+        const uniqueWorkedDays = new Set(
+          toArray<Record<string, unknown>>(logs)
+            .map((row) => (typeof row.timestamp === 'string' ? toManilaDateKey(row.timestamp) : null))
+            .filter((value): value is string => Boolean(value))
+        );
+
+        if (!cancelled) {
+          setWorkedDays(String(uniqueWorkedDays.size));
+        }
+      } catch {
+        if (!cancelled) {
+          setWorkedDays('-');
+        }
+      }
+    }
+
+    void loadWorkedDays();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [employeeId, selectedRun]);
 
   function buildPayslipPdfName(document?: DocumentRow) {
     const lastName = sanitizeFileNamePart(employeeInfo?.lastName);

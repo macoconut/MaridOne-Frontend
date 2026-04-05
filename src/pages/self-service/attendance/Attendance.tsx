@@ -30,6 +30,8 @@ type RequestEntry = {
   dateKey: string;
   status: string;
   reason: string;
+  leaveType?: string;
+  paid?: boolean;
   overtimeType?: OvertimeType | string;
   startTime?: string;
   endTime?: string;
@@ -41,6 +43,8 @@ type LeaveRequestRow = {
   endDateTime?: string;
   requestStatus?: string;
   reason?: string;
+  leaveType?: string;
+  paid?: boolean;
 };
 
 type OvertimeRequestRow = {
@@ -200,6 +204,8 @@ function mapLeaveRequestEntries(rows: unknown): RequestEntry[] {
       dateKey,
       status: rawStatus,
       reason: String(row.reason ?? ''),
+      leaveType: typeof row.leaveType === 'string' ? row.leaveType : '',
+      paid: row.paid,
     }));
   });
 }
@@ -1508,7 +1514,7 @@ export default function Attendance() {
                       value={
                         entry.kind === 'OT'
                           ? `${entry.overtimeType ?? 'OT'} ${entry.startTime ?? ''}-${entry.endTime ?? ''}`.trim()
-                          : 'Leave request'
+                          : `${formatLeaveTypeLabel(entry.leaveType)} - ${entry.paid === false ? 'Unpaid' : 'Paid'}`
                       }
                       readOnly
                     />

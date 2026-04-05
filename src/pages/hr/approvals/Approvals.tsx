@@ -337,12 +337,14 @@ export default function HrApprovals() {
 
       const leaveRows = toArray<LeaveDto>(leaveRes.value).map((item, idx) => {
         const attachment = extractAttachmentReference(item.reason);
+        const leaveTypeLabel = formatRequestType(item.leaveType);
+        const payLabel = item.paid === false ? 'Unpaid' : 'Paid';
         return {
           id: `leave-${item.requestId ?? idx}`,
           leaveRequestId: item.requestId,
           employeeId: item.empId,
           employee: resolvedEmployeeLabel(employeeNameById, item.empId, leaveEmployeeLabel(item)),
-          message: `Leave request from ${formatDateOnly(item.startDateTime)} to ${formatDateOnly(item.endDateTime)}`,
+          message: `${leaveTypeLabel} - ${payLabel} (${formatDateOnly(item.startDateTime)} to ${formatDateOnly(item.endDateTime)})`,
           submittedAt: formatDateTime(item.requestAt ?? item.startDateTime),
           type: 'Leave' as const,
           source: 'leave' as const,
@@ -351,7 +353,7 @@ export default function HrApprovals() {
           referenceLabel: 'Leave Period',
           referenceValue: `${formatDateOnly(item.startDateTime)} - ${formatDateOnly(item.endDateTime)}`,
           requestLabel: 'Leave Request',
-          requestKind: `${formatRequestType(item.leaveType)} - ${item.paid === false ? 'Unpaid' : 'Paid'}`,
+          requestKind: `${leaveTypeLabel} - ${payLabel}`,
           durationLabel: formatLeaveDuration(item.startDateTime, item.endDateTime),
           requestDateTime: formatRequestDateTime('leave', item.startDateTime, item.endDateTime),
           decisionSummary: item.approverReason || '',

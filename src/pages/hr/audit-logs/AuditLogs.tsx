@@ -1,7 +1,9 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
+import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
+import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
@@ -72,6 +74,7 @@ type AuditEntry = {
   recordedAt: string;
   timestampValue: number;
   searchIndex: string;
+  rawMessage: string;
 };
 
 const SERVER_PAGE_SIZE = 200;
@@ -162,6 +165,13 @@ function extractEndpoint(message: string) {
 function extractPayrollRunId(endpoint: string) {
   const match = endpoint.match(/^\/api\/payroll\/run\/(?<payId>\d+)\b/i);
   return match?.groups?.payId ?? null;
+}
+
+function extractEmployeeIdFromEndpoint(endpoint: string) {
+  const match = endpoint.match(
+    /^\/api\/(?:employees(?:\/status)?|user|leave\/balance(?:\/update)?)(?:\/(?<employeeId>\d+))\b/i
+  );
+  return match?.groups?.employeeId ?? null;
 }
 
 function describeEndpoint(endpoint: string) {
@@ -323,6 +333,11 @@ function buildSimpleActionDetail(activityType: ChangeType, subject: string) {
   return `Deleted ${subject}.`;
 }
 
+function appendNote(detail: string, cleanedNote: string | null) {
+  if (!cleanedNote) return detail;
+  return `${detail} ${cleanedNote}`;
+}
+
 function buildFriendlyCopy(
   row: ActivityLogRow,
   activityType: ChangeType,
@@ -347,14 +362,6 @@ function buildFriendlyCopy(
   }
 
   const cleanedNote = cleanDetailMessage(message);
-
-  if (cleanedNote) {
-    return {
-      title: `${action} ${endpointMeta.subject}`,
-      detail: cleanedNote,
-      area: endpointMeta.area,
-    };
-  }
 
   if (endpoint) {
     const payrollRunId = extractPayrollRunId(endpoint);
@@ -409,6 +416,59 @@ function buildFriendlyCopy(
         area: 'Payroll',
       };
     }
+
+    const targetEmployeeId = extractEmployeeIdFromEndpoint(endpoint);
+    if (targetEmployeeId) {
+      const employeeName = resolveEmployeeName(targetEmployeeId, directory);
+
+      if (/^\/api\/employees\/status\/\d+\b/i.test(endpoint)) {
+        return {
+          title: 'Updated employee status',
+          detail: appendNote(`Updated employment status for ${employeeName}.`, cleanedNote),
+          area: 'People records',
+        };
+      }
+
+      if (/^\/api\/user\/\d+\b/i.test(endpoint)) {
+        return {
+          title: `${action} user account`,
+          detail: appendNote(`${action} the user account for ${employeeName}.`, cleanedNote),
+          area: 'Access management',
+        };
+      }
+
+      if (/^\/api\/leave\/balance\/update\/\d+\b/i.test(endpoint)) {
+        return {
+          title: 'Updated leave balance',
+          detail: appendNote(`Updated leave balances for ${employeeName}.`, cleanedNote),
+          area: 'Leave management',
+        };
+      }
+
+      if (/^\/api\/leave\/balance\/\d+\b/i.test(endpoint) && activityType === 'CREATE') {
+        return {
+          title: 'Added leave balance',
+          detail: appendNote(`Added a leave balance for ${employeeName}.`, cleanedNote),
+          area: 'Leave management',
+        };
+      }
+
+      if (/^\/api\/employees\/\d+\b/i.test(endpoint)) {
+        return {
+          title: `${action} employee record`,
+          detail: appendNote(`${action} ${employeeName}.`, cleanedNote),
+          area: 'People records',
+        };
+      }
+    }
+  }
+
+  if (cleanedNote) {
+    return {
+      title: `${action} ${endpointMeta.subject}`,
+      detail: cleanedNote,
+      area: endpointMeta.area,
+    };
   }
 
   return {
@@ -451,6 +511,7 @@ function toAuditEntry(
     area: copy.area,
     recordedAt: formatDateTime(row.timestamp),
     timestampValue,
+    rawMessage: normalizeWhitespace(row.message) || 'No raw audit payload was stored for this entry.',
     searchIndex: toSearchIndex([
       row.activityId,
       actor.actorName,
@@ -541,9 +602,11 @@ export default function HrAuditLogs() {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const [refreshTick, setRefreshTick] = useState(0);
+  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const silentRefreshRef = useRef(false);
 
   useErrorDialogEffect(loadError, 'Audit logs could not be loaded');
+  useEscapeDismiss(Boolean(selectedEntryId), () => setSelectedEntryId(null), 10);
   const handlePageRefresh = () => {
     silentRefreshRef.current = true;
     setRefreshTick((tick) => tick + 1);
@@ -620,12 +683,24 @@ export default function HrAuditLogs() {
     });
   }, [deferredSearch, entries, timeFilter, typeFilter]);
 
+  const selectedEntry = useMemo(
+    () => entries.find((entry) => entry.id === selectedEntryId) ?? null,
+    [entries, selectedEntryId]
+  );
+
   const activeFilterCount = [typeFilter, timeFilter].filter((value) => value !== 'all').length;
 
   function clearFilters() {
     setTypeFilter('all');
     setTimeFilter('all');
   }
+
+  useEffect(() => {
+    if (selectedEntry) document.body.classList.add('modal-open');
+    else document.body.classList.remove('modal-open');
+
+    return () => document.body.classList.remove('modal-open');
+  }, [selectedEntry]);
 
   return (
     <div className="hrAudit">
@@ -711,7 +786,12 @@ export default function HrAuditLogs() {
             </div>
           ) : visibleEntries.length > 0 ? (
             visibleEntries.map((entry) => (
-              <div key={entry.id} className="hrAuditRow">
+              <button
+                key={entry.id}
+                type="button"
+                className="hrAuditRow hrAuditRow--button"
+                onClick={() => setSelectedEntryId(entry.id)}
+              >
                 <span className="hrAuditRow__actor">
                   <span className="hrAuditRow__actorName">{entry.actorName}</span>
                   {entry.actorSubtitle && <span className="hrAuditRow__actorSub">{entry.actorSubtitle}</span>}
@@ -728,7 +808,7 @@ export default function HrAuditLogs() {
                   </span>
                   <span className="hrAuditRow__time">{entry.recordedAt}</span>
                 </span>
-              </div>
+              </button>
             ))
           ) : (
             <div className="hrAuditRow">
@@ -746,6 +826,76 @@ export default function HrAuditLogs() {
           )}
         </div>
       </section>
+
+      {selectedEntry && (
+        <div
+          className="hrAuditModalBackdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Audit log details"
+          onClick={() => setSelectedEntryId(null)}
+        >
+          <div className="hrAuditModal" onClick={(event) => event.stopPropagation()}>
+            <ModalCloseButton className="hrAuditModal__close" onClick={() => setSelectedEntryId(null)} />
+            <h2 className="hrAuditModal__title">Audit Log Details</h2>
+            <p className="hrAuditModal__subtitle">
+              See who made the change, what was updated, and the exact system record saved for audit
+              purposes.
+            </p>
+            <div className="hrAuditModal__rule" />
+
+            <div className="hrAuditModal__summaryGrid">
+              <section className="hrAuditModal__card">
+                <span className="hrAuditModal__label">Actor</span>
+                <span className="hrAuditModal__value">{selectedEntry.actorName}</span>
+                {selectedEntry.actorSubtitle && (
+                  <span className="hrAuditModal__subvalue">{selectedEntry.actorSubtitle}</span>
+                )}
+              </section>
+
+              <section className="hrAuditModal__card">
+                <span className="hrAuditModal__label">Recorded At</span>
+                <span className="hrAuditModal__value hrAuditModal__value--small">
+                  {selectedEntry.recordedAt}
+                </span>
+              </section>
+
+              <section className="hrAuditModal__card">
+                <span className="hrAuditModal__label">Action</span>
+                <div className={`hrAuditRow__badge hrAuditRow__badge--${selectedEntry.tone}`}>
+                  {selectedEntry.activityLabel}
+                </div>
+              </section>
+
+              <section className="hrAuditModal__card">
+                <span className="hrAuditModal__label">Area</span>
+                <span className="hrAuditModal__value hrAuditModal__value--small">{selectedEntry.area}</span>
+              </section>
+            </div>
+
+            <section className="hrAuditModal__block">
+              <span className="hrAuditModal__label">Summary</span>
+              <p className="hrAuditModal__text">{selectedEntry.title}</p>
+            </section>
+
+            <section className="hrAuditModal__block">
+              <span className="hrAuditModal__label">Detailed Description</span>
+              <p className="hrAuditModal__text">{selectedEntry.detail}</p>
+            </section>
+
+            <section className="hrAuditModal__block">
+              <span className="hrAuditModal__label">Stored System Log</span>
+              <pre className="hrAuditModal__raw">{selectedEntry.rawMessage}</pre>
+            </section>
+
+            <div className="hrAuditModal__footer">
+              <button type="button" onClick={() => setSelectedEntryId(null)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
