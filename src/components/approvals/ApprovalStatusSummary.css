@@ -1,0 +1,83 @@
+.approvalStatusSummary {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.approvalStatusSummary__card {
+  width: 160px;
+  background: #fff;
+  border: 1.5px solid rgba(0, 0, 0, 0.14);
+  border-radius: 12px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.approvalStatusSummary__ring {
+  --approval-status-ring-color: #7b4a8f;
+  --approval-status-ring-track: rgba(123, 74, 143, 0.12);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  position: relative;
+  flex: 0 0 auto;
+  background:
+    conic-gradient(
+      var(--approval-status-ring-color) var(--approval-status-ring-progress, 0%),
+      var(--approval-status-ring-track) 0
+    );
+}
+
+.approvalStatusSummary__ring::after {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.approvalStatusSummary__ring--approved {
+  --approval-status-ring-color: #2f7a4f;
+  --approval-status-ring-track: rgba(47, 122, 79, 0.12);
+}
+
+.approvalStatusSummary__ring--denied {
+  --approval-status-ring-color: #b24c4c;
+  --approval-status-ring-track: rgba(178, 76, 76, 0.12);
+}
+
+.approvalStatusSummary__ring--pending {
+  --approval-status-ring-color: #8a6bb0;
+  --approval-status-ring-track: rgba(138, 107, 176, 0.12);
+}
+
+.approvalStatusSummary__empty {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(43, 32, 54, 0.28);
+  color: rgba(43, 32, 54, 0.45);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.approvalStatusSummary__body {
+  min-width: 0;
+}
+
+.approvalStatusSummary__label {
+  font-weight: 800;
+  font-size: 16px;
+  color: #2b2036;
+}
+
+.approvalStatusSummary__value {
+  font-size: 15px;
+  color: rgba(0, 0, 0, 0.6);
+}

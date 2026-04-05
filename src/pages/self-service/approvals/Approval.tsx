@@ -1,6 +1,6 @@
-import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
+import ApprovalStatusSummary from '../../../components/approvals/ApprovalStatusSummary';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
@@ -150,6 +150,12 @@ function buildPayrollPeriodLabel(start?: string, end?: string) {
   return startLabel === endLabel ? startLabel : `${startLabel} to ${endLabel}`;
 }
 
+function displayRequestDate(item: ApprovalItem) {
+  return item.requestType === 'Overtime' || item.requestType === 'Payslip Dispute'
+    ? formatDate(item.dateOfRequest)
+    : item.dateOfRequest;
+}
+
 export default function Approval() {
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
   const [selectedApprovalId, setSelectedApprovalId] = useState<string | null>(null);
@@ -244,7 +250,7 @@ export default function Approval() {
         return {
           id: String(row.overtimeId ?? Math.random()),
           sortStamp: row.requestAt ? Date.parse(row.requestAt) || 0 : 0,
-          dateOfRequest: formatDateTime(row.requestAt),
+          dateOfRequest: formatDate(row.requestAt),
           requestType: 'Overtime',
           requestDetail: formatLeaveType(row.overtimeType || 'OT'),
           requestTarget:
@@ -270,7 +276,7 @@ export default function Approval() {
         return {
           id: `dispute-${String(row.id ?? Math.random())}`,
           sortStamp: row.createdAt ? Date.parse(row.createdAt) || 0 : 0,
-          dateOfRequest: formatDateTime(row.createdAt),
+          dateOfRequest: formatDate(row.createdAt),
           requestType: 'Payslip Dispute',
           requestDetail: buildDisputeDetail(row.subject),
           requestTarget:
@@ -337,30 +343,23 @@ export default function Approval() {
   }, [approvals, normalizedSearch, statusFilter, typeFilter]);
   const activeFilterCount = [typeFilter, statusFilter].filter((value) => value !== 'all').length;
   const cards = useMemo(
-    () =>
-      [
-        {
-          label: 'Approved',
-          value: visibleApprovals.filter((item) => item.status === 'Approved').length,
-          cls: 'approved',
-        },
-        {
-          label: 'Denied',
-          value: visibleApprovals.filter((item) => item.status === 'Denied').length,
-          cls: 'denied',
-        },
-        {
-          label: 'Pending',
-          value: visibleApprovals.filter((item) => item.status === 'Pending').length,
-          cls: 'pending',
-        },
-      ].map((card) => ({
-        ...card,
-        progress:
-          visibleApprovals.length > 0
-            ? Math.max((card.value / visibleApprovals.length) * 100, card.value > 0 ? 8 : 0)
-            : 0,
-      })),
+    () => [
+      {
+        label: 'Approved',
+        value: visibleApprovals.filter((item) => item.status === 'Approved').length,
+        tone: 'approved' as const,
+      },
+      {
+        label: 'Denied',
+        value: visibleApprovals.filter((item) => item.status === 'Denied').length,
+        tone: 'denied' as const,
+      },
+      {
+        label: 'Pending',
+        value: visibleApprovals.filter((item) => item.status === 'Pending').length,
+        tone: 'pending' as const,
+      },
+    ],
     [visibleApprovals]
   );
 
@@ -442,26 +441,7 @@ export default function Approval() {
         </div>
       </div>
 
-      <div className="appr__stats">
-        {cards.map((card) => (
-          <div key={card.label} className="apprCard">
-            {card.value > 0 ? (
-              <div
-                className={`apprCard__ring apprCard__ring--${card.cls}`}
-                style={{ '--appr-ring-progress': `${card.progress}%` } as CSSProperties}
-              />
-            ) : (
-              <div className="apprCard__empty" aria-hidden="true">
-                -
-              </div>
-            )}
-            <div className="apprCard__body">
-              <div className="apprCard__label">{card.label}</div>
-              <div className="apprCard__value">{card.value}</div>
-            </div>
-          </div>
-        ))}
-      </div>
+      <ApprovalStatusSummary items={cards} />
 
       <section className="apprTable">
         <div className="apprTable__head">
@@ -483,7 +463,7 @@ export default function Approval() {
                 className="apprRow apprRow--button is-openable"
                 onClick={() => setSelectedApprovalId(row.id)}
               >
-                <div>{row.dateOfRequest}</div>
+                <div>{displayRequestDate(row)}</div>
                 <div>{row.requestType}</div>
                 <div>{row.requestDetail}</div>
                 <div>{row.requestTarget}</div>
@@ -546,7 +526,7 @@ export default function Approval() {
             <div className="apprModal__summary">
               <div className="apprModal__card">
                 <span>Date of Request</span>
-                <strong>{selectedApproval.dateOfRequest}</strong>
+                <strong>{displayRequestDate(selectedApproval)}</strong>
               </div>
               <div className="apprModal__card">
                 <span>Period / Target</span>

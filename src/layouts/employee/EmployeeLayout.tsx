@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   FiGrid,
   FiCalendar,
-  FiClock,
+  FiCheckSquare,
   FiFileText,
   FiBookOpen,
   FiLogOut,
@@ -449,7 +449,7 @@ export default function EmployeeLayout() {
                 to="/employee/approvals"
                 className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
               >
-                <FiClock className="eSide__icon" />
+                <FiCheckSquare className="eSide__icon" />
                 <span>View Approvals</span>
               </NavLink>
 

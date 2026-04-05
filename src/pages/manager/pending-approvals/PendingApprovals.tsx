@@ -527,9 +527,7 @@ export default function ManagerPendingApprovals() {
         </div>
       </div>
 
-      <div className="hrAppr__cards">
-        <ApprovalStatusSummary items={cards} />
-      </div>
+      <ApprovalStatusSummary items={cards} />
 
       <section className="hrApprTable mgrPendTable">
         {visibleRequests.length > 0 ? (

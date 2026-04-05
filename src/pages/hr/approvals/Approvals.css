@@ -175,87 +175,6 @@
   cursor: pointer;
 }
 
-.hrAppr__cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
-}
-
-.hrApprSummary {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
-}
-
-.hrApprSummary__card {
-  background: #fff;
-  border: 1.5px solid rgba(0, 0, 0, 0.14);
-  border-radius: 12px;
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
-  padding: 12px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.hrApprSummary__ring {
-  --hr-appr-ring-color: #7b4a8f;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  position: relative;
-  flex: 0 0 auto;
-  background:
-    conic-gradient(var(--hr-appr-ring-color) var(--hr-appr-ring-progress, 0%), rgba(123, 74, 143, 0.12) 0);
-}
-
-.hrApprSummary__ring::after {
-  content: '';
-  position: absolute;
-  inset: 6px;
-  border-radius: 50%;
-  background: #fff;
-}
-
-.hrApprSummary__ring--approved {
-  --hr-appr-ring-color: #7b4a8f;
-}
-
-.hrApprSummary__ring--denied {
-  --hr-appr-ring-color: #b24c4c;
-}
-
-.hrApprSummary__ring--pending {
-  --hr-appr-ring-color: #8a6bb0;
-}
-
-.hrApprSummary__empty {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 1.5px dashed rgba(43, 32, 54, 0.28);
-  color: rgba(43, 32, 54, 0.45);
-  display: grid;
-  place-items: center;
-  font-weight: 700;
-  flex: 0 0 auto;
-}
-
-.hrApprSummary__body {
-  min-width: 0;
-}
-
-.hrApprSummary__label {
-  font-weight: 800;
-  font-size: 16px;
-  color: #2b2036;
-}
-
-.hrApprSummary__value {
-  font-size: 15px;
-  color: rgba(0, 0, 0, 0.6);
-}
-
 .hrApprCard {
   border: 1.5px solid rgba(0, 0, 0, 0.2);
   border-radius: 8px;
@@ -308,12 +227,6 @@
 .hrApprCard__value {
   font-size: 16px;
   color: #2f2050;
-}
-
-@media (max-width: 640px) {
-  .hrAppr__cards {
-    grid-template-columns: 1fr;
-  }
 }
 
 .hrApprTable {
@@ -490,9 +403,9 @@
 }
 
 .hrApprRow__status--approved {
-  background: rgba(46, 125, 50, 0.12);
-  color: #2e7d32;
-  border-color: rgba(46, 125, 50, 0.18);
+  background: rgba(47, 122, 79, 0.12);
+  color: #2f7a4f;
+  border-color: rgba(47, 122, 79, 0.18);
 }
 
 .hrApprRow__status--rejected,
@@ -606,9 +519,9 @@
 }
 
 .hrApprForm__statusBadge--approved {
-  background: rgba(46, 125, 50, 0.12);
-  color: #2e7d32;
-  border-color: rgba(46, 125, 50, 0.18);
+  background: rgba(47, 122, 79, 0.12);
+  color: #2f7a4f;
+  border-color: rgba(47, 122, 79, 0.18);
 }
 
 .hrApprForm__statusBadge--rejected,
@@ -797,9 +710,4 @@
   }
 }
 
-@media (max-width: 640px) {
-  .hrApprSummary__card {
-    padding: 10px 12px;
-  }
-}
 

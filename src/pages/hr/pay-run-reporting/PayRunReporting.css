@@ -22,7 +22,7 @@
 
 .hrRunFilters {
   display: grid;
-  grid-template-columns: 1.4fr minmax(280px, 360px);
+  grid-template-columns: 1.4fr minmax(240px, 320px) minmax(220px, 260px);
   gap: 8px 12px;
   align-items: end;
 }
@@ -37,6 +37,11 @@
   font-size: 16px;
   font-weight: 700;
   color: var(--hr-muted);
+}
+
+.hrRunFilters__field--sort .uiEmployeeSort,
+.hrRunFilters__field--sort .uiEmployeeSort__toggle {
+  width: 100%;
 }
 
 .hrRunSearch {

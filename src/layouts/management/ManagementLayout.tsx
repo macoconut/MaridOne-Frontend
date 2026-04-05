@@ -1,10 +1,12 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
+  FiBarChart2,
   FiBell,
   FiBookOpen,
   FiCalendar,
   FiCheckCircle,
-  FiClock,
+  FiCheckSquare,
+  FiClipboard,
   FiDollarSign,
   FiFileText,
   FiGrid,
@@ -83,7 +85,7 @@ const navSections: NavSection[] = [
     items: [
       { to: '/management/self-service/dashboard', label: 'User Dashboard', icon: FiGrid },
       { to: '/management/self-service/attendance', label: 'Attendance', icon: FiCalendar },
-      { to: '/management/self-service/approvals', label: 'View Approvals', icon: FiClock },
+      { to: '/management/self-service/approvals', label: 'View Approvals', icon: FiCheckSquare },
       { to: '/management/self-service/payslip', label: 'View Payslip', icon: FiFileText },
       { to: '/management/self-service/training', label: 'Training Materials', icon: FiBookOpen },
     ],
@@ -93,9 +95,9 @@ const navSections: NavSection[] = [
     label: 'Executive Dashboard',
     defaultOpen: true,
     items: [
-      { to: '/management/attendance', label: 'Attendance Dashboard', icon: FiCalendar },
-      { to: '/management/payroll-dashboard', label: 'Payroll Dashboard', icon: FiGrid },
-      { to: '/management/pay-run-reporting', label: 'Pay Run Reporting', icon: FiDollarSign },
+      { to: '/management/attendance', label: 'Attendance Dashboard', icon: FiBarChart2 },
+      { to: '/management/payroll-dashboard', label: 'Payroll Dashboard', icon: FiDollarSign },
+      { to: '/management/pay-run-reporting', label: 'Pay Run Reporting', icon: FiClipboard },
     ],
   },
 ];

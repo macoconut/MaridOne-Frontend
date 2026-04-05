@@ -1,13 +1,15 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  FiBarChart2,
   FiBookOpen,
   FiGrid,
   FiLogOut,
   FiBell,
   FiCheckCircle,
   FiCalendar,
-  FiClock,
+  FiCheckSquare,
+  FiClipboard,
   FiFileText,
   FiUsers,
   FiCreditCard,
@@ -312,7 +314,7 @@ const navSections: NavSection[] = [
     items: [
       { to: '/hr/self-service/dashboard', label: 'User Dashboard', icon: FiGrid },
       { to: '/hr/self-service/attendance', label: 'Attendance', icon: FiCalendar },
-      { to: '/hr/self-service/approvals', label: 'View Approvals', icon: FiClock },
+      { to: '/hr/self-service/approvals', label: 'View Approvals', icon: FiCheckSquare },
       { to: '/hr/self-service/payslip', label: 'View Payslip', icon: FiFileText },
       { to: '/hr/self-service/training', label: 'Training Materials', icon: FiBookOpen },
     ],
@@ -322,11 +324,11 @@ const navSections: NavSection[] = [
     label: 'People Operations',
     defaultOpen: true,
     items: [
-      { to: '/hr/dashboard', label: 'Attendance Dashboard', icon: FiGrid },
-      { to: '/hr/attendance-reports', label: 'Attendance Reports', icon: FiCalendar },
-      { to: '/hr/approvals', label: 'Pending Approvals', icon: FiClock },
-      { to: '/hr/payslips', label: 'Manage Payslips', icon: FiFileText },
-      { to: '/hr/pay-run-reporting', label: 'Pay Run Reporting', icon: FiCreditCard },
+      { to: '/hr/dashboard', label: 'Attendance Dashboard', icon: FiBarChart2 },
+      { to: '/hr/attendance-reports', label: 'Attendance Reports', icon: FiClipboard },
+      { to: '/hr/approvals', label: 'Pending Approvals', icon: FiCheckSquare },
+      { to: '/hr/payslips', label: 'Manage Payslips', icon: FiCreditCard },
+      { to: '/hr/pay-run-reporting', label: 'Pay Run Reporting', icon: FiFileText },
       { to: '/hr/manage-employees', label: 'Manage Employees', icon: FiUsers },
       { to: '/hr/audit-logs', label: 'Audit Logs', icon: FiActivity },
     ],

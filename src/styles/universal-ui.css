@@ -13,6 +13,8 @@
   --ui-radius-lg: 22px;
   --ui-radius-md: 18px;
   --ui-radius-sm: 14px;
+  --ui-select-arrow-right: 20px;
+  --ui-select-padding-end: 56px;
 }
 
 body {
@@ -156,7 +158,8 @@ body {
   .hrAttFilter__toggle,
   .hrEmpFilter__toggle,
   .hrPayFilter__toggle,
-  .hrAuditFilter__toggle
+  .hrAuditFilter__toggle,
+  .uiEmployeeSort__toggle
 ) {
   min-height: 48px !important;
   border: 1px solid var(--ui-border-strong) !important;
@@ -173,7 +176,8 @@ body {
   .hrAttFilter__panel,
   .hrEmpFilter__panel,
   .hrPayFilter__panel,
-  .hrAuditFilter__panel
+  .hrAuditFilter__panel,
+  .uiEmployeeSort__panel
 ) {
   border: 1px solid var(--ui-border) !important;
   border-radius: var(--ui-radius-lg) !important;
@@ -211,6 +215,89 @@ body {
   overflow: hidden !important;
 }
 
+:where(.uiEmployeeSort) {
+  position: relative !important;
+  display: flex !important;
+  align-items: stretch !important;
+}
+
+:where(.uiEmployeeSort__toggle) {
+  padding: 0 12px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  color: var(--ui-title-color) !important;
+  cursor: pointer !important;
+}
+
+:where(.uiEmployeeSort__toggle.is-open) {
+  background: rgba(123, 74, 143, 0.08) !important;
+}
+
+:where(.uiEmployeeSort__toggle svg) {
+  color: #6b4a88 !important;
+  font-size: 15px !important;
+  flex: 0 0 auto !important;
+}
+
+:where(.uiEmployeeSort__value) {
+  min-width: 44px !important;
+  padding: 4px 10px !important;
+  border-radius: 999px !important;
+  background: rgba(123, 74, 143, 0.12) !important;
+  color: #6a3f81 !important;
+  font-size: 12px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.05em !important;
+  text-align: center !important;
+  text-transform: uppercase !important;
+}
+
+:where(.uiEmployeeSort__panel) {
+  position: absolute !important;
+  top: calc(100% + 8px) !important;
+  right: 0 !important;
+  z-index: 24 !important;
+  min-width: 250px !important;
+  padding: 12px !important;
+  display: grid !important;
+  gap: 8px !important;
+}
+
+:where(.uiEmployeeSort__option) {
+  width: 100% !important;
+  padding: 12px 14px !important;
+  border: 0 !important;
+  border-radius: var(--ui-radius-sm) !important;
+  background: transparent !important;
+  display: grid !important;
+  gap: 4px !important;
+  text-align: left !important;
+  cursor: pointer !important;
+  transition: background 160ms ease, transform 160ms ease !important;
+}
+
+:where(.uiEmployeeSort__option:hover:not(:disabled)) {
+  background: rgba(123, 74, 143, 0.08) !important;
+  transform: translateY(-1px) !important;
+}
+
+:where(.uiEmployeeSort__option.is-selected) {
+  background: rgba(123, 74, 143, 0.12) !important;
+}
+
+:where(.uiEmployeeSort__optionLabel) {
+  color: var(--ui-title-color) !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+}
+
+:where(.uiEmployeeSort__optionHint) {
+  color: var(--ui-copy-color) !important;
+  font-size: 13px !important;
+  line-height: 1.45 !important;
+}
+
 :where(
   .apprFilter__field select,
   .hrApprFilter__field select,
@@ -235,7 +322,8 @@ body {
 
 :where(
   .aReviewRunSelect select,
-  .hrRunSelect select
+  .hrRunSelect select,
+  .aDashPaySelect select
 ) {
   min-height: 100% !important;
   border: 0 !important;
@@ -244,6 +332,13 @@ body {
   color: var(--ui-title-color) !important;
   font-size: 14px !important;
   box-shadow: none !important;
+  padding-right: var(--ui-select-padding-end) !important;
+}
+
+.aReviewRunSelect::after,
+.hrRunSelect::after,
+.aDashPaySelect::after {
+  right: var(--ui-select-arrow-right) !important;
 }
 
 :where(

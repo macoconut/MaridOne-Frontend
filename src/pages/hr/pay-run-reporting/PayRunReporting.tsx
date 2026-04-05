@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FiSearch, FiXCircle } from 'react-icons/fi';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
+import EmployeeSortMenu from '../../../components/layout/EmployeeSortMenu';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
+import { compareEmployees, type EmployeeSortKey } from '../../../lib/employeeSort';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './PayRunReporting.css';
 
@@ -344,6 +346,7 @@ function getEmptyRunMessage(run: PayrollRunRow | null, view: ReportView, availab
 export default function HrPayRunReporting() {
   const [view, setView] = useState<ReportView>('employee');
   const [filterValue, setFilterValue] = useState('');
+  const [employeeSort, setEmployeeSort] = useState<EmployeeSortKey>('id');
   const [runs, setRuns] = useState<PayrollRunRow[]>([]);
   const [selectedPayId, setSelectedPayId] = useState<number | null>(null);
   const [employeeRows, setEmployeeRows] = useState<PayrollItemRow[]>([]);
@@ -509,13 +512,14 @@ export default function HrPayRunReporting() {
             return name.includes(normalizedFilter) || empId.includes(normalizedFilter);
           });
 
-    return filtered.sort((a, b) => {
-      const aId = typeof a.empId === 'number' ? a.empId : Number.MAX_SAFE_INTEGER;
-      const bId = typeof b.empId === 'number' ? b.empId : Number.MAX_SAFE_INTEGER;
-      if (aId !== bId) return aId - bId;
-      return formatEmployeeName(a).localeCompare(formatEmployeeName(b));
-    });
-  }, [employeeRows, normalizedFilter]);
+    return filtered.sort((left, right) =>
+      compareEmployees(
+        employeeSort,
+        { id: left.empId, name: formatEmployeeName(left) },
+        { id: right.empId, name: formatEmployeeName(right) }
+      )
+    );
+  }, [employeeRows, employeeSort, normalizedFilter]);
 
   const visiblePayTypeRows = useMemo(() => {
     const filtered =
@@ -772,6 +776,13 @@ export default function HrPayRunReporting() {
             </select>
           </label>
         </div>
+
+        {view === 'employee' ? (
+          <div className="hrRunFilters__field hrRunFilters__field--sort">
+            <label>Sort By:</label>
+            <EmployeeSortMenu value={employeeSort} onChange={setEmployeeSort} />
+          </div>
+        ) : null}
       </div>
 
       {view === 'employee' ? (

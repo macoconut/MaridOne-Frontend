@@ -44,6 +44,9 @@ const MANAGER_APPROVAL_PREFIXES = [
   'new payroll dispute',
 ] as const;
 
+const NOTIFICATION_MESSAGE_DATE_PATTERN =
+  /\b\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:?\d{2})?)?\b/g;
+
 function isSameCalendarDay(left: Date, right: Date) {
   return (
     left.getFullYear() === right.getFullYear() &&
@@ -70,6 +73,28 @@ export function formatNotificationTime(createdAt: Date | null) {
     day: 'numeric',
     year: createdAt.getFullYear() === now.getFullYear() ? undefined : 'numeric',
   });
+}
+
+function formatNotificationMessageDate(value: string) {
+  const dateOnlyMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const parsed = dateOnlyMatch
+    ? new Date(Number(dateOnlyMatch[1]), Number(dateOnlyMatch[2]) - 1, Number(dateOnlyMatch[3]))
+    : new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+export function formatNotificationMessage(message: string) {
+  return message.replace(NOTIFICATION_MESSAGE_DATE_PATTERN, (match) =>
+    formatNotificationMessageDate(match)
+  );
 }
 
 function defaultDestination(role: NotificationRole) {
@@ -182,11 +207,12 @@ export function mapNotificationItem(
   const idRaw = row.notificationId;
   const id = typeof idRaw === 'number' ? String(idRaw) : String(idRaw ?? crypto.randomUUID());
   const rawMessage = typeof row.message === 'string' ? row.message : 'Notification';
+  const displayMessage = formatNotificationMessage(rawMessage);
   const createdAt = typeof row.createdAt === 'string' ? new Date(row.createdAt) : null;
 
   return {
     id,
-    title: rawMessage,
+    title: displayMessage,
     rawMessage,
     description: undefined,
     time: formatNotificationTime(createdAt),

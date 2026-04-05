@@ -668,9 +668,7 @@ export default function HrApprovals() {
         </div>
       </div>
 
-      <div className="hrAppr__cards">
-        <ApprovalStatusSummary items={cards} />
-      </div>
+      <ApprovalStatusSummary items={cards} />
 
       <section className="hrApprTable hrApprRequestTable">
         {visibleRequests.length > 0 ? (

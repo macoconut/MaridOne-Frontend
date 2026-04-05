@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { FiEdit2, FiFilter, FiPlus, FiSearch, FiUserX, FiXCircle } from 'react-icons/fi';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
+import EmployeeSortMenu from '../../../components/layout/EmployeeSortMenu';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
+import { compareEmployees, type EmployeeSortKey } from '../../../lib/employeeSort';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './ManageEmployees.css';
 
@@ -277,6 +279,7 @@ export default function HrManageEmp() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
   const [positionFilter, setPositionFilter] = useState('all');
+  const [employeeSort, setEmployeeSort] = useState<EmployeeSortKey>('id');
   const [refreshTick, setRefreshTick] = useState(0);
 
   const selectedEmployee = useMemo(
@@ -330,13 +333,17 @@ export default function HrManageEmp() {
   const visibleEmployeeRows = useMemo(() => {
     const normalizedSearch = normalizeText(searchValue);
 
-    return employeeRows.filter((row) => {
+    const filtered = employeeRows.filter((row) => {
       if (normalizedSearch && !row.searchIndex.includes(normalizedSearch)) return false;
       if (statusFilter !== 'all' && row.status !== statusFilter) return false;
       if (positionFilter !== 'all' && row.position !== positionFilter) return false;
       return true;
     });
-  }, [employeeRows, positionFilter, searchValue, statusFilter]);
+
+    return [...filtered].sort((left, right) =>
+      compareEmployees(employeeSort, { id: left.id, name: left.name }, { id: right.id, name: right.name })
+    );
+  }, [employeeRows, employeeSort, positionFilter, searchValue, statusFilter]);
 
   const activeFilterCount = [statusFilter, positionFilter].filter((value) => value !== 'all').length;
   const phoneHelperMessage = modal !== 'delete' ? getPhoneValidationMessage(form.phoneNumber) : '';
@@ -1274,6 +1281,8 @@ export default function HrManageEmp() {
             ) : null}
           </label>
 
+          <EmployeeSortMenu value={employeeSort} onChange={setEmployeeSort} />
+
           <div className="hrEmpFilter">
             <button
               type="button"
@@ -1325,7 +1334,7 @@ export default function HrManageEmp() {
           <div>EmpID</div>
           <div>Name</div>
           <div>Username</div>
-          <div>Status</div>
+          <div className="hrEmpTable__headCell--status">Status</div>
           <div>Position</div>
           <div>Actions</div>
         </div>
@@ -1354,7 +1363,7 @@ export default function HrManageEmp() {
                     <span className="hrEmpRow__nameText">{row.name}</span>
                   </div>
                   <div>{row.username}</div>
-                  <div>
+                  <div className="hrEmpRow__statusCell">
                     <span className={`hrEmpRow__statusBadge ${isTerminated ? 'is-terminated' : ''}`}>
                       {isTerminated ? 'TERMINATED' : row.status}
                     </span>

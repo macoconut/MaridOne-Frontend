@@ -1,10 +1,12 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
+  FiBarChart2,
   FiBell,
   FiBookOpen,
   FiCalendar,
   FiCheckCircle,
-  FiClock,
+  FiCheckSquare,
+  FiClipboard,
   FiFileText,
   FiGrid,
   FiLogOut,
@@ -55,7 +57,7 @@ const navSections: NavSection[] = [
     items: [
       { to: '/manager/self-service/dashboard', label: 'User Dashboard', icon: FiGrid },
       { to: '/manager/self-service/attendance', label: 'Attendance', icon: FiCalendar },
-      { to: '/manager/self-service/approvals', label: 'View Approvals', icon: FiClock },
+      { to: '/manager/self-service/approvals', label: 'View Approvals', icon: FiCheckSquare },
       { to: '/manager/self-service/payslip', label: 'View Payslip', icon: FiFileText },
       { to: '/manager/self-service/training', label: 'Training Materials', icon: FiBookOpen },
     ],
@@ -65,9 +67,9 @@ const navSections: NavSection[] = [
     label: 'Team Management',
     defaultOpen: true,
     items: [
-      { to: '/manager/attendance-dashboard', label: 'Attendance Dashboard', icon: FiCalendar },
-      { to: '/manager/attendance-reports', label: 'Attendance Reports', icon: FiCalendar },
-      { to: '/manager/pending-approvals', label: 'Pending Approvals', icon: FiClock },
+      { to: '/manager/attendance-dashboard', label: 'Attendance Dashboard', icon: FiBarChart2 },
+      { to: '/manager/attendance-reports', label: 'Attendance Reports', icon: FiClipboard },
+      { to: '/manager/pending-approvals', label: 'Pending Approvals', icon: FiCheckSquare },
     ],
   },
 ];

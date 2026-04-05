@@ -4,10 +4,12 @@ import { ApiError, apiFetchJson, toArray } from '../../../lib/api';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
+import EmployeeSortMenu from '../../../components/layout/EmployeeSortMenu';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
+import { compareEmployees, type EmployeeSortKey } from '../../../lib/employeeSort';
 import { extractAttachmentReference, openDocumentAttachment } from '../../../lib/documentAttachments';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import '../approvals/Approvals.css';
@@ -243,10 +245,10 @@ function summarizePayrollItemLines(
   };
 }
 
-function employeeLabel(employeeName?: string, _employeeId?: number) {
+function employeeLabel(employeeName?: string, employeeId?: number) {
   const trimmedName = typeof employeeName === 'string' ? employeeName.trim() : '';
   if (trimmedName) return trimmedName;
-  return 'Employee unavailable';
+  return typeof employeeId === 'number' ? `Employee #${employeeId}` : 'Employee unavailable';
 }
 
 function employeeLabelFromParts(firstName?: string, lastName?: string, employeeId?: number) {
@@ -539,6 +541,7 @@ export default function HrPayslips() {
   const [disputeFilterOpen, setDisputeFilterOpen] = useState(false);
   const [disputeStatusFilter, setDisputeStatusFilter] = useState<DisputeStatusFilter>('all');
   const [disputeTypeFilter, setDisputeTypeFilter] = useState<DisputeTypeFilter>('all');
+  const [runItemSort, setRunItemSort] = useState<EmployeeSortKey>('name');
   const [attachmentError, setAttachmentError] = useState('');
   const [openingAttachmentId, setOpeningAttachmentId] = useState<number | null>(null);
 
@@ -760,6 +763,11 @@ export default function HrPayslips() {
     }
     return selectedPayrollItem.deductions;
   }, [selectedPayrollItem, selectedPayrollItemDeductions]);
+  const visibleRunItems = useMemo(() => {
+    return [...runItems].sort((left, right) =>
+      compareEmployees(runItemSort, { id: left.empId, name: left.employee }, { id: right.empId, name: right.employee })
+    );
+  }, [runItemSort, runItems]);
 
   const visibleDisputes = useMemo(() => {
     return disputes.filter((row) => {
@@ -1323,7 +1331,10 @@ export default function HrPayslips() {
 
       {isCurrentRunInProgress && currentRun && (
         <section className="hrPayPanel">
-          <header className="hrPayPanel__head">Payroll Run in Progress</header>
+          <div className="hrPayPanel__headRow">
+            <header className="hrPayPanel__head">Payroll Run in Progress</header>
+            <EmployeeSortMenu value={runItemSort} onChange={setRunItemSort} />
+          </div>
 
           <div className="hrPayTableShell mgrPendTable">
             {isLoadingRunItems ? (
@@ -1331,7 +1342,7 @@ export default function HrPayslips() {
                 <span>Loading payroll item summaries.</span>
                 <span>Checking the current run now.</span>
               </div>
-            ) : runItems.length > 0 ? (
+            ) : visibleRunItems.length > 0 ? (
               <>
                 <div className="hrPayRunTable__head" role="row">
                   <span>Employee ID</span>
@@ -1343,7 +1354,7 @@ export default function HrPayslips() {
                 </div>
 
                 <div className="mgrPendTable__body">
-                  {runItems.map((row) => (
+                  {visibleRunItems.map((row) => (
                     <button
                       key={row.itemId}
                       type="button"

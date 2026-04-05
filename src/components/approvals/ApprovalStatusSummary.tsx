@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import './ApprovalStatusSummary.css';
 
 type ApprovalStatusTone = 'approved' | 'denied' | 'pending';
 
@@ -25,27 +26,27 @@ export default function ApprovalStatusSummary({ items }: ApprovalStatusSummaryPr
       : 'No visible requests';
 
   return (
-    <section className="hrApprSummary" aria-label={`Approval summary. ${accessibilityLabel}.`}>
+    <section className="approvalStatusSummary" aria-label={`Approval summary. ${accessibilityLabel}.`}>
       {items.map((item) => {
         const progress = shareProgress(item.value, total);
 
         return (
-          <article key={item.label} className="hrApprSummary__card">
+          <article key={item.label} className="approvalStatusSummary__card">
             {item.value > 0 ? (
               <div
-                className={`hrApprSummary__ring hrApprSummary__ring--${item.tone}`}
-                style={{ '--hr-appr-ring-progress': `${progress}%` } as CSSProperties}
+                className={`approvalStatusSummary__ring approvalStatusSummary__ring--${item.tone}`}
+                style={{ '--approval-status-ring-progress': `${progress}%` } as CSSProperties}
                 aria-hidden="true"
               />
             ) : (
-              <div className="hrApprSummary__empty" aria-hidden="true">
+              <div className="approvalStatusSummary__empty" aria-hidden="true">
                 -
               </div>
             )}
 
-            <div className="hrApprSummary__body">
-              <div className="hrApprSummary__label">{item.label}</div>
-              <div className="hrApprSummary__value">{item.value}</div>
+            <div className="approvalStatusSummary__body">
+              <div className="approvalStatusSummary__label">{item.label}</div>
+              <div className="approvalStatusSummary__value">{item.value}</div>
             </div>
           </article>
         );

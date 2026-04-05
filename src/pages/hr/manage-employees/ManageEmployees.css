@@ -206,6 +206,7 @@
   font-size: 15px;
   font-weight: 800;
   padding: 10px 14px;
+  border-radius: 0 !important;
 }
 
 .hrEmpRow {
@@ -277,6 +278,14 @@
 }
 
 .hrEmpTable__head > div:last-child {
+  text-align: center;
+}
+
+.hrEmpTable__headCell--status,
+.hrEmpRow__statusCell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
 }
 
@@ -1062,6 +1071,11 @@ body.modal-open .eMain {
   .hrEmpSearch {
     flex-basis: 100%;
     min-width: 100%;
+  }
+
+  .hrEmpToolbar > .uiEmployeeSort,
+  .hrEmpToolbar > .uiEmployeeSort .uiEmployeeSort__toggle {
+    width: 100%;
   }
 }
 

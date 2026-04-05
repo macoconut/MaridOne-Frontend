@@ -135,6 +135,24 @@ body.modal-open {
   border-bottom: 2px solid rgba(0, 0, 0, 0.82);
 }
 
+.hrPayPanel__headRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+  border-bottom: 2px solid rgba(0, 0, 0, 0.82);
+}
+
+.hrPayPanel__headRow .hrPayPanel__head {
+  flex: 1 1 320px;
+  padding: 0;
+  margin: 0;
+  border-bottom: 0;
+}
+
 .hrPayPanel__subcopy {
   margin: -4px 0 16px;
   color: #5c536f;
@@ -1112,6 +1130,11 @@ body.modal-open {
   .hrPayPeriod {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .hrPayPanel__headRow .uiEmployeeSort,
+  .hrPayPanel__headRow .uiEmployeeSort .uiEmployeeSort__toggle {
+    width: 100%;
   }
 
   .hrPayPeriod__actions {
