@@ -956,6 +956,13 @@ body.modal-open {
   gap: 14px;
 }
 
+.hrAttBreakdown__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .hrAttBreakdown__title {
   display: inline-flex;
   align-items: center;
@@ -963,6 +970,20 @@ body.modal-open {
   color: #3b2257;
   font-weight: 900;
   font-size: 16px;
+}
+
+.hrAttBreakdown__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(123, 74, 143, 0.12);
+  color: #4c2d67;
+  font-size: 14px;
+  font-weight: 900;
 }
 
 .hrAttBreakdown__list {
@@ -980,17 +1001,19 @@ body.modal-open {
 }
 
 .hrAttPerson {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
   border: 1px solid rgba(123, 74, 143, 0.12);
-  border-radius: 14px;
+  border-radius: 16px;
   background: #fff;
-  padding: 14px;
+  padding: 16px;
+  box-shadow: 0 10px 18px rgba(42, 25, 62, 0.05);
 }
 
 .hrAttPerson--soft {
-  background: #faf7fd;
+  background: linear-gradient(180deg, #faf7fd 0%, #ffffff 100%);
 }
 
 .hrAttPerson__avatar {
@@ -1006,18 +1029,22 @@ body.modal-open {
 }
 
 .hrAttPerson__body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  min-width: 0;
+  display: grid;
+  gap: 12px;
 }
 
 .hrAttPerson__topLine {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
   gap: 12px;
-  flex-wrap: wrap;
+}
+
+.hrAttPerson__identity {
+  min-width: 0;
+  display: grid;
+  gap: 7px;
 }
 
 .hrAttPerson__name {
@@ -1026,47 +1053,121 @@ body.modal-open {
   color: #2b2036;
 }
 
-.hrAttPerson__meta,
-.hrAttPerson__times {
-  font-size: 16px;
-  color: #5b4d6d;
-  font-weight: 600;
+.hrAttPerson__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
-.hrAttPerson__times {
+.hrAttPerson__chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: rgba(91, 77, 109, 0.07);
+  color: #5b4d6d;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hrAttPerson__badgeWrap {
   display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: flex-start;
+}
+
+.hrAttPerson__metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.hrAttPerson__metrics--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.hrAttPerson__metric {
+  border: 1px solid rgba(123, 74, 143, 0.12);
+  border-radius: 12px;
+  background: #f8f4fb;
+  padding: 10px 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.hrAttPerson__metric--muted {
+  background: linear-gradient(180deg, #f5effa 0%, #ffffff 100%);
+}
+
+.hrAttPerson__metric span {
+  color: #6c5a83;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hrAttPerson__metric strong {
+  color: #2b2036;
+  font-size: 15px;
+  font-weight: 900;
+  line-height: 1.25;
 }
 
 .hrAttPerson__badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 26px;
-  padding: 0 10px;
+  gap: 7px;
+  min-height: 30px;
+  padding: 0 12px;
   border-radius: 999px;
-  font-size: 15px;
-  font-weight: 800;
+  border: 1px solid transparent;
+  box-shadow: 0 6px 12px rgba(42, 25, 62, 0.06);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.hrAttPerson__badge::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+  flex: 0 0 auto;
 }
 
 .hrAttPerson__badge.is-on-time {
-  background: #e8f7ee;
+  background: #edf9f2;
+  border-color: rgba(31, 122, 70, 0.18);
   color: #1f7a46;
 }
 
 .hrAttPerson__badge.is-late {
-  background: #fff1db;
+  background: #fff4e3;
+  border-color: rgba(163, 90, 0, 0.18);
   color: #a35a00;
 }
 
 .hrAttPerson__badge.is-incomplete {
-  background: #ffe7ec;
+  background: #ffedf1;
+  border-color: rgba(179, 58, 58, 0.18);
   color: #b33a3a;
 }
 
 .hrAttPerson__badge.is-muted {
-  background: #efe8f8;
+  background: #f3edf9;
+  border-color: rgba(93, 75, 115, 0.16);
   color: #5d4b73;
 }
 
@@ -1194,7 +1295,23 @@ body.modal-open {
   }
 
   .hrAttPerson {
-    flex-direction: column;
+    grid-template-columns: 1fr;
+  }
+
+  .hrAttPerson__avatar {
+    display: none;
+  }
+
+  .hrAttPerson__topLine {
+    grid-template-columns: 1fr;
+  }
+
+  .hrAttPerson__badgeWrap {
+    justify-content: flex-start;
+  }
+
+  .hrAttPerson__metrics {
+    grid-template-columns: 1fr;
   }
 }
 

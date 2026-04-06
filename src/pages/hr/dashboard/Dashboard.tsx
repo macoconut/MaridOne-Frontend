@@ -106,6 +106,8 @@ type AttendanceOverviewDashboardProps = {
   feedTitleOverride?: string;
   feedTimeDisplay?: 'auto' | 'time-only';
   descriptionOverride?: string;
+  weeklyWindowAnchor?: 'today' | 'selected-date';
+  weeklyWindowIncludesSelectedDate?: boolean;
 };
 
 type AttendanceStatusKey = 'present' | 'late' | 'absent' | 'onLeave' | 'dayOff';
@@ -157,6 +159,13 @@ function formatDateLabel(value?: string) {
 function dateFromKey(dateKey: string) {
   const [year, month, day] = dateKey.split('-').map(Number);
   return new Date(year, month - 1, day, 12, 0, 0, 0);
+}
+
+function toDateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(
+    2,
+    '0'
+  )}`;
 }
 
 function parseTimeToMinutes(value?: string) {
@@ -604,6 +613,8 @@ export function AttendanceOverviewDashboard({
   feedTitleOverride,
   feedTimeDisplay = 'auto',
   descriptionOverride,
+  weeklyWindowAnchor = 'today',
+  weeklyWindowIncludesSelectedDate = true,
 }: AttendanceOverviewDashboardProps) {
   const today = new Date();
   const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(
@@ -631,6 +642,10 @@ export function AttendanceOverviewDashboard({
   const isSelectedDateToday = effectiveSelectedDateKey === todayKey;
   const selectedDateHeading = useMemo(() => formatLongDateLabel(selectedDate), [selectedDate]);
   const selectedDateShortLabel = useMemo(() => formatShortDateLabel(selectedDate), [selectedDate]);
+  const weeklyWindowAnchorDate = useMemo(() => {
+    if (!includeWeeklyFeed) return selectedDate;
+    return weeklyWindowAnchor === 'selected-date' ? selectedDate : todayDate;
+  }, [includeWeeklyFeed, selectedDate, todayDate, weeklyWindowAnchor]);
   const feedStartDate = useMemo(() => {
     if (!includeWeeklyFeed) {
       const start = new Date(selectedDate);
@@ -638,11 +653,20 @@ export function AttendanceOverviewDashboard({
       return start;
     }
 
-    const start = new Date(todayDate);
+    const start = new Date(weeklyWindowAnchorDate);
+    if (!weeklyWindowIncludesSelectedDate) {
+      start.setDate(start.getDate() - 1);
+    }
     start.setDate(start.getDate() - Math.max(feedWindowDays - 1, 0));
     start.setHours(0, 0, 0, 0);
     return start;
-  }, [feedWindowDays, includeWeeklyFeed, selectedDate, todayDate]);
+  }, [
+    feedWindowDays,
+    includeWeeklyFeed,
+    selectedDate,
+    weeklyWindowAnchorDate,
+    weeklyWindowIncludesSelectedDate,
+  ]);
   const feedEndDate = useMemo(() => {
     if (!includeWeeklyFeed) {
       const end = new Date(selectedDate);
@@ -650,10 +674,23 @@ export function AttendanceOverviewDashboard({
       return end;
     }
 
-    const end = new Date(todayDate);
+    const end = new Date(weeklyWindowAnchorDate);
+    if (!weeklyWindowIncludesSelectedDate) {
+      end.setDate(end.getDate() - 1);
+    }
     end.setHours(23, 59, 59, 999);
     return end;
-  }, [includeWeeklyFeed, selectedDate, todayDate]);
+  }, [includeWeeklyFeed, selectedDate, weeklyWindowAnchorDate, weeklyWindowIncludesSelectedDate]);
+  const feedStartDateKey = useMemo(() => toDateKey(feedStartDate), [feedStartDate]);
+  const feedEndDateKey = useMemo(() => toDateKey(feedEndDate), [feedEndDate]);
+  const holidayLookupStartKey = useMemo(
+    () => (feedStartDateKey < effectiveSelectedDateKey ? feedStartDateKey : effectiveSelectedDateKey),
+    [effectiveSelectedDateKey, feedStartDateKey]
+  );
+  const holidayLookupEndKey = useMemo(
+    () => (feedEndDateKey > effectiveSelectedDateKey ? feedEndDateKey : effectiveSelectedDateKey),
+    [effectiveSelectedDateKey, feedEndDateKey]
+  );
   const feedRangeLabel = useMemo(() => {
     if (!includeWeeklyFeed) return formatLongDateLabel(selectedDate);
     return `${formatDateLabel(feedStartDate.toISOString())} to ${formatDateLabel(feedEndDate.toISOString())}`;
@@ -729,8 +766,8 @@ export function AttendanceOverviewDashboard({
         rosterUrl ? apiFetchJson<unknown>(withPaging(rosterUrl, 0, 500)) : Promise.resolve([]),
         apiFetchJson<unknown>(
           withParams('/api/holidays', {
-            startDate: effectiveSelectedDateKey,
-            endDate: effectiveSelectedDateKey,
+            startDate: holidayLookupStartKey,
+            endDate: holidayLookupEndKey,
           })
         ),
       ]);
@@ -781,7 +818,18 @@ export function AttendanceOverviewDashboard({
       cancelled = true;
       silentRefreshRef.current = false;
     };
-  }, [effectiveSelectedDateKey, feedEndDate, feedStartDate, leavesUrl, logsUrl, refreshTick, rosterUrl, selectedDate]);
+  }, [
+    effectiveSelectedDateKey,
+    feedEndDate,
+    feedStartDate,
+    holidayLookupEndKey,
+    holidayLookupStartKey,
+    leavesUrl,
+    logsUrl,
+    refreshTick,
+    rosterUrl,
+    selectedDate,
+  ]);
 
   const employeeById = useMemo(() => {
     const map = new Map<number, EmployeeRow>();
@@ -1136,13 +1184,15 @@ export function AttendanceOverviewDashboard({
         : 'Track attendance activity, late logs, and department trends from the latest records.'
     );
   const centerPanelTitle = isWeeklyPrimaryPanel ? 'Weekly Attendance' : 'Attendance by Department';
-  const feedPanelTitle = isWeeklyPrimaryPanel
-    ? 'Attendance Activity'
-    : includeWeeklyFeed
-      ? 'Weekly Attendance'
-      : isSelectedDateToday
-        ? 'Attendance Today'
-        : `Attendance on ${selectedDateShortLabel}`;
+  const selectedDateFeedTitle = isSelectedDateToday ? 'Attendance Today' : `Attendance on ${selectedDateShortLabel}`;
+  const feedPanelTitle =
+    feedScope === 'selected-date'
+      ? selectedDateFeedTitle
+      : isWeeklyPrimaryPanel
+        ? 'Attendance Activity'
+        : includeWeeklyFeed
+          ? 'Weekly Attendance'
+          : selectedDateFeedTitle;
   const resolvedFeedPanelTitle = feedTitleOverride ?? feedPanelTitle;
   const feedEmptyStateLabel =
     feedScope === 'selected-date'

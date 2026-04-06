@@ -215,7 +215,7 @@ function localTimeLabel(value?: string) {
   if (!value) return undefined;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return undefined;
-  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
+  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
 function parseTimeToMinutes(value?: string) {
@@ -387,6 +387,12 @@ function formatOvertimeDetail(request: OvertimeRequest) {
   if (start) return `${overtimeType} | Starts ${start}`;
   if (end) return `${overtimeType} | Until ${end}`;
   return overtimeType;
+}
+
+function attendanceBadgeForRecord(record: DailyEmployeeRecord) {
+  if (record.isIncomplete) return { label: 'Incomplete Logs', toneClass: 'is-incomplete' };
+  if (record.isLate) return { label: 'Late Arrival', toneClass: 'is-late' };
+  return { label: 'On Time', toneClass: 'is-on-time' };
 }
 
 function isInDirection(direction?: string) {
@@ -1430,7 +1436,6 @@ export function AttendanceReportsBoard({
     isKnownDayOffOnDate,
     logsByDate,
     selectedAbsent.length,
-    selectedHasKnownDayOffs,
     selectedDateKey,
     selectedIsFuture,
     selectedIsHoliday,
@@ -2101,40 +2106,57 @@ export function AttendanceReportsBoard({
 
             <div className="hrAttBreakdown">
               <section className="hrAttBreakdown__section">
-                <div className="hrAttBreakdown__title">
-                  <FiUsers />
-                  Logged Employees
+                <div className="hrAttBreakdown__head">
+                  <div className="hrAttBreakdown__title">
+                    <FiUsers />
+                    Logged Employees
+                  </div>
+                  <span className="hrAttBreakdown__count">{selectedRecords.length}</span>
                 </div>
 
                 <div className="hrAttBreakdown__list">
                   {selectedRecords.length > 0 ? (
-                    selectedRecords.map((record) => (
-                      <article key={`${selectedDateKey}-${record.employeeId}`} className="hrAttPerson">
-                        <div className="hrAttPerson__avatar" aria-hidden="true">
-                          {record.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="hrAttPerson__body">
-                          <div className="hrAttPerson__topLine">
-                            <div className="hrAttPerson__name">{record.name}</div>
-                            <div
-                              className={`hrAttPerson__badge ${
-                                record.isIncomplete ? 'is-incomplete' : record.isLate ? 'is-late' : 'is-on-time'
-                              }`}
-                            >
-                              {record.isIncomplete ? 'Incomplete' : record.isLate ? 'Late' : 'On Time'}
+                    selectedRecords.map((record) => {
+                      const badge = attendanceBadgeForRecord(record);
+
+                      return (
+                        <article key={`${selectedDateKey}-${record.employeeId}`} className="hrAttPerson">
+                          <div className="hrAttPerson__avatar" aria-hidden="true">
+                            {record.name.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="hrAttPerson__body">
+                            <div className="hrAttPerson__topLine">
+                              <div className="hrAttPerson__identity">
+                                <div className="hrAttPerson__name">{record.name}</div>
+                                <div className="hrAttPerson__chips">
+                                  <span className="hrAttPerson__chip">Employee #{record.employeeId}</span>
+                                  <span className="hrAttPerson__chip">{record.position}</span>
+                                  <span className="hrAttPerson__chip">{record.status}</span>
+                                </div>
+                              </div>
+                              <div className="hrAttPerson__badgeWrap">
+                                <div className={`hrAttPerson__badge ${badge.toneClass}`}>{badge.label}</div>
+                              </div>
+                            </div>
+
+                            <div className="hrAttPerson__metrics">
+                              <div className="hrAttPerson__metric">
+                                <span>Time In</span>
+                                <strong>{record.inTime ?? 'N/A'}</strong>
+                              </div>
+                              <div className="hrAttPerson__metric">
+                                <span>Time Out</span>
+                                <strong>{record.outTime ?? 'N/A'}</strong>
+                              </div>
+                              <div className="hrAttPerson__metric">
+                                <span>Logs Recorded</span>
+                                <strong>{record.logCount}</strong>
+                              </div>
                             </div>
                           </div>
-                          <div className="hrAttPerson__meta">
-                            Employee #{record.employeeId} - {record.position} - {record.status}
-                          </div>
-                          <div className="hrAttPerson__times">
-                            <span>Time In: {record.inTime ?? 'N/A'}</span>
-                            <span>Time Out: {record.outTime ?? 'N/A'}</span>
-                            <span>Logs: {record.logCount}</span>
-                          </div>
-                        </div>
-                      </article>
-                    ))
+                        </article>
+                      );
+                    })
                   ) : selectedIsFuture ? (
                     <div className="hrAttBreakdown__empty">This date has not happened yet.</div>
                   ) : (
@@ -2145,9 +2167,12 @@ export function AttendanceReportsBoard({
 
               {hasFullRoster && (
                 <section className="hrAttBreakdown__section">
-                  <div className="hrAttBreakdown__title">
-                    <FiCalendar />
-                    No Logs Recorded
+                  <div className="hrAttBreakdown__head">
+                    <div className="hrAttBreakdown__title">
+                      <FiCalendar />
+                      No Logs Recorded
+                    </div>
+                    <span className="hrAttBreakdown__count">{selectedAbsent.length}</span>
                   </div>
 
                   <div className="hrAttBreakdown__list">
@@ -2159,11 +2184,17 @@ export function AttendanceReportsBoard({
                           </div>
                           <div className="hrAttPerson__body">
                             <div className="hrAttPerson__topLine">
-                              <div className="hrAttPerson__name">{employee.name}</div>
-                              <div className="hrAttPerson__badge is-muted">No Logs</div>
-                            </div>
-                            <div className="hrAttPerson__meta">
-                              Employee #{employee.id} - {employee.position} - {employee.status}
+                              <div className="hrAttPerson__identity">
+                                <div className="hrAttPerson__name">{employee.name}</div>
+                                <div className="hrAttPerson__chips">
+                                  <span className="hrAttPerson__chip">Employee #{employee.id}</span>
+                                  <span className="hrAttPerson__chip">{employee.position}</span>
+                                  <span className="hrAttPerson__chip">{employee.status}</span>
+                                </div>
+                              </div>
+                              <div className="hrAttPerson__badgeWrap">
+                                <div className="hrAttPerson__badge is-muted">No Logs</div>
+                              </div>
                             </div>
                           </div>
                         </article>

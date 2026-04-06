@@ -10,9 +10,10 @@ export default function ManagerAttendanceDashboard() {
       feedWindowDays={7}
       primaryPanelMode="weekly"
       feedScope="selected-date"
-      feedTitleOverride="Attendance Today"
       feedTimeDisplay="time-only"
       descriptionOverride="Track your team's latest attendance activity, late logs, and daily attendance status from one dashboard."
+      weeklyWindowAnchor="selected-date"
+      weeklyWindowIncludesSelectedDate={false}
     />
   );
 }
