@@ -7,10 +7,12 @@ import {
   FiDownload,
   FiFilter,
   FiSearch,
+  FiUpload,
   FiUsers,
   FiXCircle,
 } from 'react-icons/fi';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
+import FileUploadField from '../../../components/form/FileUploadField';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
@@ -119,6 +121,23 @@ type AttendanceExportRow = {
   timeOut: string;
 };
 
+type AttendanceImportIssue = {
+  rowNumber?: number;
+  employeeId?: string;
+  date?: string;
+  message?: string;
+};
+
+type AttendanceImportSummary = {
+  fileName?: string;
+  totalRows?: number;
+  importedRows?: number;
+  skippedRows?: number;
+  importedLogs?: number;
+  issueCount?: number;
+  issues?: AttendanceImportIssue[];
+};
+
 type HolidayLookupPayload = {
   holidayDates?: string[];
   regularHolidayDates?: string[];
@@ -194,7 +213,7 @@ function localTimeLabel(value?: string) {
   if (!value) return undefined;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return undefined;
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 }
 
 function parseTimeToMinutes(value?: string) {
@@ -682,6 +701,10 @@ export function AttendanceReportsBoard({
   const [loadError, setLoadError] = useState('');
   const [actionError, setActionError] = useState('');
   const [isExporting, setIsExporting] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importSummary, setImportSummary] = useState<AttendanceImportSummary | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
   const [selectedDateKey, setSelectedDateKey] = useState(todayDateKey);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -701,11 +724,11 @@ export function AttendanceReportsBoard({
   useAutoRefreshingPage(handlePageRefresh, { intervalMs: 15000 });
 
   useEffect(() => {
-    if (detailOpen) document.body.classList.add('modal-open');
+    if (detailOpen || importDialogOpen) document.body.classList.add('modal-open');
     else document.body.classList.remove('modal-open');
 
     return () => document.body.classList.remove('modal-open');
-  }, [detailOpen]);
+  }, [detailOpen, importDialogOpen]);
 
   useEffect(() => {
     if (!filterOpen) return undefined;
@@ -1478,6 +1501,39 @@ export function AttendanceReportsBoard({
     setDepartmentFilter('all');
   }
 
+  function closeImportDialog() {
+    setImportDialogOpen(false);
+    setImportFile(null);
+  }
+
+  async function importAttendanceReport() {
+    if (!importFile) {
+      setActionError('Choose an exported attendance CSV file to import.');
+      return;
+    }
+
+    setActionError('');
+    setIsImporting(true);
+
+    const formData = new FormData();
+    formData.append('file', importFile);
+
+    try {
+      const summary = await apiFetchJson<AttendanceImportSummary>('/api/logs/attendance/import', {
+        method: 'POST',
+        body: formData,
+      });
+      setImportSummary(summary);
+      setImportFile(null);
+      silentRefreshRef.current = false;
+      setRefreshTick((tick) => tick + 1);
+    } catch (error) {
+      setActionError(getFriendlyErrorMessage(error));
+    } finally {
+      setIsImporting(false);
+    }
+  }
+
   async function downloadAttendanceReport() {
     setActionError('');
     setIsExporting(true);
@@ -1503,6 +1559,8 @@ export function AttendanceReportsBoard({
     audienceLabel === 'Manager'
       ? undefined
       : 'Review daily attendance activity, late entries, incomplete logs, and gaps in one monthly calendar.';
+  const canImport = audienceLabel === 'HR';
+  const importIssues = toArray<AttendanceImportIssue>(importSummary?.issues);
   const selectedDetailSubtitle = selectedIsHoliday
     ? 'This date is a holiday, so employees without logs are not counted as absent or day off.'
     : !selectedIsWorkingDay && !selectedHasKnownDayOffs
@@ -1510,8 +1568,9 @@ export function AttendanceReportsBoard({
       : 'Inspect the daily attendance summary, logged employees, and missing logs for the selected date.';
 
   useErrorDialogEffect(loadError, 'Attendance report could not be loaded');
-  useErrorDialogEffect(actionError, 'Attendance report could not be exported');
+  useErrorDialogEffect(actionError, 'Attendance report action could not be completed');
   useEscapeDismiss(detailOpen, () => setDetailOpen(false), 10);
+  useEscapeDismiss(importDialogOpen, closeImportDialog, 11);
 
   return (
     <div className="hrAtt">
@@ -1810,6 +1869,20 @@ export function AttendanceReportsBoard({
       </section>
 
       <div className="hrAtt__calendarActions">
+        {canImport && (
+          <button
+            type="button"
+            className="hrAtt__actionBtn hrAtt__actionBtn--centered"
+            onClick={() => {
+              setActionError('');
+              setImportDialogOpen(true);
+            }}
+            disabled={isLoading || isImporting}
+          >
+            <FiUpload aria-hidden="true" />
+            <span>{isImporting ? 'Importing CSV...' : 'Import Attendance (CSV)'}</span>
+          </button>
+        )}
         <button
           type="button"
           className="hrAtt__actionBtn hrAtt__actionBtn--centered"
@@ -1817,9 +1890,133 @@ export function AttendanceReportsBoard({
           disabled={isLoading || isExporting || Boolean(loadError)}
         >
           <FiDownload aria-hidden="true" />
-          <span>{isExporting ? 'Preparing CSV...' : 'Export Attendance'}</span>
+          <span>{isExporting ? 'Preparing CSV...' : 'Export Attendance (CSV)'}</span>
         </button>
       </div>
+
+      {importDialogOpen && (
+        <div className="hrAttModalBackdrop" role="dialog" aria-modal="true" aria-label="Import attendance CSV">
+          <div className="hrAttModal hrAttModal--import">
+            <div className="hrAttModal__top">
+              <div>
+                <div className="hrAttModal__eyebrow">Attendance Migration Import</div>
+                <div className="hrAttModal__title">Import Attendance CSV</div>
+                <p className="hrAttModal__subtitle">
+                  Upload a CSV exported from this attendance report. The import expects
+                  {' '}
+                  <strong>Employee ID, Employee Name, Date, Time In, Time Out</strong>
+                  {' '}
+                  and treats a
+                  {' '}
+                  <strong>Time Out</strong>
+                  {' '}
+                  earlier than
+                  {' '}
+                  <strong>Time In</strong>
+                  {' '}
+                  as an overnight next-day timeout.
+                </p>
+              </div>
+              <ModalCloseButton className="hrAttModal__close" onClick={closeImportDialog} />
+            </div>
+
+            <div className="hrAttModal__rule" />
+
+            <div className="hrAttImport">
+              <FileUploadField
+                label="Attendance CSV"
+                hint="Use the exported attendance summary CSV from the previous system before migration."
+                file={importFile}
+                onChange={(file) => {
+                  setImportFile(file);
+                  setImportSummary(null);
+                  setActionError('');
+                }}
+                accept=".csv,text/csv"
+                uploadLabel="Choose CSV"
+                replaceLabel="Replace CSV"
+                emptyLabel="No CSV selected"
+              />
+
+              <div className="hrAttImport__actions">
+                <button
+                  type="button"
+                  className="hrAtt__actionBtn hrAtt__actionBtn--ghost"
+                  onClick={closeImportDialog}
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  className="hrAtt__actionBtn"
+                  onClick={() => void importAttendanceReport()}
+                  disabled={!importFile || isImporting}
+                >
+                  <FiUpload aria-hidden="true" />
+                  <span>{isImporting ? 'Importing CSV...' : 'Import Attendance (CSV)'}</span>
+                </button>
+              </div>
+
+              {importSummary && (
+                <section className="hrAttImportSummary" aria-label="Attendance import summary">
+                  <div className="hrAttImportSummary__top">
+                    <div>
+                      <strong>Latest Import Summary</strong>
+                      {importSummary.fileName ? <span>{importSummary.fileName}</span> : null}
+                    </div>
+                  </div>
+
+                  <div className="hrAttImportSummary__grid">
+                    <article className="hrAttImportSummary__card">
+                      <span>Total Rows</span>
+                      <strong>{importSummary.totalRows ?? 0}</strong>
+                    </article>
+                    <article className="hrAttImportSummary__card">
+                      <span>Imported Rows</span>
+                      <strong>{importSummary.importedRows ?? 0}</strong>
+                    </article>
+                    <article className="hrAttImportSummary__card">
+                      <span>Imported Logs</span>
+                      <strong>{importSummary.importedLogs ?? 0}</strong>
+                    </article>
+                    <article className="hrAttImportSummary__card">
+                      <span>Skipped Rows</span>
+                      <strong>{importSummary.skippedRows ?? 0}</strong>
+                    </article>
+                  </div>
+
+                  {importIssues.length > 0 ? (
+                    <div className="hrAttImportSummary__issues">
+                      <div className="hrAttImportSummary__issuesTitle">
+                        Row Issues ({importSummary.issueCount ?? importIssues.length})
+                      </div>
+                      <div className="hrAttImportSummary__issueList">
+                        {importIssues.map((issue, index) => (
+                          <article
+                            key={`${issue.rowNumber ?? 'row'}-${issue.employeeId ?? 'employee'}-${index}`}
+                            className="hrAttImportSummary__issue"
+                          >
+                            <strong>Row {issue.rowNumber ?? 'N/A'}</strong>
+                            <span>
+                              {issue.employeeId ? `Employee ${issue.employeeId}` : 'Employee unavailable'}
+                              {issue.date ? ` | ${issue.date}` : ''}
+                            </span>
+                            <p>{issue.message ?? 'Unknown import issue.'}</p>
+                          </article>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="hrAttImportSummary__success">
+                      All CSV rows were imported without validation issues.
+                    </p>
+                  )}
+                </section>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {detailOpen && (
         <div className="hrAttModalBackdrop" role="dialog" aria-modal="true" aria-label="Attendance breakdown">
