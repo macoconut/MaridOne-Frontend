@@ -147,6 +147,7 @@ function normalizePayslipLabel(label: string) {
   const normalized = label.trim();
   const upper = normalized.toUpperCase();
 
+  if (upper === 'MANUAL_ADJUSTMENT') return 'Manual Adjustment';
   if (upper === 'PAGIBIG') return 'Pag-IBIG';
   if (upper === 'PHILHEALTH') return 'PhilHealth';
   if (/^BRACKET_LEVEL_/i.test(normalized)) return 'Withholding Tax';
@@ -330,7 +331,7 @@ export default function Payslip() {
         setDeductions(
           toArray<Record<string, unknown>>(deductionsResponse).map((row, idx) => ({
             key: String(row.deductionsId ?? `deduction-${idx + 1}`),
-            label: normalizePayslipLabel(String(row.deductionType ?? row.description ?? `Deduction ${idx + 1}`)),
+            label: normalizePayslipLabel(String(row.description ?? row.deductionType ?? `Deduction ${idx + 1}`)),
             amount: toMoneyString(row.amount),
             originalAmount: toOptionalMoneyString(row.originalAmount),
             adjustedBy: toOptionalText(row.adjustedBy),
