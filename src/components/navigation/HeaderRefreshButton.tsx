@@ -3,16 +3,17 @@ import { usePageRefresh } from '../../lib/pageRefresh';
 
 export default function HeaderRefreshButton() {
   const { isRefreshing, refreshPage } = usePageRefresh();
+  const refreshLabel = isRefreshing ? 'Refreshing current page' : 'Refresh current page';
 
   return (
     <button
       className="eTop__refresh"
       type="button"
-      aria-label="Refresh current page"
+      aria-label={refreshLabel}
+      title={refreshLabel}
       onClick={() => void refreshPage()}
     >
       <FiRefreshCw className={isRefreshing ? 'is-spinning' : ''} />
-      <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
     </button>
   );
 }

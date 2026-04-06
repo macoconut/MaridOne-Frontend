@@ -22,13 +22,29 @@
 .mgrShift__save {
   min-height: 46px;
   border-radius: 14px;
-  padding: 0 18px;
   background: #7b4a8f;
   color: #fff;
   font-weight: 800;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+}
+
+.mgrShift__save {
+  padding: 0 18px;
   gap: 8px;
+}
+
+.mgrShift__refresh {
+  width: 46px;
+  min-width: 46px;
+  padding: 0;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.mgrShift__refresh svg {
+  font-size: 18px;
 }
 
 .mgrShift__refresh:disabled,
@@ -364,12 +380,16 @@
     display: grid;
   }
 
-  .mgrShift__refresh,
   .mgrShift__save,
   .mgrShift__altAction,
   .mgrShift__hintButton {
     width: 100%;
     justify-content: center;
+  }
+
+  .mgrShift__refresh {
+    width: 46px;
+    justify-self: start;
   }
 }
 

@@ -3,6 +3,7 @@ import { FiAlertCircle, FiCheckCircle, FiDownload, FiPrinter, FiXCircle } from '
 import { apiFetchJson, apiFetchRaw, toArray } from '../../../lib/api';
 import { uploadDocument } from '../../../lib/documentUpload';
 import ActionButton from '../../../components/button/ActionButton';
+import { hasBonusEarning } from '../../../lib/payrollRunLabels';
 import { getUserEmail } from '../../../lib/session';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import FileUploadField from '../../../components/form/FileUploadField';
@@ -374,6 +375,34 @@ export default function Payslip() {
     [deductions, earnings]
   );
   const hasAdjustedLines = adjustedLines.length > 0;
+  const isBonusPayout = useMemo(() => hasBonusEarning(earnings), [earnings]);
+  const payslipNotice = useMemo(() => {
+    if (isBonusPayout && hasAdjustedLines) {
+      return {
+        title: 'This payslip is a bonus payout with adjusted payroll lines.',
+        message: `Bonus payouts are processed through adjustment payroll, and ${adjustedLines.length} ${
+          adjustedLines.length === 1 ? 'entry was' : 'entries were'
+        } updated after the original computation.`,
+      };
+    }
+
+    if (isBonusPayout) {
+      return {
+        title: 'This payslip is a bonus payout.',
+        message:
+          'Bonus payouts are processed through adjustment payroll so one-time bonus amounts stay separate from regular salary.',
+      };
+    }
+
+    if (hasAdjustedLines) {
+      return {
+        title: 'This payslip contains adjusted payroll lines.',
+        message: `${adjustedLines.length} ${adjustedLines.length === 1 ? 'entry was' : 'entries were'} updated after the original computation.`,
+      };
+    }
+
+    return null;
+  }, [adjustedLines.length, hasAdjustedLines, isBonusPayout]);
 
   const employeeName = useMemo(() => {
     const parts = [employeeInfo?.firstName, employeeInfo?.middleName, employeeInfo?.lastName]
@@ -665,13 +694,10 @@ export default function Payslip() {
 
         <div className="payCard__rule" />
 
-        {hasAdjustedLines && (
+        {payslipNotice && (
           <section className="payAdjustmentNotice" aria-live="polite">
-            <strong>This payslip contains adjusted payroll lines.</strong>
-            <span>
-              {adjustedLines.length} {adjustedLines.length === 1 ? 'entry was' : 'entries were'} updated after the
-              original computation.
-            </span>
+            <strong>{payslipNotice.title}</strong>
+            <span>{payslipNotice.message}</span>
           </section>
         )}
 

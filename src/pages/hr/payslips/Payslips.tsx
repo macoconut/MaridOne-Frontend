@@ -11,6 +11,7 @@ import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { useUnsavedChangesPrompt } from '../../../hooks/useUnsavedChangesPrompt';
 import { compareEmployees, type EmployeeSortKey } from '../../../lib/employeeSort';
+import { formatPayrollRunTypeLabel, hasBonusEarning } from '../../../lib/payrollRunLabels';
 import { extractAttachmentReference, openDocumentAttachment } from '../../../lib/documentAttachments';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import '../approvals/Approvals.css';
@@ -328,8 +329,7 @@ function describeAdjustmentRun(periodStart: string, periodEnd: string) {
 }
 
 function formatRunType(value?: string) {
-  if (!value) return 'Regular Payroll';
-  return value === 'ADJUSTMENT' ? 'Adjustment Payroll' : 'Regular Payroll';
+  return formatPayrollRunTypeLabel(value);
 }
 
 function normalizeRunType(value?: string): RunFormState['runType'] {
@@ -1010,6 +1010,10 @@ export default function HrPayslips() {
     }
     return selectedPayrollItem.deductions;
   }, [selectedPayrollItem, selectedPayrollItemDeductions]);
+  const selectedPayrollIsBonusPayout = useMemo(
+    () => currentRun?.runType === 'ADJUSTMENT' && hasBonusEarning(selectedPayrollItemEarnings),
+    [currentRun?.runType, selectedPayrollItemEarnings]
+  );
   const visibleRunItems = useMemo(() => {
     return [...runItems].sort((left, right) =>
       compareEmployees(runItemSort, { id: left.empId, name: left.employee }, { id: right.empId, name: right.employee })
@@ -1720,7 +1724,7 @@ export default function HrPayslips() {
 
           {currentRun && (
             <div className="hrPayPeriod__meta">
-              <span className="hrPayPill">{currentRun.runType ?? 'REGULAR'}</span>
+              <span className="hrPayPill">{formatRunType(currentRun.runType)}</span>
               <span className="hrPayPill hrPayPill--status">{currentRun.payrollStatus ?? 'IN_PROGRESS'}</span>
             </div>
           )}
@@ -1747,7 +1751,8 @@ export default function HrPayslips() {
               setRunModalOpen(true);
             }}
           >
-            Create New Payroll Run
+            <FiPlus />
+            <span>Create New Payroll Run</span>
           </button>
         </div>
       </section>
@@ -2127,13 +2132,6 @@ export default function HrPayslips() {
                 />
               </label>
             </div>
-            {manualLineForm.lineType === 'BONUS' && (
-              <p className="hrPayModal__intro">
-                Bonus entries reuse the payroll earnings flow. The backend automatically applies the annual `P90,000`
-                tax-free cap and marks only the excess as taxable.
-              </p>
-            )}
-
             {manualLineError && <p className="hrPay__message">{manualLineError}</p>}
 
             <div className="hrPayModal__actions">
@@ -2379,7 +2377,12 @@ export default function HrPayslips() {
               </label>
               <label>
                 <span>Run Type:</span>
-                <input value={formatRunType(currentRun?.runType)} readOnly />
+                <input
+                  value={formatPayrollRunTypeLabel(currentRun?.runType, {
+                    bonusPayout: selectedPayrollIsBonusPayout,
+                  })}
+                  readOnly
+                />
               </label>
             </div>
 

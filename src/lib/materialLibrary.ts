@@ -64,6 +64,17 @@ const trainingDocuments: LibraryDocument[] = [
   },
 ];
 
+function compareLibraryDocuments(left: LibraryDocument, right: LibraryDocument) {
+  return left.title.localeCompare(right.title, undefined, {
+    sensitivity: 'base',
+    numeric: true,
+  });
+}
+
+function sortLibraryDocuments(documents: LibraryDocument[]) {
+  return [...documents].sort(compareLibraryDocuments);
+}
+
 const onboardingDocuments: LibraryDocument[] = [
   {
     id: 'onboarding-first-week',
@@ -126,7 +137,7 @@ export const materialLibrarySections: MaterialLibrarySection[] = [
       'These guides reinforce Marid\'s operational standards, safety compliance, and performance expectations.',
     dashboardButtonLabel: 'Open Training Materials',
     artKind: 'training',
-    documents: trainingDocuments,
+    documents: sortLibraryDocuments(trainingDocuments),
   },
   {
     id: 'onboarding',
@@ -135,7 +146,7 @@ export const materialLibrarySections: MaterialLibrarySection[] = [
       'Find key introductions, a checklist for your pre-employment requirements, and immediate system access links.',
     dashboardButtonLabel: 'Open Onboarding Materials',
     artKind: 'onboarding',
-    documents: onboardingDocuments,
+    documents: sortLibraryDocuments(onboardingDocuments),
   },
 ];
 

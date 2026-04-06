@@ -394,18 +394,18 @@ body.modal-open .eMain{
 }
 
 .eTop__refresh{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  padding:10px 14px;
+  display:grid;
+  place-items:center;
+  width:48px;
+  height:48px;
+  padding:0;
   border:1px solid rgba(43,32,54,.14);
   border-radius:999px;
   background:#fff;
   color:var(--ink);
-  font-size:14px;
-  font-weight:700;
   cursor:pointer;
   transition:border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+  flex-shrink:0;
 }
 
 .eTop__refresh:hover{
@@ -420,7 +420,7 @@ body.modal-open .eMain{
 }
 
 .eTop__refresh svg{
-  font-size:16px;
+  font-size:18px;
 }
 
 .eTop__refresh .is-spinning{

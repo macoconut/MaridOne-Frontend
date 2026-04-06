@@ -254,9 +254,10 @@ export default function ManagerTeamShiftSchedules() {
           className="mgrShift__refresh"
           onClick={() => void loadTeamSchedules()}
           disabled={loading || Boolean(savingDay)}
+          aria-label={loading ? 'Refreshing team schedules' : 'Refresh team schedules'}
+          title={loading ? 'Refreshing team schedules' : 'Refresh team schedules'}
         >
           <FiRefreshCw />
-          <span>{loading ? 'Refreshing...' : 'Refresh'}</span>
         </button>
       </div>
 

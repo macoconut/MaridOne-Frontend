@@ -276,15 +276,10 @@ export default function HrApprovals() {
       const leavePath = buildApiPath('/api/leave/request', {
         page: '0',
         size: '100',
-        requestStatus: statusFilter !== 'all' ? statusFilter : undefined,
-        isPaid:
-          leavePaidFilter === 'paid' ? 'true' : leavePaidFilter === 'unpaid' ? 'false' : undefined,
       });
       const overtimePath = buildApiPath('/api/overtime/all', {
         page: '0',
         size: '100',
-        requestStatus: statusFilter !== 'all' ? statusFilter : undefined,
-        overtimeType: overtimeTypeFilter !== 'all' ? overtimeTypeFilter : undefined,
       });
       const [employeesRes, overtimeRes, leaveRes] = await Promise.allSettled([
         apiFetchJson<unknown>('/api/employees?page=0&size=200'),
@@ -383,7 +378,7 @@ export default function HrApprovals() {
 
   useEffect(() => {
     void refreshRequests();
-  }, [refreshRequests, statusFilter, leavePaidFilter, overtimeTypeFilter]);
+  }, [refreshRequests]);
 
   const normalizedSearch = normalizeText(searchValue);
 
@@ -441,17 +436,17 @@ export default function HrApprovals() {
   }, [requests, typeFilter, statusFilter, leavePaidFilter, overtimeTypeFilter, normalizedSearch]);
 
   const cards = useMemo(() => {
-    const approved = visibleRequests.filter((r) => toStatusCode(r.status) === 'APPROVED').length;
-    const denied = visibleRequests.filter((r) => toStatusCode(r.status) === 'REJECTED').length;
-    const pending = visibleRequests.filter((r) => toStatusCode(r.status) === 'PENDING').length;
-    const cancelled = visibleRequests.filter((r) => toStatusCode(r.status) === 'CANCELLED').length;
+    const approved = requests.filter((r) => toStatusCode(r.status) === 'APPROVED').length;
+    const denied = requests.filter((r) => toStatusCode(r.status) === 'REJECTED').length;
+    const pending = requests.filter((r) => toStatusCode(r.status) === 'PENDING').length;
+    const cancelled = requests.filter((r) => toStatusCode(r.status) === 'CANCELLED').length;
     return [
       { label: 'Approved', value: approved, tone: 'approved' as const },
       { label: 'Denied', value: denied, tone: 'denied' as const },
       { label: 'Pending', value: pending, tone: 'pending' as const },
       { label: 'Cancelled', value: cancelled, tone: 'cancelled' as const },
     ];
-  }, [visibleRequests]);
+  }, [requests]);
 
   const selected = useMemo(
     () => requests.find((request) => request.id === selectedId) ?? null,
@@ -714,9 +709,13 @@ export default function HrApprovals() {
             </div>
           </>
         ) : (
-          <div className="mgrPendTable__empty">
-            <span>No matching requests.</span>
-            <span>Try clearing the search or adjusting the filters.</span>
+          <div className="hrApprEmptyState">
+            <strong>{requests.length > 0 ? 'No requests matched this view.' : 'No employee requests yet.'}</strong>
+            <p>
+              {requests.length > 0
+                ? 'Try clearing the search or relaxing the filters to bring the full request list back.'
+                : 'Approved, pending, and denied leave or overtime requests will appear here once employees start filing them.'}
+            </p>
           </div>
         )}
       </section>

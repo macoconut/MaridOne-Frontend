@@ -8,6 +8,7 @@ import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { compareEmployees, type EmployeeSortKey } from '../../../lib/employeeSort';
+import { formatPayrollRunTypeLabel, hasBonusEarning } from '../../../lib/payrollRunLabels';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './PayrollReview.css';
 
@@ -661,7 +662,12 @@ export default function AccountingPayrollReview() {
               </label>
               <label>
                 <span>Run Type</span>
-                <input value={selectedRun?.runType ?? 'Unknown'} readOnly />
+                <input
+                  value={formatPayrollRunTypeLabel(selectedRun?.runType, {
+                    bonusPayout: selectedRun?.runType === 'ADJUSTMENT' && hasBonusEarning(selectedBreakdownEarnings),
+                  })}
+                  readOnly
+                />
               </label>
             </div>
 
