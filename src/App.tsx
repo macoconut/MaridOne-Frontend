@@ -1,11 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import type { ReactElement } from 'react';
-import { getAuthToken, getUserRole, type UserRole } from './lib/session';
+import { getAuthToken, getRequiresPasswordChange, getUserRole, type UserRole } from './lib/session';
 import { getRoleHomePath } from './lib/roleRoutes';
 
 import Landing from './pages/Public/Landing';
 import VerifyEmail from './pages/Public/VerifyEmail';
 import EmployeeLogin from './pages/auth/login/Login';
+import ChangePassword from './pages/auth/change-password/ChangePassword';
+import ForgotPassword from './pages/auth/forgot-password/ForgotPassword';
 
 import EmployeeLayout from './layouts/employee/EmployeeLayout';
 import Dashboard from './pages/self-service/dashboard/Dashboard';
@@ -49,6 +51,7 @@ function RequireRole({
 }) {
   const token = getAuthToken();
   const currentRole = getUserRole();
+  const requiresPasswordChange = getRequiresPasswordChange();
 
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -56,6 +59,10 @@ function RequireRole({
 
   if (!currentRole) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (requiresPasswordChange) {
+    return <Navigate to="/change-password" replace />;
   }
 
   if (currentRole !== role) {
@@ -68,9 +75,10 @@ function RequireRole({
 function LoginRoute() {
   const token = getAuthToken();
   const role = getUserRole();
+  const requiresPasswordChange = getRequiresPasswordChange();
 
   if (token && role) {
-    return <Navigate to={roleHome(role)} replace />;
+    return <Navigate to={requiresPasswordChange ? '/change-password' : roleHome(role)} replace />;
   }
 
   return <EmployeeLogin />;
@@ -79,12 +87,41 @@ function LoginRoute() {
 function LandingRoute() {
   const token = getAuthToken();
   const role = getUserRole();
+  const requiresPasswordChange = getRequiresPasswordChange();
 
   if (token && role) {
-    return <Navigate to={roleHome(role)} replace />;
+    return <Navigate to={requiresPasswordChange ? '/change-password' : roleHome(role)} replace />;
   }
 
   return <Landing />;
+}
+
+function ForgotPasswordRoute() {
+  const token = getAuthToken();
+  const role = getUserRole();
+  const requiresPasswordChange = getRequiresPasswordChange();
+
+  if (token && role) {
+    return <Navigate to={requiresPasswordChange ? '/change-password' : roleHome(role)} replace />;
+  }
+
+  return <ForgotPassword />;
+}
+
+function RequirePasswordChange() {
+  const token = getAuthToken();
+  const role = getUserRole();
+  const requiresPasswordChange = getRequiresPasswordChange();
+
+  if (!token || !role) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!requiresPasswordChange) {
+    return <Navigate to={roleHome(role)} replace />;
+  }
+
+  return <ChangePassword />;
 }
 
 export default function App() {
@@ -95,6 +132,8 @@ export default function App() {
           {/* Public */}
           <Route path="/" element={<LandingRoute />} />
           <Route path="/login" element={<LoginRoute />} />
+          <Route path="/forgot-password" element={<ForgotPasswordRoute />} />
+          <Route path="/change-password" element={<RequirePasswordChange />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/employee/login" element={<LoginRoute />} />
           <Route path="/hr/login" element={<LoginRoute />} />

@@ -803,6 +803,10 @@ body.modal-open{
   background: #fbf8fe;
 }
 
+.dashSecurityCard--full{
+  grid-column: 1 / -1;
+}
+
 .dashSecurityCard__head{
   display:flex;
   align-items:flex-start;
@@ -890,6 +894,74 @@ body.modal-open{
   background: #efe6f4;
   color: var(--purple-dark);
   box-shadow:none;
+}
+
+.dashPasswordForm{
+  display:grid;
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.dashPasswordForm__grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 14px;
+}
+
+.dashPasswordForm__field{
+  display:flex;
+  flex-direction:column;
+  gap: 6px;
+}
+
+.dashPasswordForm__field--full{
+  grid-column: 1 / -1;
+}
+
+.dashPasswordForm__field span{
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.dashPasswordForm__inputWrap{
+  position: relative;
+  display:flex;
+  align-items:center;
+}
+
+.dashPasswordForm__inputWrap input{
+  width: 100%;
+  height: 38px;
+  border: 1px solid rgba(0,0,0,.16);
+  border-radius: 10px;
+  padding: 0 42px 0 12px;
+  font-size: 16px;
+  color: var(--ink);
+  background: #fff;
+}
+
+.dashPasswordForm__toggle{
+  position:absolute;
+  right: 10px;
+  border:none;
+  background: transparent;
+  color: var(--purple-dark);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  padding: 0;
+}
+
+.dashPasswordForm__toggle:disabled{
+  opacity:.5;
+  cursor:not-allowed;
+}
+
+.dashPasswordForm__actions{
+  display:flex;
+  justify-content:flex-end;
 }
 
 .dashTwoFactorSetup{
@@ -1075,6 +1147,7 @@ body.modal-open{
 @media (max-width: 1400px){
   .dashModal__grid{ grid-template-columns: 1fr; }
   .dashSecurity__grid{ grid-template-columns: 1fr; }
+  .dashSecurityCard--full{ grid-column: auto; }
   .dashTwoFactorSetup__media{ grid-template-columns: 1fr; }
   .infoCardX__headerActions{ flex-wrap: wrap; justify-content:flex-end; }
   .lowerGridX{
@@ -1099,6 +1172,7 @@ body.modal-open{
 
 @media (max-width: 700px){
   .actionRowX{ grid-template-columns: 1fr; }
+  .dashPasswordForm__grid{ grid-template-columns: 1fr; }
   .calendarGrid{ grid-template-rows: 22px repeat(var(--calendar-week-rows, 6), 56px); }
   .calCell{
     min-height: 56px;

@@ -31,6 +31,16 @@ export function disableTwoFactor() {
   });
 }
 
+export function changeOwnPassword(currentPassword: string, newPassword: string) {
+  return apiFetchText('/api/user/password/change', {
+    method: 'PATCH',
+    body: JSON.stringify({
+      currentPassword,
+      newPassword,
+    }),
+  });
+}
+
 export function verifyEmailToken(token: string) {
   return apiFetchText('/api/auth/verify-email', {
     method: 'POST',

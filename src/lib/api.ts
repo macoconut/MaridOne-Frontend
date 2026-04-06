@@ -1,8 +1,10 @@
 import {
   clearSession,
   getAuthToken,
+  getRequiresPasswordChange,
   getRefreshToken,
   setAuthToken,
+  setRequiresPasswordChange,
   setRefreshToken,
 } from './session';
 
@@ -50,6 +52,12 @@ function redirectToLogin() {
   clearSession();
   if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
     window.location.replace('/login');
+  }
+}
+
+function redirectToPasswordChange() {
+  if (typeof window !== 'undefined' && window.location.pathname !== '/change-password') {
+    window.location.replace('/change-password');
   }
 }
 
@@ -156,10 +164,12 @@ async function refreshAccessToken(): Promise<boolean> {
           typeof payload.accessToken === 'string' ? payload.accessToken : null;
         const nextRefreshToken =
           typeof payload.refreshToken === 'string' ? payload.refreshToken : refreshToken;
+        const requiresPasswordChange = payload.requiresPasswordChange === true;
 
         if (!nextAccessToken) return false;
         setAuthToken(nextAccessToken);
         setRefreshToken(nextRefreshToken);
+        setRequiresPasswordChange(requiresPasswordChange);
         return true;
       } catch {
         return false;
@@ -198,6 +208,15 @@ export async function apiFetchRaw(path: string, init: RequestInit = {}, allowRet
     }
 
     redirectToLogin();
+  }
+
+  if (
+    response.status === 403 &&
+    getRequiresPasswordChange() &&
+    path !== '/api/user/password/change' &&
+    path !== '/api/auth/logout'
+  ) {
+    redirectToPasswordChange();
   }
 
   return response;

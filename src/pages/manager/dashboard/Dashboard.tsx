@@ -9,6 +9,7 @@ import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import {
   beginTwoFactorSetup,
+  changeOwnPassword,
   confirmTwoFactorSetup,
   disableTwoFactor,
   sendEmailVerification,
@@ -25,6 +26,8 @@ type UserDetails = {
   username?: string;
   employeeId?: number;
   twoFactorEnabled?: boolean;
+  canChangePasswordNow?: boolean;
+  passwordChangeAvailableAt?: string;
   employee?: {
     employeeId?: number;
     fullName?: string;
@@ -188,6 +191,7 @@ export default function ManagerDashboard() {
   const [startingTwoFactor, setStartingTwoFactor] = useState(false);
   const [confirmingTwoFactor, setConfirmingTwoFactor] = useState(false);
   const [disablingTwoFactor, setDisablingTwoFactor] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
   const [twoFactorSetup, setTwoFactorSetup] = useState<TwoFactorSetupResponse | null>(null);
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [teamEmployees, setTeamEmployees] = useState<EmployeeRow[]>([]);
@@ -213,7 +217,8 @@ export default function ManagerDashboard() {
   useErrorDialogEffect(securityError, 'Security action could not be completed');
   useEscapeDismiss(editOpen && !savingEdit, closeEditModal, 10);
   useEscapeDismiss(
-    securityOpen && !(sendingVerification || startingTwoFactor || confirmingTwoFactor || disablingTwoFactor),
+    securityOpen &&
+      !(sendingVerification || startingTwoFactor || confirmingTwoFactor || disablingTwoFactor || changingPassword),
     closeSecurityModal,
     10
   );
@@ -401,6 +406,16 @@ export default function ManagerDashboard() {
   const emailChanged = Boolean(draftEmailNormalized && draftEmailNormalized !== savedEmailNormalized);
   const emailVerified = isEmailVerified(employee);
   const emailVerificationWillReset = emailVerified && emailChanged;
+  const canChangePasswordNow = profile?.canChangePasswordNow !== false;
+  const passwordChangeAvailableAtLabel = profile?.passwordChangeAvailableAt
+    ? new Date(profile.passwordChangeAvailableAt).toLocaleString(undefined, {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      })
+    : 'Not available';
 
   function shiftCalendarMonth(offset: number) {
     const next = new Date(calendarYear, calendarMonthIndex + offset, 1);
@@ -428,7 +443,7 @@ export default function ManagerDashboard() {
   }
 
   function closeSecurityModal() {
-    if (sendingVerification || startingTwoFactor || confirmingTwoFactor || disablingTwoFactor) return;
+    if (sendingVerification || startingTwoFactor || confirmingTwoFactor || disablingTwoFactor || changingPassword) return;
     setSecurityOpen(false);
     clearSecurityFeedback();
     if (!profile?.twoFactorEnabled) {
@@ -570,6 +585,60 @@ export default function ManagerDashboard() {
       setSecurityError(getFriendlyErrorMessage(error, 'generic'));
     } finally {
       setDisablingTwoFactor(false);
+    }
+  }
+
+  async function handleChangePassword(payload: {
+    currentPassword: string;
+    newPassword: string;
+    confirmPassword: string;
+  }) {
+    const currentPassword = payload.currentPassword.trim();
+    const newPassword = payload.newPassword.trim();
+    const confirmPassword = payload.confirmPassword.trim();
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setSecurityMessage('');
+      setSecurityError('Fill in your current password, your new password, and the confirmation.');
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setSecurityMessage('');
+      setSecurityError('Your new password must be at least 8 characters long.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setSecurityMessage('');
+      setSecurityError('Your new password and confirmation do not match.');
+      return;
+    }
+
+    clearSecurityFeedback();
+    setChangingPassword(true);
+    try {
+      await changeOwnPassword(currentPassword, newPassword);
+
+      const username = getUserEmail();
+      if (username) {
+        try {
+          const refreshedProfile = await apiFetchJson<UserDetails>(`/api/user/details/${encodeURIComponent(username)}`);
+          setProfile(refreshedProfile);
+        } catch {
+          // Keep the success path intact even if the follow-up details refresh fails.
+        }
+      }
+
+      setSecurityOpen(false);
+      showSuccess(
+        'Your password has been updated. You can change it again from Security after the 30-day cooldown.',
+        'Password Updated'
+      );
+    } catch (error) {
+      setSecurityError(getFriendlyErrorMessage(error, 'generic'));
+    } finally {
+      setChangingPassword(false);
     }
   }
 
@@ -857,12 +926,12 @@ export default function ManagerDashboard() {
             <div className="dashModal__top">
               <div>
                 <div className="dashModal__title">ACCOUNT SECURITY</div>
-                <div className="dashModal__subtitle">Manage email verification and two-factor authentication.</div>
+                <div className="dashModal__subtitle">Manage email verification, two-factor authentication, and your monthly self-service password change.</div>
               </div>
               <ModalCloseButton
                 className="dashModal__close"
                 onClick={closeSecurityModal}
-                disabled={sendingVerification || startingTwoFactor || confirmingTwoFactor || disablingTwoFactor}
+                disabled={sendingVerification || startingTwoFactor || confirmingTwoFactor || disablingTwoFactor || changingPassword}
               />
             </div>
 
@@ -880,11 +949,15 @@ export default function ManagerDashboard() {
               startingTwoFactor={startingTwoFactor}
               confirmingTwoFactor={confirmingTwoFactor}
               disablingTwoFactor={disablingTwoFactor}
+              changingPassword={changingPassword}
+              canChangePasswordNow={canChangePasswordNow}
+              passwordChangeAvailableAtLabel={passwordChangeAvailableAtLabel}
               onTwoFactorCodeChange={(value) => setTwoFactorCode(value.replace(/\D/g, '').slice(0, 6))}
               onSendVerification={() => void handleSendEmailVerification()}
               onStartTwoFactor={() => void handleStartTwoFactorSetup()}
               onConfirmTwoFactor={() => void handleConfirmTwoFactor()}
               onDisableTwoFactor={() => void handleDisableTwoFactor()}
+              onChangePassword={(payload) => void handleChangePassword(payload)}
             />
           </div>
         </div>
