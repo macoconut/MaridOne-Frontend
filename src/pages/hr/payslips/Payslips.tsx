@@ -277,12 +277,12 @@ function employeeLabelFromParts(firstName?: string, lastName?: string, employeeI
 
 function createDefaultRunForm(): RunFormState {
   const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
   return {
     periodStart: toISODate(start),
-    periodEnd: toISODate(end),
+    periodEnd: toISODate(today),
     runType: 'REGULAR',
   };
 }
@@ -333,6 +333,14 @@ function formatRunType(value?: string) {
 
 function normalizeRunType(value?: string): RunFormState['runType'] {
   return value === 'ADJUSTMENT' ? 'ADJUSTMENT' : 'REGULAR';
+}
+
+function getTodayIsoDate() {
+  return toISODate(new Date());
+}
+
+function isFutureIsoDate(value: string, todayIsoDate: string) {
+  return Boolean(value) && value > todayIsoDate;
 }
 
 function readStoredRun() {
@@ -892,6 +900,7 @@ export default function HrPayslips() {
   const currentPayPeriod = useMemo(() => {
     return formatDate(displayedPeriodEnd);
   }, [displayedPeriodEnd]);
+  const todayIsoDate = useMemo(() => getTodayIsoDate(), []);
   const normalizedDisputeSearch = normalizeText(disputeSearchValue);
   const canReviewSelectedDispute = selectedDispute ? selectedDispute.statusCode === 'PENDING' : false;
   const canStageSelectedDisputeCorrection =
@@ -1468,6 +1477,11 @@ export default function HrPayslips() {
       return;
     }
 
+    if (isFutureIsoDate(runForm.periodStart, todayIsoDate) || isFutureIsoDate(runForm.periodEnd, todayIsoDate)) {
+      setRunError('Payroll run dates cannot be later than today.');
+      return;
+    }
+
     setConfirmRunOpen(true);
   }
 
@@ -1481,6 +1495,11 @@ export default function HrPayslips() {
 
     if (runForm.periodEnd < runForm.periodStart) {
       setRunError('Period end cannot be earlier than period start.');
+      return;
+    }
+
+    if (isFutureIsoDate(runForm.periodStart, todayIsoDate) || isFutureIsoDate(runForm.periodEnd, todayIsoDate)) {
+      setRunError('Payroll run dates cannot be later than today.');
       return;
     }
 
@@ -1791,6 +1810,7 @@ export default function HrPayslips() {
                   type="date"
                   value={runForm.periodStart}
                   onChange={(event) => setRunForm((prev) => ({ ...prev, periodStart: event.target.value }))}
+                  max={runForm.periodEnd || todayIsoDate}
                 />
               </label>
               <label>
@@ -1799,6 +1819,8 @@ export default function HrPayslips() {
                   type="date"
                   value={runForm.periodEnd}
                   onChange={(event) => setRunForm((prev) => ({ ...prev, periodEnd: event.target.value }))}
+                  min={runForm.periodStart || undefined}
+                  max={todayIsoDate}
                 />
               </label>
               <label>
