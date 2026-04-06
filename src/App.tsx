@@ -3,8 +3,8 @@ import type { ReactElement } from 'react';
 import { getAuthToken, getRequiresPasswordChange, getUserRole, type UserRole } from './lib/session';
 import { getRoleHomePath } from './lib/roleRoutes';
 
-import Landing from './pages/public/Landing';
-import VerifyEmail from './pages/public/VerifyEmail';
+import Landing from './pages/Public/Landing';
+import VerifyEmail from './pages/Public/VerifyEmail';
 import EmployeeLogin from './pages/auth/login/Login';
 import ChangePassword from './pages/auth/change-password/ChangePassword';
 import ForgotPassword from './pages/auth/forgot-password/ForgotPassword';

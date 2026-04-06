@@ -64,7 +64,7 @@ type EmployeeOption = {
 
 type ManualLineFormState = {
   empId: string;
-  lineType: 'EARNING' | 'DEDUCTION';
+  lineType: 'EARNING' | 'BONUS' | 'DEDUCTION';
   amount: string;
 };
 
@@ -355,6 +355,18 @@ function readStoredRun() {
   }
 }
 
+function persistRunSelection(run: PayrollRunDto | null) {
+  try {
+    if (run) {
+      window.localStorage.setItem(PAYROLL_RUN_STORAGE_KEY, JSON.stringify(run));
+    } else {
+      window.localStorage.removeItem(PAYROLL_RUN_STORAGE_KEY);
+    }
+  } catch {
+    // ignore storage write failures
+  }
+}
+
 function clearStoredRun() {
   try {
     window.localStorage.removeItem(PAYROLL_RUN_STORAGE_KEY);
@@ -377,6 +389,22 @@ function compareRunsDescending(a: PayrollRunDto, b: PayrollRunDto) {
   if (startDiff !== 0) return startDiff;
 
   return (b.payId ?? 0) - (a.payId ?? 0);
+}
+
+function pickCurrentRun(runs: PayrollRunDto[], preferredPayId?: number | null) {
+  const preferredRun =
+    preferredPayId != null ? runs.find((run) => run.payId === preferredPayId) ?? null : null;
+  const latestInProgressRun = runs.find((run) => run.payrollStatus === 'IN_PROGRESS') ?? null;
+  const latestRunWithItems = runs.find((run) => (run.itemCount ?? 0) > 0) ?? null;
+
+  return (
+    (preferredRun && preferredRun.payrollStatus !== 'POSTED' ? preferredRun : null) ??
+    latestInProgressRun ??
+    preferredRun ??
+    latestRunWithItems ??
+    runs[0] ??
+    null
+  );
 }
 
 function toDisputeStatusCode(value?: string): DisputeStatusCode {
@@ -659,19 +687,7 @@ export default function HrPayslips() {
       if (preferredPayId != null && !runs.some((run) => run.payId === preferredPayId)) {
         clearStoredRun();
       }
-      const preferredRun =
-        preferredPayId != null ? runs.find((run) => run.payId === preferredPayId) ?? null : null;
-      const activeRun =
-        runs.find((run) => run.payrollStatus === 'IN_PROGRESS' && (run.itemCount ?? 0) > 0) ??
-        runs.find((run) => run.payrollStatus === 'IN_PROGRESS') ??
-        null;
-      const nextRun =
-        (preferredRun?.payrollStatus === 'IN_PROGRESS' ? preferredRun : null) ??
-        activeRun ??
-        preferredRun ??
-        runs.find((run) => (run.itemCount ?? 0) > 0) ??
-        runs[0] ??
-        null;
+      const nextRun = pickCurrentRun(runs, preferredPayId);
 
       setCurrentRun(nextRun);
       if (nextRun) syncRunForm(nextRun);
@@ -782,15 +798,7 @@ export default function HrPayslips() {
   }, [refreshTick]);
 
   useEffect(() => {
-    try {
-      if (currentRun) {
-        window.localStorage.setItem(PAYROLL_RUN_STORAGE_KEY, JSON.stringify(currentRun));
-      } else {
-        window.localStorage.removeItem(PAYROLL_RUN_STORAGE_KEY);
-      }
-    } catch {
-      // ignore storage write failures
-    }
+    persistRunSelection(currentRun);
   }, [currentRun]);
 
   async function loadDisputes() {
@@ -901,6 +909,32 @@ export default function HrPayslips() {
     runForm.runType === 'ADJUSTMENT' ? 'Create Adjustment Run' : 'Create New Payroll Run';
   const runSubmitLabel =
     runForm.runType === 'ADJUSTMENT' ? 'Create Adjustment Run' : 'Create New Payroll Run';
+  const hasOngoingRunConflict =
+    currentRun?.payrollStatus === 'IN_PROGRESS' &&
+    (currentRun.periodStart !== runForm.periodStart ||
+      currentRun.periodEnd !== runForm.periodEnd ||
+      normalizeRunType(currentRun.runType) !== runForm.runType);
+  const confirmRunTitle = hasOngoingRunConflict
+    ? 'Ongoing Payroll Run Detected'
+    : runForm.runType === 'ADJUSTMENT'
+      ? 'Confirm Adjustment Run'
+      : 'Confirm New Payroll Run';
+  const confirmRunMessage =
+    hasOngoingRunConflict && currentRun
+      ? `There is already an ongoing ${formatRunType(currentRun.runType)} for ${formatDate(
+          currentRun.periodStart
+        )} to ${formatDate(
+          currentRun.periodEnd
+        )}. Creating another run will switch this page to the new run. Continue?`
+      : `Create a ${runForm.runType === 'ADJUSTMENT' ? 'payroll adjustment' : 'new payroll'} run for ${formatDate(
+          runForm.periodStart
+        )} to ${formatDate(runForm.periodEnd)}?`;
+  const confirmRunConfirmLabel = hasOngoingRunConflict
+    ? 'Create Another Run'
+    : runForm.runType === 'ADJUSTMENT'
+      ? 'Create Adjustment Run'
+      : 'Create New Payroll Run';
+  const confirmRunCancelLabel = hasOngoingRunConflict ? 'Keep Current Run' : 'Go Back';
 
   const currentPayPeriod = useMemo(() => {
     return formatDate(displayedPeriodEnd);
@@ -1132,22 +1166,31 @@ export default function HrPayslips() {
 
     try {
       const itemId = await ensurePayrollItemForEmployee(currentRun.payId, empId);
-      const endpoint =
-        manualLineForm.lineType === 'EARNING'
-          ? `/api/payroll/item/earnings/create/${itemId}`
-          : `/api/payroll/item/deductions/create/${itemId}`;
-
-      await apiFetchJson(endpoint, {
-        method: 'POST',
-        body: JSON.stringify({
-          amount: trimmedAmount,
-        }),
-      });
+      if (manualLineForm.lineType === 'DEDUCTION') {
+        await apiFetchJson(`/api/payroll/item/deductions/create/${itemId}`, {
+          method: 'POST',
+          body: JSON.stringify({
+            amount: trimmedAmount,
+          }),
+        });
+      } else {
+        await apiFetchJson(`/api/payroll/item/earnings/create/${itemId}`, {
+          method: 'POST',
+          body: JSON.stringify({
+            amount: trimmedAmount,
+            earningsType: manualLineForm.lineType === 'BONUS' ? 'BONUS' : 'FIXED',
+          }),
+        });
+      }
 
       await loadCurrentRun(currentRun.payId);
       resetManualLineState();
       showSuccess(
-        `${manualLineForm.lineType === 'EARNING' ? 'Earning' : 'Deduction'} line added for ${selectedManualEmployee?.name ?? `Employee #${empId}`}.`,
+        `${manualLineForm.lineType === 'DEDUCTION'
+          ? 'Deduction'
+          : manualLineForm.lineType === 'BONUS'
+            ? 'Bonus'
+            : 'Earning'} line added for ${selectedManualEmployee?.name ?? `Employee #${empId}`}.`,
         'Adjustment Line Added'
       );
     } catch (error) {
@@ -1273,6 +1316,7 @@ export default function HrPayslips() {
     if (reusableRun) {
       setCurrentRun(reusableRun);
       syncRunForm(reusableRun);
+      persistRunSelection(reusableRun);
       setAdjustmentRunId(reusableRun.payId ?? null);
       showSuccess('Existing adjustment run is ready for the approved dispute.', 'Adjustment Run Ready');
       return reusableRun;
@@ -1291,6 +1335,7 @@ export default function HrPayslips() {
 
     setCurrentRun(createdRun);
     syncRunForm(createdRun);
+    persistRunSelection(createdRun);
     setAdjustmentRunId(createdRun.payId ?? null);
     showSuccess('Adjustment run is ready for the approved dispute.', 'Adjustment Run Ready');
     return createdRun;
@@ -1554,13 +1599,13 @@ export default function HrPayslips() {
         }),
       });
 
-      setCurrentRun(createdRun);
-      syncRunForm(createdRun);
+      persistRunSelection(createdRun);
+      await loadCurrentRun(createdRun.payId);
       setRunModalOpen(false);
       if (isAdjustmentRun) {
-        showSuccess('Adjustment run successfully created.', 'Adjustment Run Created');
+        showSuccess('Adjustment run successfully created and is now the active run on this page.', 'Adjustment Run Created');
       } else {
-        showSuccess('Payroll run successfully created and is now in progress.', 'Payroll Run In Progress');
+        showSuccess('Payroll run successfully created and is now the active run on this page.', 'Payroll Run In Progress');
       }
     } catch (error) {
       setRunError(getFriendlyErrorMessage(error, 'payroll-run'));
@@ -1999,6 +2044,7 @@ export default function HrPayslips() {
                   disabled={isSubmittingManualLine}
                 >
                   <option value="EARNING">Manual Earning</option>
+                  <option value="BONUS">Bonus</option>
                   <option value="DEDUCTION">Manual Deduction</option>
                 </select>
               </label>
@@ -2016,6 +2062,12 @@ export default function HrPayslips() {
                 />
               </label>
             </div>
+            {manualLineForm.lineType === 'BONUS' && (
+              <p className="hrPayModal__intro">
+                Bonus entries reuse the payroll earnings flow. The backend automatically applies the annual `P90,000`
+                tax-free cap and marks only the excess as taxable.
+              </p>
+            )}
 
             {manualLineError && <p className="hrPay__message">{manualLineError}</p>}
 
@@ -2603,12 +2655,10 @@ export default function HrPayslips() {
       )}
       <ConfirmDialog
         open={confirmRunOpen}
-        title={runForm.runType === 'ADJUSTMENT' ? 'Confirm Adjustment Run' : 'Confirm New Payroll Run'}
-        message={`Create a ${runForm.runType === 'ADJUSTMENT' ? 'payroll adjustment' : 'new payroll'} run for ${formatDate(
-          runForm.periodStart
-        )} to ${formatDate(runForm.periodEnd)}?`}
-        confirmLabel={runForm.runType === 'ADJUSTMENT' ? 'Create Adjustment Run' : 'Create New Payroll Run'}
-        cancelLabel="Go Back"
+        title={confirmRunTitle}
+        message={confirmRunMessage}
+        confirmLabel={confirmRunConfirmLabel}
+        cancelLabel={confirmRunCancelLabel}
         isBusy={isSubmittingRun}
         onConfirm={() => {
           setConfirmRunOpen(false);

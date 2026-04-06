@@ -155,6 +155,7 @@ function formatSummaryLabel(value?: string) {
   if (normalized === 'PAGIBIG') return 'PagIbig';
   if (normalized === 'PHILHEALTH') return 'PhilHealth';
   if (normalized === 'SSS') return 'SSS';
+  if (normalized === 'BONUS') return 'Bonus';
   return key
     .toLowerCase()
     .split('_')

@@ -150,6 +150,7 @@ function normalizePayslipLabel(label: string) {
   const upper = normalized.toUpperCase();
 
   if (upper === 'MANUAL_ADJUSTMENT') return 'Manual Adjustment';
+  if (upper === 'BONUS') return 'Bonus';
   if (upper === 'PAGIBIG') return 'Pag-IBIG';
   if (upper === 'PHILHEALTH') return 'PhilHealth';
   if (/^BRACKET_LEVEL_/i.test(normalized)) return 'Withholding Tax';

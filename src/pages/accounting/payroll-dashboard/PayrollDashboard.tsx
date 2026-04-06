@@ -118,6 +118,8 @@ function formatPayTypeLabel(value?: string) {
   switch (key) {
     case 'BASIC':
       return 'Basic Pay';
+    case 'BONUS':
+      return 'Bonus';
     case 'SSS':
       return 'SSS Contribution';
     case 'PHILHEALTH':

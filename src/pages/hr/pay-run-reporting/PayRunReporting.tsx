@@ -66,6 +66,7 @@ type EmployeeReportExportRow = {
 
 const DEFAULT_EARNING_BREAKDOWN_LABELS = [
   'Basic Pay',
+  'Bonus',
   'Approved Overtime',
   'Regular Holiday Premium',
   'Special Holiday Premium',
@@ -194,6 +195,7 @@ function formatSummaryLabel(value?: string) {
   if (normalized === 'PAGIBIG') return 'PagIbig';
   if (normalized === 'PHILHEALTH') return 'PhilHealth';
   if (normalized === 'SSS') return 'SSS';
+  if (normalized === 'BONUS') return 'Bonus';
   return key
     .toLowerCase()
     .split('_')
@@ -223,6 +225,7 @@ function normalizeBreakdownLabel(label: string, lineType: PayrollBreakdownLine['
   if (lineType === 'EARNING') {
     if (normalized === 'basic salary') return 'Basic Pay';
     if (normalized === 'overtime' || normalized === 'approved overtime') return 'Approved Overtime';
+    if (normalized === 'bonus') return 'Bonus';
   }
 
   return trimmed;
