@@ -134,6 +134,15 @@ export function getFriendlyErrorMessage(error: unknown, context: ErrorContext = 
         default:
           return appendDetail('This action conflicts with existing data.', error.rawMessage);
       }
+    case 413:
+      switch (context) {
+        case 'leave-request':
+        case 'overtime-request':
+        case 'payroll-dispute':
+          return 'Attachment is too large. Files for requests must be 10 MB or smaller.';
+        default:
+          return 'The uploaded file is too large. Please keep it within 10 MB.';
+      }
     case 500:
       return 'The server hit an unexpected problem. Please try again in a moment.';
     default:

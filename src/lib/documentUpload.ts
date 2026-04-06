@@ -1,6 +1,8 @@
 import { ApiError, apiFetchRaw } from './api';
 
 const DOCUMENT_UPLOAD_PATHS = ['/api/document/upload', '/api/LOCAL/document/upload'] as const;
+const MAX_REQUEST_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+const REQUEST_ATTACHMENT_TOO_LARGE_MESSAGE = 'Attachment is too large. Files for requests must be 10 MB or smaller.';
 
 function parseUploadPayload(text: string) {
   if (!text) return null;
@@ -12,7 +14,22 @@ function parseUploadPayload(text: string) {
   }
 }
 
+function extractUploadErrorMessage(text: string, status: number) {
+  const payload = parseUploadPayload(text);
+  if (typeof payload?.error === 'string' && payload.error.trim().length > 0) {
+    return payload.error.trim();
+  }
+  if (typeof payload?.message === 'string' && payload.message.trim().length > 0) {
+    return payload.message.trim();
+  }
+  return text || `Document upload failed (${status}).`;
+}
+
 export async function uploadDocument(file: File, subDir: string): Promise<number> {
+  if (file.size > MAX_REQUEST_ATTACHMENT_BYTES) {
+    throw new ApiError(413, REQUEST_ATTACHMENT_TOO_LARGE_MESSAGE, REQUEST_ATTACHMENT_TOO_LARGE_MESSAGE);
+  }
+
   for (const path of DOCUMENT_UPLOAD_PATHS) {
     const form = new FormData();
     form.append('file', file);
@@ -35,10 +52,14 @@ export async function uploadDocument(file: File, subDir: string): Promise<number
     }
 
     if (response.status !== 404) {
+      const message =
+        response.status === 413
+          ? REQUEST_ATTACHMENT_TOO_LARGE_MESSAGE
+          : extractUploadErrorMessage(text, response.status);
       throw new ApiError(
         response.status,
-        text || `Document upload failed (${response.status}).`,
-        text || `Document upload failed (${response.status}).`
+        message,
+        message
       );
     }
   }
