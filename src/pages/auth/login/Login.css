@@ -194,6 +194,23 @@
   margin-top: 6px;
 }
 
+.eloginForgot {
+  align-self: flex-end;
+  border: none;
+  background: transparent;
+  color: #6a4b7e;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.eloginForgot:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .eloginHint {
   border: 1px dashed rgba(123, 74, 143, 0.45);
   background: #f8f1fa;

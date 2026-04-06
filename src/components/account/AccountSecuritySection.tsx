@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react';
+import { FiEye, FiEyeOff } from 'react-icons/fi';
 import type { TwoFactorSetupResponse } from '../../lib/accountSecurity';
+
+type PasswordChangeRequest = {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+};
 
 type AccountSecuritySectionProps = {
   savedEmail: string;
@@ -13,11 +20,15 @@ type AccountSecuritySectionProps = {
   startingTwoFactor: boolean;
   confirmingTwoFactor: boolean;
   disablingTwoFactor: boolean;
+  changingPassword: boolean;
+  canChangePasswordNow: boolean;
+  passwordChangeAvailableAtLabel: string;
   onTwoFactorCodeChange: (value: string) => void;
   onSendVerification: () => void;
   onStartTwoFactor: () => void;
   onConfirmTwoFactor: () => void;
   onDisableTwoFactor: () => void;
+  onChangePassword: (payload: PasswordChangeRequest) => void;
 };
 
 export default function AccountSecuritySection({
@@ -32,15 +43,26 @@ export default function AccountSecuritySection({
   startingTwoFactor,
   confirmingTwoFactor,
   disablingTwoFactor,
+  changingPassword,
+  canChangePasswordNow,
+  passwordChangeAvailableAtLabel,
   onTwoFactorCodeChange,
   onSendVerification,
   onStartTwoFactor,
   onConfirmTwoFactor,
   onDisableTwoFactor,
+  onChangePassword,
 }: AccountSecuritySectionProps) {
   const emailReady = savedEmail.trim().length > 0 && !emailDirty;
-  const isBusy = sendingVerification || startingTwoFactor || confirmingTwoFactor || disablingTwoFactor;
+  const isBusy =
+    sendingVerification || startingTwoFactor || confirmingTwoFactor || disablingTwoFactor || changingPassword;
   const [showManualSecret, setShowManualSecret] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const emailStatusClass = !savedEmail.trim()
     ? 'is-neutral'
     : emailVerified
@@ -67,6 +89,15 @@ export default function AccountSecuritySection({
       setShowManualSecret(true);
     }
   }, [setup]);
+
+  function handlePasswordSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    onChangePassword({
+      currentPassword,
+      newPassword,
+      confirmPassword,
+    });
+  }
 
   return (
     <section className="dashSecurity">
@@ -212,6 +243,105 @@ export default function AccountSecuritySection({
               </div>
             </div>
           )}
+        </article>
+
+        <article className="dashSecurityCard dashSecurityCard--full">
+          <div className="dashSecurityCard__head">
+            <div>
+              <h3>Password</h3>
+              <p>Use your current password to set a new one from here.</p>
+            </div>
+            <span className={`dashSecurityPill ${canChangePasswordNow ? 'is-success' : 'is-warning'}`}>
+              {canChangePasswordNow ? 'Available Now' : 'Monthly Limit'}
+            </span>
+          </div>
+
+          <p className="dashSecurityCard__copy">
+            New passwords must be at least 8 characters long. For account security, this self-service password change
+            is available once every 30 days.
+          </p>
+
+          {!canChangePasswordNow && (
+            <p className="dashSecurityCard__note">
+              You can change your password again on {passwordChangeAvailableAtLabel || 'a later date'}.
+            </p>
+          )}
+
+          <form className="dashPasswordForm" onSubmit={handlePasswordSubmit}>
+            <div className="dashPasswordForm__grid">
+              <label className="dashPasswordForm__field">
+                <span>Current Password</span>
+                <div className="dashPasswordForm__inputWrap">
+                  <input
+                    type={showCurrentPassword ? 'text' : 'password'}
+                    value={currentPassword}
+                    onChange={(event) => setCurrentPassword(event.target.value)}
+                    autoComplete="current-password"
+                    disabled={isBusy || !canChangePasswordNow}
+                  />
+                  <button
+                    type="button"
+                    className="dashPasswordForm__toggle"
+                    onClick={() => setShowCurrentPassword((value) => !value)}
+                    aria-label={showCurrentPassword ? 'Hide current password' : 'Show current password'}
+                    disabled={isBusy || !canChangePasswordNow}
+                  >
+                    {showCurrentPassword ? <FiEyeOff /> : <FiEye />}
+                  </button>
+                </div>
+              </label>
+
+              <label className="dashPasswordForm__field">
+                <span>New Password</span>
+                <div className="dashPasswordForm__inputWrap">
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(event) => setNewPassword(event.target.value)}
+                    autoComplete="new-password"
+                    disabled={isBusy || !canChangePasswordNow}
+                  />
+                  <button
+                    type="button"
+                    className="dashPasswordForm__toggle"
+                    onClick={() => setShowNewPassword((value) => !value)}
+                    aria-label={showNewPassword ? 'Hide new password' : 'Show new password'}
+                    disabled={isBusy || !canChangePasswordNow}
+                  >
+                    {showNewPassword ? <FiEyeOff /> : <FiEye />}
+                  </button>
+                </div>
+              </label>
+
+              <label className="dashPasswordForm__field dashPasswordForm__field--full">
+                <span>Confirm New Password</span>
+                <div className="dashPasswordForm__inputWrap">
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    autoComplete="new-password"
+                    disabled={isBusy || !canChangePasswordNow}
+                  />
+                  <button
+                    type="button"
+                    className="dashPasswordForm__toggle"
+                    onClick={() => setShowConfirmPassword((value) => !value)}
+                    aria-label={showConfirmPassword ? 'Hide confirmation password' : 'Show confirmation password'}
+                    disabled={isBusy || !canChangePasswordNow}
+                  >
+                    {showConfirmPassword ? <FiEyeOff /> : <FiEye />}
+                  </button>
+                </div>
+              </label>
+            </div>
+
+            <div className="dashPasswordForm__actions">
+              <button type="submit" className="dashSecurityBtn" disabled={isBusy || !canChangePasswordNow}>
+                {changingPassword ? 'Updating...' : 'Change Password'}
+              </button>
+            </div>
+          </form>
         </article>
       </div>
 

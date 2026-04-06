@@ -162,6 +162,15 @@ function extractRequiresTwoFactor(payload: unknown): boolean {
   return false;
 }
 
+function extractRequiresPasswordChange(payload: unknown): boolean {
+  if (!payload || typeof payload !== 'object') return false;
+  const data = payload as Record<string, unknown>;
+
+  if (typeof data.requiresPasswordChange === 'boolean') return data.requiresPasswordChange;
+  if (data.data && typeof data.data === 'object') return extractRequiresPasswordChange(data.data);
+  return false;
+}
+
 export default function EmployeeLogin() {
   const navigate = useNavigate();
   const { showError } = useUiDialog();
@@ -272,6 +281,7 @@ export default function EmployeeLogin() {
 
       const token = extractToken(payload);
       const identity = extractIdentity(payload, normalizedUsername);
+      const requiresPasswordChange = extractRequiresPasswordChange(payload);
 
       if (extractRequiresTwoFactor(payload)) {
         if (!token || token === 'authenticated-session') {
@@ -294,7 +304,7 @@ export default function EmployeeLogin() {
       const refreshToken = extractRefreshToken(payload);
       const roleFromPayload = extractRole(payload);
       const roleFromDetails =
-        token && token !== 'authenticated-session'
+        !requiresPasswordChange && token && token !== 'authenticated-session'
           ? await resolveRoleFromUserDetails(identity, token)
           : null;
       const role = roleFromDetails ?? roleFromPayload;
@@ -304,8 +314,8 @@ export default function EmployeeLogin() {
         return;
       }
 
-      setSession(role, identity, remember, token, refreshToken);
-      navigate(mapRoleToRoute(role), { replace: true });
+      setSession(role, identity, remember, token, refreshToken, requiresPasswordChange);
+      navigate(requiresPasswordChange ? '/change-password' : mapRoleToRoute(role), { replace: true });
     } catch {
       showSignInError('Cannot reach backend. Make sure API is running.');
     } finally {
@@ -361,7 +371,8 @@ export default function EmployeeLogin() {
       const refreshToken = extractRefreshToken(payload);
       const identity = extractIdentity(payload, twoFactorChallenge.identity);
       const roleFromPayload = extractRole(payload);
-      const roleFromDetails = await resolveRoleFromUserDetails(identity, token);
+      const requiresPasswordChange = extractRequiresPasswordChange(payload);
+      const roleFromDetails = requiresPasswordChange ? null : await resolveRoleFromUserDetails(identity, token);
       const role = roleFromDetails ?? roleFromPayload;
 
       if (!role) {
@@ -369,10 +380,17 @@ export default function EmployeeLogin() {
         return;
       }
 
-      setSession(role, identity, twoFactorChallenge.remember, token, refreshToken);
+      setSession(
+        role,
+        identity,
+        twoFactorChallenge.remember,
+        token,
+        refreshToken,
+        requiresPasswordChange
+      );
       setTwoFactorChallenge(null);
       setTwoFactorCode('');
-      navigate(mapRoleToRoute(role), { replace: true });
+      navigate(requiresPasswordChange ? '/change-password' : mapRoleToRoute(role), { replace: true });
     } catch {
       showSignInError('Cannot reach backend. Make sure API is running.');
     } finally {
@@ -704,6 +722,17 @@ export default function EmployeeLogin() {
                     : 'Log in'}
               </button>
             </div>
+
+            {!twoFactorChallenge && (
+              <button
+                type="button"
+                className="eloginForgot"
+                onClick={() => navigate('/forgot-password')}
+                disabled={isLoading}
+              >
+                Forgot Password?
+              </button>
+            )}
 
           </form>
         </div>
