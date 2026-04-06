@@ -1,9 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
-import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
-import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
@@ -74,7 +72,6 @@ type AuditEntry = {
   recordedAt: string;
   timestampValue: number;
   searchIndex: string;
-  rawMessage: string;
 };
 
 const SERVER_PAGE_SIZE = 200;
@@ -86,19 +83,19 @@ const endpointDescriptions: Array<{
   subject: string;
   area: string;
 }> = [
-  { pattern: /^\/api\/employees\/create\b/i, subject: 'employee profile', area: 'People records' },
-  { pattern: /^\/api\/employees\/status\//i, subject: 'employee status', area: 'People records' },
-  { pattern: /^\/api\/employees\b/i, subject: 'employee records', area: 'People records' },
-  { pattern: /^\/api\/user\/create\b/i, subject: 'user account', area: 'Access management' },
-  { pattern: /^\/api\/leave\/balance\/update\//i, subject: 'leave balance', area: 'Leave management' },
-  { pattern: /^\/api\/leave\/balance\//i, subject: 'leave balance', area: 'Leave management' },
-  { pattern: /^\/api\/leave\/update\//i, subject: 'leave request', area: 'Leave management' },
-  { pattern: /^\/api\/leave\b/i, subject: 'leave records', area: 'Leave management' },
+  { pattern: /^\/api\/employees\/create\b/i, subject: 'employee profile', area: 'People' },
+  { pattern: /^\/api\/employees\/status\//i, subject: 'employee status', area: 'People' },
+  { pattern: /^\/api\/employees\b/i, subject: 'employee records', area: 'People' },
+  { pattern: /^\/api\/user\/create\b/i, subject: 'user account', area: 'Access' },
+  { pattern: /^\/api\/leave\/balance\/update\//i, subject: 'leave balance', area: 'Leave' },
+  { pattern: /^\/api\/leave\/balance\//i, subject: 'leave balance', area: 'Leave' },
+  { pattern: /^\/api\/leave\/update\//i, subject: 'leave request', area: 'Leave' },
+  { pattern: /^\/api\/leave\b/i, subject: 'leave records', area: 'Leave' },
   { pattern: /^\/api\/overtime\/update\b/i, subject: 'overtime request', area: 'Overtime' },
   { pattern: /^\/api\/overtime\b/i, subject: 'overtime records', area: 'Overtime' },
-  { pattern: /^\/api\/employee\/schedule\b/i, subject: 'shift schedule', area: 'Scheduling' },
-  { pattern: /^\/api\/calendar\/events\b/i, subject: 'calendar event', area: 'Company calendar' },
-  { pattern: /^\/api\/calendar\b/i, subject: 'calendar records', area: 'Company calendar' },
+  { pattern: /^\/api\/employee\/schedule\b/i, subject: 'shift schedule', area: 'Schedule' },
+  { pattern: /^\/api\/calendar\/events\b/i, subject: 'calendar event', area: 'Calendar' },
+  { pattern: /^\/api\/calendar\b/i, subject: 'calendar records', area: 'Calendar' },
   { pattern: /^\/api\/payroll\/run\/process\b/i, subject: 'payroll run', area: 'Payroll' },
   { pattern: /^\/api\/payroll\/run\/create\b/i, subject: 'adjustment payroll run', area: 'Payroll' },
   { pattern: /^\/api\/payroll\/run\/\d+\/items\b/i, subject: 'payroll run items', area: 'Payroll' },
@@ -159,7 +156,7 @@ function activityTone(activityType: ChangeType) {
 
 function extractEndpoint(message: string) {
   const match = message.match(/Endpoint:\s*(\/api\/[^\s|]+)/i);
-  return match?.[1] ?? '';
+  return match?.[1]?.replace(/[.,;:]+$/g, '') ?? '';
 }
 
 function extractPayrollRunId(endpoint: string) {
@@ -182,7 +179,7 @@ function describeEndpoint(endpoint: string) {
   const cleaned = endpoint.replace(/^\/api\//i, '').split(/[/?]/)[0].replace(/[-_]/g, ' ').trim();
   return {
     subject: cleaned ? cleaned : 'records',
-    area: 'General operations',
+    area: 'General',
   };
 }
 
@@ -276,13 +273,20 @@ function actorPresentation(username: string | undefined, directory: EmployeeDire
 
 function cleanDetailMessage(message: string) {
   const withoutMeta = message
-    .replace(/Username:\s*[^|]+\|\s*/i, '')
-    .replace(/Activity:\s*[^|]+\|\s*/i, '')
-    .replace(/\|\s*Endpoint:\s*\/api\/[^\s|]+/i, '')
-    .replace(/Endpoint:\s*\/api\/[^\s|]+/i, '')
+    .replace(/^Username:\s*.*?(?:\s*\|\s*|\.(?:\s+|$)|$)/i, '')
+    .replace(/^Activity:\s*.*?(?:\s*\|\s*|\.(?:\s+|$)|$)/i, '')
+    .replace(/^Endpoint:\s*\/api\/[^\s|]+(?:\s*\|\s*|\.(?:\s+|$)|$)/i, '')
     .trim();
 
-  return withoutMeta || null;
+  const normalized = normalizeWhitespace(withoutMeta)
+    .replace(/\s*\|\s*/g, '. ')
+    .replace(/Target employee:/gi, 'Employee:')
+    .replace(/Target leave request:/gi, 'Leave request:')
+    .replace(/Target overtime request:/gi, 'Overtime request:')
+    .replace(/Target dispute request:/gi, 'Dispute request:')
+    .replace(/\.\.+/g, '.');
+
+  return normalized || null;
 }
 
 function buildPayrollRunMap(rows: PayrollRunRow[]) {
@@ -333,9 +337,63 @@ function buildSimpleActionDetail(activityType: ChangeType, subject: string) {
   return `Deleted ${subject}.`;
 }
 
-function appendNote(detail: string, cleanedNote: string | null) {
-  if (!cleanedNote) return detail;
-  return `${detail} ${cleanedNote}`;
+function extractLabeledValue(detail: string | null, label: string) {
+  if (!detail) return null;
+
+  const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = detail.match(new RegExp(`${escapedLabel}:\\s*(.+?)(?:\\.\\s*|$)`, 'i'));
+  return match?.[1]?.trim() ?? null;
+}
+
+function buildEmployeeRecordDetail(action: string, cleanedNote: string | null, fallbackName?: string | null) {
+  if (cleanedNote) {
+    const recordReference = cleanedNote.match(/^Employee record for\s+(.+?)\.?$/i)?.[1]?.trim();
+    if (recordReference) {
+      return `${action} the employee record for ${recordReference}.`;
+    }
+  }
+
+  const employeeReference = extractLabeledValue(cleanedNote, 'Employee');
+  if (employeeReference) {
+    return `${action} the employee record for ${employeeReference}.`;
+  }
+  if (fallbackName) {
+    return `${action} ${fallbackName}.`;
+  }
+  return `${action} an employee record.`;
+}
+
+function buildUserAccountDetail(action: string, cleanedNote: string | null, fallbackName?: string | null) {
+  if (cleanedNote) {
+    if (/^User account\b/i.test(cleanedNote)) {
+      return cleanedNote;
+    }
+
+    const employeeReference = extractLabeledValue(cleanedNote, 'Employee');
+    if (employeeReference) {
+      return `${action} the user account for ${employeeReference}.`;
+    }
+  }
+
+  if (fallbackName) {
+    return `${action} the user account for ${fallbackName}.`;
+  }
+
+  return `${action} a user account.`;
+}
+
+function buildLeaveBalanceDetail(
+  action: 'create' | 'modify',
+  employeeName: string,
+  cleanedNote: string | null
+) {
+  const leaveType = extractLabeledValue(cleanedNote, 'Leave type');
+  const baseDetail =
+    action === 'create'
+      ? `Added a leave balance for ${employeeName}`
+      : `Updated leave balances for ${employeeName}`;
+
+  return leaveType ? `${baseDetail} under ${leaveType}.` : `${baseDetail}.`;
 }
 
 function buildFriendlyCopy(
@@ -346,7 +404,7 @@ function buildFriendlyCopy(
 ) {
   const message = normalizeWhitespace(row.message);
   const endpoint = extractEndpoint(message);
-  const endpointMeta = endpoint ? describeEndpoint(endpoint) : { subject: 'records', area: 'General operations' };
+  const endpointMeta = endpoint ? describeEndpoint(endpoint) : { subject: 'records', area: 'General' };
   const correctionMeta = parseCorrectionMessage(message);
   const action = activityLabel(activityType);
 
@@ -366,6 +424,14 @@ function buildFriendlyCopy(
   if (endpoint) {
     const payrollRunId = extractPayrollRunId(endpoint);
     const payrollRunLabel = payrollRunId ? describePayrollRun(payrollRunsById.get(payrollRunId), payrollRunId) : null;
+
+    if (/^\/api\/employees\/create\b/i.test(endpoint)) {
+      return {
+        title: 'Created employee record',
+        detail: buildEmployeeRecordDetail(action, cleanedNote),
+        area: 'People',
+      };
+    }
 
     if (/^\/api\/payroll\/run\/\d+\/adjustment\/correction\b/i.test(endpoint)) {
       return {
@@ -388,7 +454,7 @@ function buildFriendlyCopy(
     if (/^\/api\/payroll\/run\/process\b/i.test(endpoint)) {
       return {
         title: 'Processed payroll run',
-        detail: 'Processed a payroll run.',
+        detail: cleanedNote || 'Processed a payroll run.',
         area: 'Payroll',
       };
     }
@@ -396,7 +462,7 @@ function buildFriendlyCopy(
     if (/^\/api\/payroll\/run\/create\b/i.test(endpoint)) {
       return {
         title: 'Created adjustment payroll',
-        detail: 'Created an adjustment payroll run.',
+        detail: cleanedNote || 'Created an adjustment payroll run.',
         area: 'Payroll',
       };
     }
@@ -424,42 +490,50 @@ function buildFriendlyCopy(
       if (/^\/api\/employees\/status\/\d+\b/i.test(endpoint)) {
         return {
           title: 'Updated employee status',
-          detail: appendNote(`Updated employment status for ${employeeName}.`, cleanedNote),
-          area: 'People records',
+          detail: `Updated employment status for ${employeeName}.`,
+          area: 'People',
         };
       }
 
       if (/^\/api\/user\/\d+\b/i.test(endpoint)) {
         return {
           title: `${action} user account`,
-          detail: appendNote(`${action} the user account for ${employeeName}.`, cleanedNote),
-          area: 'Access management',
+          detail: buildUserAccountDetail(action, cleanedNote, employeeName),
+          area: 'Access',
         };
       }
 
       if (/^\/api\/leave\/balance\/update\/\d+\b/i.test(endpoint)) {
         return {
           title: 'Updated leave balance',
-          detail: appendNote(`Updated leave balances for ${employeeName}.`, cleanedNote),
-          area: 'Leave management',
+          detail: buildLeaveBalanceDetail('modify', employeeName, cleanedNote),
+          area: 'Leave',
         };
       }
 
       if (/^\/api\/leave\/balance\/\d+\b/i.test(endpoint) && activityType === 'CREATE') {
         return {
           title: 'Added leave balance',
-          detail: appendNote(`Added a leave balance for ${employeeName}.`, cleanedNote),
-          area: 'Leave management',
+          detail: buildLeaveBalanceDetail('create', employeeName, cleanedNote),
+          area: 'Leave',
         };
       }
 
       if (/^\/api\/employees\/\d+\b/i.test(endpoint)) {
         return {
           title: `${action} employee record`,
-          detail: appendNote(`${action} ${employeeName}.`, cleanedNote),
-          area: 'People records',
+          detail: buildEmployeeRecordDetail(action, cleanedNote, employeeName),
+          area: 'People',
         };
       }
+    }
+
+    if (/^\/api\/user\/create\b/i.test(endpoint)) {
+      return {
+        title: `${action} user account`,
+        detail: buildUserAccountDetail(action, cleanedNote),
+        area: 'Access',
+      };
     }
   }
 
@@ -511,7 +585,6 @@ function toAuditEntry(
     area: copy.area,
     recordedAt: formatDateTime(row.timestamp),
     timestampValue,
-    rawMessage: normalizeWhitespace(row.message) || 'No raw audit payload was stored for this entry.',
     searchIndex: toSearchIndex([
       row.activityId,
       actor.actorName,
@@ -520,7 +593,6 @@ function toAuditEntry(
       copy.detail,
       copy.area,
       normalizedType,
-      row.message,
     ]),
   };
 }
@@ -602,11 +674,9 @@ export default function HrAuditLogs() {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const [refreshTick, setRefreshTick] = useState(0);
-  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const silentRefreshRef = useRef(false);
 
   useErrorDialogEffect(loadError, 'Audit logs could not be loaded');
-  useEscapeDismiss(Boolean(selectedEntryId), () => setSelectedEntryId(null), 10);
   const handlePageRefresh = () => {
     silentRefreshRef.current = true;
     setRefreshTick((tick) => tick + 1);
@@ -683,24 +753,12 @@ export default function HrAuditLogs() {
     });
   }, [deferredSearch, entries, timeFilter, typeFilter]);
 
-  const selectedEntry = useMemo(
-    () => entries.find((entry) => entry.id === selectedEntryId) ?? null,
-    [entries, selectedEntryId]
-  );
-
   const activeFilterCount = [typeFilter, timeFilter].filter((value) => value !== 'all').length;
 
   function clearFilters() {
     setTypeFilter('all');
     setTimeFilter('all');
   }
-
-  useEffect(() => {
-    if (selectedEntry) document.body.classList.add('modal-open');
-    else document.body.classList.remove('modal-open');
-
-    return () => document.body.classList.remove('modal-open');
-  }, [selectedEntry]);
 
   return (
     <div className="hrAudit">
@@ -786,12 +844,7 @@ export default function HrAuditLogs() {
             </div>
           ) : visibleEntries.length > 0 ? (
             visibleEntries.map((entry) => (
-              <button
-                key={entry.id}
-                type="button"
-                className="hrAuditRow hrAuditRow--button"
-                onClick={() => setSelectedEntryId(entry.id)}
-              >
+              <div key={entry.id} className="hrAuditRow">
                 <span className="hrAuditRow__actor">
                   <span className="hrAuditRow__actorName">{entry.actorName}</span>
                   {entry.actorSubtitle && <span className="hrAuditRow__actorSub">{entry.actorSubtitle}</span>}
@@ -803,12 +856,15 @@ export default function HrAuditLogs() {
                 </span>
 
                 <span className="hrAuditRow__meta">
-                  <span className={`hrAuditRow__badge hrAuditRow__badge--${entry.tone}`}>
-                    {entry.activityLabel}
+                  <span className="hrAuditRow__tagGroup">
+                    <span className={`hrAuditRow__badge hrAuditRow__badge--${entry.tone}`}>
+                      {entry.activityLabel}
+                    </span>
+                    <span className="hrAuditRow__area">{entry.area}</span>
                   </span>
                   <span className="hrAuditRow__time">{entry.recordedAt}</span>
                 </span>
-              </button>
+              </div>
             ))
           ) : (
             <div className="hrAuditRow">
@@ -826,76 +882,6 @@ export default function HrAuditLogs() {
           )}
         </div>
       </section>
-
-      {selectedEntry && (
-        <div
-          className="hrAuditModalBackdrop"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Audit log details"
-          onClick={() => setSelectedEntryId(null)}
-        >
-          <div className="hrAuditModal" onClick={(event) => event.stopPropagation()}>
-            <ModalCloseButton className="hrAuditModal__close" onClick={() => setSelectedEntryId(null)} />
-            <h2 className="hrAuditModal__title">Audit Log Details</h2>
-            <p className="hrAuditModal__subtitle">
-              See who made the change, what was updated, and the exact system record saved for audit
-              purposes.
-            </p>
-            <div className="hrAuditModal__rule" />
-
-            <div className="hrAuditModal__summaryGrid">
-              <section className="hrAuditModal__card">
-                <span className="hrAuditModal__label">Actor</span>
-                <span className="hrAuditModal__value">{selectedEntry.actorName}</span>
-                {selectedEntry.actorSubtitle && (
-                  <span className="hrAuditModal__subvalue">{selectedEntry.actorSubtitle}</span>
-                )}
-              </section>
-
-              <section className="hrAuditModal__card">
-                <span className="hrAuditModal__label">Recorded At</span>
-                <span className="hrAuditModal__value hrAuditModal__value--small">
-                  {selectedEntry.recordedAt}
-                </span>
-              </section>
-
-              <section className="hrAuditModal__card">
-                <span className="hrAuditModal__label">Action</span>
-                <div className={`hrAuditRow__badge hrAuditRow__badge--${selectedEntry.tone}`}>
-                  {selectedEntry.activityLabel}
-                </div>
-              </section>
-
-              <section className="hrAuditModal__card">
-                <span className="hrAuditModal__label">Area</span>
-                <span className="hrAuditModal__value hrAuditModal__value--small">{selectedEntry.area}</span>
-              </section>
-            </div>
-
-            <section className="hrAuditModal__block">
-              <span className="hrAuditModal__label">Summary</span>
-              <p className="hrAuditModal__text">{selectedEntry.title}</p>
-            </section>
-
-            <section className="hrAuditModal__block">
-              <span className="hrAuditModal__label">Detailed Description</span>
-              <p className="hrAuditModal__text">{selectedEntry.detail}</p>
-            </section>
-
-            <section className="hrAuditModal__block">
-              <span className="hrAuditModal__label">Stored System Log</span>
-              <pre className="hrAuditModal__raw">{selectedEntry.rawMessage}</pre>
-            </section>
-
-            <div className="hrAuditModal__footer">
-              <button type="button" onClick={() => setSelectedEntryId(null)}>
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
