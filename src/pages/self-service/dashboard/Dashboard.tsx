@@ -3,6 +3,7 @@ import { FiDownload, FiFileText, FiPlus, FiTrash2 } from 'react-icons/fi';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AccountSecuritySection from '../../../components/account/AccountSecuritySection';
 import ActionButton from '../../../components/button/ActionButton';
+import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
 import MaterialArt from '../../../components/document/MaterialArt';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
@@ -391,6 +392,7 @@ export default function Dashboard() {
   const [createAnnouncementSubmitAttempted, setCreateAnnouncementSubmitAttempted] = useState(false);
   const [selectedAnnouncementDay, setSelectedAnnouncementDay] = useState<SelectedAnnouncementDay | null>(null);
   const [announcementActionError, setAnnouncementActionError] = useState('');
+  const [announcementPendingDelete, setAnnouncementPendingDelete] = useState<CalendarDayEvent | null>(null);
   const [deletingAnnouncementId, setDeletingAnnouncementId] = useState<number | null>(null);
   const [securityMessage, setSecurityMessage] = useState('');
   const [securityError, setSecurityError] = useState('');
@@ -436,6 +438,7 @@ export default function Dashboard() {
       !securityOpen &&
       !createAnnouncementOpen &&
       !selectedAnnouncementDay &&
+      !announcementPendingDelete &&
       !savingEdit &&
       !creatingAnnouncement &&
       !sendingVerification &&
@@ -450,11 +453,19 @@ export default function Dashboard() {
   }, [refreshTick]);
 
   useEffect(() => {
-    if (editOpen || securityModalPresence.isMounted || createAnnouncementOpen || selectedAnnouncementDay) document.body.classList.add('modal-open');
+    if (
+      editOpen ||
+      securityModalPresence.isMounted ||
+      createAnnouncementOpen ||
+      selectedAnnouncementDay ||
+      announcementPendingDelete
+    ) {
+      document.body.classList.add('modal-open');
+    }
     else document.body.classList.remove('modal-open');
 
     return () => document.body.classList.remove('modal-open');
-  }, [createAnnouncementOpen, editOpen, securityModalPresence.isMounted, selectedAnnouncementDay]);
+  }, [announcementPendingDelete, createAnnouncementOpen, editOpen, securityModalPresence.isMounted, selectedAnnouncementDay]);
 
   useEffect(() => {
     const username = getUserEmail();
@@ -627,6 +638,7 @@ export default function Dashboard() {
   function shiftCalendarMonth(offset: number) {
     const next = new Date(calendarYear, calendarMonthIndex + offset, 1);
     setAnnouncementActionError('');
+    setAnnouncementPendingDelete(null);
     setDeletingAnnouncementId(null);
     setSelectedAnnouncementDay(null);
     setCalendarYear(next.getFullYear());
@@ -646,8 +658,20 @@ export default function Dashboard() {
 
   function closeAnnouncementDay() {
     setAnnouncementActionError('');
+    setAnnouncementPendingDelete(null);
     setDeletingAnnouncementId(null);
     setSelectedAnnouncementDay(null);
+  }
+
+  function requestDeleteAnnouncement(event: CalendarDayEvent) {
+    if (!canManageAnnouncements || typeof event.calendarId !== 'number') return;
+    setAnnouncementActionError('');
+    setAnnouncementPendingDelete(event);
+  }
+
+  function closeDeleteAnnouncementDialog() {
+    if (deletingAnnouncementId !== null) return;
+    setAnnouncementPendingDelete(null);
   }
 
   function openCreateAnnouncementModal() {
@@ -744,11 +768,9 @@ export default function Dashboard() {
     }
   }
 
-  async function handleDeleteAnnouncement(event: CalendarDayEvent) {
-    if (!canManageAnnouncements || typeof event.calendarId !== 'number') return;
-
-    const confirmed = window.confirm(`Delete "${event.title}" from the company announcements?`);
-    if (!confirmed) return;
+  async function handleDeleteAnnouncement() {
+    const event = announcementPendingDelete;
+    if (!canManageAnnouncements || typeof event?.calendarId !== 'number') return;
 
     setAnnouncementActionError('');
     setDeletingAnnouncementId(event.calendarId);
@@ -767,6 +789,7 @@ export default function Dashboard() {
     } catch (error) {
       setAnnouncementActionError(getFriendlyErrorMessage(error, 'generic'));
     } finally {
+      setAnnouncementPendingDelete(null);
       setDeletingAnnouncementId(null);
     }
   }
@@ -1290,7 +1313,7 @@ export default function Dashboard() {
                         <button
                           type="button"
                           className="announcementModal__delete"
-                          onClick={() => void handleDeleteAnnouncement(event)}
+                          onClick={() => requestDeleteAnnouncement(event)}
                           disabled={isDeleting}
                           aria-label={`Delete announcement ${event.title}`}
                           title="Delete announcement"
@@ -1306,6 +1329,21 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={Boolean(announcementPendingDelete)}
+        title="Delete Announcement"
+        message={
+          announcementPendingDelete
+            ? `Delete "${announcementPendingDelete.title}" from the company announcements?`
+            : ''
+        }
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        isBusy={deletingAnnouncementId === announcementPendingDelete?.calendarId}
+        onConfirm={() => void handleDeleteAnnouncement()}
+        onCancel={closeDeleteAnnouncementDialog}
+      />
 
       {createAnnouncementOpen && (
         <div className="dashModalBackdrop" role="dialog" aria-modal="true" aria-label="Create announcement">

@@ -1726,29 +1726,31 @@ export default function Attendance() {
                 </div>
 
                 <div className="requestField">
-                  <label className="label">End Date and Time</label>
-                  <div className="requestField__group">
-                    <div className="inputIcon">
-                      <input
-                        className="input"
-                        type="date"
-                        value={otEndDate}
-                        min={otStartDate || todayKey}
-                        max={maxOtEndDate || undefined}
-                        aria-invalid={isOtEndDateInvalid ? 'true' : undefined}
-                        onChange={(e) => setOtEndDate(e.target.value)}
-                      />
-                      <FiCalendar className="inputIcon__icon" />
-                    </div>
+                  <label className="label">End Date</label>
+                  <div className="inputIcon">
                     <input
                       className="input"
-                      type="time"
-                      value={otEndTime}
-                      max={isOtNextDay ? '06:00' : undefined}
-                      aria-invalid={isOtEndTimeInvalid ? 'true' : undefined}
-                      onChange={(e) => setOtEndTime(e.target.value)}
+                      type="date"
+                      value={otEndDate}
+                      min={otStartDate || todayKey}
+                      max={maxOtEndDate || undefined}
+                      aria-invalid={isOtEndDateInvalid ? 'true' : undefined}
+                      onChange={(e) => setOtEndDate(e.target.value)}
                     />
+                    <FiCalendar className="inputIcon__icon" />
                   </div>
+                </div>
+
+                <div className="requestField">
+                  <label className="label">End Time</label>
+                  <input
+                    className="input"
+                    type="time"
+                    value={otEndTime}
+                    max={isOtNextDay ? '06:00' : undefined}
+                    aria-invalid={isOtEndTimeInvalid ? 'true' : undefined}
+                    onChange={(e) => setOtEndTime(e.target.value)}
+                  />
                 </div>
 
                 <div className="requestField requestField--span2">

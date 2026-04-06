@@ -598,15 +598,15 @@ export default function Payslip() {
       setDisputeError('Reason must be at least 5 characters.');
       return;
     }
+    if (!disputeFile) {
+      setDisputeError('Attachment is required.');
+      return;
+    }
 
     setConfirmDisputeSubmit(false);
     setDisputeSubmitting(true);
     try {
-      let attachmentRef: number | null = null;
-
-      if (disputeFile) {
-        attachmentRef = await uploadDocument(disputeFile, DISPUTE_UPLOAD_SUBDIR);
-      }
+      const attachmentRef = await uploadDocument(disputeFile, DISPUTE_UPLOAD_SUBDIR);
 
       if (employeeId) {
         const existingDisputes = await apiFetchJson<unknown>(
@@ -650,6 +650,10 @@ export default function Payslip() {
     }
     if (disputeReason.trim().length < 5) {
       setDisputeError('Reason must be at least 5 characters.');
+      return;
+    }
+    if (!disputeFile) {
+      setDisputeError('Attachment is required.');
       return;
     }
     setConfirmDisputeSubmit(true);
@@ -878,7 +882,7 @@ export default function Payslip() {
             <div className="payModal__top">
               <div>
                 <div className="payModal__title">PAYSLIP DISPUTE FORM</div>
-                <p className="payModal__subtitle">Describe the payroll discrepancy clearly and attach supporting proof only when it helps validate the dispute.</p>
+                <p className="payModal__subtitle">Describe the payroll discrepancy clearly and attach supporting proof to validate the dispute.</p>
               </div>
               <ModalCloseButton className="payModal__close" onClick={disputeUnsavedPrompt.requestClose} />
             </div>
@@ -907,13 +911,14 @@ export default function Payslip() {
 
             <div className="payModal__row">
               <FileUploadField
-                label="Supporting Documents (Optional)"
-                hint="Add screenshots, payroll references, or other supporting files only when they directly explain the issue. Maximum file size: 10 MB."
+                label="Supporting Documents (Required)"
+                hint="Upload screenshots, payroll references, or other supporting files that directly explain the issue. Maximum file size: 10 MB."
                 file={disputeFile}
                 onChange={setDisputeFile}
+                invalid={disputeSubmitAttempted && !disputeFile}
                 uploadLabel="Upload Attachment"
                 replaceLabel="Replace Attachment"
-                emptyLabel="Optional attachment"
+                emptyLabel="Attachment required"
               />
             </div>
 

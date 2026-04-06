@@ -39,7 +39,6 @@ type EmployeeRow = {
   position: string;
   department?: string;
   shiftSchedules: ShiftSchedule[];
-  gracePeriodMinutes?: number;
 };
 
 type FeedItem = {
@@ -139,7 +138,6 @@ const STATUS_CONFIG: Record<
 
 const DEFAULT_WORKING_DAYS = new Set([1, 2, 3, 4, 5, 6]);
 const DEPARTMENTS_PER_PAGE = 2;
-const LATE_GRACE_MINUTES = 15;
 const DAY_NAMES = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
 
 function localDateKey(value?: string) {
@@ -329,7 +327,7 @@ function isLateDirection(direction?: string) {
     .includes('LATE');
 }
 
-function isLateAfterGrace(
+function isLateForSchedule(
   timestamp?: string,
   employee?: EmployeeRow,
   dateKey?: string,
@@ -349,9 +347,8 @@ function isLateAfterGrace(
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return isLateDirection(direction);
 
-  const graceMinutes = Math.max(employee.gracePeriodMinutes ?? LATE_GRACE_MINUTES, 0);
   const minutes = date.getHours() * 60 + date.getMinutes();
-  return minutes > scheduledStartMinutes + graceMinutes;
+  return minutes > scheduledStartMinutes;
 }
 
 function isOutDirection(direction?: string) {
@@ -393,7 +390,7 @@ function buildDailyRecords(
       const employee = employeeById.get(employeeId);
       const leaveRequests = leaveRequestsByEmployeeId.get(employeeId) ?? [];
       const isLate = firstIn
-        ? isLateAfterGrace(
+        ? isLateForSchedule(
             firstIn.timestamp,
             employee,
             dateKey,
@@ -475,12 +472,6 @@ function rosterRows(payload: unknown) {
       endTime: typeof schedule.endTime === 'string' ? schedule.endTime : undefined,
       dayOfWeek: typeof schedule.dayOfWeek === 'string' ? schedule.dayOfWeek : undefined,
     })),
-    gracePeriodMinutes:
-      typeof row.gracePeriodMinutes === 'number'
-        ? row.gracePeriodMinutes
-        : typeof row.gracePeriodMinutes === 'string'
-          ? Number(row.gracePeriodMinutes)
-          : undefined,
   }));
 }
 
@@ -932,7 +923,7 @@ export function AttendanceOverviewDashboard({
         const logDateKey = localDateKey(log.timestamp);
         const derivedLate =
           isInDirection(log.direction) &&
-          isLateAfterGrace(log.timestamp, employee, logDateKey, log.direction);
+          isLateForSchedule(log.timestamp, employee, logDateKey, log.direction);
         return {
           id: String(log.attendanceId ?? idx),
           name: employeeName(employee),

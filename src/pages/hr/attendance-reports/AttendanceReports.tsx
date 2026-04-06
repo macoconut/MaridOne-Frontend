@@ -74,7 +74,6 @@ type EmployeeRow = {
   position: string;
   department?: string;
   shiftSchedules: ShiftSchedule[];
-  gracePeriodMinutes?: number;
   employmentDateStart?: string;
 };
 
@@ -172,7 +171,6 @@ const FOCUS_LEGEND_ITEMS: Array<{ label: string; tone: EmployeeCalendarTone }> =
   { label: 'OT', tone: 'ot' },
 ];
 const DEFAULT_WORKING_DAYS = new Set([1, 2, 3, 4, 5, 6]);
-const LATE_GRACE_MINUTES = 15;
 const DAY_NAMES = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
 const NIGHT_SHIFT_REPORT_CUTOFF_HOUR = 6;
 
@@ -408,7 +406,7 @@ function isLateDirection(direction?: string) {
   return (direction ?? '').toUpperCase().includes('LATE');
 }
 
-function isLateAfterGrace(
+function isLateForSchedule(
   timestamp?: string,
   employee?: EmployeeRow,
   dateKey?: string,
@@ -428,9 +426,8 @@ function isLateAfterGrace(
   const date = new Date(timestamp);
   if (Number.isNaN(date.getTime())) return isLateDirection(direction);
 
-  const graceMinutes = Math.max(employee.gracePeriodMinutes ?? LATE_GRACE_MINUTES, 0);
   const minutes = date.getHours() * 60 + date.getMinutes();
-  return minutes > scheduledStartMinutes + graceMinutes;
+  return minutes > scheduledStartMinutes;
 }
 
 function parseHolidayLookup(payload: unknown) {
@@ -538,7 +535,7 @@ function buildDailyRecords(
       const employee = employeeById.get(employeeId);
       const leaveRequests = leaveRequestsByEmployeeId.get(employeeId) ?? [];
       const isLate = firstIn
-        ? isLateAfterGrace(
+        ? isLateForSchedule(
             firstIn.timestamp,
             employee,
             dateKey,
@@ -654,12 +651,6 @@ function rosterRows(payload: unknown) {
       endTime: typeof schedule.endTime === 'string' ? schedule.endTime : undefined,
       dayOfWeek: typeof schedule.dayOfWeek === 'string' ? schedule.dayOfWeek : undefined,
     })),
-    gracePeriodMinutes:
-      typeof row.gracePeriodMinutes === 'number'
-        ? row.gracePeriodMinutes
-        : typeof row.gracePeriodMinutes === 'string'
-          ? Number(row.gracePeriodMinutes)
-          : undefined,
     employmentDateStart:
       typeof row.employmentDateStart === 'string'
         ? row.employmentDateStart
@@ -846,7 +837,6 @@ export function AttendanceReportsBoard({
                 position: '-',
                 department: '',
                 shiftSchedules: [],
-                gracePeriodMinutes: undefined,
               }))
           );
           setHasFullRoster(false);

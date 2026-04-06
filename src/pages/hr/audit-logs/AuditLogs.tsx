@@ -440,6 +440,30 @@ function buildFriendlyCopy(
       };
     }
 
+    if (/^\/api\/calendar\/events\/create\b/i.test(endpoint)) {
+      return {
+        title: 'Created calendar event',
+        detail: cleanedNote || 'Created a calendar event.',
+        area: 'Calendar',
+      };
+    }
+
+    if (/^\/api\/calendar\/events\/update\b/i.test(endpoint)) {
+      return {
+        title: 'Updated calendar event',
+        detail: cleanedNote || 'Updated a calendar event.',
+        area: 'Calendar',
+      };
+    }
+
+    if (/^\/api\/calendar\/events\/delete\/\d+\b/i.test(endpoint)) {
+      return {
+        title: 'Deleted calendar event',
+        detail: cleanedNote || 'Deleted a calendar event.',
+        area: 'Calendar',
+      };
+    }
+
     if (/^\/api\/payroll\/run\/\d+\/adjustment\/correction\b/i.test(endpoint)) {
       return {
         title: 'Staged payslip correction',
