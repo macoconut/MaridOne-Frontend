@@ -354,3 +354,32 @@
     min-width: 720px;
   }
 }
+
+@media (max-width: 560px) {
+  .mgrMonth {
+    gap: 14px;
+  }
+
+  .mgrMonth__calendarPanel.hrAttCalendarShell,
+  .mgrMonth__editorPanel {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .mgrMonth__panelTop h2 {
+    font-size: 20px;
+  }
+
+  .mgrMonth__detailCard,
+  .mgrMonth__dayOffToggle {
+    padding: 12px 14px;
+  }
+
+  .mgrMonth__calendarViewport {
+    margin: 0 -4px;
+  }
+
+  .mgrMonth__calendarViewport .hrCal {
+    min-width: 680px;
+  }
+}

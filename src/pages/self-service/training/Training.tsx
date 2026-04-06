@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { FiChevronDown, FiDownload, FiFileText } from 'react-icons/fi';
+import ActionButton from '../../../components/button/ActionButton';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import {
@@ -101,19 +102,16 @@ export default function Training() {
                             </span>
                           </button>
 
-                          <button
+                          <ActionButton
                             type="button"
                             className="tmRow__download"
+                            size="sm"
+                            icon={<FiDownload />}
                             onClick={() => void handleDocumentAction('download', document)}
                             disabled={activeActionKey !== null}
                           >
-                            <FiDownload />
-                            <span>
-                              {activeActionKey === downloadActionKey
-                                ? 'Preparing...'
-                                : 'Download'}
-                            </span>
-                          </button>
+                            {activeActionKey === downloadActionKey ? 'Preparing...' : 'Download'}
+                          </ActionButton>
                         </div>
                       );
                     })}

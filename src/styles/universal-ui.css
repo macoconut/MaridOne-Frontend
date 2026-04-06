@@ -460,3 +460,66 @@ body {
   width: 42px !important;
   height: 42px !important;
 }
+
+@media (max-width: 768px) {
+  :where(
+    .dashModal,
+    .payModal,
+    .apprModal,
+    .hrEmpModal,
+    .hrAttModal,
+    .hrPayModal,
+    .hrApprModal,
+    .aReviewPayModal,
+    .hrRunModal,
+    .aReviewRunModal
+  ) {
+    width: min(100%, calc(100vw - 24px)) !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .pageHeader .pageHeader__title {
+    font-size: clamp(24px, 8vw, 30px) !important;
+  }
+
+  .pageHeader .pageHeader__description {
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+  }
+
+  :where(
+    .dashModal,
+    .payModal,
+    .apprModal,
+    .hrEmpModal,
+    .hrAttModal,
+    .hrPayModal,
+    .hrApprModal,
+    .aReviewPayModal,
+    .hrRunModal,
+    .aReviewRunModal
+  ) {
+    padding: 14px !important;
+    border-radius: 16px !important;
+  }
+
+  :where(
+    .dashModal__top,
+    .payModal__top,
+    .apprModal__top,
+    .hrEmpModal__top,
+    .hrAttModal__top,
+    .hrPayModal__top,
+    .hrApprModal__top,
+    .aReviewPayModal__top,
+    .hrRunModal__top,
+    .aReviewRunModal__top
+  ) {
+    flex-wrap: wrap !important;
+  }
+
+  :where(.uiEmployeeSort, .uiEmployeeSort__toggle) {
+    width: 100% !important;
+  }
+}

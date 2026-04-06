@@ -644,6 +644,45 @@ body.modal-open .eMain{
   }
 }
 
+@media (max-width: 640px){
+  .eTop{
+    padding: 0 12px;
+    min-height: 52px;
+  }
+
+  .eTop__actions{
+    gap: 8px;
+  }
+
+  .eTop__bell{
+    width: 36px;
+    height: 36px;
+    font-size: 22px;
+  }
+
+  .eContent{
+    padding: 10px 12px 28px;
+  }
+
+  .eFooter{
+    padding: 28px 16px 24px;
+  }
+
+  .eFooter__inner{
+    gap: 20px;
+  }
+
+  .eSide{
+    width: min(86vw, 320px);
+    padding: 28px 18px;
+  }
+
+  .notifPanel{
+    width: min(calc(100vw - 16px), 360px);
+    right: -4px;
+  }
+}
+
 /* =========================
    Notifications (Figma-like)
    ========================= */

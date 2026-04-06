@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { FiPlus, FiTrash2 } from 'react-icons/fi';
+import { FiDownload, FiFileText, FiPlus, FiTrash2 } from 'react-icons/fi';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AccountSecuritySection from '../../../components/account/AccountSecuritySection';
+import ActionButton from '../../../components/button/ActionButton';
 import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
 import MaterialArt from '../../../components/document/MaterialArt';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
@@ -1135,13 +1136,15 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div className="miniFolder__actions">
-                    <button
+                    <ActionButton
                       className="miniFolder__btn"
+                      size="sm"
+                      icon={<FiFileText />}
                       type="button"
                       onClick={() => navigate(selfServicePath('training'))}
                     >
                       {material.dashboardButtonLabel}
-                    </button>
+                    </ActionButton>
                   </div>
                 </div>
               ))}
@@ -1163,12 +1166,12 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="handbookRow__actions">
-                <button className="handbookBtn" type="button" onClick={() => void openHandbook()}>
+                <ActionButton className="handbookBtn" size="sm" icon={<FiFileText />} type="button" onClick={() => void openHandbook()}>
                   {handbookLibraryCard.viewLabel}
-                </button>
-                <button className="handbookBtn" type="button" onClick={() => void downloadHandbook()}>
+                </ActionButton>
+                <ActionButton className="handbookBtn" size="sm" icon={<FiDownload />} type="button" onClick={() => void downloadHandbook()}>
                   {handbookLibraryCard.downloadLabel}
-                </button>
+                </ActionButton>
               </div>
             </div>
           </div>

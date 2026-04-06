@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FiSearch, FiXCircle } from 'react-icons/fi';
+import { FiDownload, FiSearch, FiXCircle } from 'react-icons/fi';
+import ActionButton from '../../../components/button/ActionButton';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import EmployeeSortMenu from '../../../components/layout/EmployeeSortMenu';
 import PageHeader from '../../../components/layout/PageHeader';
@@ -1019,9 +1020,15 @@ export default function HrPayRunReporting() {
       )}
 
       <div className="hrRunActions">
-        <button type="button" onClick={() => void downloadCurrentReport()} disabled={isDownloading}>
+        <ActionButton
+          className="hrRunActions__btn"
+          icon={<FiDownload />}
+          type="button"
+          onClick={() => void downloadCurrentReport()}
+          disabled={isDownloading}
+        >
           {isDownloading ? 'Preparing CSV...' : 'Download Report'}
-        </button>
+        </ActionButton>
       </div>
     </div>
   );

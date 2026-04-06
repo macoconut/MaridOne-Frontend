@@ -64,6 +64,14 @@ type ShiftScheduleRow = {
   dayOfWeek?: string;
 };
 
+type DailyShiftRow = {
+  dailyShiftId?: number;
+  workDate?: string;
+  startDateTime?: string;
+  endDateTime?: string;
+  dayOff?: boolean;
+};
+
 type DayCell = {
   day: number | null;
   statusNotes?: string[];
@@ -173,6 +181,20 @@ function addDays(dateValue: string, days: number) {
   return toISODate(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
+function startOfWeekMonday(dateValue: string) {
+  if (!dateValue) return '';
+  const date = new Date(`${dateValue}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return '';
+  const day = date.getDay();
+  const offset = day === 0 ? -6 : 1 - day;
+  date.setDate(date.getDate() + offset);
+  return toISODate(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function buildWeekDateKeys(weekStart: string) {
+  return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
+}
+
 function buildDateTime(dateValue: string, timeValue: string) {
   return new Date(`${dateValue}T${timeValue}:00`);
 }
@@ -191,6 +213,31 @@ function resolveDayOfWeek(dateValue: string) {
   const date = new Date(`${dateValue}T12:00:00`);
   if (Number.isNaN(date.getTime())) return '';
   return ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'][date.getDay()] ?? '';
+}
+
+function formatShortDate(value: string) {
+  const date = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+function formatWeekOptionLabel(weekStart: string, index: number) {
+  const weekEnd = addDays(weekStart, 6);
+  const prefix = index === 0 ? 'This Week' : index === 1 ? 'Next Week' : `Week of ${formatShortDate(weekStart)}`;
+  return `${prefix} (${formatShortDate(weekStart)} - ${formatShortDate(weekEnd)})`;
+}
+
+function formatWeekdayDateLabel(value: string) {
+  const date = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 function mapLeaveRequestEntries(rows: unknown): RequestEntry[] {
@@ -386,6 +433,8 @@ export default function Attendance() {
   const [requestEntries, setRequestEntries] = useState<RequestEntry[]>([]);
   const [attendanceByDate, setAttendanceByDate] = useState<Record<string, AttendanceSession[]>>({});
   const [shiftSchedule, setShiftSchedule] = useState<ShiftScheduleRow[]>([]);
+  const [dailyShiftSchedule, setDailyShiftSchedule] = useState<DailyShiftRow[]>([]);
+  const [scheduleWeekStatus, setScheduleWeekStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [leaveBalances, setLeaveBalances] = useState<LeaveBalanceRow[]>([]);
   const [leaveBalanceStatus, setLeaveBalanceStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [otOpen, setOtOpen] = useState(false);
@@ -399,6 +448,7 @@ export default function Attendance() {
   const [otSubmitError, setOtSubmitError] = useState('');
   const [otSubmitAttempted, setOtSubmitAttempted] = useState(false);
   const [requestViewOpen, setRequestViewOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const [requestViewDate, setRequestViewDate] = useState<string>('');
   const [selectedDateKey, setSelectedDateKey] = useState<string>('');
   const [isClocking, setIsClocking] = useState(false);
@@ -409,6 +459,8 @@ export default function Attendance() {
   const [confirmOtSubmit, setConfirmOtSubmit] = useState(false);
   const [latestAttendanceDirection, setLatestAttendanceDirection] = useState<'IN' | 'OUT' | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
+  const currentScheduleWeekStart = useMemo(() => startOfWeekMonday(todayKey), [todayKey]);
+  const [selectedScheduleWeekStart, setSelectedScheduleWeekStart] = useState(currentScheduleWeekStart);
   useErrorDialogEffect(clockError, 'Attendance action failed');
   useErrorDialogEffect(otSubmitError, 'Overtime request could not be submitted');
   useErrorDialogEffect(submitError, 'Leave request could not be submitted');
@@ -418,10 +470,14 @@ export default function Attendance() {
   useEscapeDismiss(leaveOpen, closeLeave, 10);
   useEscapeDismiss(otOpen, closeOt, 10);
   useEscapeDismiss(requestViewOpen, closeRequestView, 10);
+  useEscapeDismiss(scheduleOpen, closeSchedule, 10);
   useAutoRefreshingPage(handlePageRefresh, {
     intervalMs: 15000,
-    enabled: !leaveOpen && !otOpen && !requestViewOpen && !confirmClockAction && !isClocking,
+    enabled: !leaveOpen && !otOpen && !requestViewOpen && !scheduleOpen && !confirmClockAction && !isClocking,
   });
+  useEffect(() => {
+    setSelectedScheduleWeekStart(currentScheduleWeekStart);
+  }, [currentScheduleWeekStart]);
   const userRole = getUserRole();
   const canRequestOvertime = !['hr', 'management', 'manager'].includes(userRole ?? '');
   const maxOtEndDate = otStartDate ? addDays(otStartDate, 1) : '';
@@ -502,9 +558,11 @@ export default function Attendance() {
             setRequestEntries([]);
             setAttendanceByDate({});
             setShiftSchedule([]);
+            setDailyShiftSchedule([]);
             setLeaveBalances([]);
             setLatestAttendanceDirection(null);
             setLeaveBalanceStatus('unavailable');
+            setScheduleWeekStatus('unavailable');
           }
           return;
         }
@@ -548,8 +606,10 @@ export default function Attendance() {
           setLeaveBalances(leaveBalanceResponse.rows);
           setLeaveBalanceStatus(leaveBalanceResponse.status);
         } else {
+          setDailyShiftSchedule([]);
           setLeaveBalances([]);
           setLeaveBalanceStatus('unavailable');
+          setScheduleWeekStatus('unavailable');
         }
       } catch {
         if (cancelled) return;
@@ -557,9 +617,11 @@ export default function Attendance() {
         setRequestEntries([]);
         setAttendanceByDate({});
         setShiftSchedule([]);
+        setDailyShiftSchedule([]);
         setLeaveBalances([]);
         setLatestAttendanceDirection(null);
         setLeaveBalanceStatus('unavailable');
+        setScheduleWeekStatus('unavailable');
       }
     })();
 
@@ -567,6 +629,39 @@ export default function Attendance() {
       cancelled = true;
     };
   }, [monthIndex, refreshTick, year]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      if (!employeeId) {
+        setDailyShiftSchedule([]);
+        setScheduleWeekStatus('unavailable');
+        return;
+      }
+
+      setScheduleWeekStatus('loading');
+
+      try {
+        const weekEnd = addDays(selectedScheduleWeekStart, 6);
+        const response = await apiFetchJson<unknown>(
+          `/api/employee/schedule/daily/${employeeId}?startDate=${selectedScheduleWeekStart}&endDate=${weekEnd}`
+        );
+
+        if (cancelled) return;
+        setDailyShiftSchedule(toArray<DailyShiftRow>(response));
+        setScheduleWeekStatus('ready');
+      } catch {
+        if (cancelled) return;
+        setDailyShiftSchedule([]);
+        setScheduleWeekStatus('unavailable');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [employeeId, refreshTick, selectedScheduleWeekStart]);
 
   useEffect(() => {
     if (!otStartDate) return;
@@ -582,11 +677,11 @@ export default function Attendance() {
   }, [maxOtEndDate, otEndDate, otEndTime, otStartDate]);
 
   useEffect(() => {
-    if (leaveOpen || otOpen || requestViewOpen || confirmClockAction) document.body.classList.add('modal-open');
+    if (leaveOpen || otOpen || requestViewOpen || scheduleOpen || confirmClockAction) document.body.classList.add('modal-open');
     else document.body.classList.remove('modal-open');
 
     return () => document.body.classList.remove('modal-open');
-  }, [confirmClockAction, leaveOpen, otOpen, requestViewOpen]);
+  }, [confirmClockAction, leaveOpen, otOpen, requestViewOpen, scheduleOpen]);
 
   const approvedRequestDateKeys = useMemo(() => {
     return new Set(
@@ -627,6 +722,75 @@ export default function Attendance() {
 
     return [...known, ...extras];
   }, [leaveBalances, leaveBalancesByType]);
+
+  const scheduleWeekOptions = useMemo(
+    () =>
+      Array.from({ length: 6 }, (_, index) => {
+        const value = addDays(currentScheduleWeekStart, index * 7);
+        return {
+          value,
+          label: formatWeekOptionLabel(value, index),
+        };
+      }),
+    [currentScheduleWeekStart]
+  );
+
+  const dailyShiftScheduleByDate = useMemo(() => {
+    const next = new Map<string, DailyShiftRow>();
+    for (const shift of dailyShiftSchedule) {
+      if (typeof shift.workDate === 'string' && shift.workDate.length > 0) {
+        next.set(shift.workDate.slice(0, 10), shift);
+      }
+    }
+    return next;
+  }, [dailyShiftSchedule]);
+
+  const weekScheduleRows = useMemo(() => {
+    return buildWeekDateKeys(selectedScheduleWeekStart).map((dateKey) => {
+      const dailyShift = dailyShiftScheduleByDate.get(dateKey) ?? null;
+      const templateShift =
+        shiftSchedule.find((schedule) => schedule.dayOfWeek === resolveDayOfWeek(dateKey)) ?? null;
+
+      if (dailyShift?.dayOff) {
+        return {
+          dateKey,
+          label: formatWeekdayDateLabel(dateKey),
+          detail: 'Day Off',
+          meta: 'Manager override',
+          variant: 'dayoff' as const,
+        };
+      }
+
+      const startValue = dailyShift?.startDateTime
+        ? formatDisplayTime(dailyShift.startDateTime)
+        : templateShift?.startTime
+          ? formatDisplayTime(templateShift.startTime)
+          : '';
+      const endValue = dailyShift?.endDateTime
+        ? formatDisplayTime(dailyShift.endDateTime)
+        : templateShift?.endTime
+          ? formatDisplayTime(templateShift.endTime)
+          : '';
+
+      if (startValue && endValue) {
+        return {
+          dateKey,
+          label: formatWeekdayDateLabel(dateKey),
+          detail: `${startValue} - ${endValue}`,
+          meta: dailyShift ? 'Manager override' : 'Weekly template',
+          variant: dailyShift ? ('override' as const) : ('template' as const),
+        };
+      }
+
+      return {
+        dateKey,
+        label: formatWeekdayDateLabel(dateKey),
+        detail: 'No shift assigned',
+        meta: 'Contact your manager if this looks wrong.',
+        variant: 'empty' as const,
+      };
+    });
+  }, [dailyShiftScheduleByDate, selectedScheduleWeekStart, shiftSchedule]);
 
   const selectedLeaveBalance = leaveBalancesByType.get(leaveType) ?? null;
   const selectedLeaveBalanceLabel =
@@ -753,6 +917,15 @@ export default function Attendance() {
 
   function closeRequestView() {
     setRequestViewOpen(false);
+  }
+
+  function openSchedule() {
+    setSelectedScheduleWeekStart(currentScheduleWeekStart);
+    setScheduleOpen(true);
+  }
+
+  function closeSchedule() {
+    setScheduleOpen(false);
   }
 
   function openOtForToday() {
@@ -1116,6 +1289,12 @@ export default function Attendance() {
               })}
             </select>
           </div>
+          <button className="attSecondaryBtn" type="button" onClick={openSchedule}>
+            <span>My Schedule</span>
+            <span className="attSecondaryBtn__icon">
+              <FiCalendar />
+            </span>
+          </button>
           <button
             className="attClockBtn"
             type="button"
@@ -1596,6 +1775,63 @@ export default function Attendance() {
               ))}
               <div className="modalActions">
                 <button className="btn btn--ghost" type="button" onClick={closeRequestView}>
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {scheduleOpen && (
+        <div className="modalBackdrop" role="dialog" aria-modal="true" aria-label="My Schedule">
+          <div className="modal modal--request modal--schedule">
+            <div className="modal__top modal__top--request">
+              <div className="modal__meta">
+                <div className="modal__title">My Schedule</div>
+                <p className="modal__subtitle">
+                  Review the hours your manager assigned for this week. Date-specific changes appear here first, and the
+                  weekly template fills in the rest.
+                </p>
+              </div>
+              <ModalCloseButton className="modal__close" onClick={closeSchedule} />
+            </div>
+            <div className="modal__rule modal__rule--request" />
+
+            <div className="attScheduleModal">
+              <label className="attScheduleCard__selectWrap attScheduleCard__selectWrap--modal">
+                <span className="attScheduleCard__selectLabel">Week</span>
+                <select
+                  className="attScheduleCard__select"
+                  value={selectedScheduleWeekStart}
+                  onChange={(event) => setSelectedScheduleWeekStart(event.target.value)}
+                >
+                  {scheduleWeekOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {scheduleWeekStatus === 'loading' ? (
+                <p className="attScheduleCard__loading">Loading your schedule...</p>
+              ) : scheduleWeekStatus === 'unavailable' ? (
+                <p className="attScheduleCard__loading">Your schedule is unavailable right now.</p>
+              ) : (
+                <div className="attScheduleGrid">
+                  {weekScheduleRows.map((row) => (
+                    <article key={row.dateKey} className={`attScheduleDay attScheduleDay--${row.variant}`}>
+                      <span className="attScheduleDay__label">{row.label}</span>
+                      <strong className="attScheduleDay__detail">{row.detail}</strong>
+                      <span className="attScheduleDay__meta">{row.meta}</span>
+                    </article>
+                  ))}
+                </div>
+              )}
+
+              <div className="requestActions">
+                <button className="btn btn--ghost" type="button" onClick={closeSchedule}>
                   Close
                 </button>
               </div>

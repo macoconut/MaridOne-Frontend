@@ -386,17 +386,8 @@
   gap: 14px;
 }
 
-.hrRunActions button {
-  border: 0;
-  border-radius: 8px;
-  background: var(--hr-primary);
-  min-width: 170px;
-  height: 38px;
-  font-size: 15px;
-  font-weight: 800;
-  color: #fff;
-  box-shadow: var(--hr-button-shadow);
-  cursor: pointer;
+.hrRunActions__btn {
+  min-width: 198px;
 }
 
 .hrRunModalBackdrop {
@@ -673,10 +664,8 @@
     font-size: 16px;
   }
 
-  .hrRunActions button {
-    min-width: 132px;
-    height: 34px;
-    font-size: 16px;
+  .hrRunActions__btn {
+    min-width: 160px;
   }
 }
 

@@ -343,22 +343,7 @@
 }
 
 .payBtn{
-  width: 190px;
-  height: 44px;
-  border:none;
-  border-radius: 10px;
-  background:#7b4a8f;
-  color:#fff;
-  font-weight:800;
-  font-size: 16px;
-  box-shadow: 0 8px 16px rgba(123, 74, 143, 0.26);
-  cursor:pointer;
-}
-
-.payBtn:disabled{
-  opacity: 0.55;
-  cursor: not-allowed;
-  box-shadow: none;
+  min-width: 210px;
 }
 
 @media (max-width: 1100px){

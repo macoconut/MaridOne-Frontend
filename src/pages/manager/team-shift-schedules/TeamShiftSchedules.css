@@ -372,3 +372,44 @@
     justify-content: center;
   }
 }
+
+@media (max-width: 560px) {
+  .mgrShift {
+    gap: 14px;
+  }
+
+  .mgrShift__shell {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .mgrShift__list,
+  .mgrShift__editor {
+    padding: 14px;
+  }
+
+  .mgrShift__editorHead h2 {
+    font-size: 24px;
+  }
+
+  .mgrShift__headActions,
+  .mgrShift__sectionActions {
+    display: grid;
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .mgrShift__badge {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .mgrShift__row {
+    padding: 14px;
+  }
+
+  .mgrShift__day strong {
+    font-size: 16px;
+  }
+}

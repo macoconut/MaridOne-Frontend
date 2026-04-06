@@ -96,6 +96,33 @@ body.modal-open{
   background: rgba(255,255,255,0.14);
 }
 
+.attSecondaryBtn {
+  min-width: 168px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(123, 74, 143, 0.16);
+  background: rgba(123, 74, 143, 0.08);
+  color: #5a337d;
+  font-weight: 800;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 16px;
+  box-shadow: 0 8px 16px rgba(123, 74, 143, 0.1);
+  cursor: pointer;
+}
+
+.attSecondaryBtn__icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(123, 74, 143, 0.12);
+}
+
 /* Calendar card */
 .attCard {
   width: 100%;
@@ -195,6 +222,105 @@ body.modal-open{
   font-size: 15px;
   font-weight: 900;
   line-height: 1.3;
+}
+
+.attScheduleCard__subtitle,
+.attScheduleCard__loading {
+  margin: 0;
+  color: rgba(43, 32, 54, 0.72);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.attScheduleCard__selectWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: min(280px, 100%);
+}
+
+.attScheduleCard__selectWrap--modal {
+  width: min(320px, 100%);
+}
+
+.attScheduleCard__selectLabel {
+  color: rgba(43, 32, 54, 0.68);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.attScheduleCard__select {
+  min-height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(82, 56, 116, 0.14);
+  padding: 0 14px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #2b2036;
+  font-weight: 700;
+  box-shadow: 0 10px 20px rgba(28, 19, 42, 0.06);
+}
+
+.attScheduleGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+
+.attScheduleModal {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.attScheduleDay {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 110px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(123, 74, 143, 0.12);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 10px 20px rgba(39, 25, 60, 0.05);
+}
+
+.attScheduleDay--override {
+  border-color: rgba(76, 133, 219, 0.24);
+  background: rgba(237, 245, 255, 0.96);
+}
+
+.attScheduleDay--dayoff {
+  border-color: rgba(123, 74, 143, 0.18);
+  background: rgba(247, 241, 255, 0.96);
+}
+
+.attScheduleDay--empty {
+  border-style: dashed;
+  background: rgba(248, 244, 255, 0.72);
+}
+
+.attScheduleDay__label {
+  color: #2b2036;
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.attScheduleDay__detail {
+  color: #3b2257;
+  font-size: 17px;
+  font-weight: 900;
+  line-height: 1.3;
+}
+
+.attScheduleDay__meta {
+  margin-top: auto;
+  color: rgba(59, 34, 87, 0.72);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
 .attCalendarShell {
@@ -451,6 +577,11 @@ body.modal-open{
     width: 100%;
   }
 
+  .attSecondaryBtn,
+  .attScheduleCard__selectWrap {
+    width: 100%;
+  }
+
   .attCalendarShell {
     height: 680px;
     min-height: 680px;
@@ -528,6 +659,11 @@ body.modal-open{
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.modal--schedule {
+  width: min(960px, 96vw);
+  max-height: min(80vh, 760px);
 }
 
 .modal__top {

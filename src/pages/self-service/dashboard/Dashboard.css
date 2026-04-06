@@ -346,21 +346,8 @@ body.modal-open{
 }
 
 .miniFolder__btn{
-  border:none;
-  background: var(--purple);
-  color:#fff;
-  font-weight:800;
   font-size: 11px !important;
   min-height: 36px !important;
-  padding: 5px 12px;
-  border-radius: 999px;
-  cursor:pointer;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  line-height:1.1;
-  text-align:center;
-  box-shadow: 0 8px 16px rgba(123,74,143,.22);
 }
 
 /* handbook */
@@ -452,21 +439,8 @@ body.modal-open{
 }
 
 .handbookBtn{
-  border:none;
-  background: var(--purple);
-  color:#fff;
-  font-weight:800;
   font-size: 11px !important;
   min-height: 36px !important;
-  padding: 5px 12px;
-  border-radius: 999px;
-  cursor:pointer;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  line-height:1.1;
-  text-align:center;
-  box-shadow: 0 8px 16px rgba(123,74,143,.22);
 }
 
 /* calendar */
@@ -1202,6 +1176,92 @@ body.modal-open{
   .announcementModal__dates{
     white-space: normal;
     text-align: left;
+  }
+}
+
+@media (max-width: 560px){
+  .infoCardX{
+    padding: 14px;
+  }
+
+  .infoCardX__header{
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .infoCardX__headerActions{
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .infoCardX__edit,
+  .cardX__manageBtn{
+    width: 100%;
+    justify-content: center;
+  }
+
+  .infoCardX__left,
+  .miniFolder__main,
+  .handbookRow__main{
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .infoCardX__photo{
+    width: 96px;
+    height: 96px;
+    min-width: 96px;
+    min-height: 96px;
+    flex-basis: 96px;
+  }
+
+  .infoCardX__name{
+    font-size: 24px;
+  }
+
+  .miniFolder__text,
+  .handbookRow__text{
+    width: 100%;
+    flex: 1 1 auto;
+  }
+
+  .miniFolder__actions,
+  .handbookRow__actions{
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .miniFolder__btn,
+  .handbookBtn{
+    width: 100%;
+  }
+
+  .calendarShell{
+    overflow-x: auto;
+  }
+
+  .calendarGrid{
+    min-width: 560px;
+  }
+
+  .dashModalBackdrop{
+    padding: 12px;
+  }
+
+  .dashModal,
+  .dashModal--security,
+  .dashModal--announcement{
+    width: min(100%, calc(100vw - 24px));
+    padding: 14px;
+  }
+
+  .dashTwoFactorSetup__qr,
+  .dashTwoFactorSetup__placeholder{
+    width: min(100%, 180px);
+    height: auto;
+    aspect-ratio: 1;
   }
 }
 

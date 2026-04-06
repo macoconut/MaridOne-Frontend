@@ -834,3 +834,52 @@
   }
 }
 
+@media (max-width: 560px) {
+  .hrDash__topActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hrDash__dateFilter {
+    height: auto;
+    padding: 10px;
+  }
+
+  .hrDash__dateNav {
+    gap: 8px;
+  }
+
+  .hrDept {
+    padding: 14px 12px 6px;
+    gap: 12px;
+  }
+
+  .hrDeptGrid {
+    gap: 16px;
+    padding: 10px 0 8px;
+  }
+
+  .hrDeptCard {
+    padding: 0 0 8px;
+    max-width: 100%;
+  }
+
+  .hrLegend {
+    justify-content: flex-start;
+    padding: 12px;
+  }
+
+  .hrPerson--timed,
+  .hrPerson__topLine,
+  .hrPerson__feedTop,
+  .hrPerson__feedBottom {
+    grid-template-columns: 1fr;
+  }
+
+  .hrPerson__time,
+  .hrPerson__time--panel {
+    justify-self: start;
+    white-space: normal;
+  }
+}
+

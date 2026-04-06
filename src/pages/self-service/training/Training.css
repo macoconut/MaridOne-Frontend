@@ -124,21 +124,7 @@
 }
 
 .tmRow__download{
-  border:none;
-  border-radius:999px;
-  background:#7d4a95;
-  color:#fff;
   min-width:116px;
-  padding:9px 14px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:8px;
-  font-size:13px;
-  font-weight:800;
-  letter-spacing:.02em;
-  cursor:pointer;
-  box-shadow:0 8px 16px rgba(123,74,143,.2);
 }
 
 .tmRow__main:hover .tmRow__label{

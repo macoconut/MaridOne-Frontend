@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
+import { FiAlertCircle, FiDownload, FiPrinter } from 'react-icons/fi';
 import { apiFetchJson, apiFetchRaw, toArray } from '../../../lib/api';
 import { uploadDocument } from '../../../lib/documentUpload';
+import ActionButton from '../../../components/button/ActionButton';
 import { getUserEmail } from '../../../lib/session';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import FileUploadField from '../../../components/form/FileUploadField';
@@ -807,13 +809,29 @@ export default function Payslip() {
       </section>
 
       <div className="payActions">
-        <button className="payBtn" type="button" onClick={() => void handleDownload()} disabled={printingPayslip}>
+        <ActionButton
+          className="payBtn"
+          size="lg"
+          icon={<FiDownload />}
+          type="button"
+          onClick={() => void handleDownload()}
+          disabled={printingPayslip}
+        >
           {printingPayslip ? 'Preparing Payslip...' : 'Download Payslip'}
-        </button>
-        <button className="payBtn" type="button" onClick={() => void handlePrintPayslip()} disabled={printingPayslip}>
+        </ActionButton>
+        <ActionButton
+          className="payBtn"
+          size="lg"
+          icon={<FiPrinter />}
+          type="button"
+          onClick={() => void handlePrintPayslip()}
+          disabled={printingPayslip}
+        >
           {printingPayslip ? 'Opening Payslip...' : 'Print Payslip'}
-        </button>
-        <button className="payBtn" type="button" onClick={openDisputeForm}>File Dispute</button>
+        </ActionButton>
+        <ActionButton className="payBtn" size="lg" icon={<FiAlertCircle />} type="button" onClick={openDisputeForm}>
+          File Dispute
+        </ActionButton>
       </div>
 
       {disputeOpen && (

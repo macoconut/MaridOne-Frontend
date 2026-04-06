@@ -531,3 +531,29 @@
   }
 }
 
+@media (max-width: 560px) {
+  .aDashPay__controls,
+  .aDashPaySelectField {
+    width: 100%;
+  }
+
+  .aDashPaySummaryCard {
+    padding: 12px 14px;
+  }
+
+  .aDashPayPanel__head--history {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .aDashPayHistoryCard {
+    width: min(210px, calc(100vw - 56px));
+    flex-basis: min(210px, calc(100vw - 56px));
+  }
+
+  .aDashPayDonutBlock {
+    --donut-size: min(220px, 70vw);
+    padding: 14px 12px;
+  }
+}
+
