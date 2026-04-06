@@ -11,6 +11,7 @@ import {
   FiFileText,
   FiGrid,
   FiLogOut,
+  FiMenu,
 } from 'react-icons/fi';
 import { useEffect, useRef, useState } from 'react';
 import AppFooter from '../../components/layout/AppFooter';
@@ -111,6 +112,7 @@ export default function ManagementLayout() {
   const [backendAction, setBackendAction] = useState<string>('None');
   const [backendResult, setBackendResult] = useState<string>('Waiting for backend test.');
   const [isLoading, setIsLoading] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(navSections.map((section) => [section.id, section.defaultOpen]))
   );
@@ -119,6 +121,8 @@ export default function ManagementLayout() {
   const unreadOnOpenRef = useRef<string[]>([]);
 
   useEscapeDismiss(notifOpen, closeNotificationBell);
+
+  useEffect(() => { setDrawerOpen(false); }, [location.pathname]);
 
   useEffect(() => {
     function handleClick(event: MouseEvent) {
@@ -347,7 +351,7 @@ export default function ManagementLayout() {
   return (
     <PageRefreshProvider>
       <div className="employeeLayout">
-      <aside className="eSide">
+      <aside className={`eSide${drawerOpen ? ' is-open' : ''}`}>
         <SidebarBrand label="Go to dashboard" onClick={handleBrandClick} />
 
         <div className="eSide__navWrap">
@@ -372,6 +376,14 @@ export default function ManagementLayout() {
       <div className="eMain">
         <header className="eTop">
           <div className="eTop__left">
+            <button
+              className="eTop__ham"
+              type="button"
+              aria-label="Open navigation menu"
+              onClick={() => setDrawerOpen(true)}
+            >
+              <FiMenu />
+            </button>
             <div className="eTop__title">{headerTitle}</div>
             <span className="eTop__badge">Management</span>
           </div>
@@ -508,6 +520,12 @@ export default function ManagementLayout() {
         <AppFooter />
       </div>
       </div>
+      <button
+        type="button"
+        className={`drawerOverlay${drawerOpen ? ' is-open' : ''}`}
+        aria-label="Close navigation menu"
+        onClick={() => setDrawerOpen(false)}
+      />
     </PageRefreshProvider>
   );
 }

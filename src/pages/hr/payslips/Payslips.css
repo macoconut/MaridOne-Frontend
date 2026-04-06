@@ -335,7 +335,8 @@ body.modal-open {
 .hrPayTableShell {
   border: 1px solid rgba(59, 34, 87, 0.12);
   border-radius: 16px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   background: #fff;
 }
 

@@ -23,7 +23,8 @@
 .hrEmpTable {
   border: 1.5px solid var(--hr-border);
   border-radius: 12px;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   box-shadow: var(--hr-shadow);
   background: var(--hr-surface);
 }

@@ -517,8 +517,14 @@ body.modal-open{
     min-width:0;
   }
 
+  .apprTable{
+    overflow-x: auto;
+  }
+
   .apprTable__head,
   .apprRow{
+    width: max(100%, 660px);
+    min-width: 0;
     grid-template-columns: 1.3fr 1fr 1fr 1.1fr;
   }
 
@@ -539,6 +545,19 @@ body.modal-open{
 
   .apprModal__summary{
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px){
+  .apprTable__head,
+  .apprRow{
+    width: max(100%, 480px);
+    grid-template-columns: 1.4fr 1fr 1.2fr;
+  }
+
+  .apprTable__head div:nth-child(n+4),
+  .apprRow div:nth-child(n+4){
+    display:none;
   }
 }
 

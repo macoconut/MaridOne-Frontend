@@ -146,7 +146,8 @@
   border-radius: 12px;
   background: var(--hr-surface);
   box-shadow: var(--hr-shadow);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .hrRunTable__head {

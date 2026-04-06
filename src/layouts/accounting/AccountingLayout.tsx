@@ -1,6 +1,6 @@
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { FiBarChart2, FiClipboard, FiLogOut } from 'react-icons/fi';
+import { FiBarChart2, FiClipboard, FiLogOut, FiMenu } from 'react-icons/fi';
 import AppFooter from '../../components/layout/AppFooter';
 import HeaderRefreshButton from '../../components/navigation/HeaderRefreshButton';
 import SidebarBrand from '../../components/navigation/SidebarBrand';
@@ -70,10 +70,12 @@ const navSections: NavSection[] = [
 
 export default function AccountingLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [headerTitle, setHeaderTitle] = useState('Accounting');
   const [backendAction, setBackendAction] = useState<string>('None');
   const [backendResult, setBackendResult] = useState<string>('Waiting for backend test.');
   const [isLoading, setIsLoading] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(navSections.map((section) => [section.id, section.defaultOpen]))
   );
@@ -81,6 +83,8 @@ export default function AccountingLayout() {
   useEffect(() => {
     void loadHeaderProfile();
   }, []);
+
+  useEffect(() => { setDrawerOpen(false); }, [location.pathname]);
 
   useEffect(() => {
     if (!BACKEND_TEST_MODE) return;
@@ -208,7 +212,7 @@ export default function AccountingLayout() {
   return (
     <PageRefreshProvider>
       <div className="employeeLayout">
-      <aside className="eSide">
+      <aside className={`eSide${drawerOpen ? ' is-open' : ''}`}>
         <SidebarBrand label="Go to dashboard" onClick={handleBrandClick} />
 
         <div className="eSide__navWrap">
@@ -233,6 +237,14 @@ export default function AccountingLayout() {
       <div className="eMain">
         <header className="eTop">
           <div className="eTop__left">
+            <button
+              className="eTop__ham"
+              type="button"
+              aria-label="Open navigation menu"
+              onClick={() => setDrawerOpen(true)}
+            >
+              <FiMenu />
+            </button>
             <div className="eTop__title">{headerTitle}</div>
             <span className="eTop__badge">Accounting</span>
           </div>
@@ -303,6 +315,12 @@ export default function AccountingLayout() {
         <AppFooter />
       </div>
       </div>
+      <button
+        type="button"
+        className={`drawerOverlay${drawerOpen ? ' is-open' : ''}`}
+        aria-label="Close navigation menu"
+        onClick={() => setDrawerOpen(false)}
+      />
     </PageRefreshProvider>
   );
 }

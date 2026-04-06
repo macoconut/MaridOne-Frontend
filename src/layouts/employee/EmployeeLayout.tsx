@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import {
   FiGrid,
@@ -9,6 +9,7 @@ import {
   FiLogOut,
   FiBell,
   FiCheckCircle,
+  FiMenu,
 } from 'react-icons/fi';
 
 import AppFooter from '../../components/layout/AppFooter';
@@ -197,12 +198,16 @@ export default function EmployeeLayout() {
   const [backendAction, setBackendAction] = useState<string>('None');
   const [backendResult, setBackendResult] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const location = useLocation();
 
   const bellRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const unreadOnOpenRef = useRef<string[]>([]);
 
   useEscapeDismiss(notifOpen, closeNotificationBell);
+
+  useEffect(() => { setDrawerOpen(false); }, [location.pathname]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -419,7 +424,7 @@ export default function EmployeeLayout() {
   return (
     <PageRefreshProvider>
       <div className="employeeLayout">
-      <aside className="eSide">
+      <aside className={`eSide${drawerOpen ? ' is-open' : ''}`}>
         <SidebarBrand label="Go to dashboard" onClick={handleBrandClick} />
 
         <div className="eSide__navWrap">
@@ -483,6 +488,14 @@ export default function EmployeeLayout() {
       <div className="eMain">
         <header className="eTop">
           <div className="eTop__left">
+            <button
+              className="eTop__ham"
+              type="button"
+              aria-label="Open navigation menu"
+              onClick={() => setDrawerOpen(true)}
+            >
+              <FiMenu />
+            </button>
             <div className="eTop__title">{headerTitle}</div>
             <span className="eTop__badge">Employee</span>
           </div>
@@ -590,6 +603,12 @@ export default function EmployeeLayout() {
 
       </div>
       </div>
+      <button
+        type="button"
+        className={`drawerOverlay${drawerOpen ? ' is-open' : ''}`}
+        aria-label="Close navigation menu"
+        onClick={() => setDrawerOpen(false)}
+      />
     </PageRefreshProvider>
   );
 }
