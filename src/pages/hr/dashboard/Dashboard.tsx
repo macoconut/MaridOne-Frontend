@@ -1244,7 +1244,6 @@ export function AttendanceOverviewDashboard({
           </div>
         </div>
       </div>
-      {isLoading && <p className="hrDash__subtitle">Loading {audience.toLowerCase()} dashboard data...</p>}
       <div className="hrDash__grid">
         <div className="hrDash__mainCol" ref={mainColRef}>
           <section className="hrStatRow">
