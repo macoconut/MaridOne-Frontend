@@ -27,6 +27,10 @@ body.landing-page {
     linear-gradient(180deg, var(--landing-purple-1) 0%, var(--landing-purple-2) 38%, var(--landing-purple-3) 70%, var(--landing-purple-4) 100%);
 }
 
+body.landing-page-launch {
+  overflow: hidden;
+}
+
 .landing {
   min-height: 100vh;
   display: flex;
@@ -39,6 +43,158 @@ body.landing-page {
 
 html {
   scroll-behavior: smooth;
+}
+
+@keyframes landingLaunchBackdropIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes landingLaunchCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(22px) scale(0.975);
+    filter: blur(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes landingLaunchBackdropOut {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes landingLaunchCardOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.988);
+    filter: blur(8px);
+  }
+}
+
+@keyframes landingHeroIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.launchScreen {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  border: 0;
+  width: 100%;
+  padding: 24px;
+  cursor: pointer;
+  background:
+    radial-gradient(circle at center, rgba(182, 145, 218, 0.18), transparent 34%),
+    linear-gradient(180deg, rgba(42, 22, 71, 0.98), rgba(58, 30, 92, 0.98));
+  color: #fff;
+  animation: landingLaunchBackdropIn 240ms ease-out both;
+}
+
+.launchScreen.is-closing {
+  pointer-events: none;
+  animation: landingLaunchBackdropOut 220ms ease-in forwards;
+}
+
+.launchScreen__glow {
+  position: absolute;
+  width: min(48vw, 520px);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0));
+  filter: blur(10px);
+  opacity: 0.9;
+}
+
+.launchScreen__card {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  padding: clamp(28px, 5vw, 44px) clamp(28px, 6vw, 64px);
+  border-radius: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.16), transparent 52%),
+    rgba(255, 255, 255, 0.06);
+  box-shadow:
+    0 24px 70px rgba(10, 6, 18, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  animation: landingLaunchCardIn 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.launchScreen.is-closing .launchScreen__card {
+  animation: landingLaunchCardOut 220ms ease-in forwards;
+}
+
+.launchScreen__logo {
+  width: clamp(88px, 12vw, 128px);
+  height: clamp(88px, 12vw, 128px);
+  object-fit: contain;
+  filter: drop-shadow(0 18px 32px rgba(0, 0, 0, 0.26));
+}
+
+.launchScreen__wordmark {
+  font-family: var(--font-heading);
+  font-size: clamp(34px, 4vw, 54px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.launchScreen__hint {
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.landing__header,
+.landing__main,
+.aboutSection__inner {
+  animation: landingHeroIn 440ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.landing__header {
+  animation-delay: 70ms;
+}
+
+.landing__main {
+  animation-delay: 120ms;
+}
+
+.aboutSection__inner {
+  animation-delay: 180ms;
 }
 
   
@@ -411,6 +567,22 @@ html {
 
   .aboutSection__inner {
     padding-top: 18px;
+  }
+
+  .launchScreen__card {
+    width: min(100%, 360px);
+    padding: 28px 22px 30px;
+    border-radius: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .launchScreen,
+  .launchScreen__card,
+  .landing__header,
+  .landing__main,
+  .aboutSection__inner {
+    animation: none !important;
   }
 }
   

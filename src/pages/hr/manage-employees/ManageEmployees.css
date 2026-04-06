@@ -195,8 +195,11 @@
 
 .hrEmpTable__head,
 .hrEmpRow {
+  box-sizing: border-box;
+  width: max(100%, 980px);
   display: grid;
   grid-template-columns: 88px minmax(220px, 1.5fr) minmax(150px, 1fr) minmax(138px, 0.95fr) minmax(128px, 0.9fr) minmax(220px, 1fr);
+  gap: 12px;
   align-items: center;
 }
 
@@ -1202,7 +1205,7 @@ body.modal-open .eMain {
   width: min(820px, 94vw);
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1360px) {
   .hrEmp__head {
     align-items: stretch;
   }
@@ -1221,6 +1224,7 @@ body.modal-open .eMain {
 
   .hrEmpTable__head,
   .hrEmpRow {
+    width: max(100%, 860px);
     grid-template-columns: 0.85fr 1.35fr 1fr 1fr 1.15fr;
     row-gap: 6px;
   }
@@ -1269,6 +1273,7 @@ body.modal-open .eMain {
 @media (max-width: 760px) {
   .hrEmpTable__head,
   .hrEmpRow {
+    width: max(100%, 520px);
     grid-template-columns: 78px minmax(150px, 1.3fr) minmax(170px, 1fr);
   }
 

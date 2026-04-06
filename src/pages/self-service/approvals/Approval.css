@@ -165,22 +165,39 @@ body.modal-open{
   border-radius:12px;
   border:1px solid rgba(59, 34, 87, 0.12);
   box-shadow: 0 8px 16px rgba(0,0,0,0.12);
-  overflow:hidden;
+  overflow-x:auto;
+  overflow-y:hidden;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(123, 74, 143, 0.3) transparent;
+}
+
+.apprTable::-webkit-scrollbar{
+  height:10px;
+}
+
+.apprTable::-webkit-scrollbar-track{
+  background:transparent;
+}
+
+.apprTable::-webkit-scrollbar-thumb{
+  background:rgba(123, 74, 143, 0.24);
+  border-radius:999px;
 }
 
 .apprTable__head,
 .apprRow{
-  min-width: 1180px;
+  box-sizing:border-box;
+  width:max(100%, 980px);
   display:grid;
   grid-template-columns:
-    minmax(170px, 1.1fr)
-    minmax(130px, 0.9fr)
+    minmax(140px, 1fr)
+    minmax(118px, 0.82fr)
+    minmax(150px, 1fr)
     minmax(180px, 1.1fr)
-    minmax(220px, 1.35fr)
-    minmax(120px, 0.78fr)
-    minmax(160px, 1fr)
-    minmax(160px, 1fr);
-  gap: 16px;
+    minmax(104px, 0.7fr)
+    minmax(132px, 0.86fr)
+    minmax(132px, 0.86fr);
+  gap: 12px;
   align-items: center;
 }
 
@@ -199,6 +216,7 @@ body.modal-open{
   font-weight:900;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  min-width:0;
 }
 
 .apprTable__body{
@@ -212,6 +230,11 @@ body.modal-open{
   background:#fff;
   color: #2f2c39;
   line-height: 1.45;
+}
+
+.apprRow > div{
+  min-width:0;
+  overflow-wrap:anywhere;
 }
 
 .apprRow--button{
@@ -483,17 +506,19 @@ body.modal-open{
   box-shadow: 0 10px 18px rgba(176, 77, 88, 0.2);
 }
 
-@media (max-width: 1200px){
+@media (max-width: 1320px){
   .apprTable__head,
   .apprRow{
     grid-template-columns:
-      minmax(160px, 1fr)
-      minmax(120px, 0.9fr)
-      minmax(160px, 1fr)
-      minmax(200px, 1.15fr)
-      minmax(110px, 0.72fr)
-      minmax(150px, 0.95fr)
-      minmax(150px, 0.95fr);
+      minmax(136px, 1fr)
+      minmax(112px, 0.8fr)
+      minmax(144px, 0.95fr)
+      minmax(172px, 1.04fr)
+      minmax(98px, 0.68fr)
+      minmax(126px, 0.82fr)
+      minmax(126px, 0.82fr);
+    width:max(100%, 920px);
+    gap:10px;
   }
 }
 
@@ -515,10 +540,6 @@ body.modal-open{
     left:0;
     right:0;
     min-width:0;
-  }
-
-  .apprTable{
-    overflow-x: auto;
   }
 
   .apprTable__head,

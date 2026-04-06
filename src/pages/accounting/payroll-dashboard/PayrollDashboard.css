@@ -455,7 +455,7 @@
   border: 1px dashed #d5c7e2;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1400px) {
   .aDashPaySummaryGrid {
     grid-template-columns: 1fr;
   }

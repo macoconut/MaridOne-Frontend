@@ -1,17 +1,38 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import useAnimatedPresence from '../../hooks/useAnimatedPresence';
 import './Landing.css';
 
 export default function Landing() {
   const navigate = useNavigate();
+  const [showLaunchScreen, setShowLaunchScreen] = useState(true);
+  const launchScreenPresence = useAnimatedPresence(showLaunchScreen, 280);
+
+  const dismissLaunchScreen = () => {
+    setShowLaunchScreen(false);
+  };
 
   useEffect(() => {
     document.body.classList.add('landing-page');
+    if (showLaunchScreen) {
+      document.body.classList.add('landing-page-launch');
+    }
+
+    let timeoutId: number | undefined;
+    if (showLaunchScreen) {
+      timeoutId = window.setTimeout(() => {
+        dismissLaunchScreen();
+      }, 3000);
+    }
 
     return () => {
       document.body.classList.remove('landing-page');
+      document.body.classList.remove('landing-page-launch');
+      if (timeoutId) {
+        window.clearTimeout(timeoutId);
+      }
     };
-  }, []);
+  }, [showLaunchScreen]);
 
   function scrollToSection(id: string) {
     if (id === 'landing-home') {
@@ -24,6 +45,26 @@ export default function Landing() {
 
   return (
     <div className="landing" id="landing-home">
+      {launchScreenPresence.isMounted && (
+        <button
+          type="button"
+          className={`launchScreen${launchScreenPresence.isClosing ? ' is-closing' : ''}`}
+          aria-label="Continue to MaridOne landing page"
+          onClick={dismissLaunchScreen}
+        >
+          <div className="launchScreen__glow" aria-hidden="true" />
+          <div className="launchScreen__card">
+            <img
+              src="/images/marid-logo-transparent.png"
+              alt=""
+              className="launchScreen__logo"
+              aria-hidden="true"
+            />
+            <div className="launchScreen__wordmark">MaridOne</div>
+          </div>
+        </button>
+      )}
+
       <header className="landing__header">
         <nav className="landing__nav">
           <button className="brand" type="button" onClick={() => scrollToSection('landing-home')}>

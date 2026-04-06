@@ -7,6 +7,7 @@ import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
 import MaterialArt from '../../../components/document/MaterialArt';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import PageHeader from '../../../components/layout/PageHeader';
+import useAnimatedPresence from '../../../hooks/useAnimatedPresence';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
@@ -383,6 +384,7 @@ export default function Dashboard() {
   const [editError, setEditError] = useState('');
   const [editOpen, setEditOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
+  const securityModalPresence = useAnimatedPresence(securityOpen, 220);
   const [createAnnouncementOpen, setCreateAnnouncementOpen] = useState(false);
   const [creatingAnnouncement, setCreatingAnnouncement] = useState(false);
   const [createAnnouncementError, setCreateAnnouncementError] = useState('');
@@ -448,11 +450,11 @@ export default function Dashboard() {
   }, [refreshTick]);
 
   useEffect(() => {
-    if (editOpen || securityOpen || createAnnouncementOpen || selectedAnnouncementDay) document.body.classList.add('modal-open');
+    if (editOpen || securityModalPresence.isMounted || createAnnouncementOpen || selectedAnnouncementDay) document.body.classList.add('modal-open');
     else document.body.classList.remove('modal-open');
 
     return () => document.body.classList.remove('modal-open');
-  }, [createAnnouncementOpen, editOpen, securityOpen, selectedAnnouncementDay]);
+  }, [createAnnouncementOpen, editOpen, securityModalPresence.isMounted, selectedAnnouncementDay]);
 
   useEffect(() => {
     const username = getUserEmail();
@@ -1507,9 +1509,14 @@ export default function Dashboard() {
         </div>
       )}
 
-      {securityOpen && (
-        <div className="dashModalBackdrop" role="dialog" aria-modal="true" aria-label="Account security">
-          <div className="dashModal dashModal--security">
+      {securityModalPresence.isMounted && (
+        <div
+          className={`dashModalBackdrop${securityModalPresence.isClosing ? ' is-closing' : ''}`}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Account security"
+        >
+          <div className={`dashModal dashModal--security${securityModalPresence.isClosing ? ' is-closing' : ''}`}>
             <div className="dashModal__top">
               <div>
                 <div className="dashModal__title">ACCOUNT SECURITY</div>

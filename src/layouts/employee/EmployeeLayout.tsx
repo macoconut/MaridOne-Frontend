@@ -15,6 +15,7 @@ import {
 import AppFooter from '../../components/layout/AppFooter';
 import HeaderRefreshButton from '../../components/navigation/HeaderRefreshButton';
 import SidebarBrand from '../../components/navigation/SidebarBrand';
+import useAnimatedPresence from '../../hooks/useAnimatedPresence';
 import { useEscapeDismiss } from '../../hooks/useEscapeDismiss';
 import { useNotificationPolling } from '../../hooks/useNotificationPolling';
 import '../shared/RoleLayout.css';
@@ -193,6 +194,7 @@ const backendActions: BackendTestAction[] = [
 export default function EmployeeLayout() {
   const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
+  const notificationPresence = useAnimatedPresence(notifOpen, 180);
   const { notifications, setNotifications } = useNotificationPolling('employee');
   const [headerBadge, setHeaderBadge] = useState('Employee');
   const [backendAction, setBackendAction] = useState<string>('None');
@@ -515,12 +517,14 @@ export default function EmployeeLayout() {
                 {unreadCount > 0 && <span className="notif__badge">{unreadCount}</span>}
               </button>
 
-              {notifOpen && <div className="notif__backdrop" />}
+              {notificationPresence.isMounted && (
+                <div className={`notif__backdrop${notificationPresence.isClosing ? ' is-closing' : ''}`} />
+              )}
 
-              {notifOpen && (
+              {notificationPresence.isMounted && (
                 <div
                   ref={panelRef}
-                  className="notifPanel"
+                  className={`notifPanel${notificationPresence.isClosing ? ' is-closing' : ''}`}
                   role="dialog"
                   aria-label="Notifications"
                   onWheel={handleNotificationPanelWheel}

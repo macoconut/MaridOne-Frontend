@@ -6,9 +6,58 @@
   --popup-border: rgba(123, 74, 143, 0.14);
   --popup-shadow: 0 26px 60px rgba(32, 21, 49, 0.28);
   --popup-field-shadow: 0 10px 22px rgba(39, 25, 60, 0.05);
+  --popup-motion-spring: cubic-bezier(0.22, 1, 0.36, 1);
   --popup-surface:
     radial-gradient(circle at top right, rgba(191, 154, 223, 0.24), transparent 32%),
     linear-gradient(180deg, #f7f2fb 0%, #ffffff 42%);
+}
+
+@keyframes popupBackdropIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes popupWindowIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+    filter: blur(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes popupBackdropOut {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes popupWindowOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.99);
+    filter: blur(8px);
+  }
 }
 
 :where(
@@ -24,12 +73,30 @@
 ) {
   position: fixed !important;
   inset: 0 !important;
+  width: 100vw !important;
+  min-height: 100vh !important;
   display: grid !important;
   place-items: center !important;
   padding: 20px !important;
   overflow-y: auto !important;
   background: rgba(30, 19, 47, 0.44) !important;
   z-index: 3200 !important;
+  animation: popupBackdropIn 180ms ease-out !important;
+}
+
+:where(
+  .modalBackdrop,
+  .dashModalBackdrop,
+  .payModalBackdrop,
+  .apprModalBackdrop,
+  .hrEmpModalBackdrop,
+  .hrAttModalBackdrop,
+  .hrPayModalBackdrop,
+  .hrApprModalBackdrop,
+  .aReviewPayModalBackdrop
+).is-closing {
+  pointer-events: none !important;
+  animation: popupBackdropOut 180ms ease-in forwards !important;
 }
 
 :where(
@@ -50,6 +117,23 @@
   background: var(--popup-surface) !important;
   box-shadow: var(--popup-shadow) !important;
   padding: 24px 28px 26px !important;
+  transform-origin: center top !important;
+  animation: popupWindowIn 240ms var(--popup-motion-spring) !important;
+  will-change: transform, opacity, filter !important;
+}
+
+:where(
+  .modal,
+  .dashModal,
+  .payModal,
+  .apprModal,
+  .hrEmpModal,
+  .hrAttModal,
+  .hrPayModal,
+  .hrApprModal,
+  .aReviewPayModal
+).is-closing {
+  animation: popupWindowOut 180ms ease-in forwards !important;
 }
 
 .modal,
@@ -217,6 +301,24 @@
 ):focus-visible {
   outline: 3px solid rgba(123, 74, 143, 0.18) !important;
   outline-offset: 3px !important;
+}
+
+:where(
+  .uiCloseButton,
+  .modal__close,
+  .dashModal__close,
+  .payModal__close,
+  .apprModal__close,
+  .hrAttModal__close,
+  .hrPayModal__close,
+  .hrApprModal__close,
+  .hrRunModal__close,
+  .hrEmpDetailsDialog__close,
+  .aReviewPayModal__close,
+  .aReviewRunModal__close
+):active:not(:disabled) {
+  transform: translateY(1px) scale(0.97) !important;
+  box-shadow: 0 10px 18px rgba(60, 37, 86, 0.12) !important;
 }
 
 :where(
@@ -653,6 +755,13 @@
   padding: 0 18px !important;
   cursor: pointer !important;
   box-shadow: 0 12px 22px rgba(123, 74, 143, 0.18) !important;
+  transition:
+    transform 180ms var(--popup-motion-spring),
+    box-shadow 180ms ease,
+    background 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    filter 180ms ease !important;
 }
 
 :where(
@@ -689,6 +798,43 @@
   color: var(--popup-accent-dark) !important;
   border: 1px solid rgba(123, 74, 143, 0.18) !important;
   box-shadow: none !important;
+}
+
+:where(
+  .btn,
+  .dashModal__btn,
+  .payModal__actions button,
+  .apprModal__actions button,
+  .hrEmpModal__actions button,
+  .hrEmpConfirmCard__actions button,
+  .hrAttModal__actions button,
+  .hrPayModal__actions button,
+  .hrPayModal__inlineBtns button,
+  .hrApprForm__actions button,
+  .hrApprModal__footer button,
+  .aReviewPayModal__actions button
+):hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 28px rgba(123, 74, 143, 0.24) !important;
+  filter: saturate(1.03);
+}
+
+:where(
+  .btn,
+  .dashModal__btn,
+  .payModal__actions button,
+  .apprModal__actions button,
+  .hrEmpModal__actions button,
+  .hrEmpConfirmCard__actions button,
+  .hrAttModal__actions button,
+  .hrPayModal__actions button,
+  .hrPayModal__inlineBtns button,
+  .hrApprForm__actions button,
+  .hrApprModal__footer button,
+  .aReviewPayModal__actions button
+):active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+  box-shadow: 0 10px 18px rgba(123, 74, 143, 0.16) !important;
 }
 
 :where(
@@ -856,5 +1002,59 @@
 
   .decisionPicker__button {
     width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(
+    .modalBackdrop,
+    .dashModalBackdrop,
+    .payModalBackdrop,
+    .apprModalBackdrop,
+    .hrEmpModalBackdrop,
+    .hrAttModalBackdrop,
+    .hrPayModalBackdrop,
+    .hrApprModalBackdrop,
+    .aReviewPayModalBackdrop,
+    .modal,
+    .dashModal,
+    .payModal,
+    .apprModal,
+    .hrEmpModal,
+    .hrAttModal,
+    .hrPayModal,
+    .hrApprModal,
+    .aReviewPayModal
+  ) {
+    animation: none !important;
+  }
+
+  :where(
+    .btn,
+    .dashModal__btn,
+    .payModal__actions button,
+    .apprModal__actions button,
+    .hrEmpModal__actions button,
+    .hrEmpConfirmCard__actions button,
+    .hrAttModal__actions button,
+    .hrPayModal__actions button,
+    .hrPayModal__inlineBtns button,
+    .hrApprForm__actions button,
+    .hrApprModal__footer button,
+    .aReviewPayModal__actions button,
+    .uiCloseButton,
+    .modal__close,
+    .dashModal__close,
+    .payModal__close,
+    .apprModal__close,
+    .hrAttModal__close,
+    .hrPayModal__close,
+    .hrApprModal__close,
+    .hrRunModal__close,
+    .hrEmpDetailsDialog__close,
+    .aReviewPayModal__close,
+    .aReviewRunModal__close
+  ) {
+    transition: none !important;
   }
 }
