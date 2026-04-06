@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FiCalendar, FiChevronDown, FiChevronLeft, FiChevronRight, FiSave, FiX } from 'react-icons/fi';
+import { FiCalendar, FiChevronDown, FiChevronLeft, FiChevronRight, FiFilter, FiSave, FiX } from 'react-icons/fi';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
 import PageHeader from '../../../components/layout/PageHeader';
@@ -29,6 +29,13 @@ import type { DailyShift, ShiftDraft, TeamEmployee } from '../team-shift-schedul
 import './MonthlyTeamSchedule.css';
 
 const CALENDAR_DAYS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+const HR_SCHEDULE_ROLE_FILTERS = [
+  { value: 'role:EMPLOYEE', label: 'Employee' },
+  { value: 'role:HR', label: 'HR' },
+  { value: 'role:ACCOUNTING', label: 'Accounting' },
+  { value: 'role:MANAGER', label: 'Manager' },
+  { value: 'role:MANAGEMENT', label: 'Management' },
+] as const;
 
 type EditorDraft = {
   startTime: string;
@@ -43,6 +50,15 @@ type EditorDraft = {
 type HolidayLookupResponse = {
   holidayDates?: string[];
   regularHolidayDates?: string[];
+};
+
+type MonthlyScheduleBoardProps = {
+  rosterUrl: string;
+  employeeSingularLabel: string;
+  employeePluralLabel: string;
+  emptyRosterLabel: string;
+  selectionHelpText: string;
+  showDepartmentFilter?: boolean;
 };
 
 function buildCalendarCells(monthStart: string) {
@@ -75,6 +91,16 @@ function formatUiLabel(value: string) {
     .replace(/_/g, ' ')
     .toLowerCase()
     .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatEmployeePickerMeta(employee: TeamEmployee) {
+  const parts = [formatUiLabel(employee.status)];
+
+  if (employee.position && employee.position !== '-') {
+    parts.push(formatUiLabel(employee.position));
+  }
+
+  return parts.join(' • ');
 }
 
 function parseHolidayLookup(payload: unknown) {
@@ -141,7 +167,14 @@ function buildLockedDayDrafts(
     }, {});
 }
 
-export default function ManagerMonthlyTeamSchedule() {
+export function MonthlyScheduleBoard({
+  rosterUrl,
+  employeeSingularLabel,
+  employeePluralLabel,
+  emptyRosterLabel,
+  selectionHelpText,
+  showDepartmentFilter = false,
+}: MonthlyScheduleBoardProps) {
   const { showSuccess } = useUiDialog();
   const initialMonthStart = useMemo(() => normalizeMonthStart(toIsoDate(new Date())), []);
   const [employees, setEmployees] = useState<TeamEmployee[]>([]);
@@ -158,7 +191,11 @@ export default function ManagerMonthlyTeamSchedule() {
   const [selectedTemplateDays, setSelectedTemplateDays] = useState<string[]>([]);
   const [templateStartTime, setTemplateStartTime] = useState('08:00');
   const [templateEndTime, setTemplateEndTime] = useState('17:00');
+  const [templateDayOff, setTemplateDayOff] = useState(false);
   const [lockedDayDrafts, setLockedDayDrafts] = useState<Record<string, EditorDraft>>({});
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [departmentFilter, setDepartmentFilter] = useState('all');
   const [loadingTeam, setLoadingTeam] = useState(false);
   const [loadingMonth, setLoadingMonth] = useState(false);
   const [holidayDateKeys, setHolidayDateKeys] = useState<string[]>([]);
@@ -169,12 +206,14 @@ export default function ManagerMonthlyTeamSchedule() {
   const [saveError, setSaveError] = useState('');
   const employeePickerRef = useRef<HTMLDivElement | null>(null);
   const employeeSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const filterRef = useRef<HTMLDivElement | null>(null);
 
   useErrorDialogEffect(loadError, 'Schedule calendar could not be loaded');
   useErrorDialogEffect(saveError, 'Schedule calendar could not be saved');
   useEscapeDismiss(editorOpen, closeEditor, 10);
   useEscapeDismiss(templateEditorOpen, closeTemplateEditor, 11);
   useEscapeDismiss(employeePickerOpen, closeEmployeePicker, 12);
+  useEscapeDismiss(filterOpen, () => setFilterOpen(false), 13);
 
   const todayKey = useMemo(() => toIsoDate(new Date()), []);
   const monthOptions = useMemo(() => {
@@ -201,15 +240,36 @@ export default function ManagerMonthlyTeamSchedule() {
     () => sortedEmployees.find((employee) => employee.id === selectedEmployeeId) ?? null,
     [selectedEmployeeId, sortedEmployees]
   );
+  const departmentOptions = useMemo(
+    () =>
+      [...new Set(sortedEmployees.map((employee) => employee.department).filter(Boolean))]
+        .sort((left, right) => left.localeCompare(right)),
+    [sortedEmployees]
+  );
   const filteredEmployees = useMemo(() => {
     const query = normalizeSearchText(employeeSearch);
-    if (!query) return sortedEmployees;
+    return sortedEmployees.filter((employee) => {
+      if (showDepartmentFilter && roleFilter !== 'all' && employee.position !== roleFilter) {
+        return false;
+      }
 
-    return sortedEmployees.filter((employee) =>
-      [employee.name, employee.status, formatUiLabel(employee.status), employee.position]
-        .some((value) => normalizeSearchText(value).includes(query))
-    );
-  }, [employeeSearch, sortedEmployees]);
+      if (showDepartmentFilter && departmentFilter !== 'all' && employee.department !== departmentFilter) {
+        return false;
+      }
+
+      if (!query) return true;
+
+      return [
+        employee.name,
+        employee.status,
+        formatUiLabel(employee.status),
+        employee.position,
+        formatUiLabel(employee.position),
+        employee.department,
+        formatEmployeePickerMeta(employee),
+      ].some((value) => normalizeSearchText(value).includes(query));
+    });
+  }, [departmentFilter, employeeSearch, roleFilter, showDepartmentFilter, sortedEmployees]);
 
   const calendarCells = useMemo(() => buildCalendarCells(selectedMonthStart), [selectedMonthStart]);
   const calendarStyle = useMemo(
@@ -244,6 +304,9 @@ export default function ManagerMonthlyTeamSchedule() {
     ? 'Day off'
     : `${formatTimeLabel(editorDraft.startTime)} - ${formatTimeLabel(editorDraft.endTime)}`;
   const canClearEmployeePicker = employeeSearch.trim().length > 0;
+  const activeFilterCount =
+    (showDepartmentFilter && roleFilter !== 'all' ? 1 : 0) +
+    (showDepartmentFilter && departmentFilter !== 'all' ? 1 : 0);
   const resolveDisplayedDraft = useCallback(
     (workDate: string) => {
       if (workDate <= todayKey && lockedDayDrafts[workDate]) {
@@ -269,6 +332,11 @@ export default function ManagerMonthlyTeamSchedule() {
     setSaveError('');
   }
 
+  function clearEmployeeFilters() {
+    setRoleFilter('all');
+    setDepartmentFilter('all');
+  }
+
   const loadTeamSchedules = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!silent) {
       setLoadingTeam(true);
@@ -276,7 +344,7 @@ export default function ManagerMonthlyTeamSchedule() {
     }
 
     try {
-      const payload = await apiFetchJson<unknown>('/api/employees/team');
+      const payload = await apiFetchJson<unknown>(rosterUrl);
       const mapped = parseTeamEmployees(payload, toArray).sort((left, right) => left.name.localeCompare(right.name));
       setEmployees(mapped);
       setSelectedEmployeeId((current) => {
@@ -296,7 +364,7 @@ export default function ManagerMonthlyTeamSchedule() {
         setLoadingTeam(false);
       }
     }
-  }, []);
+  }, [rosterUrl]);
 
   useAutoRefreshingPage(() => loadTeamSchedules({ silent: true }), {
     intervalMs: 15000,
@@ -418,6 +486,21 @@ export default function ManagerMonthlyTeamSchedule() {
   }, [employeePickerOpen, selectedEmployee]);
 
   useEffect(() => {
+    if (!showDepartmentFilter || !filterOpen) return;
+
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (!filterRef.current?.contains(target)) {
+        setFilterOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [filterOpen, showDepartmentFilter]);
+
+  useEffect(() => {
     if (!employeePickerOpen) return;
 
     function handlePointerDown(event: MouseEvent) {
@@ -457,6 +540,7 @@ export default function ManagerMonthlyTeamSchedule() {
     setSelectedTemplateDays([]);
     setTemplateStartTime('08:00');
     setTemplateEndTime('17:00');
+    setTemplateDayOff(false);
     setEditorOpen(false);
     setTemplateEditorOpen(true);
     setSaveError('');
@@ -523,6 +607,7 @@ export default function ManagerMonthlyTeamSchedule() {
           : `${selectedEmployee.name}'s shift was saved for ${formatSpecificDateLabel(selectedDateKey)}.`,
         editorDraft.dayOff ? 'Day Off Saved' : 'Shift Saved'
       );
+      closeEditor();
     } catch (error) {
       setSaveError(getFriendlyErrorMessage(error, 'employee-save'));
     } finally {
@@ -542,12 +627,12 @@ export default function ManagerMonthlyTeamSchedule() {
       return;
     }
 
-    if (!templateStartTime || !templateEndTime) {
+    if (!templateDayOff && (!templateStartTime || !templateEndTime)) {
       setSaveError('Start time and end time are both required.');
       return;
     }
 
-    if (templateStartTime === templateEndTime) {
+    if (!templateDayOff && templateStartTime === templateEndTime) {
       setSaveError('Start time and end time cannot be the same.');
       return;
     }
@@ -559,6 +644,15 @@ export default function ManagerMonthlyTeamSchedule() {
       await Promise.all(
         selectedTemplateDays.map(async (day) => {
           const draft = templateDrafts[day] ?? { startTime: '08:00', endTime: '17:00' };
+          if (templateDayOff) {
+            if (draft.shiftId) {
+              await apiFetchJson(`/api/employee/schedule/${draft.shiftId}`, {
+                method: 'DELETE',
+              });
+            }
+            return;
+          }
+
           if (draft.shiftId) {
             await apiFetchJson('/api/employee/schedule/update', {
               method: 'PATCH',
@@ -588,8 +682,10 @@ export default function ManagerMonthlyTeamSchedule() {
       setTemplateEditorOpen(false);
       const savedDays = DAY_ORDER.filter((day) => selectedTemplateDays.includes(day)).map((day) => formatDayLabel(day));
       showSuccess(
-        `Default hours updated for ${savedDays.join(', ')}.`,
-        'Default Hours Saved'
+        templateDayOff
+          ? `Selected weekdays are now marked as day off for ${savedDays.join(', ')}.`
+          : `Default hours updated for ${savedDays.join(', ')}.`,
+        templateDayOff ? 'Day Off Saved' : 'Default Hours Saved'
       );
     } catch (error) {
       setSaveError(getFriendlyErrorMessage(error, 'employee-save'));
@@ -625,93 +721,144 @@ export default function ManagerMonthlyTeamSchedule() {
       </div>
 
       <div className="hrAtt__toolbar mgrMonth__toolbar">
-        <div
-          className={`hrEmpCombo hrEmpCombo--compact mgrMonth__employeeCombo ${employeePickerOpen ? 'is-open' : ''}`}
-          ref={employeePickerRef}
-        >
-          <div className="hrEmpCombo__control">
-            <input
-              ref={employeeSearchInputRef}
-              type="text"
-              className="hrEmpCombo__input"
-              role="combobox"
-              aria-autocomplete="list"
-              aria-controls="shift-calendar-employee-options"
-              aria-expanded={employeePickerOpen}
-              aria-haspopup="listbox"
-              value={employeeSearch}
-              onFocus={() => setEmployeePickerOpen(true)}
-              onChange={(event) => {
-                setEmployeeSearch(event.target.value);
-                setEmployeePickerOpen(true);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && filteredEmployees.length > 0) {
-                  event.preventDefault();
-                  selectEmployee(filteredEmployees[0]);
+        <div className="mgrMonth__pickerTools">
+          <div
+            className={`hrEmpCombo hrEmpCombo--compact mgrMonth__employeeCombo ${employeePickerOpen ? 'is-open' : ''}`}
+            ref={employeePickerRef}
+          >
+            <div className="hrEmpCombo__control">
+              <input
+                ref={employeeSearchInputRef}
+                type="text"
+                className="hrEmpCombo__input"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-controls="shift-calendar-employee-options"
+                aria-expanded={employeePickerOpen}
+                aria-haspopup="listbox"
+                value={employeeSearch}
+                onFocus={() => setEmployeePickerOpen(true)}
+                onChange={(event) => {
+                  setEmployeeSearch(event.target.value);
+                  setEmployeePickerOpen(true);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && filteredEmployees.length > 0) {
+                    event.preventDefault();
+                    selectEmployee(filteredEmployees[0]);
+                  }
+                }}
+                placeholder={
+                  loadingTeam
+                    ? `Loading ${employeePluralLabel}...`
+                    : sortedEmployees.length === 0
+                      ? emptyRosterLabel
+                      : `Search ${employeeSingularLabel}`
                 }
-              }}
-              placeholder={
-                loadingTeam
-                  ? 'Loading team members...'
-                  : sortedEmployees.length === 0
-                    ? 'No team members assigned'
-                    : 'Search team member'
-              }
-              disabled={loadingTeam || sortedEmployees.length === 0}
-              aria-label="Search team member"
-            />
-            {canClearEmployeePicker ? (
+                disabled={loadingTeam || sortedEmployees.length === 0}
+                aria-label={`Search ${employeeSingularLabel}`}
+              />
+              {canClearEmployeePicker ? (
+                <button
+                  type="button"
+                  className="hrEmpCombo__clear"
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={clearEmployeeSearch}
+                  disabled={loadingTeam || sortedEmployees.length === 0}
+                  aria-label={`Clear ${employeeSingularLabel} search`}
+                >
+                  <FiX />
+                </button>
+              ) : null}
               <button
                 type="button"
-                className="hrEmpCombo__clear"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={clearEmployeeSearch}
+                className="hrEmpCombo__toggle"
+                onClick={() => {
+                  if (loadingTeam || sortedEmployees.length === 0) return;
+                  setEmployeeSearch(selectedEmployee?.name ?? '');
+                  setEmployeePickerOpen((current) => !current);
+                }}
                 disabled={loadingTeam || sortedEmployees.length === 0}
-                aria-label="Clear team member search"
+                aria-label={employeePickerOpen ? `Close ${employeeSingularLabel} list` : `Open ${employeeSingularLabel} list`}
               >
-                <FiX />
+                <FiChevronDown />
               </button>
+            </div>
+
+            {employeePickerOpen ? (
+              <div className="hrEmpCombo__menu" id="shift-calendar-employee-options" role="listbox">
+                {loadingTeam ? (
+                  <div className="hrEmpCombo__empty">{`Loading ${employeePluralLabel}...`}</div>
+                ) : filteredEmployees.length > 0 ? (
+                  filteredEmployees.map((employee) => {
+                    const isSelected = employee.id === selectedEmployeeId;
+                    return (
+                      <button
+                        key={employee.id}
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        className={`hrEmpCombo__option ${isSelected ? 'is-selected' : ''}`}
+                        onClick={() => selectEmployee(employee)}
+                      >
+                        <span className="hrEmpCombo__optionName">{employee.name}</span>
+                        <span className="hrEmpCombo__optionMeta">{formatEmployeePickerMeta(employee)}</span>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="hrEmpCombo__empty">{`No ${employeePluralLabel} match that search.`}</div>
+                )}
+              </div>
             ) : null}
-            <button
-              type="button"
-              className="hrEmpCombo__toggle"
-              onClick={() => {
-                if (loadingTeam || sortedEmployees.length === 0) return;
-                setEmployeeSearch(selectedEmployee?.name ?? '');
-                setEmployeePickerOpen((current) => !current);
-              }}
-              disabled={loadingTeam || sortedEmployees.length === 0}
-              aria-label={employeePickerOpen ? 'Close team member list' : 'Open team member list'}
-            >
-              <FiChevronDown />
-            </button>
           </div>
 
-          {employeePickerOpen ? (
-            <div className="hrEmpCombo__menu" id="shift-calendar-employee-options" role="listbox">
-              {loadingTeam ? (
-                <div className="hrEmpCombo__empty">Loading team members...</div>
-              ) : filteredEmployees.length > 0 ? (
-                filteredEmployees.map((employee) => {
-                  const isSelected = employee.id === selectedEmployeeId;
-                  return (
-                    <button
-                      key={employee.id}
-                      type="button"
-                      role="option"
-                      aria-selected={isSelected}
-                      className={`hrEmpCombo__option ${isSelected ? 'is-selected' : ''}`}
-                      onClick={() => selectEmployee(employee)}
-                    >
-                      <span className="hrEmpCombo__optionName">{employee.name}</span>
-                      <span className="hrEmpCombo__optionMeta">{formatUiLabel(employee.status)}</span>
+          {showDepartmentFilter ? (
+            <div className="hrAttFilter mgrMonth__employeeFilter" ref={filterRef}>
+              <button
+                type="button"
+                className={`hrAttFilter__toggle ${filterOpen ? 'is-open' : ''} ${activeFilterCount > 0 ? 'is-active' : ''}`}
+                onClick={() => setFilterOpen((open) => !open)}
+                disabled={loadingTeam}
+              >
+                <FiFilter />
+                <span>Filter</span>
+                {activeFilterCount > 0 ? <span className="hrAttFilter__count">{activeFilterCount}</span> : null}
+              </button>
+
+              {filterOpen ? (
+                <div className="hrAttFilter__panel">
+                  <label className="hrAttFilter__field">
+                    <span>Role</span>
+                    <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
+                      <option value="all">All roles</option>
+                      {HR_SCHEDULE_ROLE_FILTERS.map((option) => (
+                        <option key={option.value} value={option.value.replace('role:', '')}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="hrAttFilter__field">
+                    <span>Department</span>
+                    <select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}>
+                      <option value="all">All departments</option>
+                      {departmentOptions.map((department) => (
+                        <option key={department} value={department}>
+                          {department}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <div className="hrAttFilter__actions">
+                    <button type="button" onClick={clearEmployeeFilters}>
+                      Clear Filters
                     </button>
-                  );
-                })
-              ) : (
-                <div className="hrEmpCombo__empty">No team members match that search.</div>
-              )}
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -762,81 +909,83 @@ export default function ManagerMonthlyTeamSchedule() {
                 </span>
               </div>
 
-              <div className="hrCal" style={calendarStyle}>
-                {CALENDAR_DAYS.map((day) => (
-                  <div key={day} className="hrCal__dow">
-                    {day}
-                  </div>
-                ))}
+              <div className="mgrMonth__calendarGridWrap">
+                <div className="hrCal" style={calendarStyle}>
+                  {CALENDAR_DAYS.map((day) => (
+                    <div key={day} className="hrCal__dow">
+                      {day}
+                    </div>
+                  ))}
 
-                {calendarCells.map((cell) => {
-                  if (cell.startsWith('blank-')) {
-                    return <div key={cell} className="hrCal__cell hrCal__cell--disabled" aria-hidden="true" />;
-                  }
+                  {calendarCells.map((cell) => {
+                    if (cell.startsWith('blank-')) {
+                      return <div key={cell} className="hrCal__cell hrCal__cell--disabled" aria-hidden="true" />;
+                    }
 
-                  const dayDraft = resolveDisplayedDraft(cell);
-                  const isDefaultDayOff = !dayDraft.isOverride && !dayDraft.hasTemplate && dayDraft.dayOff;
-                  const isLocked = cell <= todayKey;
-                  const isSelected = cell === selectedDateKey;
-                  const isToday = cell === todayKey;
-                  const isHoliday = holidayDateSet.has(cell);
-                  const dayNumber = parseIsoDate(cell).getDate();
-                  const timeLabel = dayDraft.dayOff || isDefaultDayOff || !dayDraft.startTime || !dayDraft.endTime
-                    ? 'Day off'
-                    : `${formatTimeLabel(dayDraft.startTime)} - ${formatTimeLabel(dayDraft.endTime)}`;
+                    const dayDraft = resolveDisplayedDraft(cell);
+                    const isDefaultDayOff = !dayDraft.isOverride && !dayDraft.hasTemplate && dayDraft.dayOff;
+                    const isLocked = cell <= todayKey;
+                    const isSelected = cell === selectedDateKey;
+                    const isToday = cell === todayKey;
+                    const isHoliday = holidayDateSet.has(cell);
+                    const dayNumber = parseIsoDate(cell).getDate();
+                    const timeLabel = dayDraft.dayOff || isDefaultDayOff || !dayDraft.startTime || !dayDraft.endTime
+                      ? 'Day off'
+                      : `${formatTimeLabel(dayDraft.startTime)} - ${formatTimeLabel(dayDraft.endTime)}`;
 
-                  const cellClass = [
-                    'hrCal__cell',
-                    'hrCal__cell--click',
-                    'hrCal__cell--focus',
-                    isHoliday ? 'hrCal__cell--holiday' : '',
-                    dayDraft.dayOff || isDefaultDayOff ? 'hrCal__cell--dayOff' : '',
-                    dayDraft.isOverride && !dayDraft.dayOff ? 'hrCal__cell--ot' : '',
-                    isLocked ? 'mgrMonth__cell--readonly' : '',
-                    isSelected ? 'hrCal__cell--selected' : '',
-                    isToday ? 'hrCal__cell--today' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ');
+                    const cellClass = [
+                      'hrCal__cell',
+                      'hrCal__cell--click',
+                      'hrCal__cell--focus',
+                      isHoliday ? 'hrCal__cell--holiday' : '',
+                      dayDraft.dayOff || isDefaultDayOff ? 'hrCal__cell--dayOff' : '',
+                      dayDraft.isOverride && !dayDraft.dayOff ? 'hrCal__cell--ot' : '',
+                      isLocked ? 'mgrMonth__cell--readonly' : '',
+                      isSelected ? 'hrCal__cell--selected' : '',
+                      isToday ? 'hrCal__cell--today' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ');
 
-                  return (
-                    <button
-                      key={cell}
-                      type="button"
-                      className={cellClass}
-                      onClick={() => selectDate(cell)}
-                      aria-current={isToday ? 'date' : undefined}
-                      aria-label={`Shift details for ${formatSpecificDateLabel(cell)}`}
-                    >
-                      <div className="hrCal__cellTop">
-                        <div className="hrCal__day">{dayNumber}</div>
-                      </div>
+                    return (
+                      <button
+                        key={cell}
+                        type="button"
+                        className={cellClass}
+                        onClick={() => selectDate(cell)}
+                        aria-current={isToday ? 'date' : undefined}
+                        aria-label={`Shift details for ${formatSpecificDateLabel(cell)}`}
+                      >
+                        <div className="hrCal__cellTop">
+                          <div className="hrCal__day">{dayNumber}</div>
+                        </div>
 
-                      <div className="hrCal__statusNotes">
-                        {dayDraft.isOverride && !dayDraft.dayOff ? (
-                          <span className="hrCal__note hrCal__note--ot">Custom hours</span>
-                        ) : null}
-                        {isHoliday && <span className="hrCal__note hrCal__note--holiday">Holiday</span>}
-                      </div>
+                        <div className="hrCal__statusNotes">
+                          {dayDraft.isOverride && !dayDraft.dayOff ? (
+                            <span className="hrCal__note hrCal__note--ot">Custom hours</span>
+                          ) : null}
+                          {isHoliday && <span className="hrCal__note hrCal__note--holiday">Holiday</span>}
+                        </div>
 
-                      <div className="hrCal__detailNotes">
-                        <span className="hrCal__detail">{timeLabel}</span>
-                      </div>
-                    </button>
-                  );
-                })}
+                        <div className="hrCal__detailNotes">
+                          <span className="hrCal__detail">{timeLabel}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </>
           ) : (
             <div className="hrAttCalendarShell__empty">
               <div>
                 <div className="hrAttCalendarShell__emptyTitle">
-                  {loadingTeam ? 'Loading team members...' : 'No team member selected'}
+                  {loadingTeam ? `Loading ${employeePluralLabel}...` : `No ${employeeSingularLabel} selected`}
                 </div>
                 <p className="hrAttCalendarShell__emptyText">
                   {loadingTeam
-                    ? 'The schedule calendar will appear once the team roster finishes loading.'
-                    : 'Pick a team member from the search box to start planning future shifts for a month.'}
+                    ? 'The schedule calendar will appear once the employee roster finishes loading.'
+                    : selectionHelpText}
                 </p>
               </div>
             </div>
@@ -952,7 +1101,7 @@ export default function ManagerMonthlyTeamSchedule() {
               <div className="mgrMonth__templateApply">
                 <div className="mgrMonth__templateApplyHead">
                   <h2>Select weekdays</h2>
-                  <p>Apply one default time range to the weekdays you choose. Saved date-specific schedules stay untouched.</p>
+                  <p>Apply one default time range or a recurring day off to the weekdays you choose. Saved date-specific schedules stay untouched.</p>
                 </div>
 
                 <div className="mgrMonth__templateGrid">
@@ -981,9 +1130,26 @@ export default function ManagerMonthlyTeamSchedule() {
 
               <section className="mgrMonth__templateTimeCard">
                 <div className="mgrMonth__templateTimeHead">
-                  <h2>Default time range</h2>
-                  <p>This becomes the weekly base schedule for the days you select.</p>
+                  <h2>{templateDayOff ? 'Default day off' : 'Default time range'}</h2>
+                  <p>
+                    {templateDayOff
+                      ? 'Selected weekdays will have no recurring working hours in the weekly template.'
+                      : 'This becomes the weekly base schedule for the days you select.'}
+                  </p>
                 </div>
+
+                <label className={`mgrMonth__dayOffToggle ${savingTemplate ? 'is-disabled' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={templateDayOff}
+                    onChange={(event) => setTemplateDayOff(event.target.checked)}
+                    disabled={savingTemplate}
+                  />
+                  <div>
+                    <strong>Make selected weekdays day off</strong>
+                    <span>Existing default hours for those weekdays will be removed, while custom date changes stay untouched.</span>
+                  </div>
+                </label>
 
                 <div className="mgrMonth__timeGrid mgrMonth__timeGrid--stacked">
                   <label className="mgrMonth__field">
@@ -992,7 +1158,7 @@ export default function ManagerMonthlyTeamSchedule() {
                       type="time"
                       value={templateStartTime}
                       onChange={(event) => setTemplateStartTime(event.target.value)}
-                      disabled={savingTemplate}
+                      disabled={savingTemplate || templateDayOff}
                     />
                   </label>
 
@@ -1002,13 +1168,15 @@ export default function ManagerMonthlyTeamSchedule() {
                       type="time"
                       value={templateEndTime}
                       onChange={(event) => setTemplateEndTime(event.target.value)}
-                      disabled={savingTemplate}
+                      disabled={savingTemplate || templateDayOff}
                     />
                   </label>
                 </div>
 
                 <p className="mgrMonth__templateNote">
-                  Custom hours already saved on specific calendar dates will stay exactly as they are.
+                  {templateDayOff
+                    ? 'This only changes the recurring weekly template. Custom hours already saved on specific calendar dates will stay exactly as they are.'
+                    : 'Custom hours already saved on specific calendar dates will stay exactly as they are.'}
                 </p>
               </section>
             </section>
@@ -1029,12 +1197,24 @@ export default function ManagerMonthlyTeamSchedule() {
                 disabled={savingTemplate}
               >
                 <FiSave />
-                <span>{savingTemplate ? 'Saving...' : 'Apply to Selected Days'}</span>
+                <span>{savingTemplate ? 'Saving...' : templateDayOff ? 'Apply Day Off to Selected Days' : 'Apply to Selected Days'}</span>
               </button>
             </div>
           </div>
         </div>
       ) : null}
     </div>
+  );
+}
+
+export default function ManagerMonthlyTeamSchedule() {
+  return (
+    <MonthlyScheduleBoard
+      rosterUrl="/api/employees/team"
+      employeeSingularLabel="team member"
+      employeePluralLabel="team members"
+      emptyRosterLabel="No team members assigned"
+      selectionHelpText="Pick a team member from the search box to start planning future shifts for a month."
+    />
   );
 }

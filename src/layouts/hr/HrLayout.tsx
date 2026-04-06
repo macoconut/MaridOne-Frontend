@@ -328,6 +328,7 @@ const navSections: NavSection[] = [
     items: [
       { to: '/hr/dashboard', label: 'Attendance Dashboard', icon: FiBarChart2 },
       { to: '/hr/attendance-reports', label: 'Attendance Reports', icon: FiClipboard },
+      { to: '/hr/manage-schedule', label: 'Manage Schedule', icon: FiCalendar },
       { to: '/hr/approvals', label: 'Pending Approvals', icon: FiCheckSquare },
       { to: '/hr/payslips', label: 'Manage Payslips', icon: FiCreditCard },
       { to: '/hr/pay-run-reporting', label: 'Pay Run Reporting', icon: FiFileText },

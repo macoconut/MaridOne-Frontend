@@ -18,6 +18,7 @@ import Training from './pages/self-service/training/Training';
 import HrLayout from './layouts/hr/HrLayout';
 import HrDashboard from './pages/hr/dashboard/Dashboard';
 import HrAttendanceReports from './pages/hr/attendance-reports/AttendanceReports';
+import HrManageSchedule from './pages/hr/manage-schedule/ManageSchedule';
 import HrApprovals from './pages/hr/approvals/Approvals';
 import HrPayslips from './pages/hr/payslips/Payslips';
 import HrManageEmployees from './pages/hr/manage-employees/ManageEmployees';
@@ -159,6 +160,7 @@ export default function App() {
             <Route index element={<Navigate to="self-service/dashboard" replace />} />
             <Route path="dashboard" element={<HrDashboard />} />
             <Route path="attendance-reports" element={<HrAttendanceReports />} />
+            <Route path="manage-schedule" element={<HrManageSchedule />} />
             <Route path="approvals" element={<HrApprovals />} />
             <Route path="payslips" element={<HrPayslips />} />
             <Route path="pay-run-reporting" element={<HrPayRunReporting />} />

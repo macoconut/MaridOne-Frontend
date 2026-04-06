@@ -11,6 +11,7 @@ export type TeamEmployee = {
   name: string;
   position: string;
   status: string;
+  department: string;
   shiftSchedules: ShiftSchedule[];
 };
 
@@ -167,7 +168,12 @@ export function timeFromDateTime(value?: string) {
 }
 
 export function parseTeamEmployees(payload: unknown, toArray: <T>(input: unknown) => T[]): TeamEmployee[] {
-  return toArray<Record<string, unknown>>(payload)
+  const rows =
+    payload && typeof payload === 'object' && !Array.isArray(payload) && 'content' in payload
+      ? toArray<Record<string, unknown>>((payload as { content?: unknown }).content)
+      : toArray<Record<string, unknown>>(payload);
+
+  return rows
     .map((row, index) => ({
       id: Number(row.employeeId ?? row.id ?? index + 1),
       name:
@@ -176,6 +182,7 @@ export function parseTeamEmployees(payload: unknown, toArray: <T>(input: unknown
           .join(' ') || `Employee #${row.employeeId ?? row.id ?? index + 1}`,
       position: typeof row.position === 'string' ? row.position : '-',
       status: typeof row.employmentStatus === 'string' ? row.employmentStatus : '-',
+      department: typeof row.department === 'string' ? row.department.trim() : '',
       shiftSchedules: toArray<Record<string, unknown>>(row.shiftSchedules).map((schedule) => ({
         shiftId: typeof schedule.shiftId === 'number' ? schedule.shiftId : undefined,
         employeeId: typeof schedule.employeeId === 'number' ? schedule.employeeId : undefined,
