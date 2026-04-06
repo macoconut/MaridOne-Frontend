@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { FiEdit2, FiFilter, FiPlus, FiSearch, FiUserX, FiXCircle } from 'react-icons/fi';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { FiChevronDown, FiEdit2, FiFilter, FiPlus, FiSearch, FiUserX, FiXCircle } from 'react-icons/fi';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
 import EmployeeSortMenu from '../../../components/layout/EmployeeSortMenu';
@@ -49,6 +49,7 @@ type EmployeeDetails = {
   email?: string;
   phoneNumber?: string;
   position?: string;
+  department?: string;
   userAccountName?: string;
   managerId?: number;
   address?: {
@@ -64,6 +65,14 @@ type EmployeeDetails = {
 type EmployeeMutationResponse = {
   id?: number;
   employeeId?: number;
+};
+
+type EmployeeOption = {
+  id: number;
+  name: string;
+  status: string;
+  position: string;
+  department: string;
 };
 
 type LeaveBalanceRow = {
@@ -95,6 +104,7 @@ type FormState = {
   email: string;
   phoneNumber: string;
   position: string;
+  department: string;
   yearlySalary: string;
   managerId: string;
   username: string;
@@ -111,6 +121,12 @@ type FormState = {
 const employmentStatusOptions = ['REGULAR', 'NEW_HIRE', 'PART_TIME', 'SUSPENDED', 'TERMINATED'] as const;
 const exemptionStatusOptions = ['EXEMPT', 'NON_EXEMPT'] as const;
 const positionOptions = ['EMPLOYEE', 'MANAGER', 'HR', 'MANAGEMENT', 'ACCOUNTING', 'UNKNOWN'] as const;
+const managerDepartmentOptions = [
+  'People Operations Department',
+  'Procurements Department',
+  'Productions Department',
+  'Product Development Department',
+] as const;
 const leaveTypeOptions: Array<{ label: string; value: LeaveType }> = [
   { label: 'Sick Leave', value: 'SICK_LEAVE' },
   { label: 'Vacation Leave', value: 'VACATION_LEAVE' },
@@ -135,6 +151,7 @@ const emptyForm: FormState = {
   email: '',
   phoneNumber: '',
   position: 'EMPLOYEE',
+  department: '',
   yearlySalary: '',
   managerId: '',
   username: '',
@@ -169,6 +186,43 @@ function buildEmployeeSearchIndex(row: Omit<EmployeeRow, 'searchIndex'>) {
 
 function getDefaultExemptionStatus(position: string) {
   return position === 'EMPLOYEE' || position === 'UNKNOWN' ? 'NON_EXEMPT' : 'EXEMPT';
+}
+
+function isEmployeePosition(position?: string | null) {
+  return String(position ?? '')
+    .trim()
+    .toUpperCase() === 'EMPLOYEE';
+}
+
+function isManagerPosition(position?: string | null) {
+  return String(position ?? '')
+    .trim()
+    .toUpperCase() === 'MANAGER';
+}
+
+function buildEmployeeOptions(response: unknown) {
+  return toArray<Record<string, unknown>>(response)
+    .map((item, index) => {
+      const id = Number(item.employeeId ?? item.id ?? index + 1);
+      if (!Number.isFinite(id) || id <= 0) return null;
+
+      const explicitName = typeof item.name === 'string' ? item.name.trim() : '';
+      const fallbackName = [item.firstName, item.middleName, item.lastName]
+        .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+        .join(' ')
+        .trim();
+
+      return {
+        id,
+        name: explicitName || fallbackName || `Employee #${id}`,
+        status: String(item.status ?? item.employmentStatus ?? ''),
+        position: String(item.position ?? ''),
+        department: typeof item.department === 'string' ? item.department.trim() : '',
+      } satisfies EmployeeOption;
+    })
+    .filter((option): option is EmployeeOption => option !== null)
+    .filter((option) => normalizeText(option.status) !== 'terminated')
+    .sort((left, right) => left.name.localeCompare(right.name));
 }
 
 function formatDateValue(value?: string | null) {
@@ -281,11 +335,19 @@ export default function HrManageEmp() {
   const [positionFilter, setPositionFilter] = useState('all');
   const [employeeSort, setEmployeeSort] = useState<EmployeeSortKey>('id');
   const [refreshTick, setRefreshTick] = useState(0);
+  const [employeeOptions, setEmployeeOptions] = useState<EmployeeOption[]>([]);
+  const [isLoadingEmployeeOptions, setIsLoadingEmployeeOptions] = useState(false);
+  const [employeeOptionsError, setEmployeeOptionsError] = useState('');
+  const [managerSearch, setManagerSearch] = useState('');
+  const [managerPickerOpen, setManagerPickerOpen] = useState(false);
+  const managerPickerRef = useRef<HTMLDivElement | null>(null);
 
   const selectedEmployee = useMemo(
     () => employeeRows.find((row) => row.id === form.employeeId) ?? null,
     [employeeRows, form.employeeId]
   );
+  const showManagerPicker = isEmployeePosition(form.position);
+  const showDepartmentPicker = isManagerPosition(form.position);
 
   const detailsDialogEmployee = useMemo(
     () => employeeRows.find((row) => row.id === detailsDialogEmployeeId) ?? null,
@@ -345,6 +407,26 @@ export default function HrManageEmp() {
     );
   }, [employeeRows, employeeSort, positionFilter, searchValue, statusFilter]);
 
+  const managerOptions = useMemo(
+    () => employeeOptions.filter((option) => isManagerPosition(option.position)),
+    [employeeOptions]
+  );
+
+  const selectedManagerOption = useMemo(() => {
+    const managerId = Number(form.managerId);
+    if (!Number.isFinite(managerId)) return null;
+    return managerOptions.find((option) => option.id === managerId) ?? null;
+  }, [form.managerId, managerOptions]);
+
+  const filteredManagerOptions = useMemo(() => {
+    const normalizedSearch = normalizeText(managerSearch);
+    if (!normalizedSearch) return managerOptions;
+
+    return managerOptions.filter((option) =>
+      normalizeText([option.name, option.department, option.id].filter(Boolean).join(' ')).includes(normalizedSearch)
+    );
+  }, [managerOptions, managerSearch]);
+
   const activeFilterCount = [statusFilter, positionFilter].filter((value) => value !== 'all').length;
   const phoneHelperMessage = modal !== 'delete' ? getPhoneValidationMessage(form.phoneNumber) : '';
   const phoneHasError =
@@ -373,7 +455,34 @@ export default function HrManageEmp() {
 
   useEffect(() => {
     void loadEmployees();
+    void loadEmployeeOptions();
   }, [refreshTick]);
+
+  useEffect(() => {
+    if (!managerPickerOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!managerPickerRef.current?.contains(event.target as Node)) {
+        setManagerPickerOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [managerPickerOpen]);
+
+  useEffect(() => {
+    if (!showManagerPicker) {
+      setManagerPickerOpen(false);
+      return;
+    }
+
+    if (!managerSearch.trim() && selectedManagerOption) {
+      setManagerSearch(selectedManagerOption.name);
+    }
+  }, [managerSearch, selectedManagerOption, showManagerPicker]);
 
   useEffect(() => {
     if (!activeLeaveBalanceEmployeeId) {
@@ -435,16 +544,26 @@ export default function HrManageEmp() {
     }
   }
 
+  async function loadEmployeeOptions() {
+    setIsLoadingEmployeeOptions(true);
+    setEmployeeOptionsError('');
+
+    try {
+      const response = await apiFetchJson<unknown>('/api/employees/options');
+      setEmployeeOptions(buildEmployeeOptions(response));
+    } catch (error) {
+      setEmployeeOptionsError(getFriendlyErrorMessage(error, 'employee-load'));
+    } finally {
+      setIsLoadingEmployeeOptions(false);
+    }
+  }
+
   function todayDateValue() {
     return new Date().toISOString().slice(0, 10);
   }
 
   function sanitizePhoneNumber(value: string) {
     return value.replace(/\D/g, '').slice(0, 11);
-  }
-
-  function sanitizeNumericId(value: string) {
-    return value.replace(/\D/g, '');
   }
 
   function parseLeaveBalanceHours(value: string, allowZero: boolean) {
@@ -513,9 +632,34 @@ export default function HrManageEmp() {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
+  function handlePositionChange(nextPosition: string) {
+    setForm((current) => {
+      const shouldRefreshExemption =
+        !current.exemptionStatus || current.exemptionStatus === getDefaultExemptionStatus(current.position);
+
+      return {
+        ...current,
+        position: nextPosition,
+        exemptionStatus: shouldRefreshExemption ? getDefaultExemptionStatus(nextPosition) : current.exemptionStatus,
+      };
+    });
+
+    if (!isEmployeePosition(nextPosition)) {
+      setManagerPickerOpen(false);
+    }
+  }
+
+  function selectManager(option: EmployeeOption) {
+    setField('managerId', String(option.id));
+    setManagerSearch(option.name);
+    setManagerPickerOpen(false);
+  }
+
   function openAddModal() {
     resetMessages();
     setConfirmAction(null);
+    setManagerSearch('');
+    setManagerPickerOpen(false);
     setModal('add');
     setForm({
       ...emptyForm,
@@ -527,6 +671,8 @@ export default function HrManageEmp() {
   function closeModal() {
     setModal(null);
     setConfirmAction(null);
+    setManagerSearch('');
+    setManagerPickerOpen(false);
     resetMessages();
     setForm(emptyForm);
   }
@@ -717,6 +863,7 @@ export default function HrManageEmp() {
         email: payload.email ?? '',
         phoneNumber: sanitizePhoneNumber(payload.phoneNumber ?? ''),
         position: payload.position ?? 'EMPLOYEE',
+        department: payload.department ?? '',
         yearlySalary:
           payload.yearlySalary !== undefined && payload.yearlySalary !== null ? String(payload.yearlySalary) : '',
         managerId: payload.managerId !== undefined && payload.managerId !== null ? String(payload.managerId) : '',
@@ -730,6 +877,12 @@ export default function HrManageEmp() {
         zipCode: payload.address?.zipCode ?? '',
         reason: '',
       });
+      setManagerSearch(
+        payload.managerId !== undefined && payload.managerId !== null
+          ? employeeOptions.find((option) => option.id === payload.managerId)?.name ?? ''
+          : ''
+      );
+      setManagerPickerOpen(false);
       setModal('edit');
     } catch (error) {
       setSubmitError(getFriendlyErrorMessage(error, 'employee-load'));
@@ -756,6 +909,14 @@ export default function HrManageEmp() {
       throw new Error('First name, last name, birth date, and email are required.');
     }
 
+    if (showManagerPicker && managerSearch.trim() && !form.managerId.trim()) {
+      throw new Error('Choose a manager from the dropdown or clear the manager field.');
+    }
+
+    if (showDepartmentPicker && !form.department.trim()) {
+      throw new Error('Department is required when the selected position is MANAGER.');
+    }
+
     return {
       firstName: form.firstName.trim(),
       middleName: form.middleName.trim() || undefined,
@@ -768,8 +929,9 @@ export default function HrManageEmp() {
       email: form.email.trim(),
       phoneNumber: isCreate || form.phoneNumber.trim() ? validatePhoneNumber(form.phoneNumber) : undefined,
       position: form.position || undefined,
+      department: showDepartmentPicker ? form.department.trim() || undefined : undefined,
       yearlySalary: parseYearlySalary(form.yearlySalary),
-      managerId: parseManagerId(form.managerId, form.employeeId),
+      managerId: showManagerPicker ? parseManagerId(form.managerId, form.employeeId) : undefined,
       address: {
         permanentAddress: form.permanentAddress.trim() || undefined,
         temporaryAddress: form.temporaryAddress.trim() || undefined,
@@ -847,7 +1009,7 @@ export default function HrManageEmp() {
           accountError = getFriendlyErrorMessage(error, 'employee-save');
         }
 
-        await loadEmployees();
+        await Promise.all([loadEmployees(), loadEmployeeOptions()]);
 
         if (accountError) {
           setSubmitError(`Employee record was created, but the linked user account could not be saved. (${accountError})`);
@@ -876,7 +1038,7 @@ export default function HrManageEmp() {
           accountError = getFriendlyErrorMessage(error, 'employee-save');
         }
 
-        await loadEmployees();
+        await Promise.all([loadEmployees(), loadEmployeeOptions()]);
 
         if (accountError) {
           setSubmitError(`Employee details were updated, but the linked user account could not be saved. (${accountError})`);
@@ -903,7 +1065,7 @@ export default function HrManageEmp() {
           }),
         });
 
-        await loadEmployees();
+        await Promise.all([loadEmployees(), loadEmployeeOptions()]);
         closeModal();
         showSuccess('Employee terminated successfully.', 'Employee Terminated');
       }
@@ -1177,6 +1339,10 @@ export default function HrManageEmp() {
               <div className="hrEmpDetails__item">
                 <span>Position</span>
                 <strong>{displayValue(details.position)}</strong>
+              </div>
+              <div className="hrEmpDetails__item">
+                <span>Department</span>
+                <strong>{displayValue(details.department)}</strong>
               </div>
               <div className="hrEmpDetails__item">
                 <span>Exemption Status</span>
@@ -1499,7 +1665,7 @@ export default function HrManageEmp() {
 
                       <div className="hrEmpField">
                         <label>Position</label>
-                        <select value={form.position} onChange={(event) => setField('position', event.target.value)}>
+                        <select value={form.position} onChange={(event) => handlePositionChange(event.target.value)}>
                           {positionOptions.map((option) => (
                             <option key={option} value={option}>
                               {option}
@@ -1552,15 +1718,98 @@ export default function HrManageEmp() {
                         />
                       </div>
 
-                      <div className="hrEmpField">
-                        <label>Manager ID</label>
-                        <input
-                          inputMode="numeric"
-                          value={form.managerId}
-                          onChange={(event) => setField('managerId', sanitizeNumericId(event.target.value))}
-                          placeholder="Optional"
-                        />
-                      </div>
+                      {showManagerPicker ? (
+                        <div className="hrEmpField">
+                          <label>Manager</label>
+                          <div className={`hrEmpCombo ${managerPickerOpen ? 'is-open' : ''}`} ref={managerPickerRef}>
+                            <div className="hrEmpCombo__control">
+                              <input
+                                type="text"
+                                className="hrEmpCombo__input"
+                                role="combobox"
+                                aria-autocomplete="list"
+                                aria-controls="employee-manager-options"
+                                aria-expanded={managerPickerOpen}
+                                aria-haspopup="listbox"
+                                value={managerSearch}
+                                onFocus={() => setManagerPickerOpen(true)}
+                                onChange={(event) => {
+                                  const nextValue = event.target.value;
+                                  setManagerSearch(nextValue);
+                                  setManagerPickerOpen(true);
+                                  if (normalizeText(selectedManagerOption?.name ?? '') !== normalizeText(nextValue)) {
+                                    setField('managerId', '');
+                                  }
+                                }}
+                                placeholder={isLoadingEmployeeOptions ? 'Loading managers...' : 'Search by manager name'}
+                                disabled={isLoadingEmployeeOptions}
+                              />
+                              <button
+                                type="button"
+                                className="hrEmpCombo__toggle"
+                                onClick={() => setManagerPickerOpen((current) => !current)}
+                                disabled={isLoadingEmployeeOptions}
+                                aria-label={managerPickerOpen ? 'Close manager list' : 'Open manager list'}
+                              >
+                                <FiChevronDown />
+                              </button>
+                            </div>
+
+                            {managerPickerOpen ? (
+                              <div className="hrEmpCombo__menu" id="employee-manager-options" role="listbox">
+                                {isLoadingEmployeeOptions ? (
+                                  <div className="hrEmpCombo__empty">Loading managers...</div>
+                                ) : filteredManagerOptions.length > 0 ? (
+                                  filteredManagerOptions.map((option) => {
+                                    const isSelected = option.id === Number(form.managerId);
+                                    return (
+                                      <button
+                                        key={option.id}
+                                        type="button"
+                                        role="option"
+                                        aria-selected={isSelected}
+                                        className={`hrEmpCombo__option ${isSelected ? 'is-selected' : ''}`}
+                                        onClick={() => selectManager(option)}
+                                      >
+                                        <span className="hrEmpCombo__optionName">{option.name}</span>
+                                        <span className="hrEmpCombo__optionMeta">
+                                          {option.department || 'No department assigned yet'}
+                                        </span>
+                                      </button>
+                                    );
+                                  })
+                                ) : (
+                                  <div className="hrEmpCombo__empty">No managers match that search.</div>
+                                )}
+                              </div>
+                            ) : null}
+                          </div>
+                          {selectedManagerOption ? (
+                            <span className="hrEmpField__hint">
+                              {`Department: ${selectedManagerOption.department || 'Not assigned'}`}
+                            </span>
+                          ) : null}
+                          {employeeOptionsError ? (
+                            <span className="hrEmpField__hint is-error">
+                              Manager list could not be loaded right now. ({employeeOptionsError})
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
+
+                      {showDepartmentPicker ? (
+                        <div className="hrEmpField">
+                          <label>Department</label>
+                          <select value={form.department} onChange={(event) => setField('department', event.target.value)}>
+                            <option value="">Select department</option>
+                            {managerDepartmentOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
 
