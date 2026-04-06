@@ -114,16 +114,19 @@ body.modal-open{
   gap: 12px;
   color: var(--ink);
   font-size: 16px;
+  min-width: 0;
 }
 
 .infoRow{
   display:flex;
   gap: 10px;
-  align-items:center;
+  align-items:flex-start;
+  min-width: 0;
 }
 
 .infoRow__icon{
   width: 22px;
+  flex: 0 0 22px;
   text-align:center;
   opacity:.85;
   font-size: 16px;
@@ -134,6 +137,12 @@ body.modal-open{
   text-underline-offset: 3px;
 }
 
+.infoRow > :not(.infoRow__icon){
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 /* right */
 .infoCardX__right{
   display:flex;
@@ -141,6 +150,7 @@ body.modal-open{
   gap: 10px;
   font-size: 15px;
   color: var(--ink);
+  min-width: 0;
 }
 
 .statBlock__label{

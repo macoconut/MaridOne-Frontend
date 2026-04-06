@@ -120,6 +120,12 @@ function createAnnouncementDraft(baseDate = new Date()): AnnouncementDraft {
   };
 }
 
+function syncAnnouncementRange(startDateTime: string, endDateTime: string) {
+  if (!startDateTime) return endDateTime;
+  if (!endDateTime || endDateTime < startDateTime) return startDateTime;
+  return endDateTime;
+}
+
 function createEditDraft(source: UserDetails['employee'] | null | undefined) {
   const rawAddress =
     source && typeof source.address === 'object' && source.address
@@ -645,6 +651,14 @@ export default function Dashboard() {
 
   function setAnnouncementDraftField<K extends keyof AnnouncementDraft>(key: K, value: AnnouncementDraft[K]) {
     setAnnouncementDraft((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function setAnnouncementStartDateTime(value: string) {
+    setAnnouncementDraft((prev) => ({
+      ...prev,
+      startDateTime: value,
+      endDateTime: syncAnnouncementRange(value, prev.endDateTime),
+    }));
   }
 
   async function submitAnnouncement() {
@@ -1251,7 +1265,7 @@ export default function Dashboard() {
                 <input
                   type="datetime-local"
                   value={announcementDraft.startDateTime}
-                  onChange={(event) => setAnnouncementDraftField('startDateTime', event.target.value)}
+                  onChange={(event) => setAnnouncementStartDateTime(event.target.value)}
                 />
               </label>
               <label className="dashModal__field">
@@ -1259,6 +1273,7 @@ export default function Dashboard() {
                 <input
                   type="datetime-local"
                   value={announcementDraft.endDateTime}
+                  min={announcementDraft.startDateTime || undefined}
                   onChange={(event) => setAnnouncementDraftField('endDateTime', event.target.value)}
                 />
               </label>
