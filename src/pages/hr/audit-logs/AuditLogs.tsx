@@ -89,9 +89,13 @@ const endpointDescriptions: Array<{
   { pattern: /^\/api\/user\/create\b/i, subject: 'user account', area: 'Access' },
   { pattern: /^\/api\/leave\/balance\/update\//i, subject: 'leave balance', area: 'Leave' },
   { pattern: /^\/api\/leave\/balance\//i, subject: 'leave balance', area: 'Leave' },
+  { pattern: /^\/api\/leave\/create\//i, subject: 'leave request', area: 'Leave' },
   { pattern: /^\/api\/leave\/update\//i, subject: 'leave request', area: 'Leave' },
+  { pattern: /^\/api\/leave\/request\/cancel\//i, subject: 'leave request', area: 'Leave' },
   { pattern: /^\/api\/leave\b/i, subject: 'leave records', area: 'Leave' },
+  { pattern: /^\/api\/overtime\/create\b/i, subject: 'overtime request', area: 'Overtime' },
   { pattern: /^\/api\/overtime\/update\b/i, subject: 'overtime request', area: 'Overtime' },
+  { pattern: /^\/api\/overtime\/cancel\//i, subject: 'overtime request', area: 'Overtime' },
   { pattern: /^\/api\/overtime\b/i, subject: 'overtime records', area: 'Overtime' },
   { pattern: /^\/api\/employee\/schedule\b/i, subject: 'shift schedule', area: 'Schedule' },
   { pattern: /^\/api\/calendar\/events\b/i, subject: 'calendar event', area: 'Calendar' },
@@ -101,6 +105,9 @@ const endpointDescriptions: Array<{
   { pattern: /^\/api\/payroll\/run\/\d+\/items\b/i, subject: 'payroll run items', area: 'Payroll' },
   { pattern: /^\/api\/payroll\/item\/create\b/i, subject: 'payroll item', area: 'Payroll' },
   { pattern: /^\/api\/payroll\/item\/update\//i, subject: 'payroll item', area: 'Payroll' },
+  { pattern: /^\/api\/payroll\/item\/dispute\/create\//i, subject: 'payroll dispute', area: 'Payroll' },
+  { pattern: /^\/api\/payroll\/item\/dispute\/update\//i, subject: 'payroll dispute', area: 'Payroll' },
+  { pattern: /^\/api\/payroll\/item\/dispute\/cancel\//i, subject: 'payroll dispute', area: 'Payroll' },
   { pattern: /^\/api\/payroll\/item\/dispute\b/i, subject: 'payroll dispute', area: 'Payroll' },
   { pattern: /^\/api\/payroll\b/i, subject: 'payroll data', area: 'Payroll' },
   { pattern: /^\/api\/document/i, subject: 'documents', area: 'Documents' },
@@ -470,7 +477,7 @@ function buildFriendlyCopy(
     if (/^\/api\/payroll\/item\/create\b/i.test(endpoint)) {
       return {
         title: 'Created payroll item',
-        detail: 'Added a payroll item.',
+        detail: cleanedNote || 'Added a payroll item.',
         area: 'Payroll',
       };
     }
@@ -478,7 +485,79 @@ function buildFriendlyCopy(
     if (/^\/api\/payroll\/item\/update\/\d+\b/i.test(endpoint)) {
       return {
         title: 'Updated payroll item',
-        detail: 'Updated a payroll item.',
+        detail: cleanedNote || 'Updated a payroll item.',
+        area: 'Payroll',
+      };
+    }
+
+    if (/^\/api\/overtime\/create\b/i.test(endpoint)) {
+      return {
+        title: 'Submitted overtime request',
+        detail: cleanedNote || 'Submitted an overtime request.',
+        area: 'Overtime',
+      };
+    }
+
+    if (/^\/api\/overtime\/update\b/i.test(endpoint)) {
+      return {
+        title: 'Updated overtime request',
+        detail: cleanedNote || 'Updated an overtime request.',
+        area: 'Overtime',
+      };
+    }
+
+    if (/^\/api\/overtime\/cancel\/\d+\b/i.test(endpoint)) {
+      return {
+        title: 'Cancelled overtime request',
+        detail: cleanedNote || 'Cancelled an overtime request.',
+        area: 'Overtime',
+      };
+    }
+
+    if (/^\/api\/leave\/create\/\d+\b/i.test(endpoint)) {
+      return {
+        title: 'Submitted leave request',
+        detail: cleanedNote || 'Submitted a leave request.',
+        area: 'Leave',
+      };
+    }
+
+    if (/^\/api\/leave\/update\/\d+\b/i.test(endpoint)) {
+      return {
+        title: 'Updated leave request',
+        detail: cleanedNote || 'Updated a leave request.',
+        area: 'Leave',
+      };
+    }
+
+    if (/^\/api\/leave\/request\/cancel\/\d+\b/i.test(endpoint)) {
+      return {
+        title: 'Cancelled leave request',
+        detail: cleanedNote || 'Cancelled a leave request.',
+        area: 'Leave',
+      };
+    }
+
+    if (/^\/api\/payroll\/item\/dispute\/create\/\d+\b/i.test(endpoint)) {
+      return {
+        title: 'Submitted payroll dispute',
+        detail: cleanedNote || 'Submitted a payroll dispute.',
+        area: 'Payroll',
+      };
+    }
+
+    if (/^\/api\/payroll\/item\/dispute\/update\/\d+\b/i.test(endpoint)) {
+      return {
+        title: 'Updated payroll dispute',
+        detail: cleanedNote || 'Updated a payroll dispute.',
+        area: 'Payroll',
+      };
+    }
+
+    if (/^\/api\/payroll\/item\/dispute\/cancel\/\d+\b/i.test(endpoint)) {
+      return {
+        title: 'Cancelled payroll dispute',
+        detail: cleanedNote || 'Cancelled a payroll dispute.',
         area: 'Payroll',
       };
     }
