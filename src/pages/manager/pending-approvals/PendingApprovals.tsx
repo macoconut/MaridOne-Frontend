@@ -210,6 +210,7 @@ export default function ManagerPendingApprovals() {
   const [isSaving, setIsSaving] = useState(false);
   const [pendingDecision, setPendingDecision] = useState<'APPROVED' | 'REJECTED' | null>(null);
   const [decisionReason, setDecisionReason] = useState('');
+  const [decisionSubmitAttempted, setDecisionSubmitAttempted] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [confirmDecisionOpen, setConfirmDecisionOpen] = useState(false);
   const [loadError, setLoadError] = useState('');
@@ -373,6 +374,7 @@ export default function ManagerPendingApprovals() {
 
   useEffect(() => {
     setDecisionReason('');
+    setDecisionSubmitAttempted(false);
     setSubmitError('');
     setPendingDecision(null);
     setConfirmDecisionOpen(false);
@@ -385,6 +387,7 @@ export default function ManagerPendingApprovals() {
 
   async function submitDecision() {
     if (!selected) return;
+    setDecisionSubmitAttempted(true);
     if (!pendingDecision) {
       setSubmitError('Choose approve or deny before confirming the decision.');
       return;
@@ -430,6 +433,7 @@ export default function ManagerPendingApprovals() {
   }
 
   function requestDecisionConfirmation() {
+    setDecisionSubmitAttempted(true);
     if (!pendingDecision) {
       setSubmitError('Choose approve or deny before confirming the decision.');
       return;
@@ -705,6 +709,7 @@ export default function ManagerPendingApprovals() {
                   value={decisionReason}
                   onChange={(e) => setDecisionReason(e.target.value)}
                   placeholder="Type the reason for approving or denying this request"
+                  aria-invalid={decisionSubmitAttempted && decisionReason.trim().length < 5 ? 'true' : undefined}
                   readOnly={!canReviewSelected}
                 />
               </label>

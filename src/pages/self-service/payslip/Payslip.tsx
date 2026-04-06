@@ -205,6 +205,7 @@ export default function Payslip() {
   const [disputeReason, setDisputeReason] = useState('');
   const [disputeFile, setDisputeFile] = useState<File | null>(null);
   const [disputeError, setDisputeError] = useState('');
+  const [disputeSubmitAttempted, setDisputeSubmitAttempted] = useState(false);
   const [disputeSubmitting, setDisputeSubmitting] = useState(false);
   const [confirmDisputeSubmit, setConfirmDisputeSubmit] = useState(false);
   const [printingPayslip, setPrintingPayslip] = useState(false);
@@ -216,7 +217,7 @@ export default function Payslip() {
   const handlePageRefresh = () => {
     setRefreshTick((tick) => tick + 1);
   };
-  useEscapeDismiss(disputeOpen, () => setDisputeOpen(false), 10);
+  useEscapeDismiss(disputeOpen, closeDisputeForm, 10);
   useAutoRefreshingPage(handlePageRefresh, {
     intervalMs: 15000,
     enabled: !disputeOpen && !confirmDisputeSubmit && !disputeSubmitting && !printingPayslip,
@@ -528,15 +529,23 @@ export default function Payslip() {
     }
   }
 
+  function closeDisputeForm() {
+    if (disputeSubmitting) return;
+    setDisputeOpen(false);
+    setDisputeSubmitAttempted(false);
+  }
+
   function openDisputeForm() {
     setDisputeSubject('Overtime pay dispute');
     setDisputeReason('');
     setDisputeFile(null);
     setDisputeError('');
+    setDisputeSubmitAttempted(false);
     setDisputeOpen(true);
   }
 
   async function submitDispute() {
+    setDisputeSubmitAttempted(true);
     setDisputeError('');
     if (!selectedItemId) {
       setDisputeError('No payroll item selected.');
@@ -590,6 +599,7 @@ export default function Payslip() {
   }
 
   function requestDisputeConfirmation() {
+    setDisputeSubmitAttempted(true);
     setDisputeError('');
     if (!selectedItemId) {
       setDisputeError('No payroll item selected.');
@@ -814,7 +824,7 @@ export default function Payslip() {
                 <div className="payModal__title">PAYSLIP DISPUTE FORM</div>
                 <p className="payModal__subtitle">Describe the payroll discrepancy clearly and attach supporting proof only when it helps validate the dispute.</p>
               </div>
-              <ModalCloseButton className="payModal__close" onClick={() => setDisputeOpen(false)} />
+              <ModalCloseButton className="payModal__close" onClick={closeDisputeForm} />
             </div>
 
             <div className="payModal__rule" />
@@ -834,6 +844,7 @@ export default function Payslip() {
               <textarea
                 placeholder="Describe your dispute..."
                 value={disputeReason}
+                aria-invalid={disputeSubmitAttempted && disputeReason.trim().length < 5 ? 'true' : undefined}
                 onChange={(e) => setDisputeReason(e.target.value)}
               />
             </div>
@@ -851,7 +862,7 @@ export default function Payslip() {
             </div>
 
             <div className="payModal__actions">
-              <button type="button" className="payModal__cancel" onClick={() => setDisputeOpen(false)} disabled={disputeSubmitting}>
+              <button type="button" className="payModal__cancel" onClick={closeDisputeForm} disabled={disputeSubmitting}>
                 Cancel
               </button>
               <button type="button" onClick={requestDisputeConfirmation} disabled={disputeSubmitting}>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FiChevronDown, FiEdit2, FiFilter, FiPlus, FiSearch, FiUserX, FiXCircle } from 'react-icons/fi';
+import { FiChevronDown, FiEdit2, FiFilter, FiPlus, FiSearch, FiUserX, FiX, FiXCircle } from 'react-icons/fi';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
 import EmployeeSortMenu from '../../../components/layout/EmployeeSortMenu';
@@ -328,6 +328,7 @@ export default function HrManageEmp() {
   const [loadMessage, setLoadMessage] = useState('');
   const [form, setForm] = useState<FormState>(emptyForm);
   const [submitError, setSubmitError] = useState('');
+  const [formSubmitAttempted, setFormSubmitAttempted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
@@ -340,6 +341,7 @@ export default function HrManageEmp() {
   const [employeeOptionsError, setEmployeeOptionsError] = useState('');
   const [managerSearch, setManagerSearch] = useState('');
   const [managerPickerOpen, setManagerPickerOpen] = useState(false);
+  const [hasExistingUserAccount, setHasExistingUserAccount] = useState(false);
   const managerPickerRef = useRef<HTMLDivElement | null>(null);
 
   const selectedEmployee = useMemo(
@@ -426,11 +428,27 @@ export default function HrManageEmp() {
       normalizeText([option.name, option.department, option.id].filter(Boolean).join(' ')).includes(normalizedSearch)
     );
   }, [managerOptions, managerSearch]);
+  const canClearManagerPicker = managerSearch.trim().length > 0 || form.managerId.trim().length > 0;
 
   const activeFilterCount = [statusFilter, positionFilter].filter((value) => value !== 'all').length;
   const phoneHelperMessage = modal !== 'delete' ? getPhoneValidationMessage(form.phoneNumber) : '';
   const phoneHasError =
     modal !== 'delete' && form.phoneNumber.trim().length > 0 && sanitizePhoneNumber(form.phoneNumber).length !== 11;
+  const shouldHighlightRequiredFields = modal !== 'delete' && formSubmitAttempted;
+  const firstNameMissing = shouldHighlightRequiredFields && form.firstName.trim().length === 0;
+  const lastNameMissing = shouldHighlightRequiredFields && form.lastName.trim().length === 0;
+  const birthDateMissing = shouldHighlightRequiredFields && form.birthDate.trim().length === 0;
+  const emailMissing = shouldHighlightRequiredFields && form.email.trim().length === 0;
+  const phoneMissing = shouldHighlightRequiredFields && modal === 'add' && form.phoneNumber.trim().length === 0;
+  const managerSelectionMissing =
+    shouldHighlightRequiredFields && showManagerPicker && managerSearch.trim().length > 0 && !form.managerId.trim();
+  const departmentMissing = shouldHighlightRequiredFields && showDepartmentPicker && form.department.trim().length === 0;
+  const usernameMissing = shouldHighlightRequiredFields && form.username.trim().length === 0;
+  const passwordMissing =
+    shouldHighlightRequiredFields &&
+    ((modal === 'add' && form.password.trim().length === 0) ||
+      (modal === 'edit' && !hasExistingUserAccount && form.password.trim().length === 0));
+  const phoneInputInvalid = phoneHasError || phoneMissing;
   const rosterLoadError = loadMessage.startsWith('Unable to load the employee roster') ? loadMessage : '';
 
   useErrorDialogEffect(rosterLoadError, 'Employee roster could not be loaded');
@@ -655,9 +673,17 @@ export default function HrManageEmp() {
     setManagerPickerOpen(false);
   }
 
+  function clearManagerSelection() {
+    setField('managerId', '');
+    setManagerSearch('');
+    setManagerPickerOpen(false);
+  }
+
   function openAddModal() {
     resetMessages();
     setConfirmAction(null);
+    setFormSubmitAttempted(false);
+    setHasExistingUserAccount(false);
     setManagerSearch('');
     setManagerPickerOpen(false);
     setModal('add');
@@ -671,6 +697,8 @@ export default function HrManageEmp() {
   function closeModal() {
     setModal(null);
     setConfirmAction(null);
+    setFormSubmitAttempted(false);
+    setHasExistingUserAccount(false);
     setManagerSearch('');
     setManagerPickerOpen(false);
     resetMessages();
@@ -847,6 +875,7 @@ export default function HrManageEmp() {
   async function openEditModal(row: EmployeeRow) {
     resetMessages();
     setConfirmAction(null);
+    setFormSubmitAttempted(false);
 
     try {
       const payload = await apiFetchJson<EmployeeDetails>(`/api/employees/${row.id}`);
@@ -882,6 +911,7 @@ export default function HrManageEmp() {
           ? employeeOptions.find((option) => option.id === payload.managerId)?.name ?? ''
           : ''
       );
+      setHasExistingUserAccount(Boolean(payload.userAccountName?.trim() || (row.username !== '-' && row.username.trim())));
       setManagerPickerOpen(false);
       setModal('edit');
     } catch (error) {
@@ -892,6 +922,8 @@ export default function HrManageEmp() {
   function openDeleteModal(row: EmployeeRow) {
     resetMessages();
     setConfirmAction(null);
+    setFormSubmitAttempted(false);
+    setHasExistingUserAccount(Boolean(row.username !== '-' && row.username.trim()));
     if (isTerminatedStatus(row.status)) {
       setSubmitError('This employee is already terminated.');
       return;
@@ -902,6 +934,46 @@ export default function HrManageEmp() {
       username: row.username === '-' ? '' : row.username,
     });
     setModal('delete');
+  }
+
+  function validateRequiredEmployeeFields(mode: 'add' | 'edit') {
+    if (!form.firstName.trim() || !form.lastName.trim() || !form.birthDate || !form.email.trim()) {
+      setSubmitError('First name, last name, birth date, and email are required.');
+      return false;
+    }
+
+    if (mode === 'add' && !form.phoneNumber.trim()) {
+      setSubmitError('Phone number is required.');
+      return false;
+    }
+
+    if (showManagerPicker && managerSearch.trim() && !form.managerId.trim()) {
+      setSubmitError('Choose a manager from the dropdown or clear the manager field.');
+      return false;
+    }
+
+    if (showDepartmentPicker && !form.department.trim()) {
+      setSubmitError('Department is required when the selected position is MANAGER.');
+      return false;
+    }
+
+    if (!form.username.trim()) {
+      setSubmitError('Username is required for the employee account.');
+      return false;
+    }
+
+    if (mode === 'add' && !form.password.trim()) {
+      setSubmitError('Password is required for the employee account.');
+      return false;
+    }
+
+    if (mode === 'edit' && !hasExistingUserAccount && !form.password.trim()) {
+      setSubmitError('Password is required when creating a new login account for this employee.');
+      return false;
+    }
+
+    setSubmitError('');
+    return true;
   }
 
   function buildEmployeePayload(isCreate: boolean) {
@@ -946,7 +1018,7 @@ export default function HrManageEmp() {
   async function saveUserAccount(employeeId: number, mode: 'add' | 'edit') {
     const username = form.username.trim();
     const password = form.password.trim();
-    const hasExistingAccount = Boolean(selectedEmployee?.username && selectedEmployee.username !== '-');
+    const hasExistingAccount = hasExistingUserAccount;
 
     if (!username) {
       throw new Error('Username is required for the employee account.');
@@ -1080,9 +1152,19 @@ export default function HrManageEmp() {
 
   async function submit() {
     if (!modal) return;
+    if (modal !== 'delete') {
+      setFormSubmitAttempted(true);
+    }
 
     if (modal === 'add') {
+      if (!validateRequiredEmployeeFields('add')) {
+        return;
+      }
       await executeSubmit('add');
+      return;
+    }
+
+    if (modal === 'edit' && !validateRequiredEmployeeFields('edit')) {
       return;
     }
 
@@ -1093,6 +1175,9 @@ export default function HrManageEmp() {
     if (!confirmAction) return;
     const nextAction = confirmAction;
     setConfirmAction(null);
+    if (nextAction !== 'delete' && !validateRequiredEmployeeFields(nextAction)) {
+      return;
+    }
     await executeSubmit(nextAction);
   }
 
@@ -1218,13 +1303,13 @@ export default function HrManageEmp() {
           <div className="hrEmpLeaveBalance__feedback">No leave balances are assigned yet for this employee.</div>
         )}
 
-        <div className="hrEmpLeaveBalance__create">
-          <div className="hrEmpLeaveBalance__createHead">
-            <strong>Add Special Leave Type</strong>
-            <span>Only add leave types that this employee is actually entitled to receive.</span>
-          </div>
+        {availableLeaveTypeOptions.length > 0 ? (
+          <div className="hrEmpLeaveBalance__create">
+            <div className="hrEmpLeaveBalance__createHead">
+              <strong>Add Special Leave Type</strong>
+              <span>Only add leave types that this employee is actually entitled to receive.</span>
+            </div>
 
-          {availableLeaveTypeOptions.length > 0 ? (
             <div className="hrEmpLeaveBalance__controls hrEmpLeaveBalance__controls--create">
               <div className="hrEmpField">
                 <label>Leave Type</label>
@@ -1261,12 +1346,8 @@ export default function HrManageEmp() {
                 {leaveBalanceSavingKey === 'create' ? 'Saving...' : 'Add Leave Type'}
               </button>
             </div>
-          ) : (
-            <div className="hrEmpLeaveBalance__feedback">
-              All supported leave types are already assigned to this employee.
-            </div>
-          )}
-        </div>
+          </div>
+        ) : null}
 
         {leaveBalanceError ? <div className="hrEmpLeaveBalance__feedback is-error">{leaveBalanceError}</div> : null}
       </>
@@ -1719,10 +1800,20 @@ export default function HrManageEmp() {
                       </div>
 
                       {showManagerPicker ? (
-                        <div className="hrEmpField">
-                          <label>Manager</label>
-                          <div className={`hrEmpCombo ${managerPickerOpen ? 'is-open' : ''}`} ref={managerPickerRef}>
-                            <div className="hrEmpCombo__control">
+                        <div className="hrEmpField hrEmpField--manager">
+                          <div className="hrEmpField__labelRow">
+                            <label>Manager</label>
+                            {selectedManagerOption ? (
+                              <span className="hrEmpCombo__labelPill" aria-live="polite">
+                                {selectedManagerOption.department || 'Not assigned'}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div
+                            className={`hrEmpCombo hrEmpCombo--compact ${managerPickerOpen ? 'is-open' : ''}`}
+                            ref={managerPickerRef}
+                          >
+                            <div className="hrEmpCombo__control" aria-invalid={managerSelectionMissing ? 'true' : undefined}>
                               <input
                                 type="text"
                                 className="hrEmpCombo__input"
@@ -1731,6 +1822,7 @@ export default function HrManageEmp() {
                                 aria-controls="employee-manager-options"
                                 aria-expanded={managerPickerOpen}
                                 aria-haspopup="listbox"
+                                aria-invalid={managerSelectionMissing ? 'true' : undefined}
                                 value={managerSearch}
                                 onFocus={() => setManagerPickerOpen(true)}
                                 onChange={(event) => {
@@ -1744,6 +1836,17 @@ export default function HrManageEmp() {
                                 placeholder={isLoadingEmployeeOptions ? 'Loading managers...' : 'Search by manager name'}
                                 disabled={isLoadingEmployeeOptions}
                               />
+                              {canClearManagerPicker ? (
+                                <button
+                                  type="button"
+                                  className="hrEmpCombo__clear"
+                                  onClick={clearManagerSelection}
+                                  disabled={isLoadingEmployeeOptions}
+                                  aria-label="Clear manager selection"
+                                >
+                                  <FiX />
+                                </button>
+                              ) : null}
                               <button
                                 type="button"
                                 className="hrEmpCombo__toggle"
@@ -1784,11 +1887,6 @@ export default function HrManageEmp() {
                               </div>
                             ) : null}
                           </div>
-                          {selectedManagerOption ? (
-                            <span className="hrEmpField__hint">
-                              {`Department: ${selectedManagerOption.department || 'Not assigned'}`}
-                            </span>
-                          ) : null}
                           {employeeOptionsError ? (
                             <span className="hrEmpField__hint is-error">
                               Manager list could not be loaded right now. ({employeeOptionsError})
@@ -1800,7 +1898,11 @@ export default function HrManageEmp() {
                       {showDepartmentPicker ? (
                         <div className="hrEmpField">
                           <label>Department</label>
-                          <select value={form.department} onChange={(event) => setField('department', event.target.value)}>
+                          <select
+                            value={form.department}
+                            aria-invalid={departmentMissing ? 'true' : undefined}
+                            onChange={(event) => setField('department', event.target.value)}
+                          >
                             <option value="">Select department</option>
                             {managerDepartmentOptions.map((option) => (
                               <option key={option} value={option}>
@@ -1825,7 +1927,11 @@ export default function HrManageEmp() {
                     <div className="hrEmpForm__grid">
                       <div className="hrEmpField">
                         <label>First Name</label>
-                        <input value={form.firstName} onChange={(event) => setField('firstName', event.target.value)} />
+                        <input
+                          value={form.firstName}
+                          aria-invalid={firstNameMissing ? 'true' : undefined}
+                          onChange={(event) => setField('firstName', event.target.value)}
+                        />
                       </div>
 
                       <div className="hrEmpField">
@@ -1839,17 +1945,31 @@ export default function HrManageEmp() {
 
                       <div className="hrEmpField">
                         <label>Last Name</label>
-                        <input value={form.lastName} onChange={(event) => setField('lastName', event.target.value)} />
+                        <input
+                          value={form.lastName}
+                          aria-invalid={lastNameMissing ? 'true' : undefined}
+                          onChange={(event) => setField('lastName', event.target.value)}
+                        />
                       </div>
 
                       <div className="hrEmpField">
                         <label>Birth Date</label>
-                        <input type="date" value={form.birthDate} onChange={(event) => setField('birthDate', event.target.value)} />
+                        <input
+                          type="date"
+                          value={form.birthDate}
+                          aria-invalid={birthDateMissing ? 'true' : undefined}
+                          onChange={(event) => setField('birthDate', event.target.value)}
+                        />
                       </div>
 
                       <div className="hrEmpField">
                         <label>Email</label>
-                        <input type="email" value={form.email} onChange={(event) => setField('email', event.target.value)} />
+                        <input
+                          type="email"
+                          value={form.email}
+                          aria-invalid={emailMissing ? 'true' : undefined}
+                          onChange={(event) => setField('email', event.target.value)}
+                        />
                       </div>
 
                       <div className="hrEmpField">
@@ -1859,7 +1979,7 @@ export default function HrManageEmp() {
                           inputMode="numeric"
                           maxLength={11}
                           placeholder={modal === 'add' ? 'Required 11-digit mobile number' : 'Optional 11-digit mobile number'}
-                          aria-invalid={phoneHasError}
+                          aria-invalid={phoneInputInvalid ? 'true' : undefined}
                           value={form.phoneNumber}
                           onChange={(event) => setField('phoneNumber', sanitizePhoneNumber(event.target.value))}
                         />
@@ -1876,6 +1996,7 @@ export default function HrManageEmp() {
                         <input
                           autoComplete="off"
                           value={form.username}
+                          aria-invalid={usernameMissing ? 'true' : undefined}
                           onChange={(event) => setField('username', event.target.value)}
                           placeholder="Required"
                         />
@@ -1887,6 +2008,7 @@ export default function HrManageEmp() {
                           type="password"
                           autoComplete="new-password"
                           value={form.password}
+                          aria-invalid={passwordMissing ? 'true' : undefined}
                           onChange={(event) => setField('password', event.target.value)}
                           placeholder={modal === 'add' ? 'Required' : 'Leave blank to keep current password'}
                         />

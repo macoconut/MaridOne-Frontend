@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FiChevronDown, FiEdit2, FiFilter, FiPlus, FiSearch, FiXCircle } from 'react-icons/fi';
+import { FiChevronDown, FiEdit2, FiFilter, FiPlus, FiSearch, FiX, FiXCircle } from 'react-icons/fi';
 import { ApiError, apiFetchJson, toArray } from '../../../lib/api';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
@@ -573,6 +573,7 @@ export default function HrPayslips() {
   const [confirmRunOpen, setConfirmRunOpen] = useState(false);
   const [postModalOpen, setPostModalOpen] = useState(false);
   const [manualLineModalOpen, setManualLineModalOpen] = useState(false);
+  const [runSubmitAttempted, setRunSubmitAttempted] = useState(false);
   const [runForm, setRunForm] = useState<RunFormState>(() => createDefaultRunForm());
   const [manualLineForm, setManualLineForm] = useState<ManualLineFormState>(() => createDefaultManualLineForm());
   const [employeeOptions, setEmployeeOptions] = useState<EmployeeOption[]>([]);
@@ -580,6 +581,7 @@ export default function HrPayslips() {
   const [manualEmployeeSearch, setManualEmployeeSearch] = useState('');
   const [manualEmployeePickerOpen, setManualEmployeePickerOpen] = useState(false);
   const [manualLineError, setManualLineError] = useState('');
+  const [manualLineSubmitAttempted, setManualLineSubmitAttempted] = useState(false);
   const [isSubmittingManualLine, setIsSubmittingManualLine] = useState(false);
   const [isSubmittingRun, setIsSubmittingRun] = useState(false);
   const [isPostingRun, setIsPostingRun] = useState(false);
@@ -592,11 +594,13 @@ export default function HrPayslips() {
   const [selectedCorrectionKey, setSelectedCorrectionKey] = useState('');
   const [correctedAmount, setCorrectedAmount] = useState('');
   const [correctionError, setCorrectionError] = useState('');
+  const [correctionSubmitAttempted, setCorrectionSubmitAttempted] = useState(false);
   const [isLoadingCorrection, setIsLoadingCorrection] = useState(false);
   const [isSubmittingCorrection, setIsSubmittingCorrection] = useState(false);
   const [adjustmentRunId, setAdjustmentRunId] = useState<number | null>(null);
   const [pendingDisputeDecision, setPendingDisputeDecision] = useState<'APPROVED' | 'REJECTED' | null>(null);
   const [confirmDisputeDecisionOpen, setConfirmDisputeDecisionOpen] = useState(false);
+  const [disputeDecisionSubmitAttempted, setDisputeDecisionSubmitAttempted] = useState(false);
   const [disputeSearchValue, setDisputeSearchValue] = useState('');
   const [disputeFilterOpen, setDisputeFilterOpen] = useState(false);
   const [disputeStatusFilter, setDisputeStatusFilter] = useState<DisputeStatusFilter>('all');
@@ -615,7 +619,7 @@ export default function HrPayslips() {
   useErrorDialogEffect(runError, 'Payroll run could not be completed');
   useErrorDialogEffect(correctionError, 'Payroll correction could not be completed');
   useErrorDialogEffect(attachmentError, 'Attachment could not be opened');
-  useEscapeDismiss(runModalOpen && !isSubmittingRun, () => setRunModalOpen(false), 10);
+  useEscapeDismiss(runModalOpen && !isSubmittingRun, closeRunModal, 10);
   useEscapeDismiss(postModalOpen && !isPostingRun, () => setPostModalOpen(false), 10);
   useEscapeDismiss(manualLineModalOpen && !isSubmittingManualLine, resetManualLineState, 10);
   useEscapeDismiss(correctionOpen && !isSubmittingCorrection, resetCorrectionState, 10);
@@ -689,6 +693,7 @@ export default function HrPayslips() {
     setRemarks('');
     setActionError('');
     setPendingDisputeDecision(null);
+    setDisputeDecisionSubmitAttempted(false);
     setConfirmDisputeDecisionOpen(false);
   }, [selectedDispute?.id]);
 
@@ -931,6 +936,8 @@ export default function HrPayslips() {
     if (!query) return employeeOptions;
     return employeeOptions.filter((option) => normalizeText(option.name).includes(query));
   }, [employeeOptions, manualEmployeeSearch]);
+  const canClearManualEmployeePicker =
+    manualEmployeeSearch.trim().length > 0 || manualLineForm.empId.trim().length > 0;
 
   const visibleDisputes = useMemo(() => {
     return disputes.filter((row) => {
@@ -968,10 +975,22 @@ export default function HrPayslips() {
     () => correctionLines.find((line) => line.key === selectedCorrectionKey) ?? null,
     [correctionLines, selectedCorrectionKey]
   );
+  const isRunPeriodStartInvalid = runSubmitAttempted && !runForm.periodStart;
+  const isRunPeriodEndInvalid = runSubmitAttempted && !runForm.periodEnd;
+  const isManualEmployeeInvalid = manualLineSubmitAttempted && !manualLineForm.empId.trim();
+  const isManualAmountInvalid = manualLineSubmitAttempted && manualLineForm.amount.trim().length === 0;
+  const isCorrectionAmountInvalid =
+    correctionSubmitAttempted && Boolean(selectedCorrectionLine) && correctedAmount.trim().length === 0;
+  const isDisputeRemarksInvalid = disputeDecisionSubmitAttempted && remarks.trim().length < 5;
 
   function clearDisputeFilters() {
     setDisputeStatusFilter('all');
     setDisputeTypeFilter('all');
+  }
+
+  function closeRunModal() {
+    setRunModalOpen(false);
+    setRunSubmitAttempted(false);
   }
 
   function resetCorrectionState() {
@@ -982,6 +1001,7 @@ export default function HrPayslips() {
     setSelectedCorrectionKey('');
     setCorrectedAmount('');
     setCorrectionError('');
+    setCorrectionSubmitAttempted(false);
     setIsLoadingCorrection(false);
     setIsSubmittingCorrection(false);
     setAdjustmentRunId(null);
@@ -993,12 +1013,14 @@ export default function HrPayslips() {
     setManualEmployeeSearch('');
     setManualEmployeePickerOpen(false);
     setManualLineError('');
+    setManualLineSubmitAttempted(false);
     setIsLoadingEmployeeOptions(false);
     setIsSubmittingManualLine(false);
   }
 
   function openManualLineModal(defaults?: Partial<ManualLineFormState>) {
     setManualLineError('');
+    setManualLineSubmitAttempted(false);
     setIsLoadingEmployeeOptions(false);
     const nextEmpId = defaults?.empId ?? '';
     const nextEmployee =
@@ -1018,6 +1040,13 @@ export default function HrPayslips() {
   function selectManualEmployee(option: EmployeeOption) {
     setManualLineForm((prev) => ({ ...prev, empId: String(option.id) }));
     setManualEmployeeSearch(option.name);
+    setManualEmployeePickerOpen(false);
+    setManualLineError('');
+  }
+
+  function clearManualEmployeeSelection() {
+    setManualLineForm((prev) => ({ ...prev, empId: '' }));
+    setManualEmployeeSearch('');
     setManualEmployeePickerOpen(false);
     setManualLineError('');
   }
@@ -1074,6 +1103,7 @@ export default function HrPayslips() {
   }
 
   async function submitManualLine() {
+    setManualLineSubmitAttempted(true);
     if (!currentRun?.payId || currentRun.runType !== 'ADJUSTMENT') {
       setManualLineError('Open an in-progress adjustment run before adding manual lines.');
       return;
@@ -1307,6 +1337,7 @@ export default function HrPayslips() {
   }
 
   async function submitCorrection() {
+    setCorrectionSubmitAttempted(true);
     if (!correctionIntent || !correctionSource?.itemId || !selectedCorrectionLine || !adjustmentRunId) {
       setCorrectionError('Complete the correction details before submitting.');
       return;
@@ -1360,6 +1391,7 @@ export default function HrPayslips() {
 
   async function updateDispute(status: 'APPROVED' | 'REJECTED') {
     if (!selectedDispute) return;
+    setDisputeDecisionSubmitAttempted(true);
     const trimmedRemarks = remarks.trim();
     if (trimmedRemarks.length < 5) {
       setActionError('Please enter at least 5 characters explaining the approval or denial.');
@@ -1440,6 +1472,7 @@ export default function HrPayslips() {
   }
 
   function requestDisputeDecisionConfirmation() {
+    setDisputeDecisionSubmitAttempted(true);
     if (!pendingDisputeDecision) {
       setActionError('Choose approve or deny before confirming the dispute decision.');
       return;
@@ -1465,6 +1498,7 @@ export default function HrPayslips() {
   }
 
   function requestPayrollRunConfirmation() {
+    setRunSubmitAttempted(true);
     setRunError('');
 
     if (!runForm.periodStart || !runForm.periodEnd) {
@@ -1486,6 +1520,7 @@ export default function HrPayslips() {
   }
 
   async function submitPayrollRun() {
+    setRunSubmitAttempted(true);
     setRunError('');
 
     if (!runForm.periodStart || !runForm.periodEnd) {
@@ -1603,6 +1638,7 @@ export default function HrPayslips() {
             className="hrPay__runBtn"
             onClick={() => {
               setRunError('');
+              setRunSubmitAttempted(false);
               setRunModalOpen(true);
             }}
           >
@@ -1809,6 +1845,7 @@ export default function HrPayslips() {
                 <input
                   type="date"
                   value={runForm.periodStart}
+                  aria-invalid={isRunPeriodStartInvalid ? 'true' : undefined}
                   onChange={(event) => setRunForm((prev) => ({ ...prev, periodStart: event.target.value }))}
                   max={runForm.periodEnd || todayIsoDate}
                 />
@@ -1818,6 +1855,7 @@ export default function HrPayslips() {
                 <input
                   type="date"
                   value={runForm.periodEnd}
+                  aria-invalid={isRunPeriodEndInvalid ? 'true' : undefined}
                   onChange={(event) => setRunForm((prev) => ({ ...prev, periodEnd: event.target.value }))}
                   min={runForm.periodStart || undefined}
                   max={todayIsoDate}
@@ -1841,7 +1879,7 @@ export default function HrPayslips() {
             </div>
 
             <div className="hrPayModal__actions">
-              <button type="button" className="is-muted" onClick={() => setRunModalOpen(false)} disabled={isSubmittingRun}>
+              <button type="button" className="is-muted" onClick={closeRunModal} disabled={isSubmittingRun}>
                 Cancel
               </button>
               <button type="button" onClick={requestPayrollRunConfirmation} disabled={isSubmittingRun}>
@@ -1876,7 +1914,7 @@ export default function HrPayslips() {
               <label className="hrPayModal__gridItem--full">
                 <span>Employee:</span>
                 <div className={`hrPayPicker ${manualEmployeePickerOpen ? 'is-open' : ''}`} ref={manualEmployeePickerRef}>
-                  <div className="hrPayPicker__control">
+                  <div className="hrPayPicker__control" aria-invalid={isManualEmployeeInvalid ? 'true' : undefined}>
                     <input
                       type="text"
                       className="hrPayPicker__input"
@@ -1885,6 +1923,7 @@ export default function HrPayslips() {
                       aria-controls="manual-employee-options"
                       aria-expanded={manualEmployeePickerOpen}
                       aria-haspopup="listbox"
+                      aria-invalid={isManualEmployeeInvalid ? 'true' : undefined}
                       value={manualEmployeeSearch}
                       onFocus={() => setManualEmployeePickerOpen(true)}
                       onChange={(event) => {
@@ -1899,6 +1938,17 @@ export default function HrPayslips() {
                       placeholder={isLoadingEmployeeOptions ? 'Loading employees...' : 'Search or choose an employee'}
                       disabled={isLoadingEmployeeOptions || isSubmittingManualLine}
                     />
+                    {canClearManualEmployeePicker ? (
+                      <button
+                        type="button"
+                        className="hrPayPicker__clear"
+                        onClick={clearManualEmployeeSelection}
+                        disabled={isLoadingEmployeeOptions || isSubmittingManualLine}
+                        aria-label="Clear employee selection"
+                      >
+                        <FiX />
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       className="hrPayPicker__toggle"
@@ -1959,6 +2009,7 @@ export default function HrPayslips() {
                   min="0.01"
                   step="0.01"
                   value={manualLineForm.amount}
+                  aria-invalid={isManualAmountInvalid ? 'true' : undefined}
                   onChange={(event) => setManualLineForm((prev) => ({ ...prev, amount: event.target.value }))}
                   placeholder="0.00"
                   disabled={isSubmittingManualLine}
@@ -2139,6 +2190,7 @@ export default function HrPayslips() {
                       min="0"
                       step="0.01"
                       value={correctedAmount}
+                      aria-invalid={isCorrectionAmountInvalid ? 'true' : undefined}
                       onChange={(event) => setCorrectedAmount(event.target.value)}
                       placeholder={selectedCorrectionLine ? `Current amount: ${selectedCorrectionLine.amount}` : 'Choose a line first'}
                       disabled={!selectedCorrectionLine || isSubmittingCorrection}
@@ -2492,6 +2544,7 @@ export default function HrPayslips() {
                   <textarea
                     placeholder="Type at least 5 characters explaining the decision"
                     value={remarks}
+                    aria-invalid={isDisputeRemarksInvalid ? 'true' : undefined}
                     onChange={(event) => setRemarks(event.target.value)}
                   />
                 </label>

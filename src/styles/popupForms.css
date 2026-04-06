@@ -412,6 +412,14 @@
     background 160ms ease !important;
 }
 
+:where(.hrEmpCombo--compact .hrEmpCombo__control, .hrPayPicker--compact .hrPayPicker__control) {
+  min-height: 0 !important;
+  border: 1px solid rgba(123, 74, 143, 0.18) !important;
+  border-radius: 14px !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+
 :where(.hrPayPicker__control, .hrEmpCombo__control):focus-within,
 :where(.hrPayPicker.is-open .hrPayPicker__control, .hrEmpCombo.is-open .hrEmpCombo__control) {
   border-color: rgba(123, 74, 143, 0.36) !important;
@@ -419,6 +427,13 @@
   box-shadow:
     0 0 0 3px rgba(123, 74, 143, 0.1),
     0 10px 22px rgba(42, 18, 71, 0.08) !important;
+}
+
+:where(.hrEmpCombo--compact .hrEmpCombo__control):focus-within,
+:where(.hrEmpCombo--compact.is-open .hrEmpCombo__control) {
+  border-color: rgba(123, 74, 143, 0.55) !important;
+  background: #fff !important;
+  box-shadow: 0 0 0 4px rgba(123, 74, 143, 0.12) !important;
 }
 
 :where(.hrPayPicker__input, .hrEmpCombo__input) {
@@ -430,8 +445,14 @@
   border-radius: 0 !important;
   background: transparent !important;
   color: #2b2036 !important;
-  padding: 0 58px 0 18px !important;
+  padding: 0 96px 0 18px !important;
   box-shadow: none !important;
+}
+
+:where(.hrEmpCombo--compact .hrEmpCombo__input, .hrPayPicker--compact .hrPayPicker__input) {
+  min-height: 44px !important;
+  background: transparent !important;
+  padding: 12px 96px 12px 14px !important;
 }
 
 :where(.hrPayPicker__input, .hrEmpCombo__input)::placeholder {
@@ -445,10 +466,44 @@
   box-shadow: none !important;
 }
 
-:where(.hrPayPicker__toggle, .hrEmpCombo__toggle) {
+:where(
+  .modal input[aria-invalid='true'],
+  .modal select[aria-invalid='true'],
+  .modal textarea[aria-invalid='true'],
+  .dashModal input[aria-invalid='true'],
+  .dashModal textarea[aria-invalid='true'],
+  .dashTwoFactorSetup__field input[aria-invalid='true'],
+  .dashPasswordForm__inputWrap input[aria-invalid='true'],
+  .payModal select[aria-invalid='true'],
+  .payModal textarea[aria-invalid='true'],
+  .hrEmpField input[aria-invalid='true'],
+  .hrEmpField select[aria-invalid='true'],
+  .hrEmpField textarea[aria-invalid='true'],
+  .hrPayModal input[aria-invalid='true'],
+  .hrPayModal select[aria-invalid='true'],
+  .hrPayModal textarea[aria-invalid='true'],
+  .hrApprForm__row input[aria-invalid='true'],
+  .hrApprForm__row textarea[aria-invalid='true'],
+  .aReviewPayModal__grid input[aria-invalid='true']
+) {
+  border-color: rgba(194, 59, 51, 0.68) !important;
+  background: #fff7f8 !important;
+  box-shadow: 0 0 0 4px rgba(194, 59, 51, 0.12) !important;
+}
+
+:where(
+  .fileUploadField__panel[aria-invalid='true'],
+  .hrPayPicker__control[aria-invalid='true'],
+  .hrEmpCombo__control[aria-invalid='true']
+) {
+  border-color: rgba(194, 59, 51, 0.68) !important;
+  background: linear-gradient(180deg, rgba(255, 244, 246, 0.96) 0%, #ffffff 100%) !important;
+  box-shadow: 0 0 0 4px rgba(194, 59, 51, 0.12) !important;
+}
+
+:where(.hrPayPicker__clear, .hrEmpCombo__clear, .hrPayPicker__toggle, .hrEmpCombo__toggle) {
   position: absolute !important;
   top: 50% !important;
-  right: 10px !important;
   transform: translateY(-50%) !important;
   width: 34px !important;
   min-width: 34px !important;
@@ -466,17 +521,26 @@
   transition: background 160ms ease, color 160ms ease !important;
 }
 
-:where(.hrPayPicker__toggle, .hrEmpCombo__toggle):hover:not(:disabled) {
+:where(.hrPayPicker__clear, .hrEmpCombo__clear) {
+  right: 48px !important;
+  color: #8a6176 !important;
+}
+
+:where(.hrPayPicker__toggle, .hrEmpCombo__toggle) {
+  right: 10px !important;
+}
+
+:where(.hrPayPicker__clear, .hrEmpCombo__clear, .hrPayPicker__toggle, .hrEmpCombo__toggle):hover:not(:disabled) {
   background: rgba(123, 74, 143, 0.08) !important;
 }
 
-:where(.hrPayPicker__toggle, .hrEmpCombo__toggle):disabled,
+:where(.hrPayPicker__clear, .hrEmpCombo__clear, .hrPayPicker__toggle, .hrEmpCombo__toggle):disabled,
 :where(.hrPayPicker__input:disabled, .hrEmpCombo__input:disabled) {
   cursor: not-allowed !important;
   opacity: 0.6 !important;
 }
 
-:where(.hrPayPicker__toggle, .hrEmpCombo__toggle) svg {
+:where(.hrPayPicker__clear, .hrEmpCombo__clear, .hrPayPicker__toggle, .hrEmpCombo__toggle) svg {
   display: block !important;
   font-size: 16px !important;
   transition: transform 0.18s ease !important;

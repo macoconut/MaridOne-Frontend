@@ -63,6 +63,8 @@ export default function AccountSecuritySection({
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [twoFactorSubmitAttempted, setTwoFactorSubmitAttempted] = useState(false);
+  const [passwordSubmitAttempted, setPasswordSubmitAttempted] = useState(false);
   const emailStatusClass = !savedEmail.trim()
     ? 'is-neutral'
     : emailVerified
@@ -92,11 +94,17 @@ export default function AccountSecuritySection({
 
   function handlePasswordSubmit(event: React.FormEvent) {
     event.preventDefault();
+    setPasswordSubmitAttempted(true);
     onChangePassword({
       currentPassword,
       newPassword,
       confirmPassword,
     });
+  }
+
+  function handleTwoFactorSubmit() {
+    setTwoFactorSubmitAttempted(true);
+    onConfirmTwoFactor();
   }
 
   return (
@@ -229,12 +237,13 @@ export default function AccountSecuritySection({
                       inputMode="numeric"
                       autoComplete="one-time-code"
                       maxLength={6}
+                      aria-invalid={twoFactorSubmitAttempted && twoFactorCode.trim().length === 0}
                     />
                   </label>
                   <button
                     type="button"
                     className="dashSecurityBtn"
-                    onClick={onConfirmTwoFactor}
+                    onClick={handleTwoFactorSubmit}
                     disabled={confirmingTwoFactor || isBusy || twoFactorCode.trim().length === 0}
                   >
                     {confirmingTwoFactor ? 'Confirming...' : 'Confirm 2FA'}
@@ -278,6 +287,7 @@ export default function AccountSecuritySection({
                     onChange={(event) => setCurrentPassword(event.target.value)}
                     autoComplete="current-password"
                     disabled={isBusy || !canChangePasswordNow}
+                    aria-invalid={passwordSubmitAttempted && currentPassword.trim().length === 0}
                   />
                   <button
                     type="button"
@@ -300,6 +310,7 @@ export default function AccountSecuritySection({
                     onChange={(event) => setNewPassword(event.target.value)}
                     autoComplete="new-password"
                     disabled={isBusy || !canChangePasswordNow}
+                    aria-invalid={passwordSubmitAttempted && newPassword.trim().length === 0}
                   />
                   <button
                     type="button"
@@ -322,6 +333,7 @@ export default function AccountSecuritySection({
                     onChange={(event) => setConfirmPassword(event.target.value)}
                     autoComplete="new-password"
                     disabled={isBusy || !canChangePasswordNow}
+                    aria-invalid={passwordSubmitAttempted && confirmPassword.trim().length === 0}
                   />
                   <button
                     type="button"

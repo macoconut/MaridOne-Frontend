@@ -21,7 +21,7 @@ import '../shared/RoleLayout.css';
 import { getUserEmail } from '../../lib/session';
 import { BACKEND_TEST_MODE } from '../../config/flags';
 import { apiFetchRaw, expireCurrentSession, getApiBaseUrl } from '../../lib/api';
-import { resolveHeaderTitle } from '../../lib/headerProfile';
+import { resolveHeaderBadge } from '../../lib/headerProfile';
 import { type NotificationItem } from '../../lib/notificationRouting';
 import { routeWheelToScrollableChild } from '../../lib/scrollContain';
 import {
@@ -194,7 +194,7 @@ export default function EmployeeLayout() {
   const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
   const { notifications, setNotifications } = useNotificationPolling('employee');
-  const [headerTitle, setHeaderTitle] = useState('Employee');
+  const [headerBadge, setHeaderBadge] = useState('Employee');
   const [backendAction, setBackendAction] = useState<string>('None');
   const [backendResult, setBackendResult] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -228,9 +228,9 @@ export default function EmployeeLayout() {
   useEffect(() => {
     void (async () => {
       try {
-        setHeaderTitle(await resolveHeaderTitle(getUserEmail(), 'Employee'));
+        setHeaderBadge(await resolveHeaderBadge(getUserEmail(), 'Employee'));
       } catch {
-        setHeaderTitle('Employee');
+        setHeaderBadge('Employee');
       }
     })();
   }, []);
@@ -496,8 +496,7 @@ export default function EmployeeLayout() {
             >
               <FiMenu />
             </button>
-            <div className="eTop__title">{headerTitle}</div>
-            <span className="eTop__badge">Employee</span>
+            <span className="eTop__badge">{headerBadge}</span>
           </div>
 
           <div className="eTop__actions">

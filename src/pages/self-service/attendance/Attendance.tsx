@@ -95,6 +95,7 @@ type LeaveBalanceRow = {
 
 const LEAVE_UPLOAD_SUBDIR = 'leave-request';
 const OVERTIME_UPLOAD_SUBDIR = 'overtime-request';
+const NON_SICK_LEAVE_NOTICE_DAYS = 7;
 
 const LEAVE_TYPE_OPTIONS: Array<{ label: string; value: LeaveType }> = [
   { label: 'Sick Leave', value: 'SICK_LEAVE' },
@@ -180,6 +181,10 @@ function normalizeTimeValue(value?: string) {
   if (!value) return '';
   const match = value.match(/^(\d{2}:\d{2})/);
   return match?.[1] ?? value;
+}
+
+function requiresAdvanceLeaveNotice(leaveType: LeaveType | string) {
+  return leaveType !== 'SICK_LEAVE';
 }
 
 function resolveDayOfWeek(dateValue: string) {
@@ -340,6 +345,10 @@ export default function Attendance() {
     () => `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`,
     [today]
   );
+  const nonSickLeaveMinDate = useMemo(
+    () => addDays(todayKey, NON_SICK_LEAVE_NOTICE_DAYS),
+    [todayKey]
+  );
   const [year, setYear] = useState(today.getFullYear());
   const [monthIndex, setMonthIndex] = useState(today.getMonth());
   const monthLabel = new Date(year, monthIndex, 1).toLocaleDateString(undefined, {
@@ -372,6 +381,7 @@ export default function Attendance() {
   const [reason, setReason] = useState<string>('');
   const [file, setFile] = useState<File | null>(null);
   const [submitError, setSubmitError] = useState('');
+  const [leaveSubmitAttempted, setLeaveSubmitAttempted] = useState(false);
   const [employeeId, setEmployeeId] = useState<number | null>(null);
   const [requestEntries, setRequestEntries] = useState<RequestEntry[]>([]);
   const [attendanceByDate, setAttendanceByDate] = useState<Record<string, AttendanceSession[]>>({});
@@ -387,6 +397,7 @@ export default function Attendance() {
   const [otReason, setOtReason] = useState<string>('');
   const [otFile, setOtFile] = useState<File | null>(null);
   const [otSubmitError, setOtSubmitError] = useState('');
+  const [otSubmitAttempted, setOtSubmitAttempted] = useState(false);
   const [requestViewOpen, setRequestViewOpen] = useState(false);
   const [requestViewDate, setRequestViewDate] = useState<string>('');
   const [selectedDateKey, setSelectedDateKey] = useState<string>('');
@@ -415,6 +426,33 @@ export default function Attendance() {
   const canRequestOvertime = !['hr', 'management', 'manager'].includes(userRole ?? '');
   const maxOtEndDate = otStartDate ? addDays(otStartDate, 1) : '';
   const isOtNextDay = Boolean(otStartDate && otEndDate && otEndDate === maxOtEndDate);
+  const minimumLeaveStartDate = requiresAdvanceLeaveNotice(leaveType) ? nonSickLeaveMinDate : todayKey;
+  const minimumLeaveEndDate =
+    startDate && startDate >= minimumLeaveStartDate ? startDate : minimumLeaveStartDate;
+  const isLeaveStartDateInvalid = leaveSubmitAttempted && !startDate;
+  const isLeaveStartTimeInvalid = leaveSubmitAttempted && !startTime;
+  const isLeaveEndDateInvalid = leaveSubmitAttempted && !endDate;
+  const isLeaveEndTimeInvalid = leaveSubmitAttempted && !endTime;
+  const isLeaveReasonInvalid = leaveSubmitAttempted && reason.trim().length < 5;
+  const isOtStartDateInvalid = otSubmitAttempted && !otStartDate;
+  const isOtStartTimeInvalid = otSubmitAttempted && !otStartTime;
+  const isOtEndDateInvalid = otSubmitAttempted && !otEndDate;
+  const isOtEndTimeInvalid = otSubmitAttempted && !otEndTime;
+  const isOtReasonInvalid = otSubmitAttempted && otReason.trim().length < 5;
+
+  useEffect(() => {
+    if (!leaveOpen || !requiresAdvanceLeaveNotice(leaveType)) {
+      return;
+    }
+
+    if (!startDate || startDate < minimumLeaveStartDate) {
+      setStartDate(minimumLeaveStartDate);
+    }
+
+    if (!endDate || endDate < minimumLeaveEndDate) {
+      setEndDate(minimumLeaveEndDate);
+    }
+  }, [endDate, leaveOpen, leaveType, minimumLeaveEndDate, minimumLeaveStartDate, startDate]);
 
   async function fetchAttendanceHistory(resolvedEmpId: number) {
     try {
@@ -682,6 +720,8 @@ export default function Attendance() {
     setLeaveType('SICK_LEAVE');
     setReason('');
     setFile(null);
+    setSubmitError('');
+    setLeaveSubmitAttempted(false);
     setLeaveOpen(true);
   }
 
@@ -700,6 +740,8 @@ export default function Attendance() {
 
   function closeLeave() {
     setFile(null);
+    setSubmitError('');
+    setLeaveSubmitAttempted(false);
     setLeaveOpen(false);
   }
 
@@ -725,11 +767,14 @@ export default function Attendance() {
     setOtReason('');
     setOtFile(null);
     setOtSubmitError('');
+    setOtSubmitAttempted(false);
     setOtOpen(true);
   }
 
   function closeOt() {
     setOtFile(null);
+    setOtSubmitError('');
+    setOtSubmitAttempted(false);
     setOtOpen(false);
   }
 
@@ -803,6 +848,7 @@ export default function Attendance() {
   }
 
   function validateOtForm() {
+    setOtSubmitAttempted(true);
     setOtSubmitError('');
     if (!canRequestOvertime) {
       setOtSubmitError('Overtime requests are not available for your role.');
@@ -933,6 +979,7 @@ export default function Attendance() {
   }
 
   function validateLeaveForm() {
+    setLeaveSubmitAttempted(true);
     setSubmitError('');
     if (!employeeId) {
       setSubmitError('Unable to resolve employee account.');
@@ -961,6 +1008,13 @@ export default function Attendance() {
 
     if (startDate < todayKey) {
       setSubmitError('Start date cannot be earlier than today.');
+      return false;
+    }
+
+    if (requiresAdvanceLeaveNotice(leaveType) && startDate < nonSickLeaveMinDate) {
+      setSubmitError(
+        `Non-sick leave requests must be filed at least ${NON_SICK_LEAVE_NOTICE_DAYS} days before the leave date.`
+      );
       return false;
     }
 
@@ -1271,7 +1325,10 @@ export default function Attendance() {
               <div className="requestForm__grid">
                 <div className="requestField requestField--span2">
                   <label className="label">Type of Leave Requested</label>
-                  <p className="requestField__help">Choose the leave category that applies to this request.</p>
+                  <p className="requestField__help">
+                    Choose the leave category that applies to this request. Sick leave can be filed right away, while
+                    other leave types require at least 7 days of notice.
+                  </p>
                   <select
                     className="input"
                     value={leaveType}
@@ -1294,6 +1351,11 @@ export default function Attendance() {
                     <strong className="requestField__balanceValue">{selectedLeaveBalanceLabel}</strong>
                     <span className="requestField__balanceNote">{selectedLeaveBalanceNote}</span>
                   </div>
+                  {requiresAdvanceLeaveNotice(leaveType) && (
+                    <p className="requestField__callout">
+                      This leave type needs at least 7 days of advance notice.
+                    </p>
+                  )}
                 </div>
 
                 <div className="requestField">
@@ -1304,7 +1366,8 @@ export default function Attendance() {
                         className="input"
                         type="date"
                         value={startDate}
-                        min={todayKey}
+                        min={minimumLeaveStartDate}
+                        aria-invalid={isLeaveStartDateInvalid ? 'true' : undefined}
                         onChange={(e) => setStartDate(e.target.value)}
                       />
                       <FiCalendar className="inputIcon__icon" />
@@ -1313,6 +1376,7 @@ export default function Attendance() {
                       className="input"
                       type="time"
                       value={startTime}
+                      aria-invalid={isLeaveStartTimeInvalid ? 'true' : undefined}
                       onChange={(e) => setStartTime(e.target.value)}
                     />
                   </div>
@@ -1326,7 +1390,8 @@ export default function Attendance() {
                         className="input"
                         type="date"
                         value={endDate}
-                        min={startDate || todayKey}
+                        min={minimumLeaveEndDate}
+                        aria-invalid={isLeaveEndDateInvalid ? 'true' : undefined}
                         onChange={(e) => setEndDate(e.target.value)}
                       />
                       <FiCalendar className="inputIcon__icon" />
@@ -1335,6 +1400,7 @@ export default function Attendance() {
                       className="input"
                       type="time"
                       value={endTime}
+                      aria-invalid={isLeaveEndTimeInvalid ? 'true' : undefined}
                       onChange={(e) => setEndTime(e.target.value)}
                     />
                   </div>
@@ -1346,6 +1412,7 @@ export default function Attendance() {
                     className="textarea"
                     placeholder="Describe why you need this leave request."
                     value={reason}
+                    aria-invalid={isLeaveReasonInvalid ? 'true' : undefined}
                     onChange={(e) => setReason(e.target.value)}
                   />
                 </div>
@@ -1414,6 +1481,7 @@ export default function Attendance() {
                       type="date"
                       value={otStartDate}
                       min={todayKey}
+                      aria-invalid={isOtStartDateInvalid ? 'true' : undefined}
                       onChange={(e) => setOtStartDate(e.target.value)}
                     />
                     <FiCalendar className="inputIcon__icon" />
@@ -1426,6 +1494,7 @@ export default function Attendance() {
                     className="input"
                     type="time"
                     value={otStartTime}
+                    aria-invalid={isOtStartTimeInvalid ? 'true' : undefined}
                     onChange={(e) => setOtStartTime(e.target.value)}
                   />
                 </div>
@@ -1439,6 +1508,7 @@ export default function Attendance() {
                       value={otEndDate}
                       min={otStartDate || todayKey}
                       max={maxOtEndDate || undefined}
+                      aria-invalid={isOtEndDateInvalid ? 'true' : undefined}
                       onChange={(e) => setOtEndDate(e.target.value)}
                     />
                     <FiCalendar className="inputIcon__icon" />
@@ -1452,6 +1522,7 @@ export default function Attendance() {
                     type="time"
                     value={otEndTime}
                     max={isOtNextDay ? '06:00' : undefined}
+                    aria-invalid={isOtEndTimeInvalid ? 'true' : undefined}
                     onChange={(e) => setOtEndTime(e.target.value)}
                   />
                 </div>
@@ -1462,6 +1533,7 @@ export default function Attendance() {
                     className="textarea"
                     placeholder="Describe the work that requires overtime."
                     value={otReason}
+                    aria-invalid={isOtReasonInvalid ? 'true' : undefined}
                     onChange={(e) => setOtReason(e.target.value)}
                   />
                 </div>

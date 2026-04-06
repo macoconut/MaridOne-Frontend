@@ -252,6 +252,7 @@ export default function HrApprovals() {
   const [isSaving, setIsSaving] = useState(false);
   const [pendingDecision, setPendingDecision] = useState<'APPROVED' | 'REJECTED' | null>(null);
   const [decisionReason, setDecisionReason] = useState('');
+  const [decisionSubmitAttempted, setDecisionSubmitAttempted] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [confirmDecisionOpen, setConfirmDecisionOpen] = useState(false);
   const [loadError, setLoadError] = useState('');
@@ -464,6 +465,7 @@ export default function HrApprovals() {
 
   useEffect(() => {
     setDecisionReason('');
+    setDecisionSubmitAttempted(false);
     setSubmitError('');
     setPendingDecision(null);
     setConfirmDecisionOpen(false);
@@ -494,6 +496,7 @@ export default function HrApprovals() {
 
   async function submitDecision() {
     if (!selected) return;
+    setDecisionSubmitAttempted(true);
     if (!pendingDecision) {
       setSubmitError('Choose approve or deny before confirming the decision.');
       return;
@@ -540,6 +543,7 @@ export default function HrApprovals() {
 
   function requestDecisionConfirmation() {
     if (!selected) return;
+    setDecisionSubmitAttempted(true);
     if (!pendingDecision) {
       setSubmitError('Choose approve or deny before confirming the decision.');
       return;
@@ -846,6 +850,7 @@ export default function HrApprovals() {
                   value={decisionReason}
                   onChange={(e) => setDecisionReason(e.target.value)}
                   placeholder="Type the reason for approving or denying this request"
+                  aria-invalid={decisionSubmitAttempted && decisionReason.trim().length < 5 ? 'true' : undefined}
                   readOnly={!canReviewSelected}
                 />
               </label>

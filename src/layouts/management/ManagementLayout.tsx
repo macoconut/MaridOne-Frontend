@@ -24,7 +24,7 @@ import '../shared/RoleLayout.css';
 import { getUserEmail } from '../../lib/session';
 import { BACKEND_TEST_MODE } from '../../config/flags';
 import { apiFetchRaw, expireCurrentSession, getApiBaseUrl } from '../../lib/api';
-import { resolveHeaderTitle } from '../../lib/headerProfile';
+import { resolveHeaderBadge } from '../../lib/headerProfile';
 import { type NotificationItem } from '../../lib/notificationRouting';
 import { routeWheelToScrollableChild } from '../../lib/scrollContain';
 import {
@@ -108,7 +108,7 @@ export default function ManagementLayout() {
   const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
   const { notifications, setNotifications } = useNotificationPolling('management');
-  const [headerTitle, setHeaderTitle] = useState('Management');
+  const [headerBadge, setHeaderBadge] = useState('Management');
   const [backendAction, setBackendAction] = useState<string>('None');
   const [backendResult, setBackendResult] = useState<string>('Waiting for backend test.');
   const [isLoading, setIsLoading] = useState(false);
@@ -160,9 +160,9 @@ export default function ManagementLayout() {
 
   async function loadHeaderAndNotifications() {
     try {
-      setHeaderTitle(await resolveHeaderTitle(getUserEmail(), 'Management'));
+      setHeaderBadge(await resolveHeaderBadge(getUserEmail(), 'Management'));
     } catch {
-      setHeaderTitle('Management');
+      setHeaderBadge('Management');
     }
   }
 
@@ -384,8 +384,7 @@ export default function ManagementLayout() {
             >
               <FiMenu />
             </button>
-            <div className="eTop__title">{headerTitle}</div>
-            <span className="eTop__badge">Management</span>
+            <span className="eTop__badge">{headerBadge}</span>
           </div>
 
           <div className="eTop__actions">

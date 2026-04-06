@@ -803,6 +803,18 @@ input[type='time'] {
   font-weight: 600;
 }
 
+.requestField__callout {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(242, 184, 75, 0.14);
+  border: 1px solid rgba(215, 144, 19, 0.24);
+  color: #7a4b00;
+  font-size: 12px;
+  line-height: 1.45;
+  font-weight: 700;
+}
+
 .requestUpload {
   display: flex;
   flex-wrap: wrap;

@@ -385,6 +385,7 @@ export default function Dashboard() {
   const [createAnnouncementOpen, setCreateAnnouncementOpen] = useState(false);
   const [creatingAnnouncement, setCreatingAnnouncement] = useState(false);
   const [createAnnouncementError, setCreateAnnouncementError] = useState('');
+  const [createAnnouncementSubmitAttempted, setCreateAnnouncementSubmitAttempted] = useState(false);
   const [selectedAnnouncementDay, setSelectedAnnouncementDay] = useState<SelectedAnnouncementDay | null>(null);
   const [announcementActionError, setAnnouncementActionError] = useState('');
   const [deletingAnnouncementId, setDeletingAnnouncementId] = useState<number | null>(null);
@@ -649,6 +650,7 @@ export default function Dashboard() {
   function openCreateAnnouncementModal() {
     setCreateAnnouncementError('');
     setAnnouncementDraft(createAnnouncementDraft());
+    setCreateAnnouncementSubmitAttempted(false);
     setCreateAnnouncementOpen(true);
   }
 
@@ -656,6 +658,7 @@ export default function Dashboard() {
     if (creatingAnnouncement) return;
     setCreateAnnouncementOpen(false);
     setCreateAnnouncementError('');
+    setCreateAnnouncementSubmitAttempted(false);
     setAnnouncementDraft(createAnnouncementDraft());
   }
 
@@ -672,6 +675,7 @@ export default function Dashboard() {
   }
 
   async function submitAnnouncement() {
+    setCreateAnnouncementSubmitAttempted(true);
     const title = announcementDraft.title.trim();
     const description = announcementDraft.description.trim();
     const startDate = announcementDraft.startDateTime ? new Date(announcementDraft.startDateTime) : null;
@@ -1321,6 +1325,11 @@ export default function Dashboard() {
                 <input
                   value={announcementDraft.title}
                   maxLength={120}
+                  aria-invalid={
+                    createAnnouncementSubmitAttempted && announcementDraft.title.trim().length === 0
+                      ? 'true'
+                      : undefined
+                  }
                   onChange={(event) => setAnnouncementDraftField('title', event.target.value)}
                 />
               </label>
@@ -1329,6 +1338,9 @@ export default function Dashboard() {
                 <input
                   type="datetime-local"
                   value={announcementDraft.startDateTime}
+                  aria-invalid={
+                    createAnnouncementSubmitAttempted && !announcementDraft.startDateTime ? 'true' : undefined
+                  }
                   onChange={(event) => setAnnouncementStartDateTime(event.target.value)}
                 />
               </label>
@@ -1338,6 +1350,9 @@ export default function Dashboard() {
                   type="datetime-local"
                   value={announcementDraft.endDateTime}
                   min={announcementDraft.startDateTime || undefined}
+                  aria-invalid={
+                    createAnnouncementSubmitAttempted && !announcementDraft.endDateTime ? 'true' : undefined
+                  }
                   onChange={(event) => setAnnouncementDraftField('endDateTime', event.target.value)}
                 />
               </label>

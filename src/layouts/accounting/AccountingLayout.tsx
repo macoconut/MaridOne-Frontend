@@ -9,7 +9,7 @@ import '../shared/RoleLayout.css';
 import { getUserEmail } from '../../lib/session';
 import { BACKEND_TEST_MODE } from '../../config/flags';
 import { apiFetchRaw, expireCurrentSession, getApiBaseUrl } from '../../lib/api';
-import { resolveHeaderTitle } from '../../lib/headerProfile';
+import { resolveHeaderBadge } from '../../lib/headerProfile';
 import {
   applyBodyPlaceholders,
   applyPathPlaceholders,
@@ -71,7 +71,7 @@ const navSections: NavSection[] = [
 export default function AccountingLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [headerTitle, setHeaderTitle] = useState('Accounting');
+  const [headerBadge, setHeaderBadge] = useState('Accounting');
   const [backendAction, setBackendAction] = useState<string>('None');
   const [backendResult, setBackendResult] = useState<string>('Waiting for backend test.');
   const [isLoading, setIsLoading] = useState(false);
@@ -93,9 +93,9 @@ export default function AccountingLayout() {
 
   async function loadHeaderProfile() {
     try {
-      setHeaderTitle(await resolveHeaderTitle(getUserEmail(), 'Accounting'));
+      setHeaderBadge(await resolveHeaderBadge(getUserEmail(), 'Accounting'));
     } catch {
-      setHeaderTitle('Accounting');
+      setHeaderBadge('Accounting');
     }
   }
 
@@ -245,8 +245,7 @@ export default function AccountingLayout() {
             >
               <FiMenu />
             </button>
-            <div className="eTop__title">{headerTitle}</div>
-            <span className="eTop__badge">Accounting</span>
+            <span className="eTop__badge">{headerBadge}</span>
           </div>
 
           <div className="eTop__actions">

@@ -7,6 +7,7 @@ type FileUploadFieldProps = {
   hint: string;
   file: File | null;
   onChange: (file: File | null) => void;
+  invalid?: boolean;
   uploadLabel?: string;
   replaceLabel?: string;
   emptyLabel?: string;
@@ -19,6 +20,7 @@ export default function FileUploadField({
   hint,
   file,
   onChange,
+  invalid = false,
   uploadLabel = 'Upload File',
   replaceLabel = 'Replace File',
   emptyLabel = 'No file selected',
@@ -36,7 +38,7 @@ export default function FileUploadField({
 
       <p className="fileUploadField__hint">{hint}</p>
 
-      <div className="fileUploadField__panel">
+      <div className="fileUploadField__panel" aria-invalid={invalid ? 'true' : undefined}>
         <div className="fileUploadField__actions">
           <label className="fileUploadField__button" htmlFor={inputId}>
             <FiUpload />

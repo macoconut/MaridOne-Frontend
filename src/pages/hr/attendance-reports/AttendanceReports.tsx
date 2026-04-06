@@ -705,6 +705,7 @@ export function AttendanceReportsBoard({
   const [importFile, setImportFile] = useState<File | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [importSummary, setImportSummary] = useState<AttendanceImportSummary | null>(null);
+  const [importSubmitAttempted, setImportSubmitAttempted] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
   const [selectedDateKey, setSelectedDateKey] = useState(todayDateKey);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -1504,9 +1505,11 @@ export function AttendanceReportsBoard({
   function closeImportDialog() {
     setImportDialogOpen(false);
     setImportFile(null);
+    setImportSubmitAttempted(false);
   }
 
   async function importAttendanceReport() {
+    setImportSubmitAttempted(true);
     if (!importFile) {
       setActionError('Choose an exported attendance CSV file to import.');
       return;
@@ -1875,6 +1878,7 @@ export function AttendanceReportsBoard({
             className="hrAtt__actionBtn hrAtt__actionBtn--centered"
             onClick={() => {
               setActionError('');
+              setImportSubmitAttempted(false);
               setImportDialogOpen(true);
             }}
             disabled={isLoading || isImporting}
@@ -1927,6 +1931,7 @@ export function AttendanceReportsBoard({
                 label="Attendance CSV"
                 hint="Use the exported attendance summary CSV from the previous system before migration."
                 file={importFile}
+                invalid={importSubmitAttempted && !importFile}
                 onChange={(file) => {
                   setImportFile(file);
                   setImportSummary(null);
@@ -1950,7 +1955,7 @@ export function AttendanceReportsBoard({
                   type="button"
                   className="hrAtt__actionBtn"
                   onClick={() => void importAttendanceReport()}
-                  disabled={!importFile || isImporting}
+                  disabled={isImporting}
                 >
                   <FiUpload aria-hidden="true" />
                   <span>{isImporting ? 'Importing CSV...' : 'Import Attendance (CSV)'}</span>

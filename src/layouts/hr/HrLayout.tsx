@@ -27,7 +27,7 @@ import '../shared/hr-theme.css';
 import { getUserEmail } from '../../lib/session';
 import { BACKEND_TEST_MODE } from '../../config/flags';
 import { apiFetchRaw, expireCurrentSession, getApiBaseUrl } from '../../lib/api';
-import { resolveHeaderTitle } from '../../lib/headerProfile';
+import { resolveHeaderBadge } from '../../lib/headerProfile';
 import { type NotificationItem } from '../../lib/notificationRouting';
 import { routeWheelToScrollableChild } from '../../lib/scrollContain';
 import {
@@ -341,7 +341,7 @@ export default function HrLayout() {
   const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
   const { notifications, setNotifications } = useNotificationPolling('hr');
-  const [headerTitle, setHeaderTitle] = useState('HR');
+  const [headerBadge, setHeaderBadge] = useState('HR');
   const [backendAction, setBackendAction] = useState<string>('None');
   const [backendResult, setBackendResult] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -356,9 +356,9 @@ export default function HrLayout() {
   useEffect(() => {
     void (async () => {
       try {
-        setHeaderTitle(await resolveHeaderTitle(getUserEmail(), 'HR'));
+        setHeaderBadge(await resolveHeaderBadge(getUserEmail(), 'HR'));
       } catch {
-        setHeaderTitle('HR');
+        setHeaderBadge('HR');
       }
     })();
   }, []);
@@ -631,8 +631,7 @@ export default function HrLayout() {
             >
               <FiMenu />
             </button>
-            <div className="eTop__title">{headerTitle}</div>
-            <span className="eTop__badge">Human Resources</span>
+            <span className="eTop__badge">{headerBadge}</span>
           </div>
 
           <div className="eTop__actions">

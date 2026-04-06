@@ -33,6 +33,9 @@ function fromLeaveMessage(error: ApiError) {
   if (message.includes('overlapping')) {
     return 'This leave request overlaps with another pending or approved request.';
   }
+  if (message.includes('at least 7 days before the leave date')) {
+    return 'Non-sick leave requests must be filed at least 7 days before the leave date.';
+  }
   if (message.includes('no shift schedule')) {
     return 'Your work schedule is not set up yet, so the leave request cannot be processed.';
   }

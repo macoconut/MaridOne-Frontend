@@ -56,3 +56,20 @@ export async function resolveHeaderTitle(
 
   return fullName || userName || username || `${roleLabel}#${employeeId}`;
 }
+
+export async function resolveHeaderBadge(
+  username: string | null | undefined,
+  roleLabel: string
+): Promise<string> {
+  if (!username) return roleLabel;
+
+  const userDetails = await fetchJson(`/api/user/details/${encodeURIComponent(username)}`);
+  const userRecord = asRecord(userDetails);
+  const nestedEmployee = asRecord(userRecord?.employee);
+
+  const employeeId =
+    extractFirstId(userRecord, ['employeeId', 'id', 'empId']) ??
+    extractFirstId(nestedEmployee, ['employeeId', 'id', 'empId']);
+
+  return employeeId ? `${roleLabel} #${employeeId}` : roleLabel;
+}
