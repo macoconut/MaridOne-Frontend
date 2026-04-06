@@ -1,0 +1,250 @@
+export type ShiftSchedule = {
+  shiftId?: number;
+  employeeId?: number;
+  startTime?: string;
+  endTime?: string;
+  dayOfWeek?: string;
+};
+
+export type TeamEmployee = {
+  id: number;
+  name: string;
+  position: string;
+  status: string;
+  shiftSchedules: ShiftSchedule[];
+};
+
+export type ShiftDraft = {
+  startTime: string;
+  endTime: string;
+  shiftId?: number;
+};
+
+export type DailyShift = {
+  dailyShiftId?: number;
+  employeeId?: number;
+  workDate?: string;
+  startDateTime?: string;
+  endDateTime?: string;
+  dayOff?: boolean;
+};
+
+export type DailyOverrideDraft = {
+  workDate: string;
+  startTime: string;
+  endTime: string;
+  dailyShiftId?: number;
+  isOverride: boolean;
+  dayOff: boolean;
+};
+
+export const DAY_ORDER = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'] as const;
+
+export function toTimeInputValue(value?: string) {
+  if (!value) return '';
+  const parts = value.split(':');
+  if (parts.length < 2) return '';
+  return `${parts[0]}:${parts[1]}`;
+}
+
+export function formatDayLabel(day: string) {
+  return day.charAt(0) + day.slice(1).toLowerCase();
+}
+
+export function getWeekStart(value: Date) {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  const day = date.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  date.setDate(date.getDate() + diff);
+  return date;
+}
+
+export function getMonthStart(value: Date) {
+  const date = new Date(value.getFullYear(), value.getMonth(), 1);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+export function toIsoDate(value: Date) {
+  const year = value.getFullYear();
+  const month = `${value.getMonth() + 1}`.padStart(2, '0');
+  const day = `${value.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function toMonthValue(value: Date) {
+  const year = value.getFullYear();
+  const month = `${value.getMonth() + 1}`.padStart(2, '0');
+  return `${year}-${month}`;
+}
+
+export function normalizeWeekStart(value: string) {
+  if (!value) {
+    return toIsoDate(getWeekStart(new Date()));
+  }
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(year, (month ?? 1) - 1, day ?? 1);
+  return toIsoDate(getWeekStart(date));
+}
+
+export function normalizeMonthStart(value: string) {
+  if (!value) {
+    return toIsoDate(getMonthStart(new Date()));
+  }
+  const [year, month] = value.split('-').map(Number);
+  return toIsoDate(new Date(year, (month ?? 1) - 1, 1));
+}
+
+export function addDays(isoDate: string, days: number) {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  const date = new Date(year, (month ?? 1) - 1, day ?? 1);
+  date.setDate(date.getDate() + days);
+  return toIsoDate(date);
+}
+
+export function addMonths(isoMonthStart: string, months: number) {
+  const [year, month] = isoMonthStart.split('-').map(Number);
+  const date = new Date(year, (month ?? 1) - 1 + months, 1);
+  return toIsoDate(date);
+}
+
+export function formatNextOccurrenceLabel(day: string) {
+  const targetDay = DAY_ORDER.indexOf(day as (typeof DAY_ORDER)[number]);
+  if (targetDay < 0) {
+    return formatDayLabel(day);
+  }
+
+  const today = new Date();
+  const currentDay = today.getDay();
+  const currentNormalized = currentDay === 0 ? 6 : currentDay - 1;
+  const offset = (targetDay - currentNormalized + 7) % 7;
+
+  const nextDate = new Date(today);
+  nextDate.setHours(0, 0, 0, 0);
+  nextDate.setDate(today.getDate() + offset);
+
+  return nextDate.toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+export function formatSpecificDateLabel(isoDate: string) {
+  const date = parseIsoDate(isoDate);
+  return date.toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+export function formatWeekRangeLabel(weekStart: string) {
+  const startLabel = formatSpecificDateLabel(weekStart);
+  const endLabel = formatSpecificDateLabel(addDays(weekStart, 6));
+  return `${startLabel} to ${endLabel}`;
+}
+
+export function formatMonthLabel(monthStart: string) {
+  const date = parseIsoDate(monthStart);
+  return date.toLocaleDateString(undefined, {
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+export function parseIsoDate(isoDate: string) {
+  const [year, month, day] = isoDate.split('-').map(Number);
+  return new Date(year, (month ?? 1) - 1, day ?? 1);
+}
+
+export function timeFromDateTime(value?: string) {
+  if (!value) return '';
+  const [, timePart = ''] = value.split('T');
+  return timePart.slice(0, 5);
+}
+
+export function parseTeamEmployees(payload: unknown, toArray: <T>(input: unknown) => T[]): TeamEmployee[] {
+  return toArray<Record<string, unknown>>(payload)
+    .map((row, index) => ({
+      id: Number(row.employeeId ?? row.id ?? index + 1),
+      name:
+        [row.firstName, row.middleName, row.lastName]
+          .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+          .join(' ') || `Employee #${row.employeeId ?? row.id ?? index + 1}`,
+      position: typeof row.position === 'string' ? row.position : '-',
+      status: typeof row.employmentStatus === 'string' ? row.employmentStatus : '-',
+      shiftSchedules: toArray<Record<string, unknown>>(row.shiftSchedules).map((schedule) => ({
+        shiftId: typeof schedule.shiftId === 'number' ? schedule.shiftId : undefined,
+        employeeId: typeof schedule.employeeId === 'number' ? schedule.employeeId : undefined,
+        startTime: typeof schedule.startTime === 'string' ? schedule.startTime : undefined,
+        endTime: typeof schedule.endTime === 'string' ? schedule.endTime : undefined,
+        dayOfWeek: typeof schedule.dayOfWeek === 'string' ? schedule.dayOfWeek : undefined,
+      })),
+    }))
+    .filter((employee) => Number.isFinite(employee.id));
+}
+
+export function parseDailyShifts(payload: unknown, toArray: <T>(input: unknown) => T[]): DailyShift[] {
+  return toArray<Record<string, unknown>>(payload).map((row) => ({
+    dailyShiftId: typeof row.dailyShiftId === 'number' ? row.dailyShiftId : undefined,
+    employeeId: typeof row.employeeId === 'number' ? row.employeeId : undefined,
+    workDate: typeof row.workDate === 'string' ? row.workDate : undefined,
+    startDateTime: typeof row.startDateTime === 'string' ? row.startDateTime : undefined,
+    endDateTime: typeof row.endDateTime === 'string' ? row.endDateTime : undefined,
+    dayOff: typeof row.dayOff === 'boolean' ? row.dayOff : undefined,
+  }));
+}
+
+export function buildTemplateDrafts(employee: TeamEmployee | null): Record<string, ShiftDraft> {
+  const next: Record<string, ShiftDraft> = {};
+
+  for (const day of DAY_ORDER) {
+    const schedule = employee?.shiftSchedules.find((item) => String(item.dayOfWeek ?? '').toUpperCase() === day);
+    next[day] = {
+      shiftId: schedule?.shiftId,
+      startTime: toTimeInputValue(schedule?.startTime) || '08:00',
+      endTime: toTimeInputValue(schedule?.endTime) || '17:00',
+    };
+  }
+
+  return next;
+}
+
+export function buildWeekOverrideDrafts(
+  employee: TeamEmployee | null,
+  weekStart: string,
+  dailyShifts: DailyShift[]
+): Record<string, DailyOverrideDraft> {
+  const dailyShiftMap = new Map(
+    dailyShifts
+      .filter((shift): shift is DailyShift & { workDate: string } => Boolean(shift.workDate))
+      .map((shift) => [shift.workDate, shift])
+  );
+
+  return DAY_ORDER.reduce<Record<string, DailyOverrideDraft>>((next, day, index) => {
+    const workDate = addDays(weekStart, index);
+    const override = dailyShiftMap.get(workDate);
+    const template = employee?.shiftSchedules.find((item) => String(item.dayOfWeek ?? '').toUpperCase() === day);
+    const templateStartTime = toTimeInputValue(template?.startTime) || '08:00';
+    const templateEndTime = toTimeInputValue(template?.endTime) || '17:00';
+
+    next[workDate] = {
+      workDate,
+      dailyShiftId: override?.dailyShiftId,
+      startTime: override && !override.dayOff ? timeFromDateTime(override.startDateTime) : templateStartTime,
+      endTime: override && !override.dayOff ? timeFromDateTime(override.endDateTime) : templateEndTime,
+      isOverride: Boolean(override),
+      dayOff: Boolean(override?.dayOff),
+    };
+
+    return next;
+  }, {});
+}
+
+export function getMonthDates(monthStart: string) {
+  const [year, month] = monthStart.split('-').map(Number);
+  const daysInMonth = new Date(year, month ?? 1, 0).getDate();
+  return Array.from({ length: daysInMonth }, (_, index) => addDays(monthStart, index));
+}

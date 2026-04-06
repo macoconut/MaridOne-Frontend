@@ -64,6 +64,7 @@ type DailyShift = {
   workDate?: string;
   startDateTime?: string;
   endDateTime?: string;
+  dayOff?: boolean;
 };
 
 type EmployeeRow = {
@@ -573,6 +574,7 @@ function buildOvernightShiftWindows(
       !Number.isFinite(employeeId) ||
       !eligibleEmployeeIds.has(employeeId) ||
       !workDateKey ||
+      shift.dayOff === true ||
       !shiftStart ||
       !shiftEnd ||
       Number.isNaN(shiftStart.getTime()) ||
@@ -962,7 +964,23 @@ export function AttendanceReportsBoard({
     for (const shift of dailyShifts) {
       const employeeId = Number(shift.employeeId);
       const workDateKey = localDateKey(shift.workDate ?? shift.startDateTime);
-      if (!Number.isFinite(employeeId) || !filteredEmployeeIdSet.has(employeeId) || !workDateKey) continue;
+      if (!Number.isFinite(employeeId) || !filteredEmployeeIdSet.has(employeeId) || !workDateKey || shift.dayOff === true) continue;
+
+      const current = grouped.get(employeeId) ?? new Set<string>();
+      current.add(workDateKey);
+      grouped.set(employeeId, current);
+    }
+
+    return grouped;
+  }, [dailyShifts, filteredEmployeeIdSet]);
+
+  const explicitDayOffDateKeysByEmployee = useMemo(() => {
+    const grouped = new Map<number, Set<string>>();
+
+    for (const shift of dailyShifts) {
+      const employeeId = Number(shift.employeeId);
+      const workDateKey = localDateKey(shift.workDate ?? shift.startDateTime);
+      if (!Number.isFinite(employeeId) || !filteredEmployeeIdSet.has(employeeId) || !workDateKey || shift.dayOff !== true) continue;
 
       const current = grouped.get(employeeId) ?? new Set<string>();
       current.add(workDateKey);
@@ -998,6 +1016,7 @@ export function AttendanceReportsBoard({
   const isKnownDayOffOnDate = useCallback(
     (employee: EmployeeRow | undefined, dateKey?: string) => {
       if (!employee || !dateKey || !isEmployeeActiveOnDate(employee, dateKey)) return false;
+      if (explicitDayOffDateKeysByEmployee.get(employee.id)?.has(dateKey)) return true;
       if (hasDailyShiftOnDate(employee, dateKey)) return false;
 
       const coverage = dailyShiftCoverageByEmployee.get(employee.id);
@@ -1006,7 +1025,7 @@ export function AttendanceReportsBoard({
 
       return !isEmployeeScheduledOnDate(employee, dateKey);
     },
-    [dailyShiftCoverageByEmployee, hasDailyShiftOnDate]
+    [dailyShiftCoverageByEmployee, explicitDayOffDateKeysByEmployee, hasDailyShiftOnDate]
   );
 
   const logsByDate = useMemo(() => {

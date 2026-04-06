@@ -7,6 +7,7 @@ import {
   FiCheckCircle,
   FiCheckSquare,
   FiClipboard,
+  FiClock,
   FiFileText,
   FiGrid,
   FiLogOut,
@@ -70,6 +71,8 @@ const navSections: NavSection[] = [
     items: [
       { to: '/manager/attendance-dashboard', label: 'Attendance Dashboard', icon: FiBarChart2 },
       { to: '/manager/attendance-reports', label: 'Attendance Reports', icon: FiClipboard },
+      { to: '/manager/monthly-team-schedule', label: 'Shift Calendar', icon: FiCalendar },
+      { to: '/manager/team-shift-schedules', label: 'Weekly Shift Template', icon: FiClock },
       { to: '/manager/pending-approvals', label: 'Pending Approvals', icon: FiCheckSquare },
     ],
   },
