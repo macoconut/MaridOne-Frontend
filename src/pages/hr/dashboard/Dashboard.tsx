@@ -105,6 +105,7 @@ type AttendanceOverviewDashboardProps = {
   feedScope?: 'window' | 'selected-date';
   feedTitleOverride?: string;
   feedTimeDisplay?: 'auto' | 'time-only';
+  descriptionOverride?: string;
 };
 
 type AttendanceStatusKey = 'present' | 'late' | 'absent' | 'onLeave' | 'dayOff';
@@ -602,6 +603,7 @@ export function AttendanceOverviewDashboard({
   feedScope = 'window',
   feedTitleOverride,
   feedTimeDisplay = 'auto',
+  descriptionOverride,
 }: AttendanceOverviewDashboardProps) {
   const today = new Date();
   const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(
@@ -1128,9 +1130,11 @@ export function AttendanceOverviewDashboard({
   );
   const showWeeklyNav = totalWeekPages > 1;
   const attendanceDashboardDescription =
-    audience.toLowerCase() === 'manager'
-      ? undefined
-      : 'Track attendance activity, late logs, and department trends from the latest records.';
+    descriptionOverride ?? (
+      audience.toLowerCase() === 'manager'
+        ? undefined
+        : 'Track attendance activity, late logs, and department trends from the latest records.'
+    );
   const centerPanelTitle = isWeeklyPrimaryPanel ? 'Weekly Attendance' : 'Attendance by Department';
   const feedPanelTitle = isWeeklyPrimaryPanel
     ? 'Attendance Activity'

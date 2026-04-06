@@ -7,13 +7,12 @@ import {
   FiCheckCircle,
   FiCheckSquare,
   FiClipboard,
-  FiClock,
   FiFileText,
   FiGrid,
   FiLogOut,
   FiMenu,
 } from 'react-icons/fi';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import AppFooter from '../../components/layout/AppFooter';
 import HeaderRefreshButton from '../../components/navigation/HeaderRefreshButton';
 import SidebarBrand from '../../components/navigation/SidebarBrand';
@@ -72,8 +71,7 @@ const navSections: NavSection[] = [
     items: [
       { to: '/manager/attendance-dashboard', label: 'Attendance Dashboard', icon: FiBarChart2 },
       { to: '/manager/attendance-reports', label: 'Attendance Reports', icon: FiClipboard },
-      { to: '/manager/monthly-team-schedule', label: 'Shift Calendar', icon: FiCalendar },
-      { to: '/manager/team-shift-schedules', label: 'Weekly Shift Template', icon: FiClock },
+      { to: '/manager/monthly-team-schedule', label: 'Manage Schedule', icon: FiCalendar },
       { to: '/manager/pending-approvals', label: 'Pending Approvals', icon: FiCheckSquare },
     ],
   },
@@ -97,59 +95,7 @@ export default function ManagerLayout() {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const unreadOnOpenRef = useRef<string[]>([]);
 
-  useEscapeDismiss(notifOpen, closeNotificationBell);
-
-  useEffect(() => { setDrawerOpen(false); }, [location.pathname]);
-
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (!notifOpen) return;
-
-      const target = e.target as Node;
-      if (panelRef.current?.contains(target) || bellRef.current?.contains(target)) return;
-      closeNotificationBell();
-    }
-
-      document.addEventListener('mousedown', handleClick);
-      return () => {
-        document.removeEventListener('mousedown', handleClick);
-      };
-  }, [notifOpen]);
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        setHeaderBadge(await resolveHeaderBadge(getUserEmail(), 'Manager'));
-      } catch {
-        setHeaderBadge('Manager');
-      }
-    })();
-  }, []);
-
-  useEffect(() => {
-    const activeSection = navSections.find((section) =>
-      section.items.some((item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`))
-    );
-
-    if (!activeSection) return;
-
-    setOpenSections((prev) => (prev[activeSection.id] ? prev : { ...prev, [activeSection.id]: true }));
-  }, [location.pathname]);
-
-  async function handleLogout() {
-    await expireCurrentSession();
-    navigate('/', { replace: true });
-  }
-
-  function handleBrandClick() {
-    navigate('/manager/self-service/dashboard', { replace: true });
-  }
-
-  function toggleSection(sectionId: string) {
-    setOpenSections((prev) => ({ ...prev, [sectionId]: !prev[sectionId] }));
-  }
-
-  async function markNotificationsRead(ids: string[]) {
+  const markNotificationsRead = useCallback(async (ids: string[]) => {
     const numericIds = ids
       .map((id) => ({ id, numericId: Number(id) }))
       .filter((item) => Number.isFinite(item.numericId));
@@ -184,15 +130,67 @@ export default function ManagerLayout() {
         prev.map((item) => (failedIds.has(item.id) ? { ...item, isRead: false } : item))
       );
     }
-  }
+  }, [setNotifications]);
 
-  function closeNotificationBell() {
+  const closeNotificationBell = useCallback(() => {
     if (!notifOpen) return;
 
     const unreadIds = unreadOnOpenRef.current;
     unreadOnOpenRef.current = [];
     setNotifOpen(false);
     void markNotificationsRead(unreadIds);
+  }, [markNotificationsRead, notifOpen]);
+
+  useEscapeDismiss(notifOpen, closeNotificationBell);
+
+  useEffect(() => { setDrawerOpen(false); }, [location.pathname]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (!notifOpen) return;
+
+      const target = e.target as Node;
+      if (panelRef.current?.contains(target) || bellRef.current?.contains(target)) return;
+      closeNotificationBell();
+    }
+
+      document.addEventListener('mousedown', handleClick);
+      return () => {
+        document.removeEventListener('mousedown', handleClick);
+      };
+  }, [closeNotificationBell, notifOpen]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        setHeaderBadge(await resolveHeaderBadge(getUserEmail(), 'Manager'));
+      } catch {
+        setHeaderBadge('Manager');
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    const activeSection = navSections.find((section) =>
+      section.items.some((item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`))
+    );
+
+    if (!activeSection) return;
+
+    setOpenSections((prev) => (prev[activeSection.id] ? prev : { ...prev, [activeSection.id]: true }));
+  }, [location.pathname]);
+
+  async function handleLogout() {
+    await expireCurrentSession();
+    navigate('/', { replace: true });
+  }
+
+  function handleBrandClick() {
+    navigate('/manager/self-service/dashboard', { replace: true });
+  }
+
+  function toggleSection(sectionId: string) {
+    setOpenSections((prev) => ({ ...prev, [sectionId]: !prev[sectionId] }));
   }
 
   function handleNotificationBellClick() {

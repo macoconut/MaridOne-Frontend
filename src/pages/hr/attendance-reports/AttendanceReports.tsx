@@ -149,6 +149,7 @@ type AttendanceReportsBoardProps = {
   logsUrl?: string;
   rosterUrl?: string;
   leavesUrl?: string;
+  descriptionOverride?: string;
 };
 
 type OvernightShiftWindow = {
@@ -669,6 +670,7 @@ export function AttendanceReportsBoard({
   logsUrl = '/api/logs/attendance',
   rosterUrl = '/api/employees',
   leavesUrl = '/api/leave/request',
+  descriptionOverride,
 }: AttendanceReportsBoardProps) {
   const today = useMemo(() => new Date(), []);
   const todayYear = today.getFullYear();
@@ -1578,9 +1580,11 @@ export function AttendanceReportsBoard({
   }
 
   const attendanceReportDescription =
-    audienceLabel === 'Manager'
-      ? undefined
-      : 'Review daily attendance activity, late entries, incomplete logs, and gaps in one monthly calendar.';
+    descriptionOverride ?? (
+      audienceLabel === 'Manager'
+        ? undefined
+        : 'Review daily attendance activity, late entries, incomplete logs, and gaps in one monthly calendar.'
+    );
   const canImport = audienceLabel === 'HR';
   const importIssues = toArray<AttendanceImportIssue>(importSummary?.issues);
   const selectedDetailSubtitle = selectedIsHoliday

@@ -1,15 +1,20 @@
 import type { CSSProperties } from 'react';
-import { useEffect, useMemo, useState } from 'react';
-import { FiCalendar, FiChevronLeft, FiChevronRight, FiRefreshCw, FiSave, FiUsers } from 'react-icons/fi';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FiCalendar, FiChevronDown, FiChevronLeft, FiChevronRight, FiSave, FiX } from 'react-icons/fi';
+import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
+import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import '../../hr/attendance-reports/AttendanceReports.css';
 import {
+  buildTemplateDrafts,
+  DAY_ORDER,
   addMonths,
+  formatDayLabel,
   formatMonthLabel,
   formatSpecificDateLabel,
   getMonthDates,
@@ -19,9 +24,8 @@ import {
   parseTeamEmployees,
   timeFromDateTime,
   toIsoDate,
-  toMonthValue,
 } from '../team-shift-schedules/scheduleUtils';
-import type { DailyShift, TeamEmployee } from '../team-shift-schedules/scheduleUtils';
+import type { DailyShift, ShiftDraft, TeamEmployee } from '../team-shift-schedules/scheduleUtils';
 import './MonthlyTeamSchedule.css';
 
 const CALENDAR_DAYS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
@@ -31,8 +35,14 @@ type EditorDraft = {
   endTime: string;
   dayOff: boolean;
   isOverride: boolean;
+  hasTemplate: boolean;
   templateStartTime: string;
   templateEndTime: string;
+};
+
+type HolidayLookupResponse = {
+  holidayDates?: string[];
+  regularHolidayDates?: string[];
 };
 
 function buildCalendarCells(monthStart: string) {
@@ -56,11 +66,35 @@ function formatTimeLabel(value: string) {
   return `${normalizedHour}:${String(safeMinutes).padStart(2, '0')} ${meridiem}`;
 }
 
-function formatShortDateLabel(workDate: string) {
-  return parseIsoDate(workDate).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  });
+function normalizeSearchText(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function formatUiLabel(value: string) {
+  return value
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function parseHolidayLookup(payload: unknown) {
+  const object =
+    payload && typeof payload === 'object'
+      ? (payload as HolidayLookupResponse)
+      : ({} as HolidayLookupResponse);
+
+  const holidayDates = Array.isArray(object.holidayDates)
+    ? [...new Set(object.holidayDates.filter((value): value is string => typeof value === 'string' && value.trim().length > 0))]
+    : [];
+  const regularHolidayDates = Array.isArray(object.regularHolidayDates)
+    ? [
+        ...new Set(
+          object.regularHolidayDates.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        ),
+      ]
+    : [];
+
+  return { holidayDates, regularHolidayDates };
 }
 
 function resolveTemplateTimes(employee: TeamEmployee | null, workDate: string) {
@@ -68,8 +102,9 @@ function resolveTemplateTimes(employee: TeamEmployee | null, workDate: string) {
   const template = employee?.shiftSchedules.find((item) => String(item.dayOfWeek ?? '').toUpperCase() === dayName);
 
   return {
-    startTime: template?.startTime?.slice(0, 5) || '08:00',
-    endTime: template?.endTime?.slice(0, 5) || '17:00',
+    hasTemplate: Boolean(template),
+    startTime: template?.startTime?.slice(0, 5) || '',
+    endTime: template?.endTime?.slice(0, 5) || '',
   };
 }
 
@@ -84,31 +119,78 @@ function buildEditorDraft(
   return {
     startTime: override && !override.dayOff ? timeFromDateTime(override.startDateTime) || template.startTime : template.startTime,
     endTime: override && !override.dayOff ? timeFromDateTime(override.endDateTime) || template.endTime : template.endTime,
-    dayOff: Boolean(override?.dayOff),
+    dayOff: override ? Boolean(override?.dayOff) : !template.hasTemplate,
     isOverride: Boolean(override?.dailyShiftId),
+    hasTemplate: template.hasTemplate,
     templateStartTime: template.startTime,
     templateEndTime: template.endTime,
   };
 }
 
+function buildLockedDayDrafts(
+  employee: TeamEmployee | null,
+  monthStart: string,
+  shiftMap: Map<string, DailyShift>,
+  todayKey: string
+) {
+  return getMonthDates(monthStart)
+    .filter((workDate) => workDate <= todayKey)
+    .reduce<Record<string, EditorDraft>>((next, workDate) => {
+      next[workDate] = buildEditorDraft(employee, workDate, shiftMap);
+      return next;
+    }, {});
+}
+
 export default function ManagerMonthlyTeamSchedule() {
   const { showSuccess } = useUiDialog();
+  const initialMonthStart = useMemo(() => normalizeMonthStart(toIsoDate(new Date())), []);
   const [employees, setEmployees] = useState<TeamEmployee[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(null);
-  const [selectedMonthStart, setSelectedMonthStart] = useState(() => normalizeMonthStart(toIsoDate(new Date())));
+  const [employeePickerOpen, setEmployeePickerOpen] = useState(false);
+  const [employeeSearch, setEmployeeSearch] = useState('');
+  const [selectedMonthStart, setSelectedMonthStart] = useState(() => initialMonthStart);
   const [dailyShifts, setDailyShifts] = useState<DailyShift[]>([]);
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
   const [editorDraft, setEditorDraft] = useState<EditorDraft | null>(null);
+  const [templateDrafts, setTemplateDrafts] = useState<Record<string, ShiftDraft>>({});
+  const [selectedTemplateDays, setSelectedTemplateDays] = useState<string[]>([]);
+  const [templateStartTime, setTemplateStartTime] = useState('08:00');
+  const [templateEndTime, setTemplateEndTime] = useState('17:00');
+  const [lockedDayDrafts, setLockedDayDrafts] = useState<Record<string, EditorDraft>>({});
   const [loadingTeam, setLoadingTeam] = useState(false);
   const [loadingMonth, setLoadingMonth] = useState(false);
+  const [holidayDateKeys, setHolidayDateKeys] = useState<string[]>([]);
+  const [regularHolidayDateKeys, setRegularHolidayDateKeys] = useState<string[]>([]);
   const [savingDate, setSavingDate] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [saveError, setSaveError] = useState('');
+  const employeePickerRef = useRef<HTMLDivElement | null>(null);
+  const employeeSearchInputRef = useRef<HTMLInputElement | null>(null);
 
-  useErrorDialogEffect(loadError, 'Shift calendar could not be loaded');
-  useErrorDialogEffect(saveError, 'Shift calendar could not be saved');
+  useErrorDialogEffect(loadError, 'Schedule calendar could not be loaded');
+  useErrorDialogEffect(saveError, 'Schedule calendar could not be saved');
+  useEscapeDismiss(editorOpen, closeEditor, 10);
+  useEscapeDismiss(templateEditorOpen, closeTemplateEditor, 11);
+  useEscapeDismiss(employeePickerOpen, closeEmployeePicker, 12);
 
   const todayKey = useMemo(() => toIsoDate(new Date()), []);
+  const monthOptions = useMemo(() => {
+    const values = new Set<string>();
+    for (let offset = -18; offset <= 18; offset += 1) {
+      values.add(addMonths(initialMonthStart, offset));
+    }
+    values.add(selectedMonthStart);
+
+    return [...values]
+      .sort((left, right) => left.localeCompare(right))
+      .map((value) => ({
+        value,
+        label: formatMonthLabel(value),
+      }));
+  }, [initialMonthStart, selectedMonthStart]);
 
   const sortedEmployees = useMemo(
     () => [...employees].sort((left, right) => left.name.localeCompare(right.name)),
@@ -119,6 +201,15 @@ export default function ManagerMonthlyTeamSchedule() {
     () => sortedEmployees.find((employee) => employee.id === selectedEmployeeId) ?? null,
     [selectedEmployeeId, sortedEmployees]
   );
+  const filteredEmployees = useMemo(() => {
+    const query = normalizeSearchText(employeeSearch);
+    if (!query) return sortedEmployees;
+
+    return sortedEmployees.filter((employee) =>
+      [employee.name, employee.status, formatUiLabel(employee.status), employee.position]
+        .some((value) => normalizeSearchText(value).includes(query))
+    );
+  }, [employeeSearch, sortedEmployees]);
 
   const calendarCells = useMemo(() => buildCalendarCells(selectedMonthStart), [selectedMonthStart]);
   const calendarStyle = useMemo(
@@ -138,10 +229,51 @@ export default function ManagerMonthlyTeamSchedule() {
       ),
     [dailyShifts]
   );
+  const holidayDateSet = useMemo(() => new Set(holidayDateKeys), [holidayDateKeys]);
+  const regularHolidayDateSet = useMemo(() => new Set(regularHolidayDateKeys), [regularHolidayDateKeys]);
+  const selectedDateIsLocked = Boolean(selectedDateKey && selectedDateKey <= todayKey);
+  const selectedDateIsHoliday = Boolean(selectedDateKey && holidayDateSet.has(selectedDateKey));
+  const selectedDateDayTypeLabel = !selectedDateKey
+    ? ''
+    : selectedDateIsHoliday
+      ? regularHolidayDateSet.has(selectedDateKey)
+        ? 'Regular holiday'
+        : 'Special holiday'
+      : 'Regular workday';
+  const selectedDateSavedTimeLabel = !editorDraft || editorDraft.dayOff || !editorDraft.startTime || !editorDraft.endTime
+    ? 'Day off'
+    : `${formatTimeLabel(editorDraft.startTime)} - ${formatTimeLabel(editorDraft.endTime)}`;
+  const canClearEmployeePicker = employeeSearch.trim().length > 0;
+  const resolveDisplayedDraft = useCallback(
+    (workDate: string) => {
+      if (workDate <= todayKey && lockedDayDrafts[workDate]) {
+        return lockedDayDrafts[workDate];
+      }
+      return buildEditorDraft(selectedEmployee, workDate, shiftMap);
+    },
+    [lockedDayDrafts, selectedEmployee, shiftMap, todayKey]
+  );
 
-  async function loadTeamSchedules() {
-    setLoadingTeam(true);
-    setLoadError('');
+  function closeEmployeePicker() {
+    setEmployeePickerOpen(false);
+    setEmployeeSearch(selectedEmployee?.name ?? '');
+  }
+
+  function closeEditor() {
+    setEditorOpen(false);
+    setSaveError('');
+  }
+
+  function closeTemplateEditor() {
+    setTemplateEditorOpen(false);
+    setSaveError('');
+  }
+
+  const loadTeamSchedules = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) {
+      setLoadingTeam(true);
+      setLoadError('');
+    }
 
     try {
       const payload = await apiFetchJson<unknown>('/api/employees/team');
@@ -154,34 +286,76 @@ export default function ManagerMonthlyTeamSchedule() {
         return mapped[0]?.id ?? null;
       });
     } catch (error) {
-      setEmployees([]);
-      setSelectedEmployeeId(null);
-      setLoadError(getFriendlyErrorMessage(error, 'employee-load'));
+      if (!silent) {
+        setEmployees([]);
+        setSelectedEmployeeId(null);
+        setLoadError(getFriendlyErrorMessage(error, 'employee-load'));
+      }
     } finally {
-      setLoadingTeam(false);
+      if (!silent) {
+        setLoadingTeam(false);
+      }
     }
-  }
+  }, []);
 
-  const refreshMonthlyPlanner = useAutoRefreshingPage(loadTeamSchedules, {
+  useAutoRefreshingPage(() => loadTeamSchedules({ silent: true }), {
     intervalMs: 15000,
-    enabled: !savingDate,
+    enabled: !savingDate && !savingTemplate && !editorOpen && !templateEditorOpen,
   });
 
   useEffect(() => {
-    void refreshMonthlyPlanner();
-  }, [refreshMonthlyPlanner]);
+    void loadTeamSchedules();
+  }, [loadTeamSchedules]);
 
   useEffect(() => {
-    if (!selectedEmployee) {
+    const monthDates = getMonthDates(selectedMonthStart);
+    const monthEnd = monthDates[monthDates.length - 1] ?? selectedMonthStart;
+    let cancelled = false;
+
+    async function loadMonthHolidays() {
+      try {
+        const payload = await apiFetchJson<unknown>(
+          `/api/holidays?startDate=${selectedMonthStart}&endDate=${monthEnd}`
+        );
+        if (cancelled) return;
+        const parsed = parseHolidayLookup(payload);
+        setHolidayDateKeys(parsed.holidayDates);
+        setRegularHolidayDateKeys(parsed.regularHolidayDates);
+      } catch (error) {
+        if (cancelled) return;
+        setHolidayDateKeys([]);
+        setRegularHolidayDateKeys([]);
+        setLoadError(getFriendlyErrorMessage(error, 'employee-load'));
+      }
+    }
+
+    void loadMonthHolidays();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedMonthStart]);
+
+  useEffect(() => {
+    if (editorOpen || templateEditorOpen) document.body.classList.add('modal-open');
+    else document.body.classList.remove('modal-open');
+
+    return () => document.body.classList.remove('modal-open');
+  }, [editorOpen, templateEditorOpen]);
+
+  useEffect(() => {
+    if (!selectedEmployeeId) {
       setDailyShifts([]);
+      setLockedDayDrafts({});
       return;
     }
 
-    const employeeId = selectedEmployee.id;
+    const employeeId = selectedEmployeeId;
     let cancelled = false;
 
     async function loadMonthPlan() {
       setLoadingMonth(true);
+      setLoadError('');
       try {
         const monthDates = getMonthDates(selectedMonthStart);
         const monthEnd = monthDates[monthDates.length - 1] ?? selectedMonthStart;
@@ -207,24 +381,22 @@ export default function ManagerMonthlyTeamSchedule() {
     return () => {
       cancelled = true;
     };
-  }, [selectedEmployee, selectedMonthStart]);
+  }, [selectedEmployeeId, selectedMonthStart]);
+
+  useEffect(() => {
+    setSelectedDateKey(null);
+    setEditorOpen(false);
+    setTemplateEditorOpen(false);
+  }, [selectedEmployeeId, selectedMonthStart]);
 
   useEffect(() => {
     if (!selectedEmployee) {
-      setSelectedDateKey(null);
+      setLockedDayDrafts({});
       return;
     }
 
-    const monthDates = getMonthDates(selectedMonthStart);
-    const fallbackDate = monthDates.find((dateKey) => dateKey >= todayKey) ?? monthDates[0] ?? null;
-
-    setSelectedDateKey((current) => {
-      if (current && monthDates.includes(current)) {
-        return current;
-      }
-      return fallbackDate;
-    });
-  }, [selectedEmployee, selectedMonthStart, todayKey]);
+    setLockedDayDrafts(buildLockedDayDrafts(selectedEmployee, selectedMonthStart, shiftMap, todayKey));
+  }, [selectedEmployeeId, selectedMonthStart, dailyShifts, shiftMap, todayKey]);
 
   useEffect(() => {
     if (!selectedEmployee || !selectedDateKey) {
@@ -232,12 +404,68 @@ export default function ManagerMonthlyTeamSchedule() {
       return;
     }
 
-    setEditorDraft(buildEditorDraft(selectedEmployee, selectedDateKey, shiftMap));
-  }, [selectedDateKey, selectedEmployee, shiftMap]);
+    setEditorDraft(resolveDisplayedDraft(selectedDateKey));
+  }, [resolveDisplayedDraft, selectedDateKey, selectedEmployee]);
+
+  useEffect(() => {
+    setTemplateDrafts(buildTemplateDrafts(selectedEmployee));
+  }, [selectedEmployee]);
+
+  useEffect(() => {
+    if (!employeePickerOpen) {
+      setEmployeeSearch(selectedEmployee?.name ?? '');
+    }
+  }, [employeePickerOpen, selectedEmployee]);
+
+  useEffect(() => {
+    if (!employeePickerOpen) return;
+
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (!employeePickerRef.current?.contains(target)) {
+        closeEmployeePicker();
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [employeePickerOpen, selectedEmployee]);
 
   function selectDate(workDate: string) {
     setSelectedDateKey(workDate);
+    setTemplateEditorOpen(false);
+    setEditorOpen(true);
     setSaveError('');
+  }
+
+  function selectEmployee(employee: TeamEmployee) {
+    setSelectedEmployeeId(employee.id);
+    setEmployeeSearch(employee.name);
+    setEmployeePickerOpen(false);
+  }
+
+  function clearEmployeeSearch() {
+    setEmployeeSearch('');
+    setEmployeePickerOpen(true);
+    employeeSearchInputRef.current?.focus();
+  }
+
+  function openTemplateEditor() {
+    if (!selectedEmployee) return;
+    setTemplateDrafts(buildTemplateDrafts(selectedEmployee));
+    setSelectedTemplateDays([]);
+    setTemplateStartTime('08:00');
+    setTemplateEndTime('17:00');
+    setEditorOpen(false);
+    setTemplateEditorOpen(true);
+    setSaveError('');
+  }
+
+  function toggleTemplateDay(day: string) {
+    setSelectedTemplateDays((current) =>
+      current.includes(day) ? current.filter((item) => item !== day) : [...current, day]
+    );
   }
 
   function updateDraft(key: 'startTime' | 'endTime', value: string) {
@@ -248,24 +476,11 @@ export default function ManagerMonthlyTeamSchedule() {
     setEditorDraft((current) => (current ? { ...current, dayOff: value } : current));
   }
 
-  function applyTemplateHours() {
-    setEditorDraft((current) =>
-      current
-        ? {
-            ...current,
-            dayOff: false,
-            startTime: current.templateStartTime,
-            endTime: current.templateEndTime,
-          }
-        : current
-    );
-  }
-
   async function saveSelectedDate() {
     if (!selectedEmployee || !selectedDateKey || !editorDraft) return;
 
-    if (selectedDateKey < todayKey) {
-      setSaveError('Past schedule dates can no longer be changed.');
+    if (selectedDateKey <= todayKey) {
+      setSaveError('Schedule changes can only be made starting tomorrow.');
       return;
     }
 
@@ -319,245 +534,465 @@ export default function ManagerMonthlyTeamSchedule() {
     setSelectedMonthStart((current) => addMonths(current, offset));
   }
 
+  async function applyRecurringTemplate() {
+    if (!selectedEmployee) return;
+
+    if (selectedTemplateDays.length === 0) {
+      setSaveError('Choose at least one weekday to update.');
+      return;
+    }
+
+    if (!templateStartTime || !templateEndTime) {
+      setSaveError('Start time and end time are both required.');
+      return;
+    }
+
+    if (templateStartTime === templateEndTime) {
+      setSaveError('Start time and end time cannot be the same.');
+      return;
+    }
+
+    setSaveError('');
+    setSavingTemplate(true);
+
+    try {
+      await Promise.all(
+        selectedTemplateDays.map(async (day) => {
+          const draft = templateDrafts[day] ?? { startTime: '08:00', endTime: '17:00' };
+          if (draft.shiftId) {
+            await apiFetchJson('/api/employee/schedule/update', {
+              method: 'PATCH',
+              body: JSON.stringify({
+                shiftId: draft.shiftId,
+                startTime: templateStartTime,
+                endTime: templateEndTime,
+                dayOfWeek: day,
+              }),
+            });
+            return;
+          }
+
+          await apiFetchJson('/api/employee/schedule/add', {
+            method: 'POST',
+            body: JSON.stringify({
+              empId: selectedEmployee.id,
+              startTime: templateStartTime,
+              endTime: templateEndTime,
+              dayOfWeek: day,
+            }),
+          });
+        })
+      );
+
+      await loadTeamSchedules();
+      setTemplateEditorOpen(false);
+      const savedDays = DAY_ORDER.filter((day) => selectedTemplateDays.includes(day)).map((day) => formatDayLabel(day));
+      showSuccess(
+        `Default hours updated for ${savedDays.join(', ')}.`,
+        'Default Hours Saved'
+      );
+    } catch (error) {
+      setSaveError(getFriendlyErrorMessage(error, 'employee-save'));
+    } finally {
+      setSavingTemplate(false);
+    }
+  }
+
   return (
-    <div className="mgrMonth">
-      <div className="mgrMonth__top">
+    <div className="hrAtt mgrMonth">
+      <div className="hrAtt__head">
         <PageHeader
-          title="Shift Calendar"
-          description="Pick a month, choose a team member, then click any future calendar date to set working hours or mark it as day off."
+          title="Schedule Calendar"
+          description="Set the default hours here, then click any calendar date when you need custom hours for a specific day."
         />
-        <button
-          type="button"
-          className="mgrMonth__refresh"
-          onClick={() => void loadTeamSchedules()}
-          disabled={loadingTeam || savingDate}
-        >
-          <FiRefreshCw />
-          <span>{loadingTeam ? 'Refreshing...' : 'Refresh'}</span>
-        </button>
+
+        <div className="hrAtt__controls">
+          <div className="hrAtt__monthSelectWrap">
+            <select
+              className="hrAtt__monthSelect"
+              value={selectedMonthStart}
+              onChange={(event) => setSelectedMonthStart(event.target.value)}
+              aria-label="Select month"
+            >
+              {monthOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
 
+      <div className="hrAtt__toolbar mgrMonth__toolbar">
+        <div
+          className={`hrEmpCombo hrEmpCombo--compact mgrMonth__employeeCombo ${employeePickerOpen ? 'is-open' : ''}`}
+          ref={employeePickerRef}
+        >
+          <div className="hrEmpCombo__control">
+            <input
+              ref={employeeSearchInputRef}
+              type="text"
+              className="hrEmpCombo__input"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-controls="shift-calendar-employee-options"
+              aria-expanded={employeePickerOpen}
+              aria-haspopup="listbox"
+              value={employeeSearch}
+              onFocus={() => setEmployeePickerOpen(true)}
+              onChange={(event) => {
+                setEmployeeSearch(event.target.value);
+                setEmployeePickerOpen(true);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && filteredEmployees.length > 0) {
+                  event.preventDefault();
+                  selectEmployee(filteredEmployees[0]);
+                }
+              }}
+              placeholder={
+                loadingTeam
+                  ? 'Loading team members...'
+                  : sortedEmployees.length === 0
+                    ? 'No team members assigned'
+                    : 'Search team member'
+              }
+              disabled={loadingTeam || sortedEmployees.length === 0}
+              aria-label="Search team member"
+            />
+            {canClearEmployeePicker ? (
+              <button
+                type="button"
+                className="hrEmpCombo__clear"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={clearEmployeeSearch}
+                disabled={loadingTeam || sortedEmployees.length === 0}
+                aria-label="Clear team member search"
+              >
+                <FiX />
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="hrEmpCombo__toggle"
+              onClick={() => {
+                if (loadingTeam || sortedEmployees.length === 0) return;
+                setEmployeeSearch(selectedEmployee?.name ?? '');
+                setEmployeePickerOpen((current) => !current);
+              }}
+              disabled={loadingTeam || sortedEmployees.length === 0}
+              aria-label={employeePickerOpen ? 'Close team member list' : 'Open team member list'}
+            >
+              <FiChevronDown />
+            </button>
+          </div>
+
+          {employeePickerOpen ? (
+            <div className="hrEmpCombo__menu" id="shift-calendar-employee-options" role="listbox">
+              {loadingTeam ? (
+                <div className="hrEmpCombo__empty">Loading team members...</div>
+              ) : filteredEmployees.length > 0 ? (
+                filteredEmployees.map((employee) => {
+                  const isSelected = employee.id === selectedEmployeeId;
+                  return (
+                    <button
+                      key={employee.id}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      className={`hrEmpCombo__option ${isSelected ? 'is-selected' : ''}`}
+                      onClick={() => selectEmployee(employee)}
+                    >
+                      <span className="hrEmpCombo__optionName">{employee.name}</span>
+                      <span className="hrEmpCombo__optionMeta">{formatUiLabel(employee.status)}</span>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="hrEmpCombo__empty">No team members match that search.</div>
+              )}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="mgrMonth__toolbarActions">
+          <button
+            type="button"
+            className="actionBtnX mgrMonth__toolbarBtn"
+            onClick={openTemplateEditor}
+            disabled={!selectedEmployee || loadingTeam || savingTemplate}
+          >
+            <span className="mgrMonth__toolbarBtnLabel">Edit Default Hours</span>
+            <span className="mgrMonth__toolbarBtnIcon" aria-hidden="true">
+              <FiCalendar />
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {loadingTeam && (
+        <p className="hrAtt__hint">
+          Loading team schedule data...
+        </p>
+      )}
+
       <section className="mgrMonth__shell">
-        <div className="mgrMonth__content">
-          <section className="mgrMonth__calendarPanel hrAttCalendarShell">
-            <div className="hrAttCalendarShell__top">
-              <button type="button" className="hrAttCalendarShell__navBtn" onClick={() => shiftMonth(-1)} aria-label="Previous month">
-                <FiChevronLeft />
-              </button>
-              <div className="hrAttCalendarShell__month">{formatMonthLabel(selectedMonthStart)}</div>
-              <button type="button" className="hrAttCalendarShell__navBtn" onClick={() => shiftMonth(1)} aria-label="Next month">
-                <FiChevronRight />
-              </button>
-            </div>
+        <section className="mgrMonth__calendarPanel hrAttCalendarShell">
+          <div className="hrAttCalendarShell__top">
+            <button type="button" className="hrAttCalendarShell__navBtn" onClick={() => shiftMonth(-1)} aria-label="Previous month">
+              <FiChevronLeft />
+            </button>
+            <div className="hrAttCalendarShell__month">{formatMonthLabel(selectedMonthStart)}</div>
+            <button type="button" className="hrAttCalendarShell__navBtn" onClick={() => shiftMonth(1)} aria-label="Next month">
+              <FiChevronRight />
+            </button>
+          </div>
 
-            <div className="mgrMonth__controls">
-              <label className="mgrMonth__field mgrMonth__field--employee">
-                <span>
-                  <FiUsers />
-                  Team Member
+          {selectedEmployee ? (
+            <>
+              <div className="hrAttCalendarShell__legend" aria-hidden="true">
+                <span className="hrAttCalendarShell__legendItem">
+                  <span className="hrAttCalendarShell__legendSwatch hrAttCalendarShell__legendSwatch--ot" />
+                  Custom hours
                 </span>
-                <select
-                  value={selectedEmployeeId ?? ''}
-                  onChange={(event) => setSelectedEmployeeId(event.target.value ? Number(event.target.value) : null)}
-                  disabled={loadingTeam || sortedEmployees.length === 0}
-                >
-                  {sortedEmployees.length === 0 ? (
-                    <option value="">No team members assigned</option>
-                  ) : (
-                    sortedEmployees.map((employee) => (
-                      <option key={employee.id} value={employee.id}>
-                        {employee.name} - {employee.position}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </label>
-
-              <label className="mgrMonth__field mgrMonth__field--month">
-                <span>
-                  <FiCalendar />
-                  Jump to Month
+                <span className="hrAttCalendarShell__legendItem">
+                  <span className="hrAttCalendarShell__legendSwatch hrAttCalendarShell__legendSwatch--holiday" />
+                  Holiday
                 </span>
-                <input
-                  type="month"
-                  value={toMonthValue(parseIsoDate(selectedMonthStart))}
-                  onChange={(event) => setSelectedMonthStart(normalizeMonthStart(event.target.value))}
-                />
-              </label>
-            </div>
-
-            {selectedEmployee ? (
-              <>
-                <div className="hrAttCalendarShell__focus">
-                  <div className="hrAttCalendarShell__focusName">{selectedEmployee.name}</div>
-                  <div className="hrAttCalendarShell__focusMeta">
-                    <span>{selectedEmployee.position}</span>
-                    <span>{selectedEmployee.status}</span>
-                    <span>Default template 8:00 AM - 5:00 PM</span>
-                    <span>Past dates stay read-only</span>
-                  </div>
-                </div>
-
-                <div className="hrAttCalendarShell__legend">
-                  <span className="hrAttCalendarShell__legendItem">
-                    <span className="hrAttCalendarShell__legendSwatch mgrMonth__legendSwatch--template" />
-                    Weekly template
-                  </span>
-                  <span className="hrAttCalendarShell__legendItem">
-                    <span className="hrAttCalendarShell__legendSwatch mgrMonth__legendSwatch--saved" />
-                    Saved shift
-                  </span>
-                  <span className="hrAttCalendarShell__legendItem">
-                    <span className="hrAttCalendarShell__legendSwatch mgrMonth__legendSwatch--dayoff" />
-                    Day off
-                  </span>
-                  <span className="hrAttCalendarShell__legendItem">
-                    <span className="hrAttCalendarShell__legendSwatch mgrMonth__legendSwatch--locked" />
-                    Past date locked
-                  </span>
-                </div>
-
-                <div className="mgrMonth__calendarViewport">
-                  <div className="hrCal" style={calendarStyle}>
-                    {CALENDAR_DAYS.map((day) => (
-                      <div key={day} className="hrCal__dow">
-                        {day}
-                      </div>
-                    ))}
-
-                    {calendarCells.map((cell) => {
-                      if (cell.startsWith('blank-')) {
-                        return <div key={cell} className="hrCal__cell hrCal__cell--disabled mgrMonth__cell--blank" aria-hidden="true" />;
-                      }
-
-                      const template = resolveTemplateTimes(selectedEmployee, cell);
-                      const override = shiftMap.get(cell);
-                      const isLocked = cell < todayKey;
-                      const isSelected = cell === selectedDateKey;
-                      const isToday = cell === todayKey;
-                      const dayNumber = parseIsoDate(cell).getDate();
-                      const statusLabel = override?.dayOff
-                        ? 'Day off'
-                        : override?.dailyShiftId
-                          ? 'Saved shift'
-                          : 'Template hours';
-                      const noteClass = isLocked
-                        ? 'mgrMonth__note--locked'
-                        : override?.dayOff
-                          ? 'mgrMonth__note--dayoff'
-                          : override?.dailyShiftId
-                            ? 'mgrMonth__note--saved'
-                            : 'mgrMonth__note--template';
-                      const timeLabel = override?.dayOff
-                        ? 'No working hours'
-                        : override?.dailyShiftId
-                          ? `${formatTimeLabel(timeFromDateTime(override.startDateTime) || template.startTime)} - ${formatTimeLabel(
-                              timeFromDateTime(override.endDateTime) || template.endTime
-                            )}`
-                          : `${formatTimeLabel(template.startTime)} - ${formatTimeLabel(template.endTime)}`;
-
-                      const cellClass = [
-                        'hrCal__cell',
-                        'hrCal__cell--click',
-                        override?.dayOff ? 'hrCal__cell--dayOff mgrMonth__cell--dayoff' : '',
-                        override?.dailyShiftId && !override?.dayOff ? 'hrCal__cell--ot mgrMonth__cell--saved' : '',
-                        isLocked ? 'mgrMonth__cell--locked' : '',
-                        isSelected ? 'hrCal__cell--selected' : '',
-                        isToday ? 'hrCal__cell--today' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ');
-
-                      return (
-                        <button key={cell} type="button" className={cellClass} onClick={() => selectDate(cell)}>
-                          <div className="hrCal__cellTop">
-                            <div className="hrCal__day">{dayNumber}</div>
-                            <span className="mgrMonth__cellDate">{formatShortDateLabel(cell)}</span>
-                          </div>
-
-                          <div className="hrCal__statusNotes">
-                            <span className={`hrCal__note ${noteClass}`}>{statusLabel}</span>
-                            {isLocked && <span className="hrCal__note mgrMonth__note--locked">Past date locked</span>}
-                            {isToday && <span className="hrCal__note mgrMonth__note--today">Today</span>}
-                          </div>
-
-                          <div className="hrCal__detailNotes">
-                            <span className="hrCal__detail">{timeLabel}</span>
-                            {!override?.dayOff && override?.dailyShiftId && <span className="hrCal__detail">Custom date override</span>}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="hrAttCalendarShell__empty">
-                <div>
-                  <div className="hrAttCalendarShell__emptyTitle">
-                    {loadingTeam ? 'Loading team members...' : 'No team member selected'}
-                  </div>
-                  <p className="hrAttCalendarShell__emptyText">
-                    {loadingTeam
-                      ? 'The shift calendar will appear once the team roster finishes loading.'
-                      : 'Pick a team member from the dropdown to start planning future shifts for a month.'}
-                  </p>
-                </div>
               </div>
-            )}
-          </section>
 
-          <aside className="mgrMonth__editorPanel">
-            {selectedEmployee && selectedDateKey && editorDraft ? (
-              <>
-                <div className="mgrMonth__panelTop">
-                  <div>
-                    <h2>{formatSpecificDateLabel(selectedDateKey)}</h2>
-                    <p>
-                      {editorDraft.isOverride
-                        ? 'This date already has a saved daily schedule.'
-                        : 'This date is still following the weekly template preview.'}
-                    </p>
+              <div className="hrCal" style={calendarStyle}>
+                {CALENDAR_DAYS.map((day) => (
+                  <div key={day} className="hrCal__dow">
+                    {day}
                   </div>
-                  <div className="mgrMonth__statusPill">
-                    {selectedDateKey < todayKey ? 'Past date locked' : editorDraft.dayOff ? 'Day off planned' : 'Editable day'}
-                  </div>
-                </div>
+                ))}
 
-                <div className="mgrMonth__detailGrid">
-                  <article className="mgrMonth__detailCard">
-                    <span>Team Member</span>
-                    <strong>{selectedEmployee.name}</strong>
-                  </article>
-                  <article className="mgrMonth__detailCard">
-                    <span>Template Hours</span>
-                    <strong>
-                      {formatTimeLabel(editorDraft.templateStartTime)} - {formatTimeLabel(editorDraft.templateEndTime)}
-                    </strong>
-                  </article>
-                </div>
+                {calendarCells.map((cell) => {
+                  if (cell.startsWith('blank-')) {
+                    return <div key={cell} className="hrCal__cell hrCal__cell--disabled" aria-hidden="true" />;
+                  }
 
-                <label className={`mgrMonth__dayOffToggle ${selectedDateKey < todayKey ? 'is-disabled' : ''}`}>
+                  const dayDraft = resolveDisplayedDraft(cell);
+                  const isDefaultDayOff = !dayDraft.isOverride && !dayDraft.hasTemplate && dayDraft.dayOff;
+                  const isLocked = cell <= todayKey;
+                  const isSelected = cell === selectedDateKey;
+                  const isToday = cell === todayKey;
+                  const isHoliday = holidayDateSet.has(cell);
+                  const dayNumber = parseIsoDate(cell).getDate();
+                  const timeLabel = dayDraft.dayOff || isDefaultDayOff || !dayDraft.startTime || !dayDraft.endTime
+                    ? 'Day off'
+                    : `${formatTimeLabel(dayDraft.startTime)} - ${formatTimeLabel(dayDraft.endTime)}`;
+
+                  const cellClass = [
+                    'hrCal__cell',
+                    'hrCal__cell--click',
+                    'hrCal__cell--focus',
+                    isHoliday ? 'hrCal__cell--holiday' : '',
+                    dayDraft.dayOff || isDefaultDayOff ? 'hrCal__cell--dayOff' : '',
+                    dayDraft.isOverride && !dayDraft.dayOff ? 'hrCal__cell--ot' : '',
+                    isLocked ? 'mgrMonth__cell--readonly' : '',
+                    isSelected ? 'hrCal__cell--selected' : '',
+                    isToday ? 'hrCal__cell--today' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ');
+
+                  return (
+                    <button
+                      key={cell}
+                      type="button"
+                      className={cellClass}
+                      onClick={() => selectDate(cell)}
+                      aria-current={isToday ? 'date' : undefined}
+                      aria-label={`Shift details for ${formatSpecificDateLabel(cell)}`}
+                    >
+                      <div className="hrCal__cellTop">
+                        <div className="hrCal__day">{dayNumber}</div>
+                      </div>
+
+                      <div className="hrCal__statusNotes">
+                        {dayDraft.isOverride && !dayDraft.dayOff ? (
+                          <span className="hrCal__note hrCal__note--ot">Custom hours</span>
+                        ) : null}
+                        {isHoliday && <span className="hrCal__note hrCal__note--holiday">Holiday</span>}
+                      </div>
+
+                      <div className="hrCal__detailNotes">
+                        <span className="hrCal__detail">{timeLabel}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <div className="hrAttCalendarShell__empty">
+              <div>
+                <div className="hrAttCalendarShell__emptyTitle">
+                  {loadingTeam ? 'Loading team members...' : 'No team member selected'}
+                </div>
+                <p className="hrAttCalendarShell__emptyText">
+                  {loadingTeam
+                    ? 'The schedule calendar will appear once the team roster finishes loading.'
+                    : 'Pick a team member from the search box to start planning future shifts for a month.'}
+                </p>
+              </div>
+            </div>
+          )}
+        </section>
+      </section>
+
+      {editorOpen && selectedEmployee && selectedDateKey && editorDraft ? (
+        <div className="hrAttModalBackdrop" role="dialog" aria-modal="true" aria-label="Schedule editor" onClick={closeEditor}>
+          <div className="hrAttModal mgrMonth__modal" onClick={(event) => event.stopPropagation()}>
+            <div className="hrAttModal__top">
+              <div>
+                <div className="hrAttModal__eyebrow">Schedule Calendar</div>
+                <div className="hrAttModal__title">{formatSpecificDateLabel(selectedDateKey)}</div>
+              </div>
+              <ModalCloseButton className="hrAttModal__close" onClick={closeEditor} />
+            </div>
+
+            <div className="hrAttModal__rule" />
+
+            <div className="hrAttSummary mgrMonth__editorSummary">
+              <article className="hrAttSummary__card">
+                <span>Employee</span>
+                <strong>{selectedEmployee.name}</strong>
+              </article>
+              <article className="hrAttSummary__card">
+                <span>Saved Time</span>
+                <strong>{selectedDateSavedTimeLabel}</strong>
+              </article>
+              <article className="hrAttSummary__card">
+                <span>Day Type</span>
+                <strong>{selectedDateDayTypeLabel}</strong>
+              </article>
+            </div>
+
+            <section className="hrAttBreakdown__section mgrMonth__editorSection">
+              <div className="hrAttBreakdown__title">{selectedDateIsLocked ? 'Saved schedule' : 'Edit saved schedule'}</div>
+
+              <label className={`mgrMonth__dayOffToggle ${selectedDateIsLocked ? 'is-disabled' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={editorDraft.dayOff}
+                  onChange={(event) => updateDayOff(event.target.checked)}
+                  disabled={savingDate || loadingMonth || selectedDateIsLocked}
+                />
+                <div>
+                  <strong>Mark this date as day off</strong>
+                  <span>No working hours will be saved for this calendar date.</span>
+                </div>
+              </label>
+
+              <div className="mgrMonth__timeGrid">
+                <label className="mgrMonth__field">
+                  <span>Start Time</span>
                   <input
-                    type="checkbox"
-                    checked={editorDraft.dayOff}
-                    onChange={(event) => updateDayOff(event.target.checked)}
-                    disabled={savingDate || loadingMonth || selectedDateKey < todayKey}
+                    type="time"
+                    value={editorDraft.startTime}
+                    onChange={(event) => updateDraft('startTime', event.target.value)}
+                    disabled={savingDate || loadingMonth || selectedDateIsLocked || editorDraft.dayOff}
                   />
-                  <div>
-                    <strong>Mark this date as day off</strong>
-                    <span>No working hours will be saved for this calendar date.</span>
-                  </div>
                 </label>
 
-                <div className="mgrMonth__timeGrid">
+                <label className="mgrMonth__field">
+                  <span>End Time</span>
+                  <input
+                    type="time"
+                    value={editorDraft.endTime}
+                    onChange={(event) => updateDraft('endTime', event.target.value)}
+                    disabled={savingDate || loadingMonth || selectedDateIsLocked || editorDraft.dayOff}
+                  />
+                </label>
+              </div>
+            </section>
+
+            {!selectedDateIsLocked ? (
+              <div className="hrAttModal__actions mgrMonth__modalActions">
+                <button type="button" onClick={closeEditor} disabled={savingDate || loadingMonth}>
+                  Cancel
+                </button>
+                <button type="button" onClick={() => void saveSelectedDate()} disabled={savingDate || loadingMonth}>
+                  <FiSave />
+                  <span>{savingDate ? 'Saving...' : 'Save This Date'}</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {templateEditorOpen && selectedEmployee ? (
+        <div
+          className="hrAttModalBackdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Default hours editor"
+          onClick={closeTemplateEditor}
+        >
+          <div className="hrAttModal mgrMonth__modal mgrMonth__modal--template" onClick={(event) => event.stopPropagation()}>
+            <div className="hrAttModal__top">
+              <div>
+                <div className="hrAttModal__eyebrow">Default Hours</div>
+                <div className="hrAttModal__title">{selectedEmployee.name}</div>
+                <p className="hrAttModal__subtitle">
+                  Choose the weekdays that should share the same default hours. Existing custom day changes stay exactly as they are.
+                </p>
+              </div>
+              <ModalCloseButton className="hrAttModal__close" onClick={closeTemplateEditor} />
+            </div>
+
+            <div className="hrAttModal__rule" />
+
+            <section className="mgrMonth__templateWorkspace">
+              <div className="mgrMonth__templateApply">
+                <div className="mgrMonth__templateApplyHead">
+                  <h2>Select weekdays</h2>
+                  <p>Apply one default time range to the weekdays you choose. Saved date-specific schedules stay untouched.</p>
+                </div>
+
+                <div className="mgrMonth__templateGrid">
+                  {DAY_ORDER.map((day) => {
+                    const draft = templateDrafts[day] ?? { startTime: '', endTime: '' };
+                    const isSelected = selectedTemplateDays.includes(day);
+
+                    return (
+                      <button
+                        key={day}
+                        type="button"
+                        className={`mgrMonth__templateDay ${isSelected ? 'is-selected' : ''}`}
+                        onClick={() => toggleTemplateDay(day)}
+                      >
+                        <strong>{formatDayLabel(day)}</strong>
+                        <span>
+                          {draft.shiftId && draft.startTime && draft.endTime
+                            ? `Current: ${formatTimeLabel(draft.startTime)} - ${formatTimeLabel(draft.endTime)}`
+                            : 'Current: Day off'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <section className="mgrMonth__templateTimeCard">
+                <div className="mgrMonth__templateTimeHead">
+                  <h2>Default time range</h2>
+                  <p>This becomes the weekly base schedule for the days you select.</p>
+                </div>
+
+                <div className="mgrMonth__timeGrid mgrMonth__timeGrid--stacked">
                   <label className="mgrMonth__field">
                     <span>Start Time</span>
                     <input
                       type="time"
-                      value={editorDraft.startTime}
-                      onChange={(event) => updateDraft('startTime', event.target.value)}
-                      disabled={savingDate || loadingMonth || selectedDateKey < todayKey || editorDraft.dayOff}
+                      value={templateStartTime}
+                      onChange={(event) => setTemplateStartTime(event.target.value)}
+                      disabled={savingTemplate}
                     />
                   </label>
 
@@ -565,37 +1000,41 @@ export default function ManagerMonthlyTeamSchedule() {
                     <span>End Time</span>
                     <input
                       type="time"
-                      value={editorDraft.endTime}
-                      onChange={(event) => updateDraft('endTime', event.target.value)}
-                      disabled={savingDate || loadingMonth || selectedDateKey < todayKey || editorDraft.dayOff}
+                      value={templateEndTime}
+                      onChange={(event) => setTemplateEndTime(event.target.value)}
+                      disabled={savingTemplate}
                     />
                   </label>
                 </div>
 
-                {selectedDateKey < todayKey ? (
-                  <div className="mgrMonth__lockedNote">
-                    This day already belongs to the past, so the schedule stays read-only now.
-                  </div>
-                ) : (
-                  <div className="mgrMonth__actions">
-                    <button type="button" className="mgrMonth__ghostBtn" onClick={applyTemplateHours} disabled={savingDate || loadingMonth}>
-                      Reapply Template Hours
-                    </button>
-                    <button type="button" className="mgrMonth__save" onClick={() => void saveSelectedDate()} disabled={savingDate || loadingMonth}>
-                      <FiSave />
-                      <span>{savingDate ? 'Saving...' : 'Save This Date'}</span>
-                    </button>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="mgrMonth__empty">
-                {loadingTeam ? 'Loading team members...' : 'Choose a team member, then click a calendar day to edit that date.'}
-              </div>
-            )}
-          </aside>
+                <p className="mgrMonth__templateNote">
+                  Custom hours already saved on specific calendar dates will stay exactly as they are.
+                </p>
+              </section>
+            </section>
+
+            <div className="hrAttModal__actions mgrMonth__modalActions">
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={() => setSelectedTemplateDays([])}
+                disabled={savingTemplate || selectedTemplateDays.length === 0}
+              >
+                Clear Selection
+              </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => void applyRecurringTemplate()}
+                disabled={savingTemplate}
+              >
+                <FiSave />
+                <span>{savingTemplate ? 'Saving...' : 'Apply to Selected Days'}</span>
+              </button>
+            </div>
+          </div>
         </div>
-      </section>
+      ) : null}
     </div>
   );
 }

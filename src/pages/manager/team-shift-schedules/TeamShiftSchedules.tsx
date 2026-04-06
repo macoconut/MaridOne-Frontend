@@ -307,7 +307,7 @@ export default function ManagerTeamShiftSchedules() {
                   </button>
                   <div className="mgrShift__badge">
                     <FiClock />
-                    <span>Default is 8:00 AM - 5:00 PM</span>
+                    <span>Blank day means no weekly routine</span>
                   </div>
                 </div>
               </div>
@@ -316,7 +316,7 @@ export default function ManagerTeamShiftSchedules() {
                 <div className="mgrShift__sectionHead">
                   <div>
                     <h3>Weekly Template</h3>
-                    <p>This repeating pattern applies to every future week unless you add a specific-date override.</p>
+                    <p>This repeating pattern applies to future weeks. Leave a weekday blank when it should stay off by default.</p>
                   </div>
                   <div className="mgrShift__sectionActions">
                     <button
@@ -338,7 +338,7 @@ export default function ManagerTeamShiftSchedules() {
 
                 <div className="mgrShift__rows">
                   {DAY_ORDER.map((day) => {
-                    const draft = drafts[day] ?? { startTime: '08:00', endTime: '17:00' };
+                    const draft = drafts[day] ?? { startTime: '', endTime: '' };
                     const isSaving = savingDay === day;
 
                     return (
@@ -346,7 +346,9 @@ export default function ManagerTeamShiftSchedules() {
                         <div className="mgrShift__day">
                           <strong>{formatDayLabel(day)}</strong>
                           <span>
-                            Repeats weekly. Next occurrence: {formatNextOccurrenceLabel(day)}
+                            {draft.shiftId
+                              ? `Repeats weekly. Next occurrence: ${formatNextOccurrenceLabel(day)}`
+                              : 'No weekly routine set. This day is currently off until you add a shift.'}
                           </span>
                         </div>
 
@@ -419,10 +421,11 @@ export default function ManagerTeamShiftSchedules() {
                       const workDate = addDays(selectedWeekStart, index);
                       const draft = overrideDrafts[workDate] ?? {
                         workDate,
-                        startTime: '08:00',
-                        endTime: '17:00',
+                        startTime: '',
+                        endTime: '',
                         isOverride: false,
                         dayOff: false,
+                        hasTemplate: false,
                       };
                       const isSaving = savingOverrideDate === workDate;
 
@@ -432,10 +435,14 @@ export default function ManagerTeamShiftSchedules() {
                             <strong>{formatSpecificDateLabel(workDate)}</strong>
                             <span>
                               {draft.dayOff
-                                ? 'This date is marked as day off in the shift calendar'
+                                ? draft.isOverride
+                                  ? 'This date is marked as day off in the shift calendar'
+                                  : 'No weekly routine is set for this weekday, so this date is currently off'
                                 : draft.isOverride
                                 ? 'Specific-date override already exists'
-                                : 'Uses the weekly template until you save an override'}
+                                : draft.hasTemplate
+                                  ? 'Uses the weekly template until you save an override'
+                                  : 'No weekly routine is set for this weekday yet'}
                             </span>
                           </div>
 

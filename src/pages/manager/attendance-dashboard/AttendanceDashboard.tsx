@@ -12,6 +12,7 @@ export default function ManagerAttendanceDashboard() {
       feedScope="selected-date"
       feedTitleOverride="Attendance Today"
       feedTimeDisplay="time-only"
+      descriptionOverride="Track your team's latest attendance activity, late logs, and daily attendance status from one dashboard."
     />
   );
 }

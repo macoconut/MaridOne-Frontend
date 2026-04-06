@@ -36,6 +36,7 @@ export type DailyOverrideDraft = {
   dailyShiftId?: number;
   isOverride: boolean;
   dayOff: boolean;
+  hasTemplate: boolean;
 };
 
 export const DAY_ORDER = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'] as const;
@@ -204,8 +205,8 @@ export function buildTemplateDrafts(employee: TeamEmployee | null): Record<strin
     const schedule = employee?.shiftSchedules.find((item) => String(item.dayOfWeek ?? '').toUpperCase() === day);
     next[day] = {
       shiftId: schedule?.shiftId,
-      startTime: toTimeInputValue(schedule?.startTime) || '08:00',
-      endTime: toTimeInputValue(schedule?.endTime) || '17:00',
+      startTime: toTimeInputValue(schedule?.startTime),
+      endTime: toTimeInputValue(schedule?.endTime),
     };
   }
 
@@ -227,8 +228,9 @@ export function buildWeekOverrideDrafts(
     const workDate = addDays(weekStart, index);
     const override = dailyShiftMap.get(workDate);
     const template = employee?.shiftSchedules.find((item) => String(item.dayOfWeek ?? '').toUpperCase() === day);
-    const templateStartTime = toTimeInputValue(template?.startTime) || '08:00';
-    const templateEndTime = toTimeInputValue(template?.endTime) || '17:00';
+    const hasTemplate = Boolean(template);
+    const templateStartTime = toTimeInputValue(template?.startTime);
+    const templateEndTime = toTimeInputValue(template?.endTime);
 
     next[workDate] = {
       workDate,
@@ -236,7 +238,8 @@ export function buildWeekOverrideDrafts(
       startTime: override && !override.dayOff ? timeFromDateTime(override.startDateTime) : templateStartTime,
       endTime: override && !override.dayOff ? timeFromDateTime(override.endDateTime) : templateEndTime,
       isOverride: Boolean(override),
-      dayOff: Boolean(override?.dayOff),
+      dayOff: override ? Boolean(override?.dayOff) : !hasTemplate,
+      hasTemplate,
     };
 
     return next;

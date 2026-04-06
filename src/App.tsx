@@ -3,8 +3,8 @@ import type { ReactElement } from 'react';
 import { getAuthToken, getRequiresPasswordChange, getUserRole, type UserRole } from './lib/session';
 import { getRoleHomePath } from './lib/roleRoutes';
 
-import Landing from './pages/Public/Landing';
-import VerifyEmail from './pages/Public/VerifyEmail';
+import Landing from './pages/public/Landing';
+import VerifyEmail from './pages/public/VerifyEmail';
 import EmployeeLogin from './pages/auth/login/Login';
 import ChangePassword from './pages/auth/change-password/ChangePassword';
 import ForgotPassword from './pages/auth/forgot-password/ForgotPassword';
@@ -31,7 +31,6 @@ import ManagerLayout from './layouts/manager/ManagerLayout';
 import ManagerAttendanceDashboard from './pages/manager/attendance-dashboard/AttendanceDashboard';
 import ManagerAttendanceReports from './pages/manager/attendance-reports/AttendanceReports';
 import ManagerPendingApprovals from './pages/manager/pending-approvals/PendingApprovals';
-import ManagerTeamShiftSchedules from './pages/manager/team-shift-schedules/TeamShiftSchedules';
 import ManagerMonthlyTeamSchedule from './pages/manager/monthly-team-schedule/MonthlyTeamSchedule';
 import AccountingLayout from './layouts/accounting/AccountingLayout';
 import AccountingPayrollDashboard from './pages/accounting/payroll-dashboard/PayrollDashboard';
@@ -201,7 +200,7 @@ export default function App() {
             <Route path="dashboard" element={<Navigate to="/manager/self-service/dashboard" replace />} />
             <Route path="attendance-dashboard" element={<ManagerAttendanceDashboard />} />
             <Route path="attendance-reports" element={<ManagerAttendanceReports />} />
-            <Route path="team-shift-schedules" element={<ManagerTeamShiftSchedules />} />
+            <Route path="team-shift-schedules" element={<Navigate to="/manager/monthly-team-schedule" replace />} />
             <Route path="monthly-team-schedule" element={<ManagerMonthlyTeamSchedule />} />
             <Route path="pending-approvals" element={<ManagerPendingApprovals />} />
             <Route path="self-service">

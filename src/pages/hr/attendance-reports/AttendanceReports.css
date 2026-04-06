@@ -515,6 +515,9 @@ body.modal-open {
 
 .hrCal__cell--today {
   border-color: rgba(36, 31, 42, 0.9);
+  box-shadow:
+    0 0 0 1px rgba(36, 31, 42, 0.12),
+    inset 0 0 0 1px rgba(36, 31, 42, 0.82);
 }
 
 .hrCal__cell--selected {
