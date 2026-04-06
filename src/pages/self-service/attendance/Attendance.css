@@ -988,6 +988,10 @@ input[type='time'] {
   margin-top: auto;
 }
 
+.requestActions .uiActionBtn {
+  min-width: 132px;
+}
+
 .btn {
   min-width: 120px;
   height: 42px;
@@ -1039,6 +1043,10 @@ input[type='time'] {
   }
   .requestActions {
     flex-direction: column-reverse;
+  }
+
+  .requestActions .uiActionBtn {
+    width: 100%;
   }
 
   .requestField__group {

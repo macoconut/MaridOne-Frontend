@@ -15,12 +15,12 @@ const SORT_OPTIONS: Array<{
 }> = [
   {
     value: 'id',
-    label: 'Employee ID',
+    label: 'EMP ID',
     hint: 'Show the lowest employee number first.',
   },
   {
     value: 'name',
-    label: 'Employee Name',
+    label: 'NAME',
     hint: 'Show employees in alphabetical order.',
   },
 ];

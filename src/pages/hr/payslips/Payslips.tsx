@@ -9,6 +9,7 @@ import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
+import { useUnsavedChangesPrompt } from '../../../hooks/useUnsavedChangesPrompt';
 import { compareEmployees, type EmployeeSortKey } from '../../../lib/employeeSort';
 import { extractAttachmentReference, openDocumentAttachment } from '../../../lib/documentAttachments';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
@@ -271,7 +272,7 @@ function employeeLabelFromParts(firstName?: string, lastName?: string, employeeI
     .trim();
 
   if (fullName) return fullName;
-  if (typeof employeeId === 'number') return `Employee ID ${employeeId}`;
+  if (typeof employeeId === 'number') return `EMP ID ${employeeId}`;
   return 'Employee unavailable';
 }
 
@@ -603,10 +604,13 @@ export default function HrPayslips() {
   const [manualLineModalOpen, setManualLineModalOpen] = useState(false);
   const [runSubmitAttempted, setRunSubmitAttempted] = useState(false);
   const [runForm, setRunForm] = useState<RunFormState>(() => createDefaultRunForm());
+  const [initialRunForm, setInitialRunForm] = useState<RunFormState>(() => createDefaultRunForm());
   const [manualLineForm, setManualLineForm] = useState<ManualLineFormState>(() => createDefaultManualLineForm());
+  const [initialManualLineForm, setInitialManualLineForm] = useState<ManualLineFormState>(() => createDefaultManualLineForm());
   const [employeeOptions, setEmployeeOptions] = useState<EmployeeOption[]>([]);
   const [isLoadingEmployeeOptions, setIsLoadingEmployeeOptions] = useState(false);
   const [manualEmployeeSearch, setManualEmployeeSearch] = useState('');
+  const [initialManualEmployeeSearch, setInitialManualEmployeeSearch] = useState('');
   const [manualEmployeePickerOpen, setManualEmployeePickerOpen] = useState(false);
   const [manualLineError, setManualLineError] = useState('');
   const [manualLineSubmitAttempted, setManualLineSubmitAttempted] = useState(false);
@@ -638,6 +642,45 @@ export default function HrPayslips() {
   const [openingAttachmentId, setOpeningAttachmentId] = useState<number | null>(null);
   const manualEmployeePickerRef = useRef<HTMLDivElement | null>(null);
   const loadedRunItemsPayIdRef = useRef<number | null>(null);
+  const isRunDirty =
+    runModalOpen &&
+    (runForm.periodStart !== initialRunForm.periodStart ||
+      runForm.periodEnd !== initialRunForm.periodEnd ||
+      runForm.runType !== initialRunForm.runType);
+  const isManualLineDirty =
+    manualLineModalOpen &&
+    (manualLineForm.empId !== initialManualLineForm.empId ||
+      manualLineForm.lineType !== initialManualLineForm.lineType ||
+      manualLineForm.amount !== initialManualLineForm.amount ||
+      manualEmployeeSearch !== initialManualEmployeeSearch);
+  const isCorrectionDirty =
+    correctionOpen && (selectedCorrectionKey.trim().length > 0 || correctedAmount.trim().length > 0);
+  const isDisputeReviewDirty =
+    Boolean(selectedDispute) && (remarks.trim().length > 0 || pendingDisputeDecision !== null);
+  const runUnsavedPrompt = useUnsavedChangesPrompt({
+    isOpen: runModalOpen,
+    isDirty: isRunDirty,
+    isBusy: isSubmittingRun,
+    onDiscard: closeRunModal,
+  });
+  const manualLineUnsavedPrompt = useUnsavedChangesPrompt({
+    isOpen: manualLineModalOpen,
+    isDirty: isManualLineDirty,
+    isBusy: isSubmittingManualLine,
+    onDiscard: resetManualLineState,
+  });
+  const correctionUnsavedPrompt = useUnsavedChangesPrompt({
+    isOpen: correctionOpen,
+    isDirty: isCorrectionDirty,
+    isBusy: isSubmittingCorrection,
+    onDiscard: resetCorrectionState,
+  });
+  const disputeReviewUnsavedPrompt = useUnsavedChangesPrompt({
+    isOpen: Boolean(selectedDispute),
+    isDirty: isDisputeReviewDirty,
+    isBusy: isSaving,
+    onDiscard: () => setSelectedDispute(null),
+  });
 
   useErrorDialogEffect(loadError, 'Payroll data could not be loaded');
   useErrorDialogEffect(runItemsError, 'Payroll run items could not be loaded');
@@ -647,12 +690,24 @@ export default function HrPayslips() {
   useErrorDialogEffect(runError, 'Payroll run could not be completed');
   useErrorDialogEffect(correctionError, 'Payroll correction could not be completed');
   useErrorDialogEffect(attachmentError, 'Attachment could not be opened');
-  useEscapeDismiss(runModalOpen && !isSubmittingRun, closeRunModal, 10);
+  useEscapeDismiss(runModalOpen && !isSubmittingRun && !runUnsavedPrompt.confirmOpen, runUnsavedPrompt.requestClose, 10);
   useEscapeDismiss(postModalOpen && !isPostingRun, () => setPostModalOpen(false), 10);
-  useEscapeDismiss(manualLineModalOpen && !isSubmittingManualLine, resetManualLineState, 10);
-  useEscapeDismiss(correctionOpen && !isSubmittingCorrection, resetCorrectionState, 10);
+  useEscapeDismiss(
+    manualLineModalOpen && !isSubmittingManualLine && !manualLineUnsavedPrompt.confirmOpen,
+    manualLineUnsavedPrompt.requestClose,
+    10
+  );
+  useEscapeDismiss(
+    correctionOpen && !isSubmittingCorrection && !correctionUnsavedPrompt.confirmOpen,
+    correctionUnsavedPrompt.requestClose,
+    10
+  );
   useEscapeDismiss(Boolean(selectedPayrollItem), () => setSelectedPayrollItem(null), 10);
-  useEscapeDismiss(Boolean(selectedDispute) && !isSaving, () => setSelectedDispute(null), 10);
+  useEscapeDismiss(
+    Boolean(selectedDispute) && !isSaving && !disputeReviewUnsavedPrompt.confirmOpen,
+    disputeReviewUnsavedPrompt.requestClose,
+    10
+  );
   const handlePageRefresh = () => {
     setRefreshTick((tick) => tick + 1);
   };
@@ -1057,16 +1112,20 @@ export default function HrPayslips() {
     setManualLineSubmitAttempted(false);
     setIsLoadingEmployeeOptions(false);
     const nextEmpId = defaults?.empId ?? '';
+    const nextForm: ManualLineFormState = {
+      empId: nextEmpId,
+      lineType: defaults?.lineType ?? 'EARNING',
+      amount: defaults?.amount ?? '',
+    };
     const nextEmployee =
       nextEmpId && Number.isFinite(Number(nextEmpId))
         ? employeeOptions.find((option) => option.id === Number(nextEmpId)) ?? null
         : null;
-    setManualLineForm((prev) => ({
-      empId: nextEmpId,
-      lineType: defaults?.lineType ?? prev.lineType ?? 'EARNING',
-      amount: defaults?.amount ?? '',
-    }));
-    setManualEmployeeSearch(nextEmployee?.name ?? '');
+    const nextSearch = nextEmployee?.name ?? '';
+    setManualLineForm(nextForm);
+    setInitialManualLineForm(nextForm);
+    setManualEmployeeSearch(nextSearch);
+    setInitialManualEmployeeSearch(nextSearch);
     setManualEmployeePickerOpen(false);
     setManualLineModalOpen(true);
   }
@@ -1684,6 +1743,7 @@ export default function HrPayslips() {
             onClick={() => {
               setRunError('');
               setRunSubmitAttempted(false);
+              setInitialRunForm(runForm);
               setRunModalOpen(true);
             }}
           >
@@ -1722,8 +1782,8 @@ export default function HrPayslips() {
             ) : visibleRunItems.length > 0 ? (
               <>
                 <div className="hrPayRunTable__head" role="row">
-                  <span>Employee ID</span>
-                  <span>Employee</span>
+                  <span>EMP ID</span>
+                  <span>NAME</span>
                   <span>Gross Pay</span>
                   <span>Deductions</span>
                   <span>Net Pay</span>
@@ -1924,7 +1984,12 @@ export default function HrPayslips() {
             </div>
 
             <div className="hrPayModal__actions">
-              <button type="button" className="is-muted" onClick={closeRunModal} disabled={isSubmittingRun}>
+              <button
+                type="button"
+                className="is-muted"
+                onClick={runUnsavedPrompt.requestClose}
+                disabled={isSubmittingRun}
+              >
                 Cancel
               </button>
               <button type="button" onClick={requestPayrollRunConfirmation} disabled={isSubmittingRun}>
@@ -1949,7 +2014,7 @@ export default function HrPayslips() {
               <ModalCloseButton
                 className="hrPayModal__close"
                 aria-label="Close manual adjustment line dialog"
-                onClick={resetManualLineState}
+                onClick={manualLineUnsavedPrompt.requestClose}
                 disabled={isSubmittingManualLine}
               />
             </div>
@@ -2072,7 +2137,12 @@ export default function HrPayslips() {
             {manualLineError && <p className="hrPay__message">{manualLineError}</p>}
 
             <div className="hrPayModal__actions">
-              <button type="button" className="is-muted" onClick={resetManualLineState} disabled={isSubmittingManualLine}>
+              <button
+                type="button"
+                className="is-muted"
+                onClick={manualLineUnsavedPrompt.requestClose}
+                disabled={isSubmittingManualLine}
+              >
                 Cancel
               </button>
               <button type="button" onClick={() => void submitManualLine()} disabled={isLoadingEmployeeOptions || isSubmittingManualLine}>
@@ -2131,7 +2201,7 @@ export default function HrPayslips() {
               <ModalCloseButton
                 className="hrPayModal__close"
                 aria-label="Close dispute correction workspace"
-                onClick={() => resetCorrectionState()}
+                onClick={correctionUnsavedPrompt.requestClose}
                 disabled={isSubmittingCorrection}
               />
             </div>
@@ -2258,7 +2328,7 @@ export default function HrPayslips() {
               <button
                 type="button"
                 className="is-muted"
-                onClick={() => resetCorrectionState()}
+                onClick={correctionUnsavedPrompt.requestClose}
                 disabled={isSubmittingCorrection}
               >
                 Cancel
@@ -2394,6 +2464,7 @@ export default function HrPayslips() {
                                       onClick={() => startPayrollLineEdit(line)}
                                       disabled={isSavingPayrollLine}
                                       aria-label={`Edit amount for ${line.label}`}
+                                      title={`Edit amount for ${line.label}`}
                                     >
                                       <FiEdit2 />
                                     </button>
@@ -2468,6 +2539,7 @@ export default function HrPayslips() {
                                       onClick={() => startPayrollLineEdit(line)}
                                       disabled={isSavingPayrollLine}
                                       aria-label={`Edit amount for ${line.label}`}
+                                      title={`Edit amount for ${line.label}`}
                                     >
                                       <FiEdit2 />
                                     </button>
@@ -2504,7 +2576,7 @@ export default function HrPayslips() {
               <ModalCloseButton
                 className="hrPayModal__close"
                 aria-label="Close payslip dispute review"
-                onClick={() => setSelectedDispute(null)}
+                onClick={disputeReviewUnsavedPrompt.requestClose}
               />
             </div>
             <div className="hrPayModal__rule" />
@@ -2627,7 +2699,12 @@ export default function HrPayslips() {
               <p className="hrPay__message">The employee cancelled this dispute before it was fully processed.</p>
             )}
             <div className="hrPayModal__actions">
-              <button type="button" className="is-muted" onClick={() => setSelectedDispute(null)} disabled={isSaving}>
+              <button
+                type="button"
+                className="is-muted"
+                onClick={disputeReviewUnsavedPrompt.requestClose}
+                disabled={isSaving}
+              >
                 {canReviewSelectedDispute || canStageSelectedDisputeCorrection ? 'Cancel' : 'Close'}
               </button>
               {canReviewSelectedDispute ? (
@@ -2645,7 +2722,7 @@ export default function HrPayslips() {
                   Open Adjustment Workspace
                 </button>
               ) : (
-                <button type="button" onClick={() => setSelectedDispute(null)} disabled={isSaving}>
+                <button type="button" onClick={disputeReviewUnsavedPrompt.requestClose} disabled={isSaving}>
                   Close
                 </button>
               )}
@@ -2684,6 +2761,42 @@ export default function HrPayslips() {
           void confirmDisputeDecision();
         }}
         onCancel={() => setConfirmDisputeDecisionOpen(false)}
+      />
+      <ConfirmDialog
+        open={runUnsavedPrompt.confirmOpen}
+        title="Discard Payroll Run Setup?"
+        message="You have unsaved changes in this payroll run form. If you close it now, your updates will be lost."
+        confirmLabel="Discard Changes"
+        cancelLabel="Keep Editing"
+        onConfirm={runUnsavedPrompt.discardAndClose}
+        onCancel={runUnsavedPrompt.keepEditing}
+      />
+      <ConfirmDialog
+        open={manualLineUnsavedPrompt.confirmOpen}
+        title="Discard Manual Line?"
+        message="You have unsaved changes in this manual adjustment form. If you close it now, your updates will be lost."
+        confirmLabel="Discard Changes"
+        cancelLabel="Keep Editing"
+        onConfirm={manualLineUnsavedPrompt.discardAndClose}
+        onCancel={manualLineUnsavedPrompt.keepEditing}
+      />
+      <ConfirmDialog
+        open={correctionUnsavedPrompt.confirmOpen}
+        title="Discard Correction Draft?"
+        message="You have unsaved changes in this correction workspace. If you close it now, your updates will be lost."
+        confirmLabel="Discard Changes"
+        cancelLabel="Keep Editing"
+        onConfirm={correctionUnsavedPrompt.discardAndClose}
+        onCancel={correctionUnsavedPrompt.keepEditing}
+      />
+      <ConfirmDialog
+        open={disputeReviewUnsavedPrompt.confirmOpen}
+        title="Discard Dispute Review Changes?"
+        message="You have unsaved changes in this dispute review. If you close it now, your updates will be lost."
+        confirmLabel="Discard Changes"
+        cancelLabel="Keep Editing"
+        onConfirm={disputeReviewUnsavedPrompt.discardAndClose}
+        onCancel={disputeReviewUnsavedPrompt.keepEditing}
       />
     </div>
   );

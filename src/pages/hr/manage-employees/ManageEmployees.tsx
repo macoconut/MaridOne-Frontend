@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FiChevronDown, FiEdit2, FiFilter, FiPlus, FiSearch, FiUserX, FiX, FiXCircle } from 'react-icons/fi';
+import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
 import EmployeeSortMenu from '../../../components/layout/EmployeeSortMenu';
@@ -327,9 +328,12 @@ export default function HrManageEmp() {
   const [leaveBalanceSavingKey, setLeaveBalanceSavingKey] = useState<string | null>(null);
   const [loadMessage, setLoadMessage] = useState('');
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [initialForm, setInitialForm] = useState<FormState>(emptyForm);
+  const [initialManagerSearch, setInitialManagerSearch] = useState('');
   const [submitError, setSubmitError] = useState('');
   const [formSubmitAttempted, setFormSubmitAttempted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
@@ -457,7 +461,38 @@ export default function HrManageEmp() {
     setRefreshTick((tick) => tick + 1);
   };
   useEscapeDismiss(Boolean(detailsDialogEmployeeId), closeDetailsDialog, 10);
-  useEscapeDismiss(Boolean(modal) && !isSaving, closeModal, 10);
+  const hasUnsavedModalChanges = useMemo(() => {
+    if (!modal) return false;
+    return JSON.stringify(form) !== JSON.stringify(initialForm) || managerSearch !== initialManagerSearch;
+  }, [form, initialForm, initialManagerSearch, managerSearch, modal]);
+
+  function requestCloseModal() {
+    if (isSaving) return;
+    if (hasUnsavedModalChanges) {
+      setConfirmDiscardOpen(true);
+      return;
+    }
+    closeModal();
+  }
+
+  function discardAndCloseModal() {
+    setConfirmDiscardOpen(false);
+    closeModal();
+  }
+
+  useEscapeDismiss(Boolean(modal) && !isSaving && !confirmDiscardOpen, requestCloseModal, 10);
+
+  useEffect(() => {
+    if (!modal || !hasUnsavedModalChanges) return undefined;
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedModalChanges, modal]);
   useEscapeDismiss(Boolean(confirmAction) && !isSaving, () => setConfirmAction(null), 50);
   useAutoRefreshingPage(handlePageRefresh, {
     intervalMs: 15000,
@@ -680,29 +715,36 @@ export default function HrManageEmp() {
   }
 
   function openAddModal() {
-    resetMessages();
-    setConfirmAction(null);
-    setFormSubmitAttempted(false);
-    setHasExistingUserAccount(false);
-    setManagerSearch('');
-    setManagerPickerOpen(false);
-    setModal('add');
-    setForm({
+    const nextForm = {
       ...emptyForm,
       employmentDateStart: todayDateValue(),
       exemptionStatus: getDefaultExemptionStatus(emptyForm.position),
-    });
+    };
+    resetMessages();
+    setConfirmAction(null);
+    setConfirmDiscardOpen(false);
+    setFormSubmitAttempted(false);
+    setHasExistingUserAccount(false);
+    setManagerSearch('');
+    setInitialManagerSearch('');
+    setManagerPickerOpen(false);
+    setModal('add');
+    setForm(nextForm);
+    setInitialForm(nextForm);
   }
 
   function closeModal() {
     setModal(null);
     setConfirmAction(null);
+    setConfirmDiscardOpen(false);
     setFormSubmitAttempted(false);
     setHasExistingUserAccount(false);
     setManagerSearch('');
+    setInitialManagerSearch('');
     setManagerPickerOpen(false);
     resetMessages();
     setForm(emptyForm);
+    setInitialForm(emptyForm);
   }
 
   function clearFilters() {
@@ -879,7 +921,7 @@ export default function HrManageEmp() {
 
     try {
       const payload = await apiFetchJson<EmployeeDetails>(`/api/employees/${row.id}`);
-      setForm({
+      const nextForm = {
         employeeId: String(payload.id ?? row.id),
         firstName: payload.firstName ?? '',
         middleName: payload.middleName ?? '',
@@ -905,12 +947,16 @@ export default function HrManageEmp() {
         country: payload.address?.country ?? '',
         zipCode: payload.address?.zipCode ?? '',
         reason: '',
-      });
-      setManagerSearch(
+      };
+      const nextManagerSearch =
         payload.managerId !== undefined && payload.managerId !== null
           ? employeeOptions.find((option) => option.id === payload.managerId)?.name ?? ''
-          : ''
-      );
+          : '';
+      setForm(nextForm);
+      setInitialForm(nextForm);
+      setManagerSearch(nextManagerSearch);
+      setInitialManagerSearch(nextManagerSearch);
+      setConfirmDiscardOpen(false);
       setHasExistingUserAccount(Boolean(payload.userAccountName?.trim() || (row.username !== '-' && row.username.trim())));
       setManagerPickerOpen(false);
       setModal('edit');
@@ -920,19 +966,23 @@ export default function HrManageEmp() {
   }
 
   function openDeleteModal(row: EmployeeRow) {
+    const nextForm = {
+      ...emptyForm,
+      employeeId: row.id,
+      username: row.username === '-' ? '' : row.username,
+    };
     resetMessages();
     setConfirmAction(null);
+    setConfirmDiscardOpen(false);
     setFormSubmitAttempted(false);
     setHasExistingUserAccount(Boolean(row.username !== '-' && row.username.trim()));
     if (isTerminatedStatus(row.status)) {
       setSubmitError('This employee is already terminated.');
       return;
     }
-    setForm({
-      ...emptyForm,
-      employeeId: row.id,
-      username: row.username === '-' ? '' : row.username,
-    });
+    setForm(nextForm);
+    setInitialForm(nextForm);
+    setInitialManagerSearch('');
     setModal('delete');
   }
 
@@ -1577,9 +1627,9 @@ export default function HrManageEmp() {
           </div>
         </div>
 
-        <div className="hrEmpTable__head">
-          <div>EmpID</div>
-          <div>Name</div>
+          <div className="hrEmpTable__head">
+          <div>EMP ID</div>
+          <div>NAME</div>
           <div>Username</div>
           <div className="hrEmpTable__headCell--status">Status</div>
           <div>Position</div>
@@ -2079,7 +2129,7 @@ export default function HrManageEmp() {
             </div>
 
             <div className="hrEmpModal__actions">
-              <button type="button" onClick={closeModal} disabled={isSaving}>
+              <button type="button" onClick={requestCloseModal} disabled={isSaving}>
                 Cancel
               </button>
               <button type="button" onClick={() => void submit()} disabled={isSaving}>
@@ -2115,6 +2165,15 @@ export default function HrManageEmp() {
           </div>
         </div>
       ) : null}
+      <ConfirmDialog
+        open={confirmDiscardOpen}
+        title="Discard Unsaved Changes?"
+        message="You have unsaved changes in this employee form. If you close it now, your edits will be lost."
+        confirmLabel="Discard Changes"
+        cancelLabel="Keep Editing"
+        onConfirm={discardAndCloseModal}
+        onCancel={() => setConfirmDiscardOpen(false)}
+      />
     </div>
   );
 }

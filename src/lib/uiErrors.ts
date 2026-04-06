@@ -33,6 +33,9 @@ function fromLeaveMessage(error: ApiError) {
   if (message.includes('overlapping')) {
     return 'This leave request overlaps with another pending or approved request.';
   }
+  if (message.includes('leave and overtime requests cannot be filed on the same day')) {
+    return 'Leave and overtime cannot be requested for the same day.';
+  }
   if (message.includes('at least 7 days before the leave date')) {
     return 'Non-sick leave requests must be filed at least 7 days before the leave date.';
   }
@@ -47,6 +50,9 @@ function fromOvertimeMessage(error: ApiError) {
   const message = error.rawMessage.toLowerCase();
   if (message.includes('conflicting schedules')) {
     return 'This overtime request conflicts with an existing schedule or overtime request.';
+  }
+  if (message.includes('leave and overtime requests cannot be filed on the same day')) {
+    return 'Leave and overtime cannot be requested for the same day.';
   }
   if (message.includes('work schedule is not set up')) {
     return 'Your work schedule is not set up yet, so overtime cannot be filed.';

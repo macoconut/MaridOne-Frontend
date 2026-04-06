@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FiAlertCircle, FiDownload, FiPrinter } from 'react-icons/fi';
+import { FiAlertCircle, FiCheckCircle, FiDownload, FiPrinter, FiXCircle } from 'react-icons/fi';
 import { apiFetchJson, apiFetchRaw, toArray } from '../../../lib/api';
 import { uploadDocument } from '../../../lib/documentUpload';
 import ActionButton from '../../../components/button/ActionButton';
@@ -11,6 +11,7 @@ import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
+import { useUnsavedChangesPrompt } from '../../../hooks/useUnsavedChangesPrompt';
 import './Payslip.css';
 
 type EmployeeDetails = {
@@ -214,13 +215,22 @@ export default function Payslip() {
   const [printingPayslip, setPrintingPayslip] = useState(false);
   const [payslipActionError, setPayslipActionError] = useState('');
   const [refreshTick, setRefreshTick] = useState(0);
+  const isDisputeDirty =
+    disputeOpen &&
+    (disputeSubject !== 'Overtime pay dispute' || disputeReason.trim().length > 0 || disputeFile !== null);
+  const disputeUnsavedPrompt = useUnsavedChangesPrompt({
+    isOpen: disputeOpen,
+    isDirty: isDisputeDirty,
+    isBusy: disputeSubmitting,
+    onDiscard: closeDisputeForm,
+  });
 
   useErrorDialogEffect(disputeError, 'Payslip dispute could not be submitted');
   useErrorDialogEffect(payslipActionError, 'Payslip action failed');
   const handlePageRefresh = () => {
     setRefreshTick((tick) => tick + 1);
   };
-  useEscapeDismiss(disputeOpen, closeDisputeForm, 10);
+  useEscapeDismiss(disputeOpen && !disputeUnsavedPrompt.confirmOpen, disputeUnsavedPrompt.requestClose, 10);
   useAutoRefreshingPage(handlePageRefresh, {
     intervalMs: 15000,
     enabled: !disputeOpen && !confirmDisputeSubmit && !disputeSubmitting && !printingPayslip,
@@ -534,6 +544,7 @@ export default function Payslip() {
 
   function closeDisputeForm() {
     if (disputeSubmitting) return;
+    setConfirmDisputeSubmit(false);
     setDisputeOpen(false);
     setDisputeSubmitAttempted(false);
   }
@@ -843,7 +854,7 @@ export default function Payslip() {
                 <div className="payModal__title">PAYSLIP DISPUTE FORM</div>
                 <p className="payModal__subtitle">Describe the payroll discrepancy clearly and attach supporting proof only when it helps validate the dispute.</p>
               </div>
-              <ModalCloseButton className="payModal__close" onClick={closeDisputeForm} />
+              <ModalCloseButton className="payModal__close" onClick={disputeUnsavedPrompt.requestClose} />
             </div>
 
             <div className="payModal__rule" />
@@ -881,12 +892,19 @@ export default function Payslip() {
             </div>
 
             <div className="payModal__actions">
-              <button type="button" className="payModal__cancel" onClick={closeDisputeForm} disabled={disputeSubmitting}>
+              <ActionButton
+                className="payModal__cancel"
+                variant="ghost"
+                type="button"
+                icon={<FiXCircle />}
+                onClick={disputeUnsavedPrompt.requestClose}
+                disabled={disputeSubmitting}
+              >
                 Cancel
-              </button>
-              <button type="button" onClick={requestDisputeConfirmation} disabled={disputeSubmitting}>
+              </ActionButton>
+              <ActionButton type="button" icon={<FiCheckCircle />} onClick={requestDisputeConfirmation} disabled={disputeSubmitting}>
                 Submit
-              </button>
+              </ActionButton>
             </div>
           </div>
         </div>
@@ -900,6 +918,15 @@ export default function Payslip() {
         isBusy={disputeSubmitting}
         onConfirm={() => void submitDispute()}
         onCancel={() => setConfirmDisputeSubmit(false)}
+      />
+      <ConfirmDialog
+        open={disputeUnsavedPrompt.confirmOpen}
+        title="Discard Payslip Dispute?"
+        message="You have unsaved changes in this dispute form. If you close it now, your updates will be lost."
+        confirmLabel="Discard Changes"
+        cancelLabel="Keep Editing"
+        onConfirm={disputeUnsavedPrompt.discardAndClose}
+        onCancel={disputeUnsavedPrompt.keepEditing}
       />
     </div>
   );

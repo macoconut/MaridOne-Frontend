@@ -1,7 +1,8 @@
 import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import './Attendance.css';
-import { FiCalendar, FiChevronLeft, FiChevronRight, FiPlusSquare } from 'react-icons/fi';
+import { FiCalendar, FiCheckCircle, FiChevronLeft, FiChevronRight, FiPlusSquare, FiXCircle } from 'react-icons/fi';
+import ActionButton from '../../../components/button/ActionButton';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import FileUploadField from '../../../components/form/FileUploadField';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
@@ -9,6 +10,7 @@ import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
+import { useUnsavedChangesPrompt } from '../../../hooks/useUnsavedChangesPrompt';
 import { ApiError, apiFetchJson, apiFetchRaw, toArray } from '../../../lib/api';
 import { uploadDocument } from '../../../lib/documentUpload';
 import { getUserEmail, getUserRole } from '../../../lib/session';
@@ -467,8 +469,6 @@ export default function Attendance() {
   const handlePageRefresh = () => {
     setRefreshTick((tick) => tick + 1);
   };
-  useEscapeDismiss(leaveOpen, closeLeave, 10);
-  useEscapeDismiss(otOpen, closeOt, 10);
   useEscapeDismiss(requestViewOpen, closeRequestView, 10);
   useEscapeDismiss(scheduleOpen, closeSchedule, 10);
   useAutoRefreshingPage(handlePageRefresh, {
@@ -495,20 +495,52 @@ export default function Attendance() {
   const isOtEndDateInvalid = otSubmitAttempted && !otEndDate;
   const isOtEndTimeInvalid = otSubmitAttempted && !otEndTime;
   const isOtReasonInvalid = otSubmitAttempted && otReason.trim().length < 5;
+  const isLeaveDirty =
+    leaveOpen &&
+    (leaveType !== 'SICK_LEAVE' ||
+      startDate !== todayKey ||
+      startTime !== '08:00' ||
+      endDate !== todayKey ||
+      endTime !== '17:00' ||
+      reason.trim().length > 0 ||
+      file !== null);
+  const isOtDirty =
+    otOpen &&
+    (otStartDate !== todayKey ||
+      otEndDate !== todayKey ||
+      otStartTime !== '17:00' ||
+      otEndTime !== '20:00' ||
+      otType !== 'OVERTIME' ||
+      otReason.trim().length > 0 ||
+      otFile !== null);
+  const leaveUnsavedPrompt = useUnsavedChangesPrompt({
+    isOpen: leaveOpen,
+    isDirty: isLeaveDirty,
+    onDiscard: closeLeave,
+  });
+  const overtimeUnsavedPrompt = useUnsavedChangesPrompt({
+    isOpen: otOpen,
+    isDirty: isOtDirty,
+    onDiscard: closeOt,
+  });
+  useEscapeDismiss(leaveOpen && !leaveUnsavedPrompt.confirmOpen, leaveUnsavedPrompt.requestClose, 10);
+  useEscapeDismiss(otOpen && !overtimeUnsavedPrompt.confirmOpen, overtimeUnsavedPrompt.requestClose, 10);
 
   useEffect(() => {
-    if (!leaveOpen || !requiresAdvanceLeaveNotice(leaveType)) {
+    if (!leaveOpen) {
       return;
     }
 
-    if (!startDate || startDate < minimumLeaveStartDate) {
-      setStartDate(minimumLeaveStartDate);
+    const normalizedStartDate = startDate && startDate >= minimumLeaveStartDate ? startDate : minimumLeaveStartDate;
+    if (normalizedStartDate !== startDate) {
+      setStartDate(normalizedStartDate);
+      return;
     }
 
-    if (!endDate || endDate < minimumLeaveEndDate) {
-      setEndDate(minimumLeaveEndDate);
+    if (!endDate || endDate < normalizedStartDate) {
+      setEndDate(normalizedStartDate);
     }
-  }, [endDate, leaveOpen, leaveType, minimumLeaveEndDate, minimumLeaveStartDate, startDate]);
+  }, [endDate, leaveOpen, minimumLeaveStartDate, startDate]);
 
   async function fetchAttendanceHistory(resolvedEmpId: number) {
     try {
@@ -903,6 +935,7 @@ export default function Attendance() {
   }
 
   function closeLeave() {
+    setConfirmLeaveSubmit(false);
     setFile(null);
     setSubmitError('');
     setLeaveSubmitAttempted(false);
@@ -945,6 +978,7 @@ export default function Attendance() {
   }
 
   function closeOt() {
+    setConfirmOtSubmit(false);
     setOtFile(null);
     setOtSubmitError('');
     setOtSubmitAttempted(false);
@@ -1289,7 +1323,7 @@ export default function Attendance() {
               })}
             </select>
           </div>
-          <button className="attSecondaryBtn" type="button" onClick={openSchedule}>
+          <button className="attSecondaryBtn" type="button" onClick={openSchedule} title="View My Schedule">
             <span>My Schedule</span>
             <span className="attSecondaryBtn__icon">
               <FiCalendar />
@@ -1300,6 +1334,7 @@ export default function Attendance() {
             type="button"
             onClick={requestAttendanceConfirmation}
             disabled={isClocking}
+            title={isClocking ? 'Submitting attendance' : isClockOutAction ? 'Time Out' : 'Time In'}
           >
             <span>{isClocking ? 'Submitting...' : isClockOutAction ? 'Time Out' : 'Time In'}</span>
             <span className="attClockBtn__icon">
@@ -1463,7 +1498,7 @@ export default function Attendance() {
 
       {/* Bottom buttons like figma */}
       <div className="attActions">
-        <button className="attBtn" type="button" onClick={openLeaveForToday}>
+        <button className="attBtn" type="button" onClick={openLeaveForToday} title="Request Leave">
           <span>Request Leave</span>
           <span className="attBtn__icon">
             <FiPlusSquare />
@@ -1475,6 +1510,7 @@ export default function Attendance() {
             className="attBtn"
             type="button"
             onClick={openOtForToday}
+            title="Request Overtime"
           >
             <span>Request Overtime</span>
             <span className="attBtn__icon">
@@ -1495,7 +1531,7 @@ export default function Attendance() {
                   Submit the coverage window, leave type, and any supporting details for approval.
                 </p>
               </div>
-              <ModalCloseButton className="modal__close" onClick={closeLeave} />
+              <ModalCloseButton className="modal__close" onClick={leaveUnsavedPrompt.requestClose} />
             </div>
 
             <div className="modal__rule modal__rule--request" />
@@ -1608,12 +1644,17 @@ export default function Attendance() {
               </div>
 
               <div className="requestActions">
-                <button className="btn btn--ghost" type="button" onClick={closeLeave}>
+                <ActionButton
+                  variant="ghost"
+                  type="button"
+                  icon={<FiXCircle />}
+                  onClick={leaveUnsavedPrompt.requestClose}
+                >
                   Cancel
-                </button>
-                <button className="btn" type="button" onClick={requestLeaveConfirmation}>
+                </ActionButton>
+                <ActionButton type="button" icon={<FiCheckCircle />} onClick={requestLeaveConfirmation}>
                   Submit
-                </button>
+                </ActionButton>
               </div>
             </div>
           </div>
@@ -1630,7 +1671,7 @@ export default function Attendance() {
                   Request overtime coverage with the exact date, time window, and reason for the additional work.
                 </p>
               </div>
-              <ModalCloseButton className="modal__close" onClick={closeOt} />
+              <ModalCloseButton className="modal__close" onClick={overtimeUnsavedPrompt.requestClose} />
             </div>
 
             <div className="modal__rule modal__rule--request" />
@@ -1639,7 +1680,10 @@ export default function Attendance() {
               <div className="requestForm__grid">
                 <div className="requestField requestField--span2">
                   <label className="label">Type of Overtime Requested</label>
-                  <p className="requestField__help">Pick the overtime category that matches this work period.</p>
+                  <p className="requestField__help">
+                    Choose the overtime category that matches this request. The approved coverage window should only
+                    include the extra work that falls outside your normal scheduled hours.
+                  </p>
                   <select
                     className="input"
                     value={otType}
@@ -1650,60 +1694,61 @@ export default function Attendance() {
                     <option value="TRIPLE_OVERTIME">Triple Overtime</option>
                     <option value="HOLIDAY">Holiday</option>
                   </select>
+                  {isOtNextDay && (
+                    <p className="requestField__callout">
+                      Overnight overtime can end the next day, but the latest allowed end time is 6:00 AM.
+                    </p>
+                  )}
                 </div>
 
                 <div className="requestField">
-                  <label className="label">Start Date</label>
-                  <div className="inputIcon">
+                  <label className="label">Start Date and Time</label>
+                  <div className="requestField__group">
+                    <div className="inputIcon">
+                      <input
+                        className="input"
+                        type="date"
+                        value={otStartDate}
+                        min={todayKey}
+                        aria-invalid={isOtStartDateInvalid ? 'true' : undefined}
+                        onChange={(e) => setOtStartDate(e.target.value)}
+                      />
+                      <FiCalendar className="inputIcon__icon" />
+                    </div>
                     <input
                       className="input"
-                      type="date"
-                      value={otStartDate}
-                      min={todayKey}
-                      aria-invalid={isOtStartDateInvalid ? 'true' : undefined}
-                      onChange={(e) => setOtStartDate(e.target.value)}
+                      type="time"
+                      value={otStartTime}
+                      aria-invalid={isOtStartTimeInvalid ? 'true' : undefined}
+                      onChange={(e) => setOtStartTime(e.target.value)}
                     />
-                    <FiCalendar className="inputIcon__icon" />
                   </div>
                 </div>
 
                 <div className="requestField">
-                  <label className="label">Start Time</label>
-                  <input
-                    className="input"
-                    type="time"
-                    value={otStartTime}
-                    aria-invalid={isOtStartTimeInvalid ? 'true' : undefined}
-                    onChange={(e) => setOtStartTime(e.target.value)}
-                  />
-                </div>
-
-                <div className="requestField">
-                  <label className="label">End Date</label>
-                  <div className="inputIcon">
+                  <label className="label">End Date and Time</label>
+                  <div className="requestField__group">
+                    <div className="inputIcon">
+                      <input
+                        className="input"
+                        type="date"
+                        value={otEndDate}
+                        min={otStartDate || todayKey}
+                        max={maxOtEndDate || undefined}
+                        aria-invalid={isOtEndDateInvalid ? 'true' : undefined}
+                        onChange={(e) => setOtEndDate(e.target.value)}
+                      />
+                      <FiCalendar className="inputIcon__icon" />
+                    </div>
                     <input
                       className="input"
-                      type="date"
-                      value={otEndDate}
-                      min={otStartDate || todayKey}
-                      max={maxOtEndDate || undefined}
-                      aria-invalid={isOtEndDateInvalid ? 'true' : undefined}
-                      onChange={(e) => setOtEndDate(e.target.value)}
+                      type="time"
+                      value={otEndTime}
+                      max={isOtNextDay ? '06:00' : undefined}
+                      aria-invalid={isOtEndTimeInvalid ? 'true' : undefined}
+                      onChange={(e) => setOtEndTime(e.target.value)}
                     />
-                    <FiCalendar className="inputIcon__icon" />
                   </div>
-                </div>
-
-                <div className="requestField">
-                  <label className="label">End Time</label>
-                  <input
-                    className="input"
-                    type="time"
-                    value={otEndTime}
-                    max={isOtNextDay ? '06:00' : undefined}
-                    aria-invalid={isOtEndTimeInvalid ? 'true' : undefined}
-                    onChange={(e) => setOtEndTime(e.target.value)}
-                  />
                 </div>
 
                 <div className="requestField requestField--span2">
@@ -1729,12 +1774,17 @@ export default function Attendance() {
               </div>
 
               <div className="requestActions">
-                <button className="btn btn--ghost" type="button" onClick={closeOt}>
+                <ActionButton
+                  variant="ghost"
+                  type="button"
+                  icon={<FiXCircle />}
+                  onClick={overtimeUnsavedPrompt.requestClose}
+                >
                   Cancel
-                </button>
-                <button className="btn" type="button" onClick={requestOtConfirmation}>
+                </ActionButton>
+                <ActionButton type="button" icon={<FiCheckCircle />} onClick={requestOtConfirmation}>
                   Submit
-                </button>
+                </ActionButton>
               </div>
             </div>
           </div>
@@ -1871,6 +1921,24 @@ export default function Attendance() {
         cancelLabel="Go Back"
         onConfirm={() => void submitOt()}
         onCancel={() => setConfirmOtSubmit(false)}
+      />
+      <ConfirmDialog
+        open={leaveUnsavedPrompt.confirmOpen}
+        title="Discard Leave Request?"
+        message="You have unsaved changes in this leave request. If you close it now, your updates will be lost."
+        confirmLabel="Discard Changes"
+        cancelLabel="Keep Editing"
+        onConfirm={leaveUnsavedPrompt.discardAndClose}
+        onCancel={leaveUnsavedPrompt.keepEditing}
+      />
+      <ConfirmDialog
+        open={overtimeUnsavedPrompt.confirmOpen}
+        title="Discard Overtime Request?"
+        message="You have unsaved changes in this overtime request. If you close it now, your updates will be lost."
+        confirmLabel="Discard Changes"
+        cancelLabel="Keep Editing"
+        onConfirm={overtimeUnsavedPrompt.discardAndClose}
+        onCancel={overtimeUnsavedPrompt.keepEditing}
       />
     </div>
   );

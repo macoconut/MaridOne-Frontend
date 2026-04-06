@@ -628,7 +628,6 @@ export function AttendanceOverviewDashboard({
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [holidayDateKeys, setHolidayDateKeys] = useState<string[]>([]);
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   useErrorDialogEffect(loadError, 'HR dashboard attendance logs could not be loaded');
   const [deptPage, setDeptPage] = useState(0);
@@ -736,7 +735,6 @@ export function AttendanceOverviewDashboard({
     async function fetchDashboardData() {
       const isSilentRefresh = silentRefreshRef.current;
       if (!isSilentRefresh) {
-        setIsLoading(true);
         setLoadError(null);
       }
 
@@ -806,9 +804,6 @@ export function AttendanceOverviewDashboard({
         setHolidayDateKeys([]);
       }
 
-      if (!isSilentRefresh) {
-        setIsLoading(false);
-      }
       silentRefreshRef.current = false;
     }
 

@@ -17,8 +17,15 @@ export default function ActionButton({
   fullWidth = false,
   className = '',
   children,
+  title,
   ...buttonProps
 }: ActionButtonProps) {
+  const resolvedTitle =
+    title ??
+    (typeof children === 'string' || typeof children === 'number'
+      ? String(children)
+      : undefined);
+
   const resolvedClassName = [
     'uiActionBtn',
     `uiActionBtn--${variant}`,
@@ -30,7 +37,7 @@ export default function ActionButton({
     .join(' ');
 
   return (
-    <button className={resolvedClassName} {...buttonProps}>
+    <button className={resolvedClassName} title={resolvedTitle} {...buttonProps}>
       {icon ? <span className="uiActionBtn__icon" aria-hidden="true">{icon}</span> : null}
       <span className="uiActionBtn__label">{children}</span>
       {trailingIcon ? <span className="uiActionBtn__icon" aria-hidden="true">{trailingIcon}</span> : null}

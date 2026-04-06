@@ -487,15 +487,8 @@
   margin-top:16px;
 }
 
-.payModal__actions button{
-  min-width: 110px;
-  height: 40px;
-  border:none;
-  border-radius:10px;
-  background:#7b4a8f;
-  color:#fff;
-  font-weight:800;
-  cursor:pointer;
+.payModal__actions .uiActionBtn{
+  min-width: 126px;
 }
 
 .payModal__cancel{

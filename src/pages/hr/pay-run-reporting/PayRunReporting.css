@@ -1,7 +1,7 @@
 .hrRun {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .hrRun__top {
@@ -377,7 +377,7 @@
 }
 
 .hrRunEmpty {
-  padding: 18px 0 16px;
+  padding: 18px 14px 16px;
   color: #554f63;
   font-size: 15px;
   font-weight: 700;
@@ -388,7 +388,7 @@
 }
 
 .hrRunActions {
-  margin-top: 6px;
+  margin-top: 10px;
   display: flex;
   justify-content: center;
   gap: 14px;

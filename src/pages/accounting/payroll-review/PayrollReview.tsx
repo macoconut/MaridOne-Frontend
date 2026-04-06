@@ -105,7 +105,7 @@ function formatEmployeeName(row: PayrollItemRow) {
     .join(' ');
 
   if (fullName) return fullName;
-  if (typeof row.empId === 'number') return `Employee ID ${row.empId}`;
+  if (typeof row.empId === 'number') return `EMP ID ${row.empId}`;
   return 'Unnamed employee';
 }
 
@@ -525,8 +525,8 @@ export default function AccountingPayrollReview() {
       {view === 'employee' ? (
         <section className="aReviewRunTable" aria-label="Payslips by employee">
           <div className="aReviewRunTable__head aReviewRunTable__head--employee">
-            <span>Employee ID</span>
-            <span>Employee Name</span>
+            <span>EMP ID</span>
+            <span>NAME</span>
             <span>Gross Pay</span>
             <span>Net Pay</span>
             <span className="aReviewRunTable__headCell--action">Details</span>

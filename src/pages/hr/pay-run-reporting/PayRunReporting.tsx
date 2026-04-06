@@ -91,6 +91,7 @@ const DEFAULT_DEDUCTION_BREAKDOWN_LABELS = [
   'Equipment Loss Penalty',
   'HMO Upgrade',
 ];
+const EMPTY_POSTED_RUN_LABEL = 'No posted payroll runs are available yet.';
 
 function formatCurrency(value: unknown) {
   const options: Intl.NumberFormatOptions = {
@@ -145,7 +146,7 @@ function formatEmployeeName(row: PayrollItemRow) {
     .join(' ');
 
   if (fullName) return fullName;
-  if (typeof row.empId === 'number') return `Employee ID ${row.empId}`;
+  if (typeof row.empId === 'number') return `EMP ID ${row.empId}`;
   return 'Unnamed employee';
 }
 
@@ -324,10 +325,10 @@ function getEmptyRunMessage(run: PayrollRunRow | null, view: ReportView, availab
     if (view === 'employee') {
       return availableRunCount > 0
         ? 'No employee totals matched this payroll run.'
-        : 'No posted payroll runs are available yet.';
+        : EMPTY_POSTED_RUN_LABEL;
     }
 
-    return availableRunCount > 0 ? 'No pay type totals matched this payroll run.' : 'No payroll runs are available yet.';
+    return availableRunCount > 0 ? 'No pay type totals matched this payroll run.' : EMPTY_POSTED_RUN_LABEL;
   }
 
   if ((run.itemCount ?? 0) > 0) {
@@ -775,7 +776,7 @@ export default function HrPayRunReporting() {
                   </option>
                 ))
               ) : (
-                <option value="">{view === 'employee' ? 'No posted payroll runs yet' : 'No payroll runs yet'}</option>
+                <option value="">{EMPTY_POSTED_RUN_LABEL}</option>
               )}
             </select>
           </label>
@@ -792,8 +793,8 @@ export default function HrPayRunReporting() {
       {view === 'employee' ? (
         <section className="hrRunTable" aria-label="Pay run by employee">
           <div className="hrRunTable__head hrRunTable__head--employee">
-            <span>Employee ID</span>
-            <span>Employee Name</span>
+            <span>EMP ID</span>
+            <span>NAME</span>
             <span>Gross Pay</span>
             <span>Net Pay</span>
             <span className="hrRunTable__headCell--action">Details</span>
