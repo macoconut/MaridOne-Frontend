@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { FiEdit2, FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { FiChevronDown, FiEdit2, FiFilter, FiPlus, FiSearch, FiXCircle } from 'react-icons/fi';
 import { ApiError, apiFetchJson, toArray } from '../../../lib/api';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
@@ -54,6 +54,18 @@ type PayrollItemSummaryRow = {
   grossPay: number;
   deductions: number;
   netPay: number;
+};
+
+type EmployeeOption = {
+  id: number;
+  name: string;
+  status: string;
+};
+
+type ManualLineFormState = {
+  empId: string;
+  lineType: 'EARNING' | 'DEDUCTION';
+  amount: string;
 };
 
 type DisputeStatusCode = 'PENDING' | 'WAITING_ADJUSTMENT' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
@@ -122,6 +134,7 @@ type CorrectionLine = {
 
 const PAYROLL_RUN_STORAGE_KEY = 'maridone.hr.latestPayrollRun';
 const WAITING_DISPUTE_STORAGE_KEY = 'maridone.hr.waitingDisputes';
+const EMPLOYEE_OPTIONS_TIMEOUT_MS = 10000;
 
 function normalizeText(value?: string) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
@@ -272,6 +285,37 @@ function createDefaultRunForm(): RunFormState {
     periodEnd: toISODate(end),
     runType: 'REGULAR',
   };
+}
+
+function createDefaultManualLineForm(): ManualLineFormState {
+  return {
+    empId: '',
+    lineType: 'EARNING',
+    amount: '',
+  };
+}
+
+function buildEmployeeOptions(response: unknown) {
+  return toArray<Record<string, unknown>>(response)
+    .map((item, index) => {
+      const id = Number(item.employeeId ?? item.id ?? index + 1);
+      if (!Number.isFinite(id) || id <= 0) return null;
+
+      const explicitName = typeof item.name === 'string' ? item.name.trim() : '';
+      const fallbackName = [item.firstName, item.middleName, item.lastName]
+        .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+        .join(' ')
+        .trim();
+
+      return {
+        id,
+        name: explicitName || fallbackName || `Employee #${id}`,
+        status: String(item.status ?? item.employmentStatus ?? ''),
+      } satisfies EmployeeOption;
+    })
+    .filter((option): option is EmployeeOption => option !== null)
+    .filter((option) => normalizeText(option.status) !== 'terminated')
+    .sort((left, right) => left.name.localeCompare(right.name));
 }
 
 function describeRun(periodStart: string, periodEnd: string) {
@@ -520,7 +564,15 @@ export default function HrPayslips() {
   const [runModalOpen, setRunModalOpen] = useState(false);
   const [confirmRunOpen, setConfirmRunOpen] = useState(false);
   const [postModalOpen, setPostModalOpen] = useState(false);
+  const [manualLineModalOpen, setManualLineModalOpen] = useState(false);
   const [runForm, setRunForm] = useState<RunFormState>(() => createDefaultRunForm());
+  const [manualLineForm, setManualLineForm] = useState<ManualLineFormState>(() => createDefaultManualLineForm());
+  const [employeeOptions, setEmployeeOptions] = useState<EmployeeOption[]>([]);
+  const [isLoadingEmployeeOptions, setIsLoadingEmployeeOptions] = useState(false);
+  const [manualEmployeeSearch, setManualEmployeeSearch] = useState('');
+  const [manualEmployeePickerOpen, setManualEmployeePickerOpen] = useState(false);
+  const [manualLineError, setManualLineError] = useState('');
+  const [isSubmittingManualLine, setIsSubmittingManualLine] = useState(false);
   const [isSubmittingRun, setIsSubmittingRun] = useState(false);
   const [isPostingRun, setIsPostingRun] = useState(false);
   const [runError, setRunError] = useState('');
@@ -544,16 +596,20 @@ export default function HrPayslips() {
   const [runItemSort, setRunItemSort] = useState<EmployeeSortKey>('name');
   const [attachmentError, setAttachmentError] = useState('');
   const [openingAttachmentId, setOpeningAttachmentId] = useState<number | null>(null);
+  const manualEmployeePickerRef = useRef<HTMLDivElement | null>(null);
+  const loadedRunItemsPayIdRef = useRef<number | null>(null);
 
   useErrorDialogEffect(loadError, 'Payroll data could not be loaded');
   useErrorDialogEffect(runItemsError, 'Payroll run items could not be loaded');
   useErrorDialogEffect(payrollItemError, 'Payroll item action failed');
+  useErrorDialogEffect(manualLineError, 'Manual adjustment line could not be added');
   useErrorDialogEffect(actionError, 'Dispute action failed');
   useErrorDialogEffect(runError, 'Payroll run could not be completed');
   useErrorDialogEffect(correctionError, 'Payroll correction could not be completed');
   useErrorDialogEffect(attachmentError, 'Attachment could not be opened');
   useEscapeDismiss(runModalOpen && !isSubmittingRun, () => setRunModalOpen(false), 10);
   useEscapeDismiss(postModalOpen && !isPostingRun, () => setPostModalOpen(false), 10);
+  useEscapeDismiss(manualLineModalOpen && !isSubmittingManualLine, resetManualLineState, 10);
   useEscapeDismiss(correctionOpen && !isSubmittingCorrection, resetCorrectionState, 10);
   useEscapeDismiss(Boolean(selectedPayrollItem), () => setSelectedPayrollItem(null), 10);
   useEscapeDismiss(Boolean(selectedDispute) && !isSaving, () => setSelectedDispute(null), 10);
@@ -567,8 +623,10 @@ export default function HrPayslips() {
       !selectedPayrollItem &&
       !runModalOpen &&
       !postModalOpen &&
+      !manualLineModalOpen &&
       !correctionOpen &&
       !isSaving &&
+      !isSubmittingManualLine &&
       !isSubmittingRun &&
       !isPostingRun &&
       !isSubmittingCorrection,
@@ -611,13 +669,13 @@ export default function HrPayslips() {
   }
 
   useEffect(() => {
-    if (selectedDispute || selectedPayrollItem || runModalOpen || postModalOpen || correctionOpen) {
+    if (selectedDispute || selectedPayrollItem || runModalOpen || postModalOpen || manualLineModalOpen || correctionOpen) {
       document.body.classList.add('modal-open');
     }
     else document.body.classList.remove('modal-open');
 
     return () => document.body.classList.remove('modal-open');
-  }, [correctionOpen, postModalOpen, runModalOpen, selectedDispute, selectedPayrollItem]);
+  }, [correctionOpen, manualLineModalOpen, postModalOpen, runModalOpen, selectedDispute, selectedPayrollItem]);
 
   useEffect(() => {
     setRemarks('');
@@ -630,6 +688,80 @@ export default function HrPayslips() {
     setEditingPayrollLineKey('');
     setPayrollLineDraftAmount('');
   }, [selectedPayrollItem?.itemId]);
+
+  useEffect(() => {
+    if (!manualLineModalOpen || employeeOptions.length > 0) {
+      return;
+    }
+
+    let cancelled = false;
+    let didTimeout = false;
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => {
+      didTimeout = true;
+      controller.abort();
+    }, EMPLOYEE_OPTIONS_TIMEOUT_MS);
+
+    async function loadEmployeeOptions() {
+      setIsLoadingEmployeeOptions(true);
+      setManualLineError('');
+      try {
+        let response: unknown;
+        try {
+          response = await apiFetchJson<unknown>('/api/employees/options', { signal: controller.signal });
+        } catch (error) {
+          if (controller.signal.aborted) throw error;
+          if (!(error instanceof ApiError) || error.status !== 404) {
+            throw error;
+          }
+          response = await apiFetchJson<unknown>('/api/employees?page=0&size=200', { signal: controller.signal });
+        }
+
+        if (cancelled) return;
+        setEmployeeOptions(buildEmployeeOptions(response));
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+        if (didTimeout) {
+          setManualLineError(
+            'Employee list took too long to load. Close and reopen this dialog, then restart the backend if it keeps happening.'
+          );
+          return;
+        }
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return;
+        }
+        setManualLineError(getFriendlyErrorMessage(error, 'employee-load'));
+      } finally {
+        window.clearTimeout(timeoutId);
+        if (!cancelled) setIsLoadingEmployeeOptions(false);
+      }
+    }
+
+    void loadEmployeeOptions();
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [employeeOptions.length, manualLineModalOpen]);
+
+  useEffect(() => {
+    if (!manualEmployeePickerOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!manualEmployeePickerRef.current?.contains(event.target as Node)) {
+        setManualEmployeePickerOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [manualEmployeePickerOpen]);
 
   useEffect(() => {
     const storedRun = readStoredRun();
@@ -672,6 +804,7 @@ export default function HrPayslips() {
 
   useEffect(() => {
     if (!currentRun?.payId || currentRun.payrollStatus !== 'IN_PROGRESS') {
+      loadedRunItemsPayIdRef.current = null;
       setRunItems([]);
       setRunItemsError('');
       setIsLoadingRunItems(false);
@@ -683,12 +816,17 @@ export default function HrPayslips() {
     async function loadRunItems() {
       const payId = currentRun?.payId;
       if (payId == null) {
+        loadedRunItemsPayIdRef.current = null;
         setRunItems([]);
         setIsLoadingRunItems(false);
         return;
       }
 
-      setIsLoadingRunItems(true);
+      const shouldShowLoadingState = loadedRunItemsPayIdRef.current !== payId;
+      if (shouldShowLoadingState) {
+        setIsLoadingRunItems(true);
+        setRunItems([]);
+      }
       setRunItemsError('');
 
       try {
@@ -710,10 +848,14 @@ export default function HrPayslips() {
           })
           .sort((left, right) => left.employee.localeCompare(right.employee) || left.itemId - right.itemId);
 
+        loadedRunItemsPayIdRef.current = payId;
         setRunItems(mapped);
       } catch (error) {
         if (!cancelled) {
-          setRunItems([]);
+          if (shouldShowLoadingState) {
+            loadedRunItemsPayIdRef.current = null;
+            setRunItems([]);
+          }
           setRunItemsError(getFriendlyErrorMessage(error, 'payroll-run'));
         }
       } finally {
@@ -726,10 +868,12 @@ export default function HrPayslips() {
     return () => {
       cancelled = true;
     };
-  }, [currentRun]);
+  }, [currentRun?.payId, currentRun?.payrollStatus, refreshTick]);
 
   const displayedPeriodStart = currentRun?.periodStart ?? runForm.periodStart;
   const displayedPeriodEnd = currentRun?.periodEnd ?? runForm.periodEnd;
+  const canAddManualAdjustmentLine =
+    currentRun?.payrollStatus === 'IN_PROGRESS' && currentRun?.runType === 'ADJUSTMENT';
   const canPostCurrentRun =
     Boolean(currentRun?.payId) &&
     currentRun?.payrollStatus !== 'POSTED' &&
@@ -737,7 +881,7 @@ export default function HrPayslips() {
   const emptyRunHint =
     currentRun && currentRun.payrollStatus !== 'POSTED' && (currentRun.itemCount ?? 0) <= 0
       ? currentRun.runType === 'ADJUSTMENT'
-        ? 'This adjustment run is still empty. Add correction items before posting it.'
+        ? ''
         : 'This run has no generated payroll items yet. Process the payroll period again or check if there were eligible employees for these dates.'
       : '';
   const runModalTitle =
@@ -768,6 +912,16 @@ export default function HrPayslips() {
       compareEmployees(runItemSort, { id: left.empId, name: left.employee }, { id: right.empId, name: right.employee })
     );
   }, [runItemSort, runItems]);
+  const selectedManualEmployee = useMemo(() => {
+    const employeeId = Number(manualLineForm.empId);
+    if (!Number.isFinite(employeeId) || employeeId <= 0) return null;
+    return employeeOptions.find((option) => option.id === employeeId) ?? null;
+  }, [employeeOptions, manualLineForm.empId]);
+  const filteredEmployeeOptions = useMemo(() => {
+    const query = normalizeText(manualEmployeeSearch);
+    if (!query) return employeeOptions;
+    return employeeOptions.filter((option) => normalizeText(option.name).includes(query));
+  }, [employeeOptions, manualEmployeeSearch]);
 
   const visibleDisputes = useMemo(() => {
     return disputes.filter((row) => {
@@ -824,6 +978,41 @@ export default function HrPayslips() {
     setAdjustmentRunId(null);
   }
 
+  function resetManualLineState() {
+    setManualLineModalOpen(false);
+    setManualLineForm(createDefaultManualLineForm());
+    setManualEmployeeSearch('');
+    setManualEmployeePickerOpen(false);
+    setManualLineError('');
+    setIsLoadingEmployeeOptions(false);
+    setIsSubmittingManualLine(false);
+  }
+
+  function openManualLineModal(defaults?: Partial<ManualLineFormState>) {
+    setManualLineError('');
+    setIsLoadingEmployeeOptions(false);
+    const nextEmpId = defaults?.empId ?? '';
+    const nextEmployee =
+      nextEmpId && Number.isFinite(Number(nextEmpId))
+        ? employeeOptions.find((option) => option.id === Number(nextEmpId)) ?? null
+        : null;
+    setManualLineForm((prev) => ({
+      empId: nextEmpId,
+      lineType: defaults?.lineType ?? prev.lineType ?? 'EARNING',
+      amount: defaults?.amount ?? '',
+    }));
+    setManualEmployeeSearch(nextEmployee?.name ?? '');
+    setManualEmployeePickerOpen(false);
+    setManualLineModalOpen(true);
+  }
+
+  function selectManualEmployee(option: EmployeeOption) {
+    setManualLineForm((prev) => ({ ...prev, empId: String(option.id) }));
+    setManualEmployeeSearch(option.name);
+    setManualEmployeePickerOpen(false);
+    setManualLineError('');
+  }
+
   function mapCorrectionLines(response: unknown, lineType: CorrectionLine['lineType']) {
     return toArray<Record<string, unknown>>(response)
       .map((row, idx) => mapCorrectionLine(row, idx, lineType))
@@ -851,6 +1040,81 @@ export default function HrPayslips() {
       setPayrollItemError(getFriendlyErrorMessage(error, 'payroll-run'));
     } finally {
       setIsLoadingPayrollItem(false);
+    }
+  }
+
+  async function ensurePayrollItemForEmployee(payId: number, empId: number) {
+    const existingItem = runItems.find((row) => row.empId === empId);
+    if (existingItem?.itemId) {
+      return existingItem.itemId;
+    }
+
+    const createdItem = await apiFetchJson<Record<string, unknown>>('/api/payroll/item/create', {
+      method: 'POST',
+      body: JSON.stringify({
+        payId,
+        empId,
+      }),
+    });
+
+    const nextItemId = Number(createdItem.id);
+    if (!Number.isFinite(nextItemId) || nextItemId <= 0) {
+      throw new Error('The payroll item was created, but its ID was not returned.');
+    }
+    return nextItemId;
+  }
+
+  async function submitManualLine() {
+    if (!currentRun?.payId || currentRun.runType !== 'ADJUSTMENT') {
+      setManualLineError('Open an in-progress adjustment run before adding manual lines.');
+      return;
+    }
+
+    const empId = Number(manualLineForm.empId);
+    if (!Number.isFinite(empId) || empId <= 0) {
+      setManualLineError('Choose an employee before adding a manual line.');
+      return;
+    }
+
+    const trimmedAmount = manualLineForm.amount.trim();
+    if (!trimmedAmount) {
+      setManualLineError('Enter the amount for this manual line.');
+      return;
+    }
+
+    const parsedAmount = Number(trimmedAmount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      setManualLineError('Manual line amount must be a valid amount greater than zero.');
+      return;
+    }
+
+    setManualLineError('');
+    setIsSubmittingManualLine(true);
+
+    try {
+      const itemId = await ensurePayrollItemForEmployee(currentRun.payId, empId);
+      const endpoint =
+        manualLineForm.lineType === 'EARNING'
+          ? `/api/payroll/item/earnings/create/${itemId}`
+          : `/api/payroll/item/deductions/create/${itemId}`;
+
+      await apiFetchJson(endpoint, {
+        method: 'POST',
+        body: JSON.stringify({
+          amount: trimmedAmount,
+        }),
+      });
+
+      await loadCurrentRun(currentRun.payId);
+      resetManualLineState();
+      showSuccess(
+        `${manualLineForm.lineType === 'EARNING' ? 'Earning' : 'Deduction'} line added for ${selectedManualEmployee?.name ?? `Employee #${empId}`}.`,
+        'Adjustment Line Added'
+      );
+    } catch (error) {
+      setManualLineError(getFriendlyErrorMessage(error, 'payroll-run'));
+    } finally {
+      setIsSubmittingManualLine(false);
     }
   }
 
@@ -1331,9 +1595,22 @@ export default function HrPayslips() {
 
       {isCurrentRunInProgress && currentRun && (
         <section className="hrPayPanel">
-          <div className="hrPayPanel__headRow">
+          <div className="hrPayPanel__headRow hrPayPanel__headRow--centered">
             <header className="hrPayPanel__head">Payroll Run in Progress</header>
-            <EmployeeSortMenu value={runItemSort} onChange={setRunItemSort} />
+            <div className="hrPayPanel__tools">
+              {canAddManualAdjustmentLine && (
+                <button
+                  type="button"
+                  className="hrPay__runBtn"
+                  onClick={() => openManualLineModal()}
+                  disabled={isSubmittingManualLine}
+                >
+                  <FiPlus />
+                  <span>Add Manual Line</span>
+                </button>
+              )}
+              <EmployeeSortMenu value={runItemSort} onChange={setRunItemSort} />
+            </div>
           </div>
 
           <div className="hrPayTableShell mgrPendTable">
@@ -1378,7 +1655,11 @@ export default function HrPayslips() {
             ) : (
               <div className="mgrPendTable__empty">
                 <span>No payroll items yet for this in-progress run.</span>
-                <span>Process the payroll period or add adjustment items first.</span>
+                <span>
+                  {canAddManualAdjustmentLine
+                    ? 'Add a manual adjustment line to create the first payroll item for this run.'
+                    : 'Process the payroll period or add adjustment items first.'}
+                </span>
               </div>
             )}
           </div>
@@ -1543,6 +1824,134 @@ export default function HrPayslips() {
               </button>
               <button type="button" onClick={requestPayrollRunConfirmation} disabled={isSubmittingRun}>
                 {isSubmittingRun ? 'Submitting...' : runSubmitLabel}
+              </button>
+            </div>
+          </article>
+        </div>
+      )}
+
+      {manualLineModalOpen && currentRun && (
+        <div className="hrPayModalBackdrop" role="dialog" aria-modal="true" aria-label="Add manual adjustment line">
+          <article className="hrPayModal hrPayModal--run">
+            <div className="hrPayModal__top">
+              <div className="hrPayModal__heading">
+                <h3>Add Manual Adjustment Line</h3>
+                <p className="hrPayModal__subtitle">
+                  Choose an employee, select whether this is an earning or deduction, and enter the amount to add it to
+                  the active adjustment run.
+                </p>
+              </div>
+              <ModalCloseButton
+                className="hrPayModal__close"
+                aria-label="Close manual adjustment line dialog"
+                onClick={resetManualLineState}
+                disabled={isSubmittingManualLine}
+              />
+            </div>
+            <div className="hrPayModal__rule" />
+
+            <div className="hrPayModal__grid hrPayModal__grid--compact hrPayModal__grid--manualLine">
+              <label className="hrPayModal__gridItem--full">
+                <span>Employee:</span>
+                <div className={`hrPayPicker ${manualEmployeePickerOpen ? 'is-open' : ''}`} ref={manualEmployeePickerRef}>
+                  <div className="hrPayPicker__control">
+                    <input
+                      type="text"
+                      className="hrPayPicker__input"
+                      role="combobox"
+                      aria-autocomplete="list"
+                      aria-controls="manual-employee-options"
+                      aria-expanded={manualEmployeePickerOpen}
+                      aria-haspopup="listbox"
+                      value={manualEmployeeSearch}
+                      onFocus={() => setManualEmployeePickerOpen(true)}
+                      onChange={(event) => {
+                        const nextValue = event.target.value;
+                        setManualEmployeeSearch(nextValue);
+                        setManualEmployeePickerOpen(true);
+                        setManualLineError('');
+                        if (normalizeText(selectedManualEmployee?.name ?? '') !== normalizeText(nextValue)) {
+                          setManualLineForm((prev) => ({ ...prev, empId: '' }));
+                        }
+                      }}
+                      placeholder={isLoadingEmployeeOptions ? 'Loading employees...' : 'Search or choose an employee'}
+                      disabled={isLoadingEmployeeOptions || isSubmittingManualLine}
+                    />
+                    <button
+                      type="button"
+                      className="hrPayPicker__toggle"
+                      onClick={() => setManualEmployeePickerOpen((prev) => !prev)}
+                      disabled={isLoadingEmployeeOptions || isSubmittingManualLine}
+                      aria-label={manualEmployeePickerOpen ? 'Close employee list' : 'Open employee list'}
+                    >
+                      <FiChevronDown />
+                    </button>
+                  </div>
+                  {manualEmployeePickerOpen && (
+                    <div className="hrPayPicker__menu" id="manual-employee-options" role="listbox">
+                      {isLoadingEmployeeOptions ? (
+                        <div className="hrPayPicker__empty">Loading employees...</div>
+                      ) : filteredEmployeeOptions.length > 0 ? (
+                        filteredEmployeeOptions.map((option) => {
+                          const isSelected = option.id === Number(manualLineForm.empId);
+                          return (
+                            <button
+                              key={option.id}
+                              type="button"
+                              role="option"
+                              aria-selected={isSelected}
+                              className={`hrPayPicker__option ${isSelected ? 'is-selected' : ''}`}
+                              onClick={() => selectManualEmployee(option)}
+                            >
+                              {option.name}
+                            </button>
+                          );
+                        })
+                      ) : (
+                        <div className="hrPayPicker__empty">No employees match that search.</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </label>
+              <label>
+                <span>Line Type:</span>
+                <select
+                  value={manualLineForm.lineType}
+                  onChange={(event) =>
+                    setManualLineForm((prev) => ({
+                      ...prev,
+                      lineType: event.target.value as ManualLineFormState['lineType'],
+                    }))
+                  }
+                  disabled={isSubmittingManualLine}
+                >
+                  <option value="EARNING">Manual Earning</option>
+                  <option value="DEDUCTION">Manual Deduction</option>
+                </select>
+              </label>
+              <label>
+                <span>Amount:</span>
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={manualLineForm.amount}
+                  onChange={(event) => setManualLineForm((prev) => ({ ...prev, amount: event.target.value }))}
+                  placeholder="0.00"
+                  disabled={isSubmittingManualLine}
+                />
+              </label>
+            </div>
+
+            {manualLineError && <p className="hrPay__message">{manualLineError}</p>}
+
+            <div className="hrPayModal__actions">
+              <button type="button" className="is-muted" onClick={resetManualLineState} disabled={isSubmittingManualLine}>
+                Cancel
+              </button>
+              <button type="button" onClick={() => void submitManualLine()} disabled={isLoadingEmployeeOptions || isSubmittingManualLine}>
+                {isSubmittingManualLine ? 'Adding...' : 'Add Line'}
               </button>
             </div>
           </article>

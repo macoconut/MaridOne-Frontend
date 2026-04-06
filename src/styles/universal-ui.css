@@ -13,8 +13,8 @@
   --ui-radius-lg: 22px;
   --ui-radius-md: 18px;
   --ui-radius-sm: 14px;
-  --ui-select-arrow-right: 20px;
-  --ui-select-padding-end: 56px;
+  --ui-select-arrow-right: 28px;
+  --ui-select-padding-end: 72px;
 }
 
 body {
@@ -205,14 +205,48 @@ body {
 
 :where(
   .aReviewRunSelect,
-  .hrRunSelect
+  .hrRunSelect,
+  .aDashPaySelect,
+  .hrAtt__monthSelectWrap,
+  .att__monthSelectWrap,
+  .pay__selectWrap
 ) {
+  position: relative !important;
+  display: flex !important;
+  align-items: center !important;
   min-height: 48px !important;
   border: 1px solid var(--ui-border-strong) !important;
   border-radius: var(--ui-radius-md) !important;
-  background: var(--ui-surface) !important;
+  background: linear-gradient(180deg, #ffffff 0%, #fcfbff 100%) !important;
   box-shadow: var(--ui-shadow-soft) !important;
   overflow: hidden !important;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease !important;
+}
+
+:where(
+  .aReviewRunSelect,
+  .hrRunSelect,
+  .aDashPaySelect,
+  .hrAtt__monthSelectWrap,
+  .att__monthSelectWrap,
+  .pay__selectWrap
+):hover {
+  border-color: rgba(123, 74, 143, 0.28) !important;
+  box-shadow: 0 14px 28px rgba(32, 21, 49, 0.12) !important;
+}
+
+:where(
+  .aReviewRunSelect,
+  .hrRunSelect,
+  .aDashPaySelect,
+  .hrAtt__monthSelectWrap,
+  .att__monthSelectWrap,
+  .pay__selectWrap
+):focus-within {
+  border-color: rgba(123, 74, 143, 0.36) !important;
+  box-shadow:
+    0 0 0 4px rgba(123, 74, 143, 0.1),
+    0 16px 30px rgba(32, 21, 49, 0.12) !important;
 }
 
 :where(.uiEmployeeSort) {
@@ -323,22 +357,45 @@ body {
 :where(
   .aReviewRunSelect select,
   .hrRunSelect select,
-  .aDashPaySelect select
+  .aDashPaySelect select,
+  .hrAtt__monthSelect,
+  .att__monthSelect,
+  .pay__select
 ) {
-  min-height: 100% !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  align-self: stretch !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 48px !important;
   border: 0 !important;
   border-radius: 0 !important;
   background: transparent !important;
   color: var(--ui-title-color) !important;
-  font-size: 14px !important;
+  font-size: 15px !important;
+  font-weight: 800 !important;
   box-shadow: none !important;
+  padding-left: 18px !important;
   padding-right: var(--ui-select-padding-end) !important;
+  cursor: pointer !important;
 }
 
 .aReviewRunSelect::after,
 .hrRunSelect::after,
-.aDashPaySelect::after {
+.aDashPaySelect::after,
+.hrAtt__monthSelectWrap::after,
+.att__monthSelectWrap::after,
+.pay__selectWrap::after {
+  content: '' !important;
+  position: absolute !important;
   right: var(--ui-select-arrow-right) !important;
+  top: 50% !important;
+  width: 9px !important;
+  height: 9px !important;
+  border-right: 2px solid #645775 !important;
+  border-bottom: 2px solid #645775 !important;
+  transform: translateY(-62%) rotate(45deg) !important;
+  pointer-events: none !important;
 }
 
 :where(
