@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FiChevronDown, FiEdit2, FiFilter, FiPlus, FiSearch, FiX, FiXCircle } from 'react-icons/fi';
+import { FiCheckCircle, FiChevronDown, FiEdit2, FiFilter, FiPlus, FiSearch, FiX, FiXCircle } from 'react-icons/fi';
 import { ApiError, apiFetchJson, toArray } from '../../../lib/api';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
@@ -11,7 +11,7 @@ import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { useUnsavedChangesPrompt } from '../../../hooks/useUnsavedChangesPrompt';
 import { compareEmployees, type EmployeeSortKey } from '../../../lib/employeeSort';
-import { formatPayrollRunTypeLabel, hasBonusEarning } from '../../../lib/payrollRunLabels';
+import { formatPayrollRunTypeLabel, formatPayrollStatusLabel, hasBonusEarning } from '../../../lib/payrollRunLabels';
 import { extractAttachmentReference, openDocumentAttachment } from '../../../lib/documentAttachments';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import '../approvals/Approvals.css';
@@ -1725,7 +1725,9 @@ export default function HrPayslips() {
           {currentRun && (
             <div className="hrPayPeriod__meta">
               <span className="hrPayPill">{formatRunType(currentRun.runType)}</span>
-              <span className="hrPayPill hrPayPill--status">{currentRun.payrollStatus ?? 'IN_PROGRESS'}</span>
+              <span className="hrPayPill hrPayPill--status">
+                {formatPayrollStatusLabel(currentRun.payrollStatus ?? 'IN_PROGRESS')}
+              </span>
             </div>
           )}
         </div>
@@ -1738,7 +1740,8 @@ export default function HrPayslips() {
               onClick={() => setPostModalOpen(true)}
               disabled={isPostingRun}
             >
-              {isPostingRun ? 'Posting...' : 'Post Payroll Run'}
+              <FiCheckCircle />
+              <span>{isPostingRun ? 'Posting...' : 'Post Payroll Run'}</span>
             </button>
           )}
           <button
@@ -2369,7 +2372,7 @@ export default function HrPayslips() {
               </label>
               <label>
                 <span>Run Status:</span>
-                <input value={currentRun?.payrollStatus ?? 'IN_PROGRESS'} readOnly />
+                <input value={formatPayrollStatusLabel(currentRun?.payrollStatus ?? 'IN_PROGRESS')} readOnly />
               </label>
               <label>
                 <span>Pay Period:</span>

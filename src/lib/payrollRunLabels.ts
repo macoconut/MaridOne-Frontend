@@ -39,3 +39,9 @@ export function formatPayrollRunTypeLabel(
 
   return prettifyRunType(runType ?? 'Regular Payroll') || 'Regular Payroll';
 }
+
+export function formatPayrollStatusLabel(status?: string | null) {
+  const normalized = String(status ?? '').trim();
+  if (!normalized) return '';
+  return normalized.replaceAll('_', ' ');
+}

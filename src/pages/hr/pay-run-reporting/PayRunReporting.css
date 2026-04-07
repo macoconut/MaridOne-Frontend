@@ -290,9 +290,10 @@
   padding: 10px 14px;
   background: var(--hr-primary-soft);
   border-bottom: 1px solid var(--hr-line);
+  border-radius: 0 !important;
   box-shadow: none;
-  font-size: 16px;
-  font-weight: 900;
+  font-size: 15px;
+  font-weight: 800;
   color: var(--hr-primary-dark);
 }
 

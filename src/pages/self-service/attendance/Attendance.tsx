@@ -217,19 +217,19 @@ function resolveDayOfWeek(dateValue: string) {
   return ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'][date.getDay()] ?? '';
 }
 
-function formatShortDate(value: string) {
+function formatLongMonthDate(value: string) {
   const date = new Date(`${value}T12:00:00`);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString(undefined, {
-    month: 'short',
+    month: 'long',
     day: 'numeric',
   });
 }
 
 function formatWeekOptionLabel(weekStart: string, index: number) {
   const weekEnd = addDays(weekStart, 6);
-  const prefix = index === 0 ? 'This Week' : index === 1 ? 'Next Week' : `Week of ${formatShortDate(weekStart)}`;
-  return `${prefix} (${formatShortDate(weekStart)} - ${formatShortDate(weekEnd)})`;
+  const dateRange = `${formatLongMonthDate(weekStart)} - ${formatLongMonthDate(weekEnd)}`;
+  return index === 0 ? `This Week (${dateRange})` : dateRange;
 }
 
 function formatWeekdayDateLabel(value: string) {
@@ -788,7 +788,6 @@ export default function Attendance() {
           dateKey,
           label: formatWeekdayDateLabel(dateKey),
           detail: 'Day Off',
-          meta: 'Manager override',
           variant: 'dayoff' as const,
         };
       }
@@ -809,17 +808,15 @@ export default function Attendance() {
           dateKey,
           label: formatWeekdayDateLabel(dateKey),
           detail: `${startValue} - ${endValue}`,
-          meta: dailyShift ? 'Manager override' : 'Weekly template',
-          variant: dailyShift ? ('override' as const) : ('template' as const),
+          variant: 'scheduled' as const,
         };
       }
 
       return {
         dateKey,
         label: formatWeekdayDateLabel(dateKey),
-        detail: 'No shift assigned',
-        meta: 'Contact your manager if this looks wrong.',
-        variant: 'empty' as const,
+        detail: 'Day Off',
+        variant: 'dayoff' as const,
       };
     });
   }, [dailyShiftScheduleByDate, selectedScheduleWeekStart, shiftSchedule]);
@@ -1323,9 +1320,9 @@ export default function Attendance() {
               })}
             </select>
           </div>
-          <button className="attSecondaryBtn" type="button" onClick={openSchedule} title="View My Schedule">
+          <button className="attClockBtn attClockBtn--schedule" type="button" onClick={openSchedule} title="View My Schedule">
             <span>My Schedule</span>
-            <span className="attSecondaryBtn__icon">
+            <span className="attClockBtn__icon">
               <FiCalendar />
             </span>
           </button>
@@ -1351,9 +1348,6 @@ export default function Attendance() {
             <h2 className="attBalanceCard__title" id="att-leave-balances-title">
               Leave Balances
             </h2>
-            <p className="attBalanceCard__subtitle">
-              Review your available leave in hours before filing a new request.
-            </p>
           </div>
           <p className="attBalanceCard__note">Pending requests may not yet be deducted.</p>
         </div>
@@ -1842,8 +1836,7 @@ export default function Attendance() {
               <div className="modal__meta">
                 <div className="modal__title">My Schedule</div>
                 <p className="modal__subtitle">
-                  Review the hours your manager assigned for this week. Date-specific changes appear here first, and the
-                  weekly template fills in the rest.
+                  Review your assigned work hours for the selected week.
                 </p>
               </div>
               <ModalCloseButton className="modal__close" onClick={closeSchedule} />
@@ -1851,41 +1844,46 @@ export default function Attendance() {
             <div className="modal__rule modal__rule--request" />
 
             <div className="attScheduleModal">
-              <label className="attScheduleCard__selectWrap attScheduleCard__selectWrap--modal">
-                <span className="attScheduleCard__selectLabel">Week</span>
-                <select
-                  className="attScheduleCard__select"
-                  value={selectedScheduleWeekStart}
-                  onChange={(event) => setSelectedScheduleWeekStart(event.target.value)}
-                >
-                  {scheduleWeekOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <div className="attScheduleModal__toolbar">
+                <label className="attScheduleCard__selectWrap attScheduleCard__selectWrap--modal">
+                  <span className="attScheduleCard__selectLabel">Week</span>
+                  <select
+                    className="attScheduleCard__select"
+                    value={selectedScheduleWeekStart}
+                    onChange={(event) => setSelectedScheduleWeekStart(event.target.value)}
+                  >
+                    {scheduleWeekOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <p className="attScheduleModal__notice">If this schedule looks wrong, please contact your manager.</p>
 
               {scheduleWeekStatus === 'loading' ? (
-                <p className="attScheduleCard__loading">Loading your schedule...</p>
+                <div className="attScheduleState" role="status">
+                  Loading your schedule...
+                </div>
               ) : scheduleWeekStatus === 'unavailable' ? (
-                <p className="attScheduleCard__loading">Your schedule is unavailable right now.</p>
+                <div className="attScheduleState attScheduleState--muted">Your schedule is unavailable right now.</div>
               ) : (
                 <div className="attScheduleGrid">
                   {weekScheduleRows.map((row) => (
                     <article key={row.dateKey} className={`attScheduleDay attScheduleDay--${row.variant}`}>
                       <span className="attScheduleDay__label">{row.label}</span>
-                      <strong className="attScheduleDay__detail">{row.detail}</strong>
-                      <span className="attScheduleDay__meta">{row.meta}</span>
+                      <span className={`attScheduleDay__detail attScheduleDay__detail--${row.variant}`}>{row.detail}</span>
                     </article>
                   ))}
                 </div>
               )}
 
               <div className="requestActions">
-                <button className="btn btn--ghost" type="button" onClick={closeSchedule}>
+                <ActionButton variant="ghost" type="button" icon={<FiXCircle />} onClick={closeSchedule}>
                   Close
-                </button>
+                </ActionButton>
               </div>
             </div>
           </div>
