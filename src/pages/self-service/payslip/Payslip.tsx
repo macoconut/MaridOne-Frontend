@@ -69,6 +69,7 @@ const moneyFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 2,
 });
 const DISPUTE_UPLOAD_SUBDIR = 'dispute-request';
+const MARID_LOGO_URL = '/images/marid-logo-transparent.png';
 
 function toMoneyString(value: unknown) {
   if (typeof value === 'number' && Number.isFinite(value)) return value.toFixed(2);
@@ -171,6 +172,22 @@ function matchesPayslipPeriod(document: DocumentRow, periodEnd?: string) {
     .toLowerCase();
 
   return searchableText.includes(target);
+}
+
+function parseContentDispositionFileName(value?: string | null) {
+  if (!value) return null;
+
+  const utfMatch = value.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utfMatch?.[1]) {
+    try {
+      return decodeURIComponent(utfMatch[1].trim().replace(/^"|"$/g, ''));
+    } catch {
+      return utfMatch[1].trim().replace(/^"|"$/g, '');
+    }
+  }
+
+  const basicMatch = value.match(/filename="?([^";]+)"?/i);
+  return basicMatch?.[1]?.trim() || null;
 }
 
 function toManilaDateKey(value?: string) {
@@ -483,6 +500,27 @@ export default function Payslip() {
   }
 
   async function loadSelectedPayslipPdf() {
+    try {
+      if (!selectedItemId) {
+        throw new Error('No payroll item selected.');
+      }
+
+      const response = await apiFetchRaw(`/api/payroll/item/${selectedItemId}/payslip/pdf`, { method: 'GET' });
+      if (response.ok) {
+        const pdfBlob = await response.blob();
+        const fileName = parseContentDispositionFileName(response.headers.get('Content-Disposition')) || buildPayslipPdfName();
+        const pdfFile = new File([pdfBlob], fileName, {
+          type: pdfBlob.type || 'application/pdf',
+        });
+
+        return { file: pdfFile, fileName };
+      }
+
+      // Fall back to the latest saved payslip document if on-demand PDF rendering is unavailable.
+    } catch {
+      // Fall back to the latest saved payslip document if on-demand PDF rendering fails.
+    }
+
     const username = getUserEmail();
     if (!username) {
       throw new Error('Missing username.');
@@ -689,9 +727,14 @@ export default function Payslip() {
       <section className="payCard">
         <div className="payCard__header">
             <div className="payCard__company">
-              <div className="payCard__companyName">Marid Industries Corporation</div>
-              <div className="payCard__companyMeta">Address</div>
-              <div className="payCard__companyMeta">marid@marid.com</div>
+              <div className="payCard__brand">
+                <img className="payCard__logo" src={MARID_LOGO_URL} alt="Marid Industries logo" />
+                <div className="payCard__companyCopy">
+                  <div className="payCard__companyName">Marid Industries Corporation</div>
+                  <div className="payCard__companyMeta">Address</div>
+                  <div className="payCard__companyMeta">marid@marid.com</div>
+                </div>
+              </div>
             </div>
           <div className="payCard__title">PAYSLIP</div>
         </div>

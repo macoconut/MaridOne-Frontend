@@ -33,6 +33,7 @@ type EmployeeRow = {
   email: string;
   phone: string;
   position: string;
+  department: string;
   searchIndex: string;
 };
 
@@ -182,7 +183,9 @@ function isTerminatedStatus(value?: string | null) {
 }
 
 function buildEmployeeSearchIndex(row: Omit<EmployeeRow, 'searchIndex'>) {
-  return normalizeText([row.id, row.name, row.username, row.status, row.email, row.phone, row.position].join(' '));
+  return normalizeText(
+    [row.id, row.name, row.username, row.status, row.email, row.phone, row.position, row.department].join(' ')
+  );
 }
 
 function getDefaultExemptionStatus(position: string) {
@@ -301,6 +304,7 @@ function mergeRowWithDetails(row: EmployeeRow, details: EmployeeDetails): Employ
     email: details.email?.trim() ? details.email : row.email,
     phone: details.phoneNumber?.trim() ? details.phoneNumber : row.phone,
     position: details.position?.trim() ? details.position : row.position,
+    department: details.department?.trim() ? details.department : row.department,
   };
 
   return {
@@ -338,6 +342,7 @@ export default function HrManageEmp() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
   const [positionFilter, setPositionFilter] = useState('all');
+  const [departmentFilter, setDepartmentFilter] = useState('all');
   const [employeeSort, setEmployeeSort] = useState<EmployeeSortKey>('id');
   const [refreshTick, setRefreshTick] = useState(0);
   const [employeeOptions, setEmployeeOptions] = useState<EmployeeOption[]>([]);
@@ -398,6 +403,11 @@ export default function HrManageEmp() {
     [employeeRows]
   );
 
+  const filterDepartmentOptions = useMemo(
+    () => Array.from(new Set(employeeRows.map((row) => row.department).filter((value) => value && value !== '-'))).sort(),
+    [employeeRows]
+  );
+
   const visibleEmployeeRows = useMemo(() => {
     const normalizedSearch = normalizeText(searchValue);
 
@@ -405,13 +415,14 @@ export default function HrManageEmp() {
       if (normalizedSearch && !row.searchIndex.includes(normalizedSearch)) return false;
       if (statusFilter !== 'all' && row.status !== statusFilter) return false;
       if (positionFilter !== 'all' && row.position !== positionFilter) return false;
+      if (departmentFilter !== 'all' && row.department !== departmentFilter) return false;
       return true;
     });
 
     return [...filtered].sort((left, right) =>
       compareEmployees(employeeSort, { id: left.id, name: left.name }, { id: right.id, name: right.name })
     );
-  }, [employeeRows, employeeSort, positionFilter, searchValue, statusFilter]);
+  }, [departmentFilter, employeeRows, employeeSort, positionFilter, searchValue, statusFilter]);
 
   const managerOptions = useMemo(
     () => employeeOptions.filter((option) => isManagerPosition(option.position)),
@@ -434,7 +445,7 @@ export default function HrManageEmp() {
   }, [managerOptions, managerSearch]);
   const canClearManagerPicker = managerSearch.trim().length > 0 || form.managerId.trim().length > 0;
 
-  const activeFilterCount = [statusFilter, positionFilter].filter((value) => value !== 'all').length;
+  const activeFilterCount = [statusFilter, positionFilter, departmentFilter].filter((value) => value !== 'all').length;
   const phoneHelperMessage = modal !== 'delete' ? getPhoneValidationMessage(form.phoneNumber) : '';
   const phoneHasError =
     modal !== 'delete' && form.phoneNumber.trim().length > 0 && sanitizePhoneNumber(form.phoneNumber).length !== 11;
@@ -566,6 +577,7 @@ export default function HrManageEmp() {
           email: String(item.email ?? '-'),
           phone: String(item.phoneNumber ?? '-'),
           position: String(item.position ?? '-'),
+          department: String(item.department ?? '-'),
         };
 
         return {
@@ -612,7 +624,11 @@ export default function HrManageEmp() {
   }
 
   function todayDateValue() {
-    return new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   function sanitizePhoneNumber(value: string) {
@@ -750,6 +766,7 @@ export default function HrManageEmp() {
   function clearFilters() {
     setStatusFilter('all');
     setPositionFilter('all');
+    setDepartmentFilter('all');
   }
 
   function syncLeaveBalanceForms(balances: LeaveBalanceRow[]) {
@@ -1039,6 +1056,9 @@ export default function HrManageEmp() {
       throw new Error('Department is required when the selected position is MANAGER.');
     }
 
+    const shouldDefaultEmploymentEndDate =
+      !isCreate && isTerminatedStatus(form.employmentStatus) && !form.employmentDateEnd;
+
     return {
       firstName: form.firstName.trim(),
       middleName: form.middleName.trim() || undefined,
@@ -1047,7 +1067,7 @@ export default function HrManageEmp() {
       employmentStatus: form.employmentStatus || undefined,
       exemptionStatus: form.exemptionStatus || undefined,
       employmentDateStart: form.employmentDateStart || undefined,
-      employmentDateEnd: form.employmentDateEnd || undefined,
+      employmentDateEnd: form.employmentDateEnd || (shouldDefaultEmploymentEndDate ? todayDateValue() : undefined),
       email: form.email.trim(),
       phoneNumber: isCreate || form.phoneNumber.trim() ? validatePhoneNumber(form.phoneNumber) : undefined,
       position: form.position || undefined,
@@ -1569,7 +1589,7 @@ export default function HrManageEmp() {
             <input
               value={searchValue}
               onChange={(event) => setSearchValue(event.target.value)}
-              placeholder="Search employee, username, email, phone, status, or position"
+              placeholder="Search by employee name, ID, username, email, phone, role, or department"
             />
             {searchValue ? (
               <button type="button" aria-label="Clear employee search" onClick={() => setSearchValue('')}>
@@ -1578,52 +1598,68 @@ export default function HrManageEmp() {
             ) : null}
           </label>
 
-          <EmployeeSortMenu value={employeeSort} onChange={setEmployeeSort} />
+          <div className="hrEmpToolbar__actions">
+            <EmployeeSortMenu value={employeeSort} onChange={setEmployeeSort} />
 
-          <div className="hrEmpFilter">
-            <button
-              type="button"
-              className={`hrEmpFilter__toggle ${filterOpen ? 'is-open' : ''} ${activeFilterCount > 0 ? 'is-active' : ''}`}
-              onClick={() => setFilterOpen((open) => !open)}
-            >
-              <FiFilter />
-              <span>Filter</span>
-              {activeFilterCount > 0 ? <span className="hrEmpFilter__count">{activeFilterCount}</span> : null}
-            </button>
+            <div className="hrEmpFilter">
+              <button
+                type="button"
+                className={`hrEmpFilter__toggle ${filterOpen ? 'is-open' : ''} ${
+                  activeFilterCount > 0 ? 'is-active' : ''
+                }`}
+                onClick={() => setFilterOpen((open) => !open)}
+              >
+                <FiFilter />
+                <span>Filter</span>
+                {activeFilterCount > 0 ? <span className="hrEmpFilter__count">{activeFilterCount}</span> : null}
+              </button>
 
-            {filterOpen ? (
-              <div className="hrEmpFilter__panel">
-                <label className="hrEmpFilter__field">
-                  <span>Status</span>
-                  <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-                    <option value="all">All Statuses</option>
-                    {statusOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+              {filterOpen ? (
+                <div className="hrEmpFilter__panel">
+                  <label className="hrEmpFilter__field">
+                    <span>Status</span>
+                    <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                      <option value="all">All Statuses</option>
+                      {statusOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-                <label className="hrEmpFilter__field">
-                  <span>Position</span>
-                  <select value={positionFilter} onChange={(event) => setPositionFilter(event.target.value)}>
-                    <option value="all">All Positions</option>
-                    {filterPositionOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                  <label className="hrEmpFilter__field">
+                    <span>Role</span>
+                    <select value={positionFilter} onChange={(event) => setPositionFilter(event.target.value)}>
+                      <option value="all">All Roles</option>
+                      {filterPositionOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-                <div className="hrEmpFilter__actions">
-                  <button type="button" onClick={clearFilters}>
-                    Reset Filters
-                  </button>
+                  <label className="hrEmpFilter__field">
+                    <span>Department</span>
+                    <select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}>
+                      <option value="all">All Departments</option>
+                      {filterDepartmentOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <div className="hrEmpFilter__actions">
+                    <button type="button" onClick={clearFilters}>
+                      Reset Filters
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ) : null}
+              ) : null}
+            </div>
           </div>
         </div>
 

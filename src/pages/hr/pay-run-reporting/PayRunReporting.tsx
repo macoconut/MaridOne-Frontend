@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FiDownload, FiSearch, FiXCircle } from 'react-icons/fi';
+import { FiDownload, FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
 import ActionButton from '../../../components/button/ActionButton';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import EmployeeSortMenu from '../../../components/layout/EmployeeSortMenu';
@@ -32,6 +32,17 @@ type PayrollItemRow = {
   itemId?: number;
   grossPay?: number | string;
   netPay?: number | string;
+};
+
+type EmployeeDirectoryEntry = {
+  id: number;
+  role: string;
+  department: string;
+};
+
+type EmployeeReportRow = PayrollItemRow & {
+  role: string;
+  department: string;
 };
 
 type PayrollBreakdownLine = {
@@ -149,6 +160,21 @@ function formatEmployeeName(row: PayrollItemRow) {
   if (fullName) return fullName;
   if (typeof row.empId === 'number') return `EMP ID ${row.empId}`;
   return 'Unnamed employee';
+}
+
+function buildEmployeeDirectory(response: unknown) {
+  return toArray<Record<string, unknown>>(response)
+    .map((item, index) => {
+      const id = Number(item.employeeId ?? item.id ?? index + 1);
+      if (!Number.isFinite(id) || id <= 0) return null;
+
+      return {
+        id,
+        role: typeof item.position === 'string' ? item.position.trim() : '',
+        department: typeof item.department === 'string' ? item.department.trim() : '',
+      } satisfies EmployeeDirectoryEntry;
+    })
+    .filter((entry): entry is EmployeeDirectoryEntry => entry !== null);
 }
 
 function formatRunLabel(run: PayrollRunRow) {
@@ -356,7 +382,11 @@ export default function HrPayRunReporting() {
   const [runs, setRuns] = useState<PayrollRunRow[]>([]);
   const [selectedPayId, setSelectedPayId] = useState<number | null>(null);
   const [employeeRows, setEmployeeRows] = useState<PayrollItemRow[]>([]);
+  const [employeeDirectory, setEmployeeDirectory] = useState<EmployeeDirectoryEntry[]>([]);
   const [payTypeRows, setPayTypeRows] = useState<PayTypeSummaryRow[]>([]);
+  const [employeeFilterOpen, setEmployeeFilterOpen] = useState(false);
+  const [employeeRoleFilter, setEmployeeRoleFilter] = useState('all');
+  const [employeeDepartmentFilter, setEmployeeDepartmentFilter] = useState('all');
   const [selectedBreakdownItem, setSelectedBreakdownItem] = useState<PayrollItemRow | null>(null);
   const [selectedBreakdownEarnings, setSelectedBreakdownEarnings] = useState<PayrollBreakdownLine[]>([]);
   const [selectedBreakdownDeductions, setSelectedBreakdownDeductions] = useState<PayrollBreakdownLine[]>([]);
@@ -389,6 +419,28 @@ export default function HrPayRunReporting() {
 
     return () => document.body.classList.remove('modal-open');
   }, [selectedBreakdownItem]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadEmployeeDirectory() {
+      try {
+        const response = await apiFetchJson<unknown>('/api/employees?page=0&size=500');
+        if (cancelled) return;
+        setEmployeeDirectory(buildEmployeeDirectory(response));
+      } catch {
+        if (!cancelled) {
+          setEmployeeDirectory([]);
+        }
+      }
+    }
+
+    void loadEmployeeDirectory();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -507,25 +559,61 @@ export default function HrPayRunReporting() {
   }, [selectedBreakdownDeductions, selectedBreakdownGross, selectedBreakdownItem, selectedBreakdownNet]);
 
   const normalizedFilter = filterValue.trim().toLowerCase();
+  const employeeDirectoryById = useMemo(
+    () => new Map(employeeDirectory.map((entry) => [entry.id, entry])),
+    [employeeDirectory]
+  );
+  const employeeReportRows = useMemo<EmployeeReportRow[]>(() => {
+    return employeeRows.map((row) => {
+      const entry = typeof row.empId === 'number' ? employeeDirectoryById.get(row.empId) : undefined;
+      return {
+        ...row,
+        role: entry?.role ?? '',
+        department: entry?.department ?? '',
+      };
+    });
+  }, [employeeDirectoryById, employeeRows]);
+
+  const employeeRoleOptions = useMemo(
+    () => Array.from(new Set(employeeReportRows.map((row) => row.role).filter(Boolean))).sort(),
+    [employeeReportRows]
+  );
+
+  const employeeDepartmentOptions = useMemo(
+    () => Array.from(new Set(employeeReportRows.map((row) => row.department).filter(Boolean))).sort(),
+    [employeeReportRows]
+  );
 
   const visibleEmployeeRows = useMemo(() => {
     const filtered =
       !normalizedFilter || normalizedFilter === 'all'
-        ? [...employeeRows]
-        : employeeRows.filter((row) => {
+        ? [...employeeReportRows]
+        : employeeReportRows.filter((row) => {
             const name = formatEmployeeName(row).toLowerCase();
             const empId = String(row.empId ?? '').toLowerCase();
             return name.includes(normalizedFilter) || empId.includes(normalizedFilter);
           });
 
-    return filtered.sort((left, right) =>
+    return filtered
+      .filter((row) => {
+        if (employeeRoleFilter !== 'all' && row.role !== employeeRoleFilter) {
+          return false;
+        }
+
+        if (employeeDepartmentFilter !== 'all' && row.department !== employeeDepartmentFilter) {
+          return false;
+        }
+
+        return true;
+      })
+      .sort((left, right) =>
       compareEmployees(
         employeeSort,
         { id: left.empId, name: formatEmployeeName(left) },
         { id: right.empId, name: formatEmployeeName(right) }
       )
     );
-  }, [employeeRows, employeeSort, normalizedFilter]);
+  }, [employeeDepartmentFilter, employeeReportRows, employeeRoleFilter, employeeSort, normalizedFilter]);
 
   const visiblePayTypeRows = useMemo(() => {
     const filtered =
@@ -571,6 +659,13 @@ export default function HrPayRunReporting() {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '') || 'payroll-run-report';
   }, [reportLabel]);
+  const activeEmployeeFilterCount = [employeeRoleFilter, employeeDepartmentFilter].filter(
+    (value) => value !== 'all'
+  ).length;
+  const employeeEmptyMessage =
+    employeeRows.length > 0 && visibleEmployeeRows.length === 0 && (normalizedFilter || activeEmployeeFilterCount > 0)
+      ? 'No employee totals matched the current search or filters.'
+      : getEmptyRunMessage(selectedRun, 'employee', selectableRuns.length);
 
   const payTypeReportRows = useMemo(() => {
     return [
@@ -729,6 +824,11 @@ export default function HrPayRunReporting() {
     }
   }
 
+  function clearEmployeeFilters() {
+    setEmployeeRoleFilter('all');
+    setEmployeeDepartmentFilter('all');
+  }
+
   return (
     <div className="hrRun">
       <div className="hrRun__top">
@@ -747,19 +847,21 @@ export default function HrPayRunReporting() {
       <div className="hrRunFilters">
         <div className="hrRunFilters__field hrRunFilters__field--search">
           <label>{filterLabel}</label>
-          <label className="hrRunSearch" aria-label={view === 'employee' ? 'Search employees' : 'Search pay types'}>
-            <FiSearch />
-            <input
-              value={filterValue}
-              onChange={(e) => setFilterValue(e.target.value)}
-              placeholder={view === 'employee' ? 'Search by employee name' : 'Search by earnings or deductions type'}
-            />
-            {filterValue && (
-              <button type="button" aria-label="Clear filter" onClick={() => setFilterValue('')}>
-                <FiXCircle />
-              </button>
-            )}
-          </label>
+          <div className="hrRunFilters__searchGroup">
+            <label className="hrRunSearch" aria-label={view === 'employee' ? 'Search employees' : 'Search pay types'}>
+              <FiSearch />
+              <input
+                value={filterValue}
+                onChange={(e) => setFilterValue(e.target.value)}
+                placeholder={view === 'employee' ? 'Search by employee name or ID' : 'Search by earnings or deductions type'}
+              />
+              {filterValue && (
+                <button type="button" aria-label="Clear filter" onClick={() => setFilterValue('')}>
+                  <FiXCircle />
+                </button>
+              )}
+            </label>
+          </div>
         </div>
 
         <div className="hrRunFilters__field">
@@ -786,7 +888,61 @@ export default function HrPayRunReporting() {
         {view === 'employee' ? (
           <div className="hrRunFilters__field hrRunFilters__field--sort">
             <label>Sort By:</label>
-            <EmployeeSortMenu value={employeeSort} onChange={setEmployeeSort} />
+            <div className="hrRunFilters__actions">
+              <EmployeeSortMenu value={employeeSort} onChange={setEmployeeSort} />
+              <div className="hrRunFilter">
+                <button
+                  type="button"
+                  className={`hrRunFilter__toggle ${employeeFilterOpen ? 'is-open' : ''} ${
+                    activeEmployeeFilterCount > 0 ? 'is-active' : ''
+                  }`}
+                  onClick={() => setEmployeeFilterOpen((open) => !open)}
+                >
+                  <FiFilter />
+                  <span>Filter</span>
+                  {activeEmployeeFilterCount > 0 ? (
+                    <span className="hrRunFilter__count">{activeEmployeeFilterCount}</span>
+                  ) : null}
+                </button>
+
+                {employeeFilterOpen ? (
+                  <div className="hrRunFilter__panel">
+                    <label className="hrRunFilter__field">
+                      <span>Role</span>
+                      <select value={employeeRoleFilter} onChange={(event) => setEmployeeRoleFilter(event.target.value)}>
+                        <option value="all">All Roles</option>
+                        {employeeRoleOptions.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="hrRunFilter__field">
+                      <span>Department</span>
+                      <select
+                        value={employeeDepartmentFilter}
+                        onChange={(event) => setEmployeeDepartmentFilter(event.target.value)}
+                      >
+                        <option value="all">All Departments</option>
+                        {employeeDepartmentOptions.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <div className="hrRunFilter__actions">
+                      <button type="button" onClick={clearEmployeeFilters}>
+                        Reset Filters
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
           </div>
         ) : null}
       </div>
@@ -823,9 +979,7 @@ export default function HrPayRunReporting() {
                 </button>
               ))
             ) : (
-              <article className="hrRunEmpty">
-                {isLoading ? 'Loading pay run details...' : getEmptyRunMessage(selectedRun, 'employee', selectableRuns.length)}
-              </article>
+              <article className="hrRunEmpty">{isLoading ? 'Loading pay run details...' : employeeEmptyMessage}</article>
             )}
           </div>
         </section>

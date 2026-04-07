@@ -62,6 +62,13 @@ type EmployeeOption = {
   id: number;
   name: string;
   status: string;
+  position: string;
+  department: string;
+};
+
+type RunItemViewRow = PayrollItemSummaryRow & {
+  role: string;
+  department: string;
 };
 
 type ManualLineFormState = {
@@ -313,10 +320,11 @@ function buildEmployeeOptions(response: unknown) {
         id,
         name: explicitName || fallbackName || `Employee #${id}`,
         status: String(item.status ?? item.employmentStatus ?? ''),
+        position: String(item.position ?? ''),
+        department: typeof item.department === 'string' ? item.department.trim() : '',
       } satisfies EmployeeOption;
     })
     .filter((option): option is EmployeeOption => option !== null)
-    .filter((option) => normalizeText(option.status) !== 'terminated')
     .sort((left, right) => left.name.localeCompare(right.name));
 }
 
@@ -619,6 +627,9 @@ export default function HrPayslips() {
   const [isPostingRun, setIsPostingRun] = useState(false);
   const [runError, setRunError] = useState('');
   const [currentRun, setCurrentRun] = useState<PayrollRunDto | null>(null);
+  const [runItemFilterOpen, setRunItemFilterOpen] = useState(false);
+  const [runItemRoleFilter, setRunItemRoleFilter] = useState('all');
+  const [runItemDepartmentFilter, setRunItemDepartmentFilter] = useState('all');
   const [correctionOpen, setCorrectionOpen] = useState(false);
   const [correctionIntent, setCorrectionIntent] = useState<CorrectionIntent | null>(null);
   const [correctionSource, setCorrectionSource] = useState<CorrectionSourceItem | null>(null);
@@ -774,7 +785,7 @@ export default function HrPayslips() {
   }, [selectedPayrollItem?.itemId]);
 
   useEffect(() => {
-    if (!manualLineModalOpen || employeeOptions.length > 0) {
+    if ((!manualLineModalOpen && currentRun?.payrollStatus !== 'IN_PROGRESS') || employeeOptions.length > 0) {
       return;
     }
 
@@ -788,7 +799,9 @@ export default function HrPayslips() {
 
     async function loadEmployeeOptions() {
       setIsLoadingEmployeeOptions(true);
-      setManualLineError('');
+      if (manualLineModalOpen) {
+        setManualLineError('');
+      }
       try {
         let response: unknown;
         try {
@@ -808,15 +821,19 @@ export default function HrPayslips() {
           return;
         }
         if (didTimeout) {
-          setManualLineError(
-            'Employee list took too long to load. Close and reopen this dialog, then restart the backend if it keeps happening.'
-          );
+          if (manualLineModalOpen) {
+            setManualLineError(
+              'Employee list took too long to load. Close and reopen this dialog, then restart the backend if it keeps happening.'
+            );
+          }
           return;
         }
         if (error instanceof DOMException && error.name === 'AbortError') {
           return;
         }
-        setManualLineError(getFriendlyErrorMessage(error, 'employee-load'));
+        if (manualLineModalOpen) {
+          setManualLineError(getFriendlyErrorMessage(error, 'employee-load'));
+        }
       } finally {
         window.clearTimeout(timeoutId);
         if (!cancelled) setIsLoadingEmployeeOptions(false);
@@ -830,7 +847,7 @@ export default function HrPayslips() {
       window.clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [employeeOptions.length, manualLineModalOpen]);
+  }, [currentRun?.payrollStatus, employeeOptions.length, manualLineModalOpen]);
 
   useEffect(() => {
     if (!manualEmployeePickerOpen) {
@@ -1001,6 +1018,14 @@ export default function HrPayslips() {
     selectedDispute ? selectedDispute.statusCode === 'WAITING_ADJUSTMENT' : false;
   const isCurrentRunInProgress = currentRun?.payrollStatus === 'IN_PROGRESS';
   const canEditSelectedPayrollItem = currentRun?.payrollStatus === 'IN_PROGRESS';
+  const employeeOptionsById = useMemo(
+    () => new Map(employeeOptions.map((option) => [option.id, option])),
+    [employeeOptions]
+  );
+  const manualSelectableEmployeeOptions = useMemo(
+    () => employeeOptions.filter((option) => normalizeText(option.status) !== 'terminated'),
+    [employeeOptions]
+  );
   const selectedPayrollGross = selectedPayrollItem ? selectedPayrollItem.grossPay : 0;
   const selectedPayrollNet = selectedPayrollItem ? selectedPayrollItem.netPay : 0;
   const selectedPayrollDeductions = useMemo(() => {
@@ -1014,21 +1039,54 @@ export default function HrPayslips() {
     () => currentRun?.runType === 'ADJUSTMENT' && hasBonusEarning(selectedPayrollItemEarnings),
     [currentRun?.runType, selectedPayrollItemEarnings]
   );
+  const runItemRows = useMemo<RunItemViewRow[]>(() => {
+    return runItems.map((row) => {
+      const option = typeof row.empId === 'number' ? employeeOptionsById.get(row.empId) : undefined;
+      return {
+        ...row,
+        role: option?.position ?? '',
+        department: option?.department ?? '',
+      };
+    });
+  }, [employeeOptionsById, runItems]);
+
+  const runItemRoleOptions = useMemo(
+    () => Array.from(new Set(runItemRows.map((row) => row.role).filter(Boolean))).sort(),
+    [runItemRows]
+  );
+
+  const runItemDepartmentOptions = useMemo(
+    () => Array.from(new Set(runItemRows.map((row) => row.department).filter(Boolean))).sort(),
+    [runItemRows]
+  );
+
   const visibleRunItems = useMemo(() => {
-    return [...runItems].sort((left, right) =>
+    const filtered = runItemRows.filter((row) => {
+      if (runItemRoleFilter !== 'all' && row.role !== runItemRoleFilter) {
+        return false;
+      }
+
+      if (runItemDepartmentFilter !== 'all' && row.department !== runItemDepartmentFilter) {
+        return false;
+      }
+
+      return true;
+    });
+
+    return [...filtered].sort((left, right) =>
       compareEmployees(runItemSort, { id: left.empId, name: left.employee }, { id: right.empId, name: right.employee })
     );
-  }, [runItemSort, runItems]);
+  }, [runItemDepartmentFilter, runItemRoleFilter, runItemRows, runItemSort]);
   const selectedManualEmployee = useMemo(() => {
     const employeeId = Number(manualLineForm.empId);
     if (!Number.isFinite(employeeId) || employeeId <= 0) return null;
-    return employeeOptions.find((option) => option.id === employeeId) ?? null;
-  }, [employeeOptions, manualLineForm.empId]);
+    return manualSelectableEmployeeOptions.find((option) => option.id === employeeId) ?? null;
+  }, [manualLineForm.empId, manualSelectableEmployeeOptions]);
   const filteredEmployeeOptions = useMemo(() => {
     const query = normalizeText(manualEmployeeSearch);
-    if (!query) return employeeOptions;
-    return employeeOptions.filter((option) => normalizeText(option.name).includes(query));
-  }, [employeeOptions, manualEmployeeSearch]);
+    if (!query) return manualSelectableEmployeeOptions;
+    return manualSelectableEmployeeOptions.filter((option) => normalizeText(option.name).includes(query));
+  }, [manualEmployeeSearch, manualSelectableEmployeeOptions]);
   const canClearManualEmployeePicker =
     manualEmployeeSearch.trim().length > 0 || manualLineForm.empId.trim().length > 0;
 
@@ -1063,6 +1121,7 @@ export default function HrPayslips() {
   }, [disputes, disputeStatusFilter, disputeTypeFilter, normalizedDisputeSearch]);
 
   const activeDisputeFilterCount = [disputeStatusFilter, disputeTypeFilter].filter((value) => value !== 'all').length;
+  const activeRunItemFilterCount = [runItemRoleFilter, runItemDepartmentFilter].filter((value) => value !== 'all').length;
 
   const selectedCorrectionLine = useMemo(
     () => correctionLines.find((line) => line.key === selectedCorrectionKey) ?? null,
@@ -1079,6 +1138,11 @@ export default function HrPayslips() {
   function clearDisputeFilters() {
     setDisputeStatusFilter('all');
     setDisputeTypeFilter('all');
+  }
+
+  function clearRunItemFilters() {
+    setRunItemRoleFilter('all');
+    setRunItemDepartmentFilter('all');
   }
 
   function closeRunModal() {
@@ -1123,7 +1187,7 @@ export default function HrPayslips() {
     };
     const nextEmployee =
       nextEmpId && Number.isFinite(Number(nextEmpId))
-        ? employeeOptions.find((option) => option.id === Number(nextEmpId)) ?? null
+        ? manualSelectableEmployeeOptions.find((option) => option.id === Number(nextEmpId)) ?? null
         : null;
     const nextSearch = nextEmployee?.name ?? '';
     setManualLineForm(nextForm);
@@ -1778,6 +1842,58 @@ export default function HrPayslips() {
                 </button>
               )}
               <EmployeeSortMenu value={runItemSort} onChange={setRunItemSort} />
+              <div className="hrPayFilter">
+                <button
+                  type="button"
+                  className={`hrPayFilter__toggle ${runItemFilterOpen ? 'is-open' : ''} ${
+                    activeRunItemFilterCount > 0 ? 'is-active' : ''
+                  }`}
+                  onClick={() => setRunItemFilterOpen((open) => !open)}
+                >
+                  <FiFilter />
+                  <span>Filter</span>
+                  {activeRunItemFilterCount > 0 ? (
+                    <span className="hrPayFilter__count">{activeRunItemFilterCount}</span>
+                  ) : null}
+                </button>
+
+                {runItemFilterOpen ? (
+                  <div className="hrPayFilter__panel">
+                    <label className="hrPayFilter__field">
+                      <span>Role</span>
+                      <select value={runItemRoleFilter} onChange={(event) => setRunItemRoleFilter(event.target.value)}>
+                        <option value="all">All Roles</option>
+                        {runItemRoleOptions.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label className="hrPayFilter__field">
+                      <span>Department</span>
+                      <select
+                        value={runItemDepartmentFilter}
+                        onChange={(event) => setRunItemDepartmentFilter(event.target.value)}
+                      >
+                        <option value="all">All Departments</option>
+                        {runItemDepartmentOptions.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <div className="hrPayFilter__actions">
+                      <button type="button" onClick={clearRunItemFilters}>
+                        Reset Filters
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
             </div>
           </div>
 
@@ -1822,11 +1938,17 @@ export default function HrPayslips() {
               </>
             ) : (
               <div className="mgrPendTable__empty">
-                <span>No payroll items yet for this in-progress run.</span>
                 <span>
-                  {canAddManualAdjustmentLine
-                    ? 'Add a manual adjustment line to create the first payroll item for this run.'
-                    : 'Process the payroll period or add adjustment items first.'}
+                  {runItems.length > 0
+                    ? 'No payroll items matched the selected role or department filters.'
+                    : 'No payroll items yet for this in-progress run.'}
+                </span>
+                <span>
+                  {runItems.length > 0
+                    ? 'Try clearing the filters to show more employees.'
+                    : canAddManualAdjustmentLine
+                      ? 'Add a manual adjustment line to create the first payroll item for this run.'
+                      : 'Process the payroll period or add adjustment items first.'}
                 </span>
               </div>
             )}

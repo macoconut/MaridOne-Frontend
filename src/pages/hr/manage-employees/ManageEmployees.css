@@ -60,10 +60,17 @@
   border-bottom: 1px solid var(--hr-line);
 }
 
+.hrEmpToolbar__actions {
+  display: flex;
+  align-items: stretch;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .hrEmpSearch {
   flex: 1 1 420px;
   min-width: min(320px, 100%);
-  min-height: 40px;
+  min-height: 48px;
   border: 1px solid rgba(59, 34, 87, 0.16);
   border-radius: 10px;
   background: #fff;
@@ -86,6 +93,10 @@
   width: 100%;
   font-size: 15px;
   color: #2b2036;
+}
+
+.hrEmpSearch input:focus {
+  outline: none;
 }
 
 .hrEmpSearch button {
@@ -1264,8 +1275,15 @@ body.modal-open .eMain {
     min-width: 100%;
   }
 
-  .hrEmpToolbar > .uiEmployeeSort,
-  .hrEmpToolbar > .uiEmployeeSort .uiEmployeeSort__toggle {
+  .hrEmpToolbar__actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .hrEmpToolbar__actions > .uiEmployeeSort,
+  .hrEmpToolbar__actions > .uiEmployeeSort .uiEmployeeSort__toggle,
+  .hrEmpToolbar__actions > .hrEmpFilter,
+  .hrEmpToolbar__actions > .hrEmpFilter .hrEmpFilter__toggle {
     width: 100%;
   }
 }
