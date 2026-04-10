@@ -39,12 +39,10 @@ import AccountingPayrollReview from './pages/accounting/payroll-review/PayrollRe
 import { UiDialogProvider } from './components/dialog/UiDialogProvider';
 import {
   applyUiPreferences,
-  subscribeToSystemThemeChange,
   subscribeToUiPreferencesChange,
 } from './lib/uiPreferences';
 import './styles/popupForms.css';
 import './styles/universal-ui.css';
-import './styles/theme-dark.css';
 
 function roleHome(role: UserRole) {
   return getRoleHomePath(role);
@@ -134,18 +132,16 @@ function RequirePasswordChange() {
 
 export default function App() {
   useEffect(() => {
-    const syncTheme = () => {
+    const syncPreferences = () => {
       applyUiPreferences();
     };
 
-    const unsubscribeUiPreferences = subscribeToUiPreferencesChange(syncTheme);
-    const unsubscribeSystemTheme = subscribeToSystemThemeChange(syncTheme);
+    const unsubscribeUiPreferences = subscribeToUiPreferencesChange(syncPreferences);
 
-    syncTheme();
+    syncPreferences();
 
     return () => {
       unsubscribeUiPreferences();
-      unsubscribeSystemTheme();
     };
   }, []);
 

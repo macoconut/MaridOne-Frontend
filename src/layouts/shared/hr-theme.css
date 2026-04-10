@@ -12,42 +12,12 @@
   --hr-button-shadow: 0 6px 12px rgba(0, 0, 0, 0.14);
 }
 
-body[data-app-theme='dark'] {
-  --hr-primary: #8b5cf6;
-  --hr-primary-dark: #e2e8f0;
-  --hr-primary-soft: rgba(139, 92, 246, 0.15);
-  --hr-text: #e2e8f0;
-  --hr-muted: #9ca3af;
-  --hr-surface: #1e182d;
-  --hr-surface-soft: #251d38;
-  --hr-border: #3b2e52;
-  --hr-line: #332940;
-  --hr-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
-  --hr-button-shadow: 0 12px 22px rgba(0, 0, 0, 0.2);
-}
-
-body[data-app-theme='dark'] .hrPager .is-active {
-  background: var(--app-accent);
-}
-
-body.modal-open {
-  overflow: hidden;
-}
-
-body.modal-open .eSide {
-  z-index: 0;
-  pointer-events: none;
-}
-
-body.modal-open .eMain {
-  z-index: 4;
-}
-
 @media (min-width: 1100px) {
   body.modal-open .hrEmpModalBackdrop,
   body.modal-open .hrApprModalBackdrop,
   body.modal-open .hrAttModalBackdrop,
-  body.modal-open .hrPayModalBackdrop {
+  body.modal-open .hrPayModalBackdrop,
+  body.modal-open .hrRunModalBackdrop {
     padding-left: calc(var(--sideW) + 40px);
     padding-right: 32px;
   }
@@ -55,7 +25,8 @@ body.modal-open .eMain {
   body.modal-open .hrEmpModal,
   body.modal-open .hrApprModal,
   body.modal-open .hrAttModal,
-  body.modal-open .hrPayModal {
+  body.modal-open .hrPayModal,
+  body.modal-open .hrRunModal {
     max-width: calc(100vw - var(--sideW) - 96px);
   }
 

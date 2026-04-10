@@ -1,11 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   FiActivity,
-  FiCheck,
-  FiMonitor,
-  FiMoon,
   FiSidebar,
-  FiSun,
 } from 'react-icons/fi';
 import AccountSecuritySection from '../account/AccountSecuritySection';
 import {
@@ -18,17 +14,11 @@ import {
 } from '../../lib/accountSecurity';
 import { apiFetchJson } from '../../lib/api';
 import {
-  applyUiPreferences,
   getStoredReduceMotion,
   getStoredSidebarCollapsed,
-  getStoredThemePreference,
-  resolveAppliedTheme,
   setStoredReduceMotion,
   setStoredSidebarCollapsed,
-  setStoredThemePreference,
-  subscribeToSystemThemeChange,
   subscribeToUiPreferencesChange,
-  type AppThemePreference,
 } from '../../lib/uiPreferences';
 import { getFriendlyErrorMessage } from '../../lib/uiErrors';
 import { getUserEmail } from '../../lib/session';
@@ -48,36 +38,6 @@ type EmployeeProfile = {
   email?: string;
   isVerified?: boolean | string;
 };
-
-const THEME_OPTIONS: Array<{
-  description: string;
-  detail: string;
-  icon: typeof FiSun;
-  label: string;
-  value: AppThemePreference;
-}> = [
-  {
-    value: 'light',
-    label: 'Light',
-    description: 'Bright, clean, and closest to the original MaridOne look.',
-    detail: 'Keeps cards and data surfaces crisp in daylight.',
-    icon: FiSun,
-  },
-  {
-    value: 'dark',
-    label: 'Dark',
-    description: 'A lower-glare palette built around the same plum brand tones.',
-    detail: 'Better for long sessions and lower-light use.',
-    icon: FiMoon,
-  },
-  {
-    value: 'system',
-    label: 'System',
-    description: 'Matches your device preference automatically.',
-    detail: 'Lets MaridOne follow the operating system setting.',
-    icon: FiMonitor,
-  },
-];
 
 function isEmailVerified(value: EmployeeProfile | null | undefined) {
   const rawValue = value?.isVerified;
@@ -108,7 +68,6 @@ function formatDisplayDateTime(value?: string) {
 }
 
 export default function SettingsPanel() {
-  const [themePreference, setThemePreferenceState] = useState<AppThemePreference>(getStoredThemePreference);
   const [sidebarCollapsed, setSidebarCollapsedState] = useState(getStoredSidebarCollapsed);
   const [reduceMotion, setReduceMotionState] = useState(getStoredReduceMotion);
   const [profile, setProfile] = useState<UserDetails | null>(null);
@@ -124,34 +83,18 @@ export default function SettingsPanel() {
   const [changingPassword, setChangingPassword] = useState(false);
   const [twoFactorSetup, setTwoFactorSetup] = useState<TwoFactorSetupResponse | null>(null);
   const [twoFactorCode, setTwoFactorCode] = useState('');
-  const [appliedTheme, setAppliedTheme] = useState(() => resolveAppliedTheme(getStoredThemePreference()));
 
   useEffect(() => {
-    let cancelled = false;
-
     const syncUiPreferences = () => {
-      if (cancelled) return;
-
-      const nextThemePreference = getStoredThemePreference();
-      setThemePreferenceState(nextThemePreference);
-      setAppliedTheme(resolveAppliedTheme(nextThemePreference));
       setSidebarCollapsedState(getStoredSidebarCollapsed());
       setReduceMotionState(getStoredReduceMotion());
     };
 
     const unsubscribeUiPreferences = subscribeToUiPreferencesChange(syncUiPreferences);
-    const unsubscribeSystemTheme = subscribeToSystemThemeChange(() => {
-      if (getStoredThemePreference() !== 'system') return;
-      const nextAppliedTheme = applyUiPreferences();
-      if (!cancelled) {
-        setAppliedTheme(nextAppliedTheme);
-      }
-    });
 
+    syncUiPreferences();
     return () => {
-      cancelled = true;
       unsubscribeUiPreferences();
-      unsubscribeSystemTheme();
     };
   }, []);
 
@@ -221,12 +164,6 @@ export default function SettingsPanel() {
   function clearSecurityFeedback() {
     setSecurityMessage('');
     setSecurityError('');
-  }
-
-  function updateThemePreference(preference: AppThemePreference) {
-    setStoredThemePreference(preference);
-    setThemePreferenceState(preference);
-    setAppliedTheme(applyUiPreferences());
   }
 
   function updateSidebarPreference(compact: boolean) {
@@ -388,50 +325,11 @@ export default function SettingsPanel() {
           <div className="settingsCard__top">
             <div>
               <div className="settingsCard__eyebrow">Appearance</div>
-              <h3 className="settingsCard__title">Theme and layout defaults</h3>
+              <h3 className="settingsCard__title">Sidebar and motion defaults</h3>
               <p className="settingsCard__copy">
-                Pick the workspace theme and decide whether the sidebar should open compact or expanded on desktop.
+                Keep the default sidebar state and reduce interface motion when you want the workspace to feel calmer.
               </p>
             </div>
-          </div>
-
-          <div className="settingsThemeGrid" role="radiogroup" aria-label="Theme preference">
-            {THEME_OPTIONS.map((option) => {
-              const Icon = option.icon;
-              const isSelected = themePreference === option.value;
-
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={`settingsThemeOption${isSelected ? ' is-selected' : ''}`}
-                  role="radio"
-                  aria-checked={isSelected}
-                  onClick={() => updateThemePreference(option.value)}
-                >
-                  <div className="settingsThemeOption__header">
-                    <span className="settingsThemeOption__icon">
-                      <Icon />
-                    </span>
-                    <span className="settingsThemeOption__label">{option.label}</span>
-                    {isSelected ? (
-                      <span className="settingsThemeOption__check" aria-hidden="true">
-                        <FiCheck />
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className={`settingsThemeOption__preview is-${option.value}`} aria-hidden="true">
-                    <span />
-                    <span />
-                    <span />
-                  </div>
-                  <p className="settingsThemeOption__copy">{option.description}</p>
-                  <div className="settingsThemeOption__detail">
-                    {option.value === 'system' ? `Currently following ${appliedTheme} mode.` : option.detail}
-                  </div>
-                </button>
-              );
-            })}
           </div>
 
           <div className="settingsToggleGrid">
@@ -457,41 +355,29 @@ export default function SettingsPanel() {
                 <span className="settingsSwitch__thumb" />
               </button>
             </div>
-          </div>
-        </section>
 
-        <section className="settingsCard settingsCard--accessibility">
-          <div className="settingsCard__top">
-            <div>
-              <div className="settingsCard__eyebrow">Accessibility</div>
-              <h3 className="settingsCard__title">Reading comfort</h3>
-              <p className="settingsCard__copy">
-                Keep the workspace calmer when you want fewer moving parts and a steadier reading rhythm.
-              </p>
+            <div className="settingsToggleCard">
+              <div className="settingsToggleCard__icon">
+                <FiActivity />
+              </div>
+              <div className="settingsToggleCard__body">
+                <div className="settingsToggleCard__title">Reduce interface motion</div>
+                <p className="settingsToggleCard__copy">
+                  Softens transitions and animations across the app for a steadier experience.
+                </p>
+              </div>
+              <button
+                type="button"
+                className={`settingsSwitch${reduceMotion ? ' is-on' : ''}`}
+                role="switch"
+                aria-checked={reduceMotion}
+                aria-label="Reduce interface motion"
+                onClick={() => updateReduceMotionPreference(!reduceMotion)}
+              >
+                <span className="settingsSwitch__track" />
+                <span className="settingsSwitch__thumb" />
+              </button>
             </div>
-          </div>
-
-          <div className="settingsToggleCard settingsToggleCard--stacked">
-            <div className="settingsToggleCard__icon">
-              <FiActivity />
-            </div>
-            <div className="settingsToggleCard__body">
-              <div className="settingsToggleCard__title">Reduce interface motion</div>
-              <p className="settingsToggleCard__copy">
-                Softens transitions and animations across the app for a steadier experience.
-              </p>
-            </div>
-            <button
-              type="button"
-              className={`settingsSwitch${reduceMotion ? ' is-on' : ''}`}
-              role="switch"
-              aria-checked={reduceMotion}
-              aria-label="Reduce interface motion"
-              onClick={() => updateReduceMotionPreference(!reduceMotion)}
-            >
-              <span className="settingsSwitch__track" />
-              <span className="settingsSwitch__thumb" />
-            </button>
           </div>
         </section>
 

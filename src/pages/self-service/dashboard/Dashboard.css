@@ -8,10 +8,6 @@
   --shadow-soft: var(--app-shadow-soft, 0 6px 14px rgba(0,0,0,.12));
 }
 
-body.modal-open{
-  overflow:hidden;
-}
-
 .dashPage{
   display:grid;
   grid-template-rows:auto auto auto minmax(0, 1fr);
@@ -599,70 +595,6 @@ body.modal-open{
   font-size: 16px;
 }
 
-.dashModalBackdrop{
-  position: fixed;
-  inset: 0;
-  background: rgba(31, 22, 43, 0.48);
-  display: grid;
-  place-items: center;
-  padding: 20px;
-  overflow-y: auto;
-  z-index: 3000;
-}
-
-.dashModal{
-  width: min(760px, 94vw);
-  max-height: calc(100vh - 40px);
-  overflow-y: auto;
-  background: #fff;
-  border: 1.5px solid rgba(0,0,0,.14);
-  border-radius: 16px;
-  box-shadow: 0 18px 40px rgba(0,0,0,.20);
-  padding: 16px 16px 14px;
-}
-
-.dashModal--security{
-  width: min(920px, 96vw);
-}
-
-.dashModal--announcement{
-  width: min(720px, 94vw);
-}
-
-.dashModal__top{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap: 12px;
-}
-
-.dashModal__title{
-  font-size: 20px;
-  font-weight: 900;
-  color: var(--ink);
-}
-
-.dashModal__subtitle{
-  margin-top: 4px;
-  color: rgba(43, 32, 54, 0.78);
-  font-size: 15px;
-}
-
-.dashModal__close{
-  border:none;
-  background: transparent;
-  color: var(--purple-dark);
-  font-size: 22px;
-  line-height: 1;
-  cursor:pointer;
-}
-
-.dashModal__rule{
-  height: 2px;
-  background: rgba(0,0,0,.16);
-  margin: 10px 0 14px;
-}
-
 .dashModal__grid{
   display:grid;
   grid-template-columns: 1fr 1fr;
@@ -683,16 +615,6 @@ body.modal-open{
   color: var(--ink);
   font-size: 16px;
   font-weight: 800;
-}
-
-.dashModal__field input{
-  height: 38px;
-  border: 1px solid rgba(0,0,0,.16);
-  border-radius: 10px;
-  padding: 0 12px;
-  font-size: 16px;
-  color: var(--ink);
-  background: #fff;
 }
 
 .announcementModal__list{
@@ -1054,17 +976,6 @@ body.modal-open{
   background: #fff;
 }
 
-.dashModal__field textarea{
-  border: 1px solid rgba(0,0,0,.16);
-  border-radius: 10px;
-  padding: 10px 12px;
-  font-size: 16px;
-  color: var(--ink);
-  background: #fff;
-  min-height: 128px;
-  resize: vertical;
-}
-
 .dashSecurity__status,
 .dashSecurity__error{
   margin-top: 14px;
@@ -1241,17 +1152,6 @@ body.modal-open{
 
   .calendarGrid{
     min-width: 560px;
-  }
-
-  .dashModalBackdrop{
-    padding: 12px;
-  }
-
-  .dashModal,
-  .dashModal--security,
-  .dashModal--announcement{
-    width: min(100%, calc(100vw - 24px));
-    padding: 14px;
   }
 
   .dashTwoFactorSetup__qr,

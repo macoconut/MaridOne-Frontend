@@ -5,10 +5,6 @@
   gap: 18px;
 }
 
-body.modal-open{
-  overflow: hidden;
-}
-
 /* Title + month select */
 .att__head {
   display: flex;
@@ -658,125 +654,6 @@ body.modal-open{
   background: rgba(255,255,255,0.14);
 }
 
-/* Modal */
-.modalBackdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(30, 19, 47, 0.44);
-  display: grid;
-  place-items: center;
-  z-index: 9999; /* on top of sidebar/footer */
-  padding: 20px;
-}
-
-.modal {
-  width: min(980px, 96vw);
-  background: #fff;
-  border: 1px solid rgba(123, 74, 143, 0.14);
-  border-radius: 24px;
-  padding: 24px 28px 26px;
-  box-shadow: 0 24px 60px rgba(32, 21, 49, 0.24);
-}
-
-.modal--request {
-  width: min(860px, 96vw);
-  max-height: min(78vh, 720px);
-  background:
-    radial-gradient(circle at top right, rgba(191, 154, 223, 0.24), transparent 32%),
-    linear-gradient(180deg, #f7f2fb 0%, #ffffff 42%);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.modal--schedule {
-  width: min(960px, 96vw);
-  max-height: min(80vh, 760px);
-}
-
-.modal__top {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-
-.modal__top--request {
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-}
-
-.modal__meta {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-}
-
-.modal__eyebrow {
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: rgba(91, 52, 126, 0.72);
-}
-
-.modal__title {
-  font-size: 30px;
-  font-weight: 900;
-  color: #3b2257;
-  text-align: center;
-  letter-spacing: 0.02em;
-}
-
-.modal__top--request .modal__title {
-  text-align: left;
-  font-size: 28px;
-  letter-spacing: -0.01em;
-}
-
-.modal__subtitle {
-  margin: 0;
-  max-width: 580px;
-  color: rgba(59, 34, 87, 0.72);
-  font-size: 14px;
-  line-height: 1.5;
-}
-
-.modal__close {
-  position: absolute;
-  right: 0;
-  top: 0;
-  width: 40px;
-  height: 40px;
-  border: 1px solid rgba(123, 74, 143, 0.14);
-  border-radius: 12px;
-  background: rgba(255,255,255,0.9);
-  cursor: pointer;
-  font-size: 22px;
-  color: rgba(59, 34, 87, 0.78);
-  display: inline-grid;
-  place-items: center;
-}
-
-.modal__top--request .modal__close {
-  position: static;
-  flex: 0 0 auto;
-}
-
-.modal__rule {
-  height: 3px;
-  background: #2e5cff;
-  margin: 12px 0 16px;
-}
-
-.modal__rule--request {
-  height: 1px;
-  background: linear-gradient(90deg, rgba(123, 74, 143, 0.28), rgba(123, 74, 143, 0.04));
-  margin: 18px 0 22px;
-}
-
 /* Form */
 .form {
   display: flex;
@@ -878,14 +755,6 @@ input[type='time'] {
   cursor: pointer;
   font-weight: 700;
   color: rgba(0,0,0,0.65);
-}
-
-/* Modal buttons */
-.modalActions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 14px;
-  margin-top: 10px;
 }
 
 .requestForm {
@@ -1046,19 +915,6 @@ input[type='time'] {
   .attActions {
     gap: 18px;
     flex-wrap: wrap;
-  }
-  .modal {
-    padding: 20px;
-  }
-  .modal--request {
-    max-height: min(84vh, 680px);
-  }
-  .modal__top--request {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .modal__top--request .modal__close {
-    align-self: flex-end;
   }
   .requestForm__grid {
     grid-template-columns: 1fr;

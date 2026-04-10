@@ -29,8 +29,7 @@
   background: var(--hr-surface);
 }
 
-.hrEmpTable__addBtn,
-.hrEmpModal__actions button {
+.hrEmpTable__addBtn {
   border: 0;
   background: var(--hr-primary);
   color: #fff;
@@ -558,28 +557,6 @@
   gap: 14px;
 }
 
-.hrEmpDetailsDialog__close {
-  border: 0;
-  background: transparent;
-  color: #735989;
-  width: 40px;
-  height: 40px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.hrEmpDetailsDialog__close:hover {
-  background: rgba(123, 74, 143, 0.10);
-}
-
-.hrEmpDetailsDialog__close svg {
-  font-size: 22px;
-}
-
 .hrEmpRow__action {
   border: 1px solid rgba(59, 34, 87, 0.16);
   background: #fff;
@@ -641,60 +618,6 @@
   flex-direction: column;
   gap: 4px;
   color: var(--hr-text);
-}
-
-body.modal-open .eSide {
-  z-index: 0;
-  pointer-events: none;
-}
-
-body.modal-open .eMain {
-  z-index: 4;
-}
-
-.hrEmpModalBackdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.58);
-  z-index: 3000;
-  display: grid;
-  place-items: center;
-  padding: 16px;
-  overflow-y: auto;
-}
-
-.hrEmpModal {
-  width: min(880px, 94vw);
-  position: relative;
-  background:
-    radial-gradient(circle at top right, rgba(123, 74, 143, 0.08), transparent 26%),
-    linear-gradient(180deg, #ffffff 0%, #fbf8fe 100%);
-  border: 1px solid rgba(61, 38, 90, 0.12);
-  border-radius: 20px;
-  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.18);
-  padding: 18px 18px 14px;
-  max-height: calc(100vh - 32px);
-  display: flex;
-  flex-direction: column;
-}
-
-.hrEmpModal--picker {
-  width: min(640px, 94vw);
-}
-
-.hrEmpModal h2 {
-  margin: 0;
-  text-align: center;
-  color: var(--hr-primary-dark);
-  font-size: 28px;
-  font-weight: 900;
-  letter-spacing: -0.03em;
-}
-
-.hrEmpModal__rule {
-  height: 2px;
-  background: linear-gradient(90deg, rgba(123, 74, 143, 0.24), rgba(123, 74, 143, 0.04));
-  margin: 10px 0 14px;
 }
 
 .hrEmpPicker__searchWrap {
@@ -877,33 +800,6 @@ body.modal-open .eMain {
   gap: 6px;
 }
 
-.hrEmpField input,
-.hrEmpField select,
-.hrEmpField textarea {
-  border: 1px solid rgba(61, 38, 90, 0.16);
-  border-radius: 10px;
-  background: #fcfbfe;
-  font-size: 15px;
-  color: var(--hr-text);
-  min-height: 40px;
-  padding: 0 12px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
-}
-
-.hrEmpField input:focus,
-.hrEmpField select:focus,
-.hrEmpField textarea:focus {
-  outline: none;
-  border-color: rgba(123, 74, 143, 0.42);
-  box-shadow: 0 0 0 4px rgba(123, 74, 143, 0.12);
-  background: #fff;
-}
-
-.hrEmpField input::placeholder,
-.hrEmpField textarea::placeholder {
-  color: #9a9aa1;
-}
-
 .hrEmpField__hint {
   color: var(--hr-muted);
   font-size: 13px;
@@ -930,146 +826,9 @@ body.modal-open .eMain {
   pointer-events: none;
 }
 
-.hrEmpField textarea {
-  min-height: 114px;
-  resize: none;
-  padding: 10px 12px;
-}
-
 .hrEmpCombo {
   position: relative;
   min-width: 0;
-}
-
-.hrEmpCombo__control {
-  position: relative;
-  display: block;
-  border: 1px solid rgba(123, 74, 143, 0.18);
-  border-radius: 16px;
-  background: #ffffff;
-  min-height: 50px;
-  overflow: hidden;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
-  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
-}
-
-.hrEmpCombo__control:focus-within {
-  border-color: rgba(123, 74, 143, 0.36);
-  background: #fff;
-  box-shadow:
-    0 0 0 3px rgba(123, 74, 143, 0.1),
-    0 10px 22px rgba(42, 18, 71, 0.08);
-}
-
-.hrEmpCombo__input {
-  width: 100%;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  font-size: 15px;
-  color: var(--hr-text);
-  min-height: 50px;
-  padding: 0 58px 0 18px;
-  box-shadow: none;
-}
-
-.hrEmpCombo__input:focus {
-  outline: none;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-}
-
-.hrEmpCombo__toggle {
-  position: absolute;
-  top: 50%;
-  right: 10px;
-  transform: translateY(-50%);
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
-  color: #6a4588;
-  width: 34px;
-  min-width: 34px;
-  min-height: 34px;
-  height: 34px;
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  box-shadow: none;
-  transition: background 160ms ease, color 160ms ease;
-}
-
-.hrEmpCombo__toggle:disabled,
-.hrEmpCombo__input:disabled {
-  cursor: not-allowed;
-  opacity: 0.72;
-}
-
-.hrEmpCombo.is-open .hrEmpCombo__toggle {
-  background: rgba(123, 74, 143, 0.08);
-}
-
-.hrEmpCombo.is-open .hrEmpCombo__toggle svg {
-  transform: rotate(180deg);
-}
-
-.hrEmpCombo__menu {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  right: 0;
-  z-index: 30;
-  display: grid;
-  gap: 6px;
-  max-height: 240px;
-  overflow-y: auto;
-  padding: 8px;
-  border: 1px solid rgba(61, 38, 90, 0.12);
-  border-radius: 18px;
-  background: linear-gradient(180deg, #ffffff 0%, #fcfbff 100%);
-  box-shadow: 0 22px 40px rgba(30, 18, 49, 0.18);
-}
-
-.hrEmpCombo__option {
-  border: 1px solid transparent;
-  border-radius: 14px;
-  background: transparent;
-  padding: 12px 14px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  text-align: left;
-  cursor: pointer;
-  width: 100%;
-  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
-}
-
-.hrEmpCombo__option:hover,
-.hrEmpCombo__option.is-selected {
-  background: rgba(123, 74, 143, 0.10);
-  border-color: rgba(123, 74, 143, 0.14);
-  transform: translateY(-1px);
-}
-
-.hrEmpCombo__optionName {
-  color: var(--hr-primary-dark);
-  font-size: 14px;
-  font-weight: 900;
-}
-
-.hrEmpCombo__optionMeta,
-.hrEmpCombo__empty {
-  color: #64587a;
-  font-size: 13px;
-  line-height: 1.45;
-}
-
-.hrEmpCombo__empty {
-  padding: 12px 14px;
-  border-radius: 14px;
-  background: rgba(123, 74, 143, 0.06);
 }
 
 .hrEmpCombo__labelPill {
@@ -1132,16 +891,6 @@ body.modal-open .eMain {
   font-weight: 700;
 }
 
-.hrEmpModal__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding-top: 6px;
-  margin-top: 12px;
-  border-top: 1px solid rgba(61, 38, 90, 0.10);
-  flex-shrink: 0;
-}
-
 .hrEmpConfirmLayer {
   position: absolute;
   inset: 0;
@@ -1150,15 +899,6 @@ body.modal-open .eMain {
   padding: 18px;
   background: rgba(16, 12, 24, 0.4);
   border-radius: 20px;
-}
-
-.hrEmpConfirmCard {
-  width: min(460px, 100%);
-  border: 1px solid rgba(61, 38, 90, 0.12);
-  border-radius: 18px;
-  background: #fff;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.18);
-  padding: 22px 22px 18px;
 }
 
 .hrEmpConfirmCard h3 {
@@ -1175,26 +915,6 @@ body.modal-open .eMain {
   font-size: 15px;
   line-height: 1.5;
   font-weight: 700;
-}
-
-.hrEmpConfirmCard__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 18px;
-}
-
-.hrEmpConfirmCard__actions button {
-  border: 0;
-  background: var(--hr-primary);
-  color: #fff;
-  min-width: 140px;
-  height: 38px;
-  border-radius: 8px;
-  font-size: 15px;
-  font-weight: 800;
-  cursor: pointer;
-  box-shadow: var(--hr-button-shadow);
 }
 
 .hrEmpForm__error,

@@ -1,6 +1,5 @@
 import { createPortal } from 'react-dom';
 import { useEscapeDismiss } from '../../hooks/useEscapeDismiss';
-import './ConfirmDialog.css';
 
 type ConfirmDialogProps = {
   open: boolean;

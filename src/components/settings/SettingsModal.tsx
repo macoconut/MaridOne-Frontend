@@ -3,7 +3,6 @@ import ModalCloseButton from '../dialog/ModalCloseButton';
 import useAnimatedPresence from '../../hooks/useAnimatedPresence';
 import { useEscapeDismiss } from '../../hooks/useEscapeDismiss';
 import SettingsPanel from './SettingsPanel';
-import './SettingsModal.css';
 
 type SettingsModalProps = {
   onClose: () => void;

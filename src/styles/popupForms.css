@@ -29,26 +29,6 @@
     linear-gradient(180deg, #f7f2fb 0%, #ffffff 42%);
 }
 
-body[data-app-theme='dark'] {
-  --popup-shadow: 0 28px 52px rgba(0, 0, 0, 0.36);
-  --popup-field-shadow: none;
-  --popup-field-surface: var(--app-modal-bg);
-  --popup-input-surface: var(--app-input-bg);
-  --popup-input-border: var(--app-input-border);
-  --popup-control-surface: var(--app-input-bg);
-  --popup-control-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
-  --popup-menu-surface:
-    linear-gradient(180deg, rgba(37, 29, 56, 0.98) 0%, rgba(33, 25, 47, 0.98) 100%);
-  --popup-focus-ring: 0 0 0 4px rgba(139, 92, 246, 0.15);
-  --popup-danger-surface: rgba(76, 18, 32, 0.22);
-  --popup-danger-control-surface: rgba(76, 18, 32, 0.22);
-  --popup-danger-border: rgba(248, 113, 113, 0.48);
-  --popup-danger-ring: 0 0 0 4px rgba(248, 113, 113, 0.12);
-  --popup-surface:
-    radial-gradient(circle at top right, rgba(139, 92, 246, 0.12), transparent 30%),
-    linear-gradient(180deg, rgba(37, 29, 56, 0.98) 0%, rgba(33, 25, 47, 0.98) 100%);
-}
-
 @keyframes popupBackdropIn {
   from {
     opacity: 0;
@@ -106,7 +86,12 @@ body[data-app-theme='dark'] {
   .hrAttModalBackdrop,
   .hrPayModalBackdrop,
   .hrApprModalBackdrop,
-  .aReviewPayModalBackdrop
+  .aReviewPayModalBackdrop,
+  .settingsModalBackdrop,
+  .hrRunModalBackdrop,
+  .aReviewRunModalBackdrop,
+  .confirmDialog__backdrop,
+  .alertDialog__backdrop
 ) {
   position: fixed !important;
   inset: 0 !important;
@@ -130,7 +115,8 @@ body[data-app-theme='dark'] {
   .hrAttModalBackdrop,
   .hrPayModalBackdrop,
   .hrApprModalBackdrop,
-  .aReviewPayModalBackdrop
+  .aReviewPayModalBackdrop,
+  .settingsModalBackdrop
 ).is-closing {
   pointer-events: none !important;
   animation: popupBackdropOut 180ms ease-in forwards !important;
@@ -145,7 +131,12 @@ body[data-app-theme='dark'] {
   .hrAttModal,
   .hrPayModal,
   .hrApprModal,
-  .aReviewPayModal
+  .aReviewPayModal,
+  .settingsModal,
+  .hrRunModal,
+  .aReviewRunModal,
+  .confirmDialog__card,
+  .alertDialog__card
 ) {
   max-height: min(84vh, 780px) !important;
   overflow-y: auto !important;
@@ -168,7 +159,8 @@ body[data-app-theme='dark'] {
   .hrAttModal,
   .hrPayModal,
   .hrApprModal,
-  .aReviewPayModal
+  .aReviewPayModal,
+  .settingsModal
 ).is-closing {
   animation: popupWindowOut 180ms ease-in forwards !important;
 }
@@ -201,14 +193,40 @@ body[data-app-theme='dark'] {
   width: min(780px, 96vw) !important;
 }
 
-:where(.modal__top, .dashModal__top, .payModal__top, .apprModal__top, .hrAttModal__top) {
+.settingsModal {
+  width: min(1080px, 96vw) !important;
+  max-height: min(88vh, 960px) !important;
+  padding: 24px 26px 28px !important;
+}
+
+.hrRunModal,
+.aReviewRunModal {
+  width: min(920px, 96vw) !important;
+}
+
+.confirmDialog__card,
+.alertDialog__card {
+  width: min(460px, 96vw) !important;
+  max-height: none !important;
+}
+
+:where(
+  .modal__top,
+  .dashModal__top,
+  .payModal__top,
+  .apprModal__top,
+  .hrAttModal__top,
+  .settingsModal__top,
+  .hrRunModal__top,
+  .aReviewRunModal__top
+) {
   display: flex !important;
   align-items: flex-start !important;
   justify-content: space-between !important;
   gap: 18px !important;
 }
 
-:where(.modal__meta) {
+:where(.modal__meta, .settingsModal__copy, .hrRunModal__heading, .aReviewRunModal__heading) {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -221,6 +239,9 @@ body[data-app-theme='dark'] {
   .apprModal__title,
   .hrAttModal__title,
   .hrApprModal__title,
+  .settingsModal__title,
+  .hrRunModal__title,
+  .aReviewRunModal__title,
   .hrEmpModal h2,
   .hrPayModal h3,
   .aReviewPayModal h2
@@ -243,8 +264,14 @@ body[data-app-theme='dark'] {
   .hrAttModal__subtitle,
   .hrPayModal__subtitle,
   .hrApprModal__subtitle,
+  .hrRunModal__subtitle,
+  .aReviewRunModal__subtitle,
   .aReviewPayModal__subtitle,
   .hrPayModal__intro,
+  .hrRunModal__intro,
+  .hrRunModal__message,
+  .aReviewRunModal__intro,
+  .aReviewRunModal__message,
   .aReviewPayModal p,
   .announcementModal__dates
 ) {
@@ -253,7 +280,7 @@ body[data-app-theme='dark'] {
   line-height: 1.5 !important;
 }
 
-:where(.apprModal__eyebrow, .hrAttModal__eyebrow) {
+:where(.apprModal__eyebrow, .hrAttModal__eyebrow, .settingsModal__eyebrow) {
   color: var(--app-label-color) !important;
   font-size: 11px !important;
   font-weight: 800 !important;
@@ -390,7 +417,10 @@ body[data-app-theme='dark'] {
   .apprModal__rule,
   .hrAttModal__rule,
   .hrPayModal__rule,
-  .hrApprModal__rule
+  .hrApprModal__rule,
+  .settingsModal__rule,
+  .hrRunModal__rule,
+  .aReviewRunModal__rule
 ) {
   height: 1px !important;
   border: 0 !important;
@@ -419,7 +449,9 @@ body[data-app-theme='dark'] {
   .hrPayModal__area,
   .hrPayCorrectionLine,
   .hrApprForm__row label,
+  .hrRunModal__grid label,
   .aReviewPayModal__grid label,
+  .aReviewRunModal__grid label,
   .hrEmpConfirmCard
 ) {
   border: 1px solid var(--popup-border) !important;
@@ -444,8 +476,16 @@ body[data-app-theme='dark'] {
   .hrPayModal__grid label,
   .hrPayModal__area,
   .hrApprForm__row label,
+  .hrRunModal__grid label,
   .aReviewPayModal__grid label
 ) {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 8px !important;
+}
+
+.aReviewRunModal__grid label {
   display: flex !important;
   flex-direction: column !important;
   align-items: stretch !important;
@@ -463,7 +503,9 @@ body[data-app-theme='dark'] {
   .hrPayModal__grid label > span:first-child,
   .hrPayModal__area > span:first-child,
   .hrApprForm__row label > span:first-child,
+  .hrRunModal__grid label > span:first-child,
   .aReviewPayModal__grid label > span:first-child,
+  .aReviewRunModal__grid label > span:first-child,
   .hrAttSummary__card span,
   .hrPayCorrectionSummary__row span
 ) {
@@ -487,7 +529,9 @@ body[data-app-theme='dark'] {
   .hrPayModal textarea,
   .hrApprForm__row input,
   .hrApprForm__row textarea,
-  .aReviewPayModal__grid input
+  .hrRunModal__grid input,
+  .aReviewPayModal__grid input,
+  .aReviewRunModal__grid input
 ) {
   width: 100% !important;
   min-height: 44px !important;
@@ -524,11 +568,55 @@ body[data-app-theme='dark'] {
   .hrPayModal textarea:focus,
   .hrApprForm__row input:focus,
   .hrApprForm__row textarea:focus,
-  .aReviewPayModal__grid input:focus
+  .hrRunModal__grid input:focus,
+  .aReviewPayModal__grid input:focus,
+  .aReviewRunModal__grid input:focus
 ) {
   outline: none !important;
   border-color: var(--popup-accent) !important;
   box-shadow: var(--popup-focus-ring) !important;
+}
+
+.confirmDialog__title,
+.alertDialog__title {
+  margin: 0 !important;
+  color: var(--popup-ink) !important;
+  font-size: clamp(24px, 2vw, 30px) !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.02em !important;
+  line-height: 1.08 !important;
+}
+
+.confirmDialog__message,
+.alertDialog__message {
+  margin: 10px 0 0 !important;
+  color: var(--popup-copy) !important;
+  font-size: 15px !important;
+  line-height: 1.55 !important;
+}
+
+.alertDialog__eyebrow {
+  display: inline-flex !important;
+  align-items: center !important;
+  min-height: 30px !important;
+  padding: 0 12px !important;
+  border-radius: 999px !important;
+  background: var(--popup-soft-fill) !important;
+  color: var(--app-label-color) !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+}
+
+.alertDialog__card.is-error .alertDialog__eyebrow {
+  background: rgba(186, 62, 62, 0.1) !important;
+  color: #9a2e2e !important;
+}
+
+.alertDialog__card.is-success .alertDialog__eyebrow {
+  background: rgba(46, 139, 87, 0.12) !important;
+  color: #1d6a42 !important;
 }
 
 :where(.hrPayPicker, .hrEmpCombo) {
@@ -756,7 +844,10 @@ body[data-app-theme='dark'] {
   .hrPayModal__actions,
   .hrApprForm__actions,
   .hrApprModal__footer,
-  .aReviewPayModal__actions
+  .hrRunModal__actions,
+  .aReviewPayModal__actions,
+  .confirmDialog__actions,
+  .alertDialog__actions
 ) {
   display: flex !important;
   justify-content: flex-end !important;
@@ -775,9 +866,14 @@ body[data-app-theme='dark'] {
   .hrAttModal__actions button,
   .hrPayModal__actions button,
   .hrPayModal__inlineBtns button,
+  .hrApprAttachment__button,
+  .hrApprForm__inline > button,
   .hrApprForm__actions button,
   .hrApprModal__footer button,
-  .aReviewPayModal__actions button
+  .hrRunModal__actions button,
+  .aReviewPayModal__actions button,
+  .confirmDialog__btn,
+  .alertDialog__btn
 ) {
   min-width: 120px !important;
   min-height: 42px !important;
@@ -802,8 +898,10 @@ body[data-app-theme='dark'] {
 :where(
   .btn--ghost,
   .dashModal__btn--ghost,
+  .apprModal__actions button.is-secondary,
   .payModal__cancel,
-  .hrPayModal .is-muted
+  .hrPayModal .is-muted,
+  .confirmDialog__btn--ghost
 ) {
   background: var(--popup-soft-fill) !important;
   color: var(--popup-accent-dark) !important;
@@ -819,6 +917,7 @@ body[data-app-theme='dark'] {
   .hrAttModal__actions button:first-child,
   .hrPayModal__actions button:first-child,
   .hrApprModal__footer button:first-child,
+  .hrRunModal__actions button:first-child,
   .aReviewPayModal__actions button:first-child
 ) {
   background: var(--popup-soft-fill) !important;
@@ -845,9 +944,14 @@ body[data-app-theme='dark'] {
   .hrAttModal__actions button,
   .hrPayModal__actions button,
   .hrPayModal__inlineBtns button,
+  .hrApprAttachment__button,
+  .hrApprForm__inline > button,
   .hrApprForm__actions button,
   .hrApprModal__footer button,
-  .aReviewPayModal__actions button
+  .hrRunModal__actions button,
+  .aReviewPayModal__actions button,
+  .confirmDialog__btn,
+  .alertDialog__btn
 ):hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: 0 16px 28px rgba(123, 74, 143, 0.24) !important;
@@ -864,9 +968,14 @@ body[data-app-theme='dark'] {
   .hrAttModal__actions button,
   .hrPayModal__actions button,
   .hrPayModal__inlineBtns button,
+  .hrApprAttachment__button,
+  .hrApprForm__inline > button,
   .hrApprForm__actions button,
   .hrApprModal__footer button,
-  .aReviewPayModal__actions button
+  .hrRunModal__actions button,
+  .aReviewPayModal__actions button,
+  .confirmDialog__btn,
+  .alertDialog__btn
 ):active:not(:disabled) {
   transform: translateY(1px) scale(0.985);
   box-shadow: 0 10px 18px rgba(123, 74, 143, 0.16) !important;
@@ -882,12 +991,38 @@ body[data-app-theme='dark'] {
   .hrAttModal__actions button:disabled,
   .hrPayModal__actions button:disabled,
   .hrPayModal__inlineBtns button:disabled,
+  .hrApprAttachment__button:disabled,
+  .hrApprForm__inline > button:disabled,
   .hrApprForm__actions button:disabled,
   .hrApprModal__footer button:disabled,
-  .aReviewPayModal__actions button:disabled
+  .hrRunModal__actions button:disabled,
+  .aReviewPayModal__actions button:disabled,
+  .confirmDialog__btn:disabled,
+  .alertDialog__btn:disabled
 ) {
   opacity: 0.72 !important;
   cursor: not-allowed !important;
+}
+
+.alertDialog__card.is-error .alertDialog__btn {
+  background: #9a2e2e !important;
+  box-shadow: 0 12px 22px rgba(154, 46, 46, 0.18) !important;
+}
+
+.alertDialog__card.is-success .alertDialog__btn {
+  background: #1d6a42 !important;
+  box-shadow: 0 12px 22px rgba(29, 106, 66, 0.18) !important;
+}
+
+.apprModal__actions button.is-danger {
+  background: linear-gradient(135deg, #b04d58 0%, #cf6b74 100%) !important;
+  box-shadow: 0 10px 18px rgba(176, 77, 88, 0.2) !important;
+}
+
+.hrRunModal__message,
+.aReviewRunModal__message {
+  color: #a63f4d !important;
+  font-weight: 700 !important;
 }
 
 .announcementModal__list,
@@ -993,7 +1128,12 @@ body[data-app-theme='dark'] {
     .hrAttModal,
     .hrPayModal,
     .hrApprModal,
-    .aReviewPayModal
+    .hrRunModal,
+    .aReviewRunModal,
+    .aReviewPayModal,
+    .settingsModal,
+    .confirmDialog__card,
+    .alertDialog__card
   ) {
     padding: 20px !important;
   }
@@ -1008,7 +1148,10 @@ body[data-app-theme='dark'] {
     .hrPayModal__actions,
     .hrApprForm__actions,
     .hrApprModal__footer,
-    .aReviewPayModal__actions
+    .hrRunModal__actions,
+    .aReviewPayModal__actions,
+    .confirmDialog__actions,
+    .alertDialog__actions
   ) {
     flex-direction: column-reverse !important;
     align-items: stretch !important;
@@ -1024,9 +1167,14 @@ body[data-app-theme='dark'] {
     .hrAttModal__actions button,
     .hrPayModal__actions button,
     .hrPayModal__inlineBtns button,
+    .hrApprAttachment__button,
+    .hrApprForm__inline > button,
     .hrApprForm__actions button,
     .hrApprModal__footer button,
-    .aReviewPayModal__actions button
+    .hrRunModal__actions button,
+    .aReviewPayModal__actions button,
+    .confirmDialog__btn,
+    .alertDialog__btn
   ) {
     width: 100% !important;
   }
@@ -1051,6 +1199,11 @@ body[data-app-theme='dark'] {
     .hrPayModalBackdrop,
     .hrApprModalBackdrop,
     .aReviewPayModalBackdrop,
+    .settingsModalBackdrop,
+    .hrRunModalBackdrop,
+    .aReviewRunModalBackdrop,
+    .confirmDialog__backdrop,
+    .alertDialog__backdrop,
     .modal,
     .dashModal,
     .payModal,
@@ -1059,7 +1212,12 @@ body[data-app-theme='dark'] {
     .hrAttModal,
     .hrPayModal,
     .hrApprModal,
-    .aReviewPayModal
+    .hrRunModal,
+    .aReviewRunModal,
+    .aReviewPayModal,
+    .settingsModal,
+    .confirmDialog__card,
+    .alertDialog__card
   ) {
     animation: none !important;
   }
@@ -1074,6 +1232,8 @@ body[data-app-theme='dark'] {
     .hrAttModal__actions button,
     .hrPayModal__actions button,
     .hrPayModal__inlineBtns button,
+    .hrApprAttachment__button,
+    .hrApprForm__inline > button,
     .hrApprForm__actions button,
     .hrApprModal__footer button,
     .aReviewPayModal__actions button,
@@ -1088,7 +1248,10 @@ body[data-app-theme='dark'] {
     .hrRunModal__close,
     .hrEmpDetailsDialog__close,
     .aReviewPayModal__close,
-    .aReviewRunModal__close
+    .aReviewRunModal__close,
+    .settingsModal__close,
+    .confirmDialog__btn,
+    .alertDialog__btn
   ) {
     transition: none !important;
   }

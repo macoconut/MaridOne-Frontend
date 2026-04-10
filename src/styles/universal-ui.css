@@ -32,6 +32,9 @@ body {
   .hrPayModalBackdrop,
   .hrApprModalBackdrop,
   .aReviewPayModalBackdrop,
+  .settingsModalBackdrop,
+  .hrRunModalBackdrop,
+  .aReviewRunModalBackdrop,
   .confirmDialog__backdrop,
   .alertDialog__backdrop,
   .hrEmpConfirmLayer
@@ -149,7 +152,7 @@ body {
   .hrRunSearch svg,
   .mRunFilters__search svg
 ) {
-  color: #6b4a88 !important;
+  color: var(--app-label-color) !important;
 }
 
 :where(
@@ -272,7 +275,7 @@ body {
 }
 
 :where(.uiEmployeeSort__toggle svg) {
-  color: #6b4a88 !important;
+  color: var(--app-label-color) !important;
   font-size: 15px !important;
   flex: 0 0 auto !important;
 }
@@ -281,8 +284,8 @@ body {
   min-width: 44px !important;
   padding: 4px 10px !important;
   border-radius: 999px !important;
-  background: rgba(123, 74, 143, 0.12) !important;
-  color: #6a3f81 !important;
+  background: var(--app-soft-fill) !important;
+  color: var(--app-ghost-text) !important;
   font-size: 12px !important;
   font-weight: 900 !important;
   letter-spacing: 0.05em !important;
@@ -352,7 +355,7 @@ body {
   min-height: 44px !important;
   border: 1px solid var(--ui-border-strong) !important;
   border-radius: var(--ui-radius-sm) !important;
-  background: #ffffff !important;
+  background: var(--app-surface-elevated) !important;
   color: var(--ui-title-color) !important;
   font-size: 14px !important;
   box-shadow: none !important;

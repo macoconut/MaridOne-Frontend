@@ -462,49 +462,6 @@
   justify-self: end;
 }
 
-.hrApprModalBackdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 2000;
-  background: rgba(0, 0, 0, 0.55);
-  display: grid;
-  place-items: center;
-  padding: 20px;
-}
-
-.hrApprModal {
-  width: min(840px, 94vw);
-  border-radius: 18px;
-  background: #fff;
-  padding: 16px 20px 14px;
-  position: relative;
-}
-
-.hrApprModal__close {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  border: 0;
-  background: transparent;
-  color: #2f2050;
-  font-size: 20px;
-  cursor: pointer;
-}
-
-.hrApprModal__title {
-  margin: 0;
-  text-align: center;
-  font-size: 22px;
-  font-weight: 900;
-  color: var(--hr-primary-dark);
-}
-
-.hrApprModal__rule {
-  height: 2px;
-  background: rgba(0, 0, 0, 0.22);
-  margin: 8px 0;
-}
-
 .hrApprForm__row {
   margin-bottom: 8px;
 }
@@ -513,29 +470,6 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
-}
-
-.hrApprForm__row label {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 8px;
-  align-items: center;
-}
-
-.hrApprForm__row span {
-  font-size: 16px;
-  font-weight: 800;
-  color: #241b34;
-}
-
-.hrApprForm__row input,
-.hrApprForm__row textarea {
-  border: 1px solid rgba(0, 0, 0, 0.34);
-  background: #f8f8f8;
-  border-radius: 3px;
-  padding: 4px 8px;
-  font-size: 16px;
-  color: #2f2b38;
 }
 
 .hrApprForm__statusBadge {
@@ -631,43 +565,10 @@
   line-height: 1.45;
 }
 
-.hrApprAttachment__button {
-  border: 0;
-  background: var(--hr-primary);
-  color: #fff;
-  border-radius: 999px;
-  min-width: 130px;
-  height: 36px;
-  padding: 0 16px;
-  font-size: 14px;
-  font-weight: 800;
-  cursor: pointer;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.16);
-}
-
-.hrApprAttachment__button:disabled {
-  opacity: 0.72;
-  cursor: not-allowed;
-}
-
 .hrApprForm__inline {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.hrApprForm__inline > button,
-.hrApprForm__actions button,
-.hrApprModal__footer button {
-  border: 0;
-  background: var(--hr-primary);
-  color: #fff;
-  border-radius: 9px;
-  min-width: 84px;
-  height: 28px;
-  font-size: 16px;
-  cursor: pointer;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
 .hrApprForm__signature {
@@ -684,13 +585,6 @@
 .hrApprForm__actions {
   display: flex;
   gap: 10px;
-}
-
-.hrApprModal__footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding-top: 4px;
 }
 
 @media (max-width: 1280px) {
@@ -758,10 +652,6 @@
   }
 
   .hrApprForm__row--2 {
-    grid-template-columns: 1fr;
-  }
-
-  .hrApprForm__row label {
     grid-template-columns: 1fr;
   }
 
