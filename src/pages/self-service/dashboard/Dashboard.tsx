@@ -1,25 +1,15 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { FiDownload, FiFileText, FiPlus, FiTrash2 } from 'react-icons/fi';
 import { useLocation, useNavigate } from 'react-router-dom';
-import AccountSecuritySection from '../../../components/account/AccountSecuritySection';
 import ActionButton from '../../../components/button/ActionButton';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
 import MaterialArt from '../../../components/document/MaterialArt';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import PageHeader from '../../../components/layout/PageHeader';
-import useAnimatedPresence from '../../../hooks/useAnimatedPresence';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
-import {
-  beginTwoFactorSetup,
-  changeOwnPassword,
-  confirmTwoFactorSetup,
-  disableTwoFactor,
-  sendEmailVerification,
-  type TwoFactorSetupResponse,
-} from '../../../lib/accountSecurity';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import {
   downloadLibraryDocument,
@@ -384,8 +374,6 @@ export default function Dashboard() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState('');
   const [editOpen, setEditOpen] = useState(false);
-  const [securityOpen, setSecurityOpen] = useState(false);
-  const securityModalPresence = useAnimatedPresence(securityOpen, 220);
   const [createAnnouncementOpen, setCreateAnnouncementOpen] = useState(false);
   const [creatingAnnouncement, setCreatingAnnouncement] = useState(false);
   const [createAnnouncementError, setCreateAnnouncementError] = useState('');
@@ -394,15 +382,6 @@ export default function Dashboard() {
   const [announcementActionError, setAnnouncementActionError] = useState('');
   const [announcementPendingDelete, setAnnouncementPendingDelete] = useState<CalendarDayEvent | null>(null);
   const [deletingAnnouncementId, setDeletingAnnouncementId] = useState<number | null>(null);
-  const [securityMessage, setSecurityMessage] = useState('');
-  const [securityError, setSecurityError] = useState('');
-  const [sendingVerification, setSendingVerification] = useState(false);
-  const [startingTwoFactor, setStartingTwoFactor] = useState(false);
-  const [confirmingTwoFactor, setConfirmingTwoFactor] = useState(false);
-  const [disablingTwoFactor, setDisablingTwoFactor] = useState(false);
-  const [changingPassword, setChangingPassword] = useState(false);
-  const [twoFactorSetup, setTwoFactorSetup] = useState<TwoFactorSetupResponse | null>(null);
-  const [twoFactorCode, setTwoFactorCode] = useState('');
   const [announcementDraft, setAnnouncementDraft] = useState<AnnouncementDraft>(() => createAnnouncementDraft());
   const [editDraft, setEditDraft] = useState({
     email: '',
@@ -418,34 +397,21 @@ export default function Dashboard() {
   useErrorDialogEffect(editError, 'Profile changes could not be saved');
   useErrorDialogEffect(createAnnouncementError, 'Announcement could not be created');
   useErrorDialogEffect(announcementActionError, 'Announcement action failed');
-  useErrorDialogEffect(securityError, 'Security action could not be completed');
   const handlePageRefresh = () => {
     setRefreshTick((tick) => tick + 1);
   };
   useEscapeDismiss(Boolean(selectedAnnouncementDay), closeAnnouncementDay, 10);
   useEscapeDismiss(createAnnouncementOpen && !creatingAnnouncement, closeCreateAnnouncementModal, 10);
   useEscapeDismiss(editOpen && !savingEdit, closeEditModal, 10);
-  useEscapeDismiss(
-    securityOpen &&
-      !(sendingVerification || startingTwoFactor || confirmingTwoFactor || disablingTwoFactor || changingPassword),
-    closeSecurityModal,
-    10
-  );
   useAutoRefreshingPage(handlePageRefresh, {
     intervalMs: 15000,
     enabled:
       !editOpen &&
-      !securityOpen &&
       !createAnnouncementOpen &&
       !selectedAnnouncementDay &&
       !announcementPendingDelete &&
       !savingEdit &&
-      !creatingAnnouncement &&
-      !sendingVerification &&
-      !startingTwoFactor &&
-      !confirmingTwoFactor &&
-      !disablingTwoFactor &&
-      !changingPassword,
+      !creatingAnnouncement,
   });
 
   useEffect(() => {
@@ -455,7 +421,6 @@ export default function Dashboard() {
   useEffect(() => {
     if (
       editOpen ||
-      securityModalPresence.isMounted ||
       createAnnouncementOpen ||
       selectedAnnouncementDay ||
       announcementPendingDelete
@@ -465,7 +430,7 @@ export default function Dashboard() {
     else document.body.classList.remove('modal-open');
 
     return () => document.body.classList.remove('modal-open');
-  }, [announcementPendingDelete, createAnnouncementOpen, editOpen, securityModalPresence.isMounted, selectedAnnouncementDay]);
+  }, [announcementPendingDelete, createAnnouncementOpen, editOpen, selectedAnnouncementDay]);
 
   useEffect(() => {
     const username = getUserEmail();
@@ -581,14 +546,9 @@ export default function Dashboard() {
     location.pathname.startsWith('/hr/') || location.pathname.startsWith('/management/');
   const savedEmailNormalized = employee?.email?.trim().toLowerCase() ?? '';
   const draftEmailNormalized = editDraft.email.trim().toLowerCase();
-  const emailDirty = (employee?.email || '').trim() !== editDraft.email.trim();
   const emailChanged = Boolean(draftEmailNormalized && draftEmailNormalized !== savedEmailNormalized);
   const emailVerified = isEmailVerified(employee);
   const emailVerificationWillReset = emailVerified && emailChanged;
-  const canChangePasswordNow = profile?.canChangePasswordNow !== false;
-  const passwordChangeAvailableAtLabel = profile?.passwordChangeAvailableAt
-    ? formatDashboardDateTime(profile.passwordChangeAvailableAt)
-    : 'Not available';
 
   function selfServicePath(page: 'dashboard' | 'attendance' | 'approvals' | 'payslip' | 'training') {
     if (location.pathname.startsWith('/hr/')) {
@@ -816,14 +776,6 @@ export default function Dashboard() {
     setEditOpen(true);
   }
 
-  function openSecurityModal(preserveFeedback = false) {
-    if (!preserveFeedback) {
-      setSecurityError('');
-      setSecurityMessage('');
-    }
-    setSecurityOpen(true);
-  }
-
   function closeEditModal() {
     if (savingEdit) return;
     setEditOpen(false);
@@ -831,23 +783,8 @@ export default function Dashboard() {
     setEditDraft(createEditDraft(employee));
   }
 
-  function closeSecurityModal() {
-    if (sendingVerification || startingTwoFactor || confirmingTwoFactor || disablingTwoFactor || changingPassword) return;
-    setSecurityOpen(false);
-    clearSecurityFeedback();
-    if (!profile?.twoFactorEnabled) {
-      setTwoFactorSetup(null);
-    }
-    setTwoFactorCode('');
-  }
-
   function setEditField<K extends keyof typeof editDraft>(key: K, value: (typeof editDraft)[K]) {
     setEditDraft((prev) => ({ ...prev, [key]: value }));
-  }
-
-  function clearSecurityFeedback() {
-    setSecurityError('');
-    setSecurityMessage('');
   }
 
   async function submitEditInfo() {
@@ -884,150 +821,19 @@ export default function Dashboard() {
       const refreshed = await apiFetchJson<UserDetails['employee']>(`/api/employees/${employeeId}`);
       setEmployee(refreshed);
       setEditDraft(createEditDraft(refreshed));
+      setEditOpen(false);
       if (emailChanged) {
-        setEditOpen(false);
-        setSecurityError('');
-        setSecurityMessage(
+        showSuccess(
           emailVerified
-            ? 'Profile updated. Your email is now unverified because the address changed. Send a new verification email for your saved address.'
-            : 'Profile updated. Send a new verification email for your saved address.'
+            ? 'Profile updated. Your email now needs a fresh verification link from Settings because the saved address changed.'
+            : 'Profile updated. If you want to verify this saved email, you can do that from Settings.',
+          'Profile Updated'
         );
-        setSecurityOpen(true);
-      } else {
-        setEditOpen(false);
       }
     } catch (error) {
       setEditError(getFriendlyErrorMessage(error, 'profile-update'));
     } finally {
       setSavingEdit(false);
-    }
-  }
-
-  async function handleSendEmailVerification() {
-    clearSecurityFeedback();
-    setSendingVerification(true);
-    try {
-      await sendEmailVerification();
-      setSecurityOpen(false);
-      setTwoFactorCode('');
-      showSuccess(
-        'Verification email sent. Check your inbox and open the link to finish.',
-        'Verification Email Sent'
-      );
-    } catch (error) {
-      setSecurityError(getFriendlyErrorMessage(error, 'generic'));
-    } finally {
-      setSendingVerification(false);
-    }
-  }
-
-  async function handleStartTwoFactorSetup() {
-    clearSecurityFeedback();
-    setStartingTwoFactor(true);
-    try {
-      const setup = await beginTwoFactorSetup();
-      setTwoFactorSetup(setup);
-      setTwoFactorCode('');
-      setSecurityMessage('Scan the QR code, then enter the current 6-digit code to finish enabling 2FA.');
-    } catch (error) {
-      setSecurityError(getFriendlyErrorMessage(error, 'generic'));
-    } finally {
-      setStartingTwoFactor(false);
-    }
-  }
-
-  async function handleConfirmTwoFactor() {
-    const code = twoFactorCode.trim();
-    if (!/^\d{6}$/.test(code)) {
-      setSecurityMessage('');
-      setSecurityError('Enter the current 6-digit code from your authenticator app.');
-      return;
-    }
-
-    clearSecurityFeedback();
-    setConfirmingTwoFactor(true);
-    try {
-      const message = await confirmTwoFactorSetup(code);
-      setTwoFactorSetup(null);
-      setTwoFactorCode('');
-      setProfile((prev) => (prev ? { ...prev, twoFactorEnabled: true } : prev));
-      setSecurityOpen(false);
-      showSuccess(message || 'Two-factor authentication successfully enabled.', 'Two-Factor Enabled');
-    } catch (error) {
-      setSecurityError(getFriendlyErrorMessage(error, 'generic'));
-    } finally {
-      setConfirmingTwoFactor(false);
-    }
-  }
-
-  async function handleDisableTwoFactor() {
-    clearSecurityFeedback();
-    setDisablingTwoFactor(true);
-    try {
-      await disableTwoFactor();
-      setTwoFactorSetup(null);
-      setTwoFactorCode('');
-      setProfile((prev) => (prev ? { ...prev, twoFactorEnabled: false } : prev));
-      setSecurityOpen(false);
-      showSuccess('Two-factor authentication has been disabled.', 'Two-Factor Disabled');
-    } catch (error) {
-      setSecurityError(getFriendlyErrorMessage(error, 'generic'));
-    } finally {
-      setDisablingTwoFactor(false);
-    }
-  }
-
-  async function handleChangePassword(payload: {
-    currentPassword: string;
-    newPassword: string;
-    confirmPassword: string;
-  }) {
-    const currentPassword = payload.currentPassword.trim();
-    const newPassword = payload.newPassword.trim();
-    const confirmPassword = payload.confirmPassword.trim();
-
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      setSecurityMessage('');
-      setSecurityError('Fill in your current password, your new password, and the confirmation.');
-      return;
-    }
-
-    if (newPassword.length < 8) {
-      setSecurityMessage('');
-      setSecurityError('Your new password must be at least 8 characters long.');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setSecurityMessage('');
-      setSecurityError('Your new password and confirmation do not match.');
-      return;
-    }
-
-    clearSecurityFeedback();
-    setChangingPassword(true);
-    try {
-      await changeOwnPassword(currentPassword, newPassword);
-
-      const username = getUserEmail();
-      if (username) {
-        try {
-          const refreshedProfile = await apiFetchJson<UserDetails>(`/api/user/details/${encodeURIComponent(username)}`);
-          setProfile(refreshedProfile);
-        } catch {
-          // Keep the success path intact even if the follow-up details refresh fails.
-        }
-      }
-
-      setSecurityOpen(false);
-      showSuccess(
-        'Your password has been updated. You can change it again from Security after the 30-day cooldown.',
-        'Password Updated'
-      );
-    } catch (error) {
-      setSecurityError(getFriendlyErrorMessage(error, 'generic'));
-    } finally {
-      setChangingPassword(false);
     }
   }
 
@@ -1043,9 +849,6 @@ export default function Dashboard() {
         <div className="infoCardX__header">
           <div className="infoCardX__title">Your Information</div>
           <div className="infoCardX__headerActions">
-            <button className="infoCardX__edit infoCardX__edit--secondary" type="button" onClick={() => openSecurityModal()}>
-              Security
-            </button>
             <button className="infoCardX__edit" type="button" onClick={openEditModal} disabled={savingEdit}>
               Edit Info
             </button>
@@ -1547,53 +1350,6 @@ export default function Dashboard() {
         </div>
       )}
 
-      {securityModalPresence.isMounted && (
-        <div
-          className={`dashModalBackdrop${securityModalPresence.isClosing ? ' is-closing' : ''}`}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Account security"
-        >
-          <div className={`dashModal dashModal--security${securityModalPresence.isClosing ? ' is-closing' : ''}`}>
-            <div className="dashModal__top">
-              <div>
-                <div className="dashModal__title">ACCOUNT SECURITY</div>
-                <div className="dashModal__subtitle">Manage email verification, two-factor authentication, and your monthly self-service password change.</div>
-              </div>
-              <ModalCloseButton
-                className="dashModal__close"
-                onClick={closeSecurityModal}
-                disabled={sendingVerification || startingTwoFactor || confirmingTwoFactor || disablingTwoFactor || changingPassword}
-              />
-            </div>
-
-            <div className="dashModal__rule" />
-
-            <AccountSecuritySection
-              savedEmail={employee?.email || ''}
-              emailDirty={emailDirty}
-              emailVerified={emailVerified}
-              twoFactorEnabled={Boolean(profile?.twoFactorEnabled)}
-              twoFactorCode={twoFactorCode}
-              setup={twoFactorSetup}
-              statusMessage={securityMessage}
-              sendingVerification={sendingVerification}
-              startingTwoFactor={startingTwoFactor}
-              confirmingTwoFactor={confirmingTwoFactor}
-              disablingTwoFactor={disablingTwoFactor}
-              changingPassword={changingPassword}
-              canChangePasswordNow={canChangePasswordNow}
-              passwordChangeAvailableAtLabel={passwordChangeAvailableAtLabel}
-              onTwoFactorCodeChange={(value) => setTwoFactorCode(value.replace(/\D/g, '').slice(0, 6))}
-              onSendVerification={() => void handleSendEmailVerification()}
-              onStartTwoFactor={() => void handleStartTwoFactorSetup()}
-              onConfirmTwoFactor={() => void handleConfirmTwoFactor()}
-              onDisableTwoFactor={() => void handleDisableTwoFactor()}
-              onChangePassword={(payload) => void handleChangePassword(payload)}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

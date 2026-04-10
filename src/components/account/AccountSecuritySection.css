@@ -1,0 +1,412 @@
+.dashSecurity__grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+}
+
+.dashSecurityCard{
+  border:1px solid rgba(0,0,0,.1);
+  border-radius:14px;
+  padding:14px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,243,252,0.9));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.6);
+}
+
+.dashSecurityCard--full{
+  grid-column:1 / -1;
+}
+
+.dashSecurityCard__head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.dashSecurityCard__head h3{
+  margin:0;
+  color:var(--ink, #2b2036);
+  font-size:16px;
+  font-weight:900;
+}
+
+.dashSecurityCard__head p,
+.dashSecurityCard__copy,
+.dashSecurityCard__note{
+  margin:6px 0 0;
+  color:var(--app-text-soft, rgba(43, 32, 54, 0.78));
+  font-size:15px;
+  line-height:1.45;
+}
+
+.dashSecurityCard__note{
+  color:#8a5a2f;
+}
+
+.dashSecurityCard__actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:14px;
+}
+
+.dashSecurityPill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:30px;
+  padding:0 12px;
+  border-radius:999px;
+  font-size:13px;
+  font-weight:900;
+  white-space:nowrap;
+}
+
+.dashSecurityPill.is-success{
+  background:rgba(46, 138, 88, 0.14);
+  color:#1f6d45;
+}
+
+.dashSecurityPill.is-warning{
+  background:rgba(187, 123, 37, 0.14);
+  color:#8d5c1c;
+}
+
+.dashSecurityPill.is-neutral{
+  background:rgba(123,74,143,.12);
+  color:var(--purple-dark, #5f2f78);
+}
+
+.dashSecurityBtn{
+  border:none;
+  background:linear-gradient(135deg, var(--app-accent, #7b4a8f), var(--app-accent-mid, #5f2f78));
+  color:#fff;
+  font-weight:800;
+  font-size:15px;
+  min-height:40px !important;
+  padding:6px 14px;
+  border-radius:10px;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  line-height:1.1;
+  box-shadow:0 10px 20px rgba(32, 21, 49, 0.18);
+}
+
+.dashSecurityBtn:disabled{
+  opacity:.6;
+  cursor:not-allowed;
+}
+
+.dashSecurityBtn--ghost{
+  background:var(--app-accent-soft, #efe6f4);
+  color:var(--app-text, var(--purple-dark, #5f2f78));
+  box-shadow:none;
+}
+
+.dashPasswordForm{
+  display:grid;
+  gap:14px;
+  margin-top:14px;
+}
+
+.dashPasswordForm__grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px 14px;
+}
+
+.dashPasswordForm__field{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.dashPasswordForm__field--full{
+  grid-column:1 / -1;
+}
+
+.dashPasswordForm__field span{
+  color:var(--ink, #2b2036);
+  font-size:14px;
+  font-weight:800;
+}
+
+.dashPasswordForm__inputWrap{
+  position:relative;
+  display:flex;
+  align-items:center;
+}
+
+.dashPasswordForm__inputWrap input{
+  width:100%;
+  height:38px;
+  border:1px solid rgba(0,0,0,.16);
+  border-radius:10px;
+  padding:0 42px 0 12px;
+  font-size:16px;
+  color:var(--ink, #2b2036);
+  background:var(--app-surface, #fff);
+}
+
+.dashPasswordForm__toggle{
+  position:absolute;
+  right:10px;
+  border:none;
+  background:transparent;
+  color:var(--purple-dark, #5f2f78);
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  padding:0;
+}
+
+.dashPasswordForm__toggle:disabled{
+  opacity:.5;
+  cursor:not-allowed;
+}
+
+.dashPasswordForm__actions{
+  display:flex;
+  justify-content:flex-end;
+}
+
+.dashTwoFactorSetup{
+  margin-top:16px;
+  padding-top:16px;
+  border-top:1px solid rgba(0,0,0,.08);
+}
+
+.dashTwoFactorSetup__media{
+  display:grid;
+  grid-template-columns:180px 1fr;
+  gap:16px;
+  align-items:start;
+}
+
+.dashTwoFactorSetup__qr,
+.dashTwoFactorSetup__placeholder{
+  width:180px;
+  height:180px;
+  border-radius:14px;
+  border:1px solid rgba(0,0,0,.12);
+  background:var(--app-surface, #fff);
+}
+
+.dashTwoFactorSetup__placeholder{
+  display:grid;
+  place-items:center;
+  color:rgba(43, 32, 54, 0.65);
+  font-size:15px;
+  text-align:center;
+  padding:12px;
+}
+
+.dashTwoFactorSetup__body{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.dashTwoFactorSetup__step{
+  margin:0;
+  color:rgba(43, 32, 54, 0.82);
+  font-size:15px;
+}
+
+.dashTwoFactorSetup__secret{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.dashTwoFactorSetup__manual{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.dashTwoFactorSetup__manualTop{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.dashTwoFactorSetup__secret span,
+.dashTwoFactorSetup__field span{
+  color:var(--ink, #2b2036);
+  font-size:14px;
+  font-weight:800;
+}
+
+.dashTwoFactorSetup__manualToggle{
+  border:none;
+  background:transparent;
+  color:var(--purple-dark, #5f2f78);
+  font-size:14px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.dashTwoFactorSetup__secret code{
+  display:block;
+  width:100%;
+  overflow:auto;
+  padding:10px 12px;
+  border-radius:10px;
+  background:var(--app-surface, #fff);
+  border:1px solid rgba(0,0,0,.1);
+  color:#38244d;
+  font-size:14px;
+}
+
+.dashTwoFactorSetup__field{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.dashTwoFactorSetup__field input{
+  height:38px;
+  border:1px solid rgba(0,0,0,.16);
+  border-radius:10px;
+  padding:0 12px;
+  font-size:16px;
+  color:var(--ink, #2b2036);
+  background:var(--app-surface, #fff);
+}
+
+.dashSecurity__status,
+.dashSecurity__error{
+  margin-top:14px;
+  border-radius:12px;
+  padding:10px 12px;
+  font-size:15px;
+  font-weight:700;
+}
+
+.dashSecurity__status{
+  background:rgba(64, 123, 88, 0.1);
+  color:#20623f;
+}
+
+.dashSecurity__error{
+  background:rgba(166, 63, 77, 0.1);
+  color:#a63f4d;
+}
+
+body[data-app-theme='dark'] .dashSecurityCard{
+  background:
+    radial-gradient(circle at top right, rgba(142, 102, 182, 0.18), transparent 40%),
+    linear-gradient(180deg, rgba(25, 19, 36, 0.98), rgba(17, 13, 25, 0.96));
+  border-color:rgba(214,199,232,.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.03),
+    0 18px 30px rgba(0,0,0,.22);
+}
+
+body[data-app-theme='dark'] .dashSecurityCard__head h3,
+body[data-app-theme='dark'] .dashPasswordForm__field span,
+body[data-app-theme='dark'] .dashTwoFactorSetup__secret span,
+body[data-app-theme='dark'] .dashTwoFactorSetup__field span{
+  color:var(--app-text);
+}
+
+body[data-app-theme='dark'] .dashSecurityCard__head p,
+body[data-app-theme='dark'] .dashSecurityCard__copy,
+body[data-app-theme='dark'] .dashTwoFactorSetup__step,
+body[data-app-theme='dark'] .dashSecurityCard__note{
+  color:rgba(243, 238, 248, 0.78);
+}
+
+body[data-app-theme='dark'] .dashSecurityCard__note{
+  color:#f0c980;
+}
+
+body[data-app-theme='dark'] .dashSecurityPill.is-success{
+  background:rgba(64, 160, 104, 0.18);
+  color:#b9f0d2;
+}
+
+body[data-app-theme='dark'] .dashSecurityPill.is-warning{
+  background:rgba(214, 162, 72, 0.18);
+  color:#f3d48c;
+}
+
+body[data-app-theme='dark'] .dashSecurityPill.is-neutral{
+  background:rgba(173,123,196,.18);
+  color:#eadcf6;
+}
+
+body[data-app-theme='dark'] .dashSecurityBtn--ghost{
+  background:rgba(142,102,182,.16);
+  color:var(--app-text);
+}
+
+body[data-app-theme='dark'] .dashPasswordForm__inputWrap input,
+body[data-app-theme='dark'] .dashTwoFactorSetup__field input,
+body[data-app-theme='dark'] .dashTwoFactorSetup__secret code,
+body[data-app-theme='dark'] .dashTwoFactorSetup__qr,
+body[data-app-theme='dark'] .dashTwoFactorSetup__placeholder{
+  background:rgba(13, 10, 19, 0.9);
+  border-color:rgba(214,199,232,.18);
+  color:var(--app-text);
+}
+
+body[data-app-theme='dark'] .dashTwoFactorSetup{
+  border-top-color:rgba(222,210,238,.1);
+}
+
+body[data-app-theme='dark'] .dashPasswordForm__toggle,
+body[data-app-theme='dark'] .dashTwoFactorSetup__manualToggle{
+  color:#d7bde9;
+}
+
+body[data-app-theme='dark'] .dashTwoFactorSetup__placeholder{
+  color:rgba(243, 238, 248, 0.64);
+}
+
+body[data-app-theme='dark'] .dashSecurity__status{
+  background:rgba(64, 160, 104, 0.14);
+  border:1px solid rgba(114, 213, 151, 0.14);
+  color:#b9f0d2;
+}
+
+body[data-app-theme='dark'] .dashSecurity__error{
+  background:rgba(166, 63, 77, 0.16);
+  border:1px solid rgba(255, 184, 193, 0.12);
+  color:#ffb8c1;
+}
+
+@media (max-width: 1400px){
+  .dashSecurity__grid{
+    grid-template-columns:1fr;
+  }
+
+  .dashSecurityCard--full{
+    grid-column:auto;
+  }
+
+  .dashTwoFactorSetup__media{
+    grid-template-columns:1fr;
+  }
+}
+
+@media (max-width: 700px){
+  .dashPasswordForm__grid{
+    grid-template-columns:1fr;
+  }
+}
+
+@media (max-width: 560px){
+  .dashTwoFactorSetup__qr,
+  .dashTwoFactorSetup__placeholder{
+    width:min(100%, 180px);
+    height:auto;
+    aspect-ratio:1;
+  }
+}

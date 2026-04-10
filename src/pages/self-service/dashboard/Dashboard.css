@@ -1,11 +1,11 @@
 :root{
-  --purple:#7b4a8f;
-  --purple-dark:#5f2f78;
-  --ink:#2b2036;
-  --card:#fff;
-  --stroke: rgba(0,0,0,.14);
-  --shadow: 0 10px 22px rgba(0,0,0,.10);
-  --shadow-soft: 0 6px 14px rgba(0,0,0,.12);
+  --purple:var(--app-accent, #7b4a8f);
+  --purple-dark:var(--app-accent-mid, #5f2f78);
+  --ink:var(--app-text, #2b2036);
+  --card:var(--app-surface, #fff);
+  --stroke: var(--app-border-strong, rgba(0,0,0,.14));
+  --shadow: var(--app-shadow-medium, 0 10px 22px rgba(0,0,0,.10));
+  --shadow-soft: var(--app-shadow-soft, 0 6px 14px rgba(0,0,0,.12));
 }
 
 body.modal-open{

@@ -1,15 +1,15 @@
 :root {
   --font-body: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   --font-heading: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  --ui-title-color: #2b2036;
-  --ui-copy-color: rgba(43, 32, 54, 0.72);
-  --ui-muted-color: #5b536d;
+  --ui-title-color: var(--app-text, #2b2036);
+  --ui-copy-color: var(--app-text-soft, rgba(43, 32, 54, 0.72));
+  --ui-muted-color: var(--app-muted, #5b536d);
   --ui-border: rgba(123, 74, 143, 0.14);
-  --ui-border-strong: rgba(123, 74, 143, 0.18);
-  --ui-surface: rgba(255, 255, 255, 0.96);
+  --ui-border-strong: var(--app-border-strong, rgba(123, 74, 143, 0.18));
+  --ui-surface: var(--app-surface, #ffffff);
   --ui-surface-soft: rgba(123, 74, 143, 0.08);
-  --ui-shadow-soft: 0 10px 24px rgba(32, 21, 49, 0.08);
-  --ui-shadow-medium: 0 16px 32px rgba(32, 21, 49, 0.12);
+  --ui-shadow-soft: var(--app-shadow-soft, 0 10px 24px rgba(32, 21, 49, 0.08));
+  --ui-shadow-medium: var(--app-shadow-medium, 0 16px 32px rgba(32, 21, 49, 0.12));
   --ui-radius-lg: 22px;
   --ui-radius-md: 18px;
   --ui-radius-sm: 14px;

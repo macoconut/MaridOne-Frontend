@@ -14,29 +14,35 @@ export type NavSection = {
 };
 
 type SidebarNavSectionProps = {
+  collapsed?: boolean;
   section: NavSection;
   isOpen: boolean;
   onToggle: (sectionId: string) => void;
 };
 
 export default function SidebarNavSection({
+  collapsed = false,
   section,
   isOpen,
   onToggle,
 }: SidebarNavSectionProps) {
-  return (
-    <div className={`eSide__navSection ${isOpen ? 'is-open' : ''}`}>
-      <button
-        type="button"
-        className="eSide__sectionToggle"
-        onClick={() => onToggle(section.id)}
-        aria-expanded={isOpen}
-      >
-        <span className="eSide__navLabel">{section.label}</span>
-        <FiChevronDown className="eSide__sectionChevron" />
-      </button>
+  const sectionIsOpen = collapsed || isOpen;
 
-      {isOpen && (
+  return (
+    <div className={`eSide__navSection ${sectionIsOpen ? 'is-open' : ''}${collapsed ? ' is-collapsed' : ''}`}>
+      {!collapsed && (
+        <button
+          type="button"
+          className="eSide__sectionToggle"
+          onClick={() => onToggle(section.id)}
+          aria-expanded={sectionIsOpen}
+        >
+          <span className="eSide__navLabel">{section.label}</span>
+          <FiChevronDown className="eSide__sectionChevron" />
+        </button>
+      )}
+
+      {sectionIsOpen && (
         <nav className="eSide__nav eSide__navPanel" aria-label={`${section.label} navigation`}>
           {section.items.map((item) => {
             const Icon = item.icon;
@@ -45,10 +51,13 @@ export default function SidebarNavSection({
               <NavLink
                 key={item.to}
                 to={item.to}
+                title={collapsed ? item.label : undefined}
                 className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
               >
-                <Icon className="eSide__icon" />
-                <span>{item.label}</span>
+                <span className="eSide__iconWrap" aria-hidden="true">
+                  <Icon className="eSide__icon" />
+                </span>
+                <span className="eSide__itemLabel">{item.label}</span>
               </NavLink>
             );
           })}

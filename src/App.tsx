@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import type { ReactElement } from 'react';
+import { useEffect, type ReactElement } from 'react';
 import { getAuthToken, getRequiresPasswordChange, getUserRole, type UserRole } from './lib/session';
 import { getRoleHomePath } from './lib/roleRoutes';
 
@@ -37,8 +37,14 @@ import AccountingLayout from './layouts/accounting/AccountingLayout';
 import AccountingPayrollDashboard from './pages/accounting/payroll-dashboard/PayrollDashboard';
 import AccountingPayrollReview from './pages/accounting/payroll-review/PayrollReview';
 import { UiDialogProvider } from './components/dialog/UiDialogProvider';
+import {
+  applyUiPreferences,
+  subscribeToSystemThemeChange,
+  subscribeToUiPreferencesChange,
+} from './lib/uiPreferences';
 import './styles/popupForms.css';
 import './styles/universal-ui.css';
+import './styles/theme-dark.css';
 
 function roleHome(role: UserRole) {
   return getRoleHomePath(role);
@@ -127,6 +133,22 @@ function RequirePasswordChange() {
 }
 
 export default function App() {
+  useEffect(() => {
+    const syncTheme = () => {
+      applyUiPreferences();
+    };
+
+    const unsubscribeUiPreferences = subscribeToUiPreferencesChange(syncTheme);
+    const unsubscribeSystemTheme = subscribeToSystemThemeChange(syncTheme);
+
+    syncTheme();
+
+    return () => {
+      unsubscribeUiPreferences();
+      unsubscribeSystemTheme();
+    };
+  }, []);
+
   return (
     <UiDialogProvider>
       <BrowserRouter>

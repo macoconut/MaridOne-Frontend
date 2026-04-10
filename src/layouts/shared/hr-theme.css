@@ -12,6 +12,24 @@
   --hr-button-shadow: 0 6px 12px rgba(0, 0, 0, 0.14);
 }
 
+body[data-app-theme='dark'] {
+  --hr-primary: #ad7bc4;
+  --hr-primary-dark: #f4edf9;
+  --hr-primary-soft: rgba(173, 123, 196, 0.16);
+  --hr-text: #eadff5;
+  --hr-muted: #c4b7d4;
+  --hr-surface: rgba(24, 18, 32, 0.96);
+  --hr-surface-soft: rgba(32, 25, 44, 0.96);
+  --hr-border: rgba(222, 210, 238, 0.16);
+  --hr-line: rgba(222, 210, 238, 0.12);
+  --hr-shadow: 0 18px 36px rgba(0, 0, 0, 0.3);
+  --hr-button-shadow: 0 14px 24px rgba(0, 0, 0, 0.28);
+}
+
+body[data-app-theme='dark'] .hrPager .is-active {
+  background: var(--app-accent);
+}
+
 body.modal-open {
   overflow: hidden;
 }

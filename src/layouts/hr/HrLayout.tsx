@@ -4,7 +4,6 @@ import {
   FiBarChart2,
   FiBookOpen,
   FiGrid,
-  FiLogOut,
   FiBell,
   FiCheckCircle,
   FiCalendar,
@@ -14,15 +13,17 @@ import {
   FiUsers,
   FiCreditCard,
   FiActivity,
-  FiMenu,
+  FiMenu
 } from 'react-icons/fi';
 import AppFooter from '../../components/layout/AppFooter';
 import HeaderRefreshButton from '../../components/navigation/HeaderRefreshButton';
-import SidebarBrand from '../../components/navigation/SidebarBrand';
+import RoleSidebar from '../../components/navigation/RoleSidebar';
+import SettingsModal from '../../components/settings/SettingsModal';
 import useAnimatedPresence from '../../hooks/useAnimatedPresence';
 import { useEscapeDismiss } from '../../hooks/useEscapeDismiss';
 import { useNotificationPolling } from '../../hooks/useNotificationPolling';
-import SidebarNavSection, { type NavSection } from '../../components/navigation/SidebarNavSection';
+import useResponsiveSidebar from '../../hooks/useResponsiveSidebar';
+import type { NavSection } from '../../components/navigation/SidebarNavSection';
 import '../shared/RoleLayout.css';
 import '../shared/hr-theme.css';
 import { getUserEmail } from '../../lib/session';
@@ -348,10 +349,11 @@ export default function HrLayout() {
   const [backendAction, setBackendAction] = useState<string>('None');
   const [backendResult, setBackendResult] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(navSections.map((section) => [section.id, section.defaultOpen]))
   );
+  const { drawerOpen, isMobileLayout, setDrawerOpen, sidebarCollapsed, toggleSidebar } = useResponsiveSidebar();
   const bellRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const unreadOnOpenRef = useRef<string[]>([]);
@@ -389,6 +391,11 @@ export default function HrLayout() {
 
   function handleBrandClick() {
     navigate('/hr/self-service/dashboard', { replace: true });
+  }
+
+  function handleOpenSettings() {
+    setDrawerOpen(false);
+    setSettingsOpen(true);
   }
 
   function toggleSection(sectionId: string) {
@@ -443,7 +450,10 @@ export default function HrLayout() {
 
   useEscapeDismiss(notifOpen, closeNotificationBell);
 
-  useEffect(() => { setDrawerOpen(false); }, [location.pathname]);
+  useEffect(() => {
+    setDrawerOpen(false);
+    setSettingsOpen(false);
+  }, [location.pathname, setDrawerOpen]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -600,28 +610,20 @@ export default function HrLayout() {
 
   return (
     <PageRefreshProvider>
-      <div className="employeeLayout">
-      <aside className={`eSide${drawerOpen ? ' is-open' : ''}`}>
-        <SidebarBrand label="Go to dashboard" onClick={handleBrandClick} />
-
-        <div className="eSide__navWrap">
-          {navSections.map((section) => (
-            <SidebarNavSection
-              key={section.id}
-              section={section}
-              isOpen={openSections[section.id]}
-              onToggle={toggleSection}
-            />
-          ))}
-        </div>
-
-        <div className="eSide__footer">
-          <button className="eSide__logout" type="button" onClick={handleLogout}>
-            <FiLogOut className="eSide__icon" />
-            <span>Logout</span>
-          </button>
-        </div>
-      </aside>
+      <div className={`employeeLayout${!isMobileLayout && sidebarCollapsed ? ' employeeLayout--sidebarCollapsed' : ''}`}>
+      <RoleSidebar
+        brandLabel="Go to dashboard"
+        collapsed={!isMobileLayout && sidebarCollapsed}
+        drawerOpen={drawerOpen}
+        isMobileLayout={isMobileLayout}
+        navSections={navSections}
+        onBrandClick={handleBrandClick}
+        onLogout={handleLogout}
+        onOpenSettings={handleOpenSettings}
+        onToggleSection={toggleSection}
+        onToggleSidebar={toggleSidebar}
+        openSections={openSections}
+      />
 
       <div className="eMain">
         <header className="eTop">
@@ -629,8 +631,8 @@ export default function HrLayout() {
             <button
               className="eTop__ham"
               type="button"
-              aria-label="Open navigation menu"
-              onClick={() => setDrawerOpen(true)}
+              aria-label={isMobileLayout ? (drawerOpen ? 'Close navigation menu' : 'Open navigation menu') : (sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar')}
+              onClick={toggleSidebar}
             >
               <FiMenu />
             </button>
@@ -746,6 +748,7 @@ export default function HrLayout() {
         aria-label="Close navigation menu"
         onClick={() => setDrawerOpen(false)}
       />
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </PageRefreshProvider>
   );
 }

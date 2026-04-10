@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import {
   FiGrid,
@@ -6,7 +6,6 @@ import {
   FiCheckSquare,
   FiFileText,
   FiBookOpen,
-  FiLogOut,
   FiBell,
   FiCheckCircle,
   FiMenu,
@@ -14,10 +13,12 @@ import {
 
 import AppFooter from '../../components/layout/AppFooter';
 import HeaderRefreshButton from '../../components/navigation/HeaderRefreshButton';
-import SidebarBrand from '../../components/navigation/SidebarBrand';
+import RoleSidebar from '../../components/navigation/RoleSidebar';
+import SettingsModal from '../../components/settings/SettingsModal';
 import useAnimatedPresence from '../../hooks/useAnimatedPresence';
 import { useEscapeDismiss } from '../../hooks/useEscapeDismiss';
 import { useNotificationPolling } from '../../hooks/useNotificationPolling';
+import useResponsiveSidebar from '../../hooks/useResponsiveSidebar';
 import '../shared/RoleLayout.css';
 import { getUserEmail } from '../../lib/session';
 import { BACKEND_TEST_MODE } from '../../config/flags';
@@ -33,6 +34,7 @@ import {
   type PlaceholderContext,
 } from '../../lib/backendTest';
 import { PageRefreshProvider } from '../../lib/pageRefresh';
+import type { NavSection } from '../../components/navigation/SidebarNavSection';
 
 type BackendTestAction = {
   label: string;
@@ -191,6 +193,21 @@ const backendActions: BackendTestAction[] = [
   },
 ];
 
+const navSections: NavSection[] = [
+  {
+    id: 'employee',
+    label: 'Self-Service',
+    defaultOpen: true,
+    items: [
+      { to: '/employee/dashboard', label: 'User Dashboard', icon: FiGrid },
+      { to: '/employee/attendance', label: 'Attendance', icon: FiCalendar },
+      { to: '/employee/approvals', label: 'View Approvals', icon: FiCheckSquare },
+      { to: '/employee/payslip', label: 'View Payslip', icon: FiFileText },
+      { to: '/employee/training', label: 'Training Materials', icon: FiBookOpen },
+    ],
+  },
+];
+
 export default function EmployeeLayout() {
   const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
@@ -200,8 +217,9 @@ export default function EmployeeLayout() {
   const [backendAction, setBackendAction] = useState<string>('None');
   const [backendResult, setBackendResult] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const location = useLocation();
+  const { drawerOpen, isMobileLayout, setDrawerOpen, sidebarCollapsed, toggleSidebar } = useResponsiveSidebar();
 
   const bellRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -209,7 +227,10 @@ export default function EmployeeLayout() {
 
   useEscapeDismiss(notifOpen, closeNotificationBell);
 
-  useEffect(() => { setDrawerOpen(false); }, [location.pathname]);
+  useEffect(() => {
+    setDrawerOpen(false);
+    setSettingsOpen(false);
+  }, [location.pathname, setDrawerOpen]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -250,6 +271,11 @@ export default function EmployeeLayout() {
 
   function handleBrandClick() {
     navigate('/employee/dashboard', { replace: true });
+  }
+
+  function handleOpenSettings() {
+    setDrawerOpen(false);
+    setSettingsOpen(true);
   }
 
   async function markNotificationsRead(ids: string[]) {
@@ -425,67 +451,18 @@ export default function EmployeeLayout() {
 
   return (
     <PageRefreshProvider>
-      <div className="employeeLayout">
-      <aside className={`eSide${drawerOpen ? ' is-open' : ''}`}>
-        <SidebarBrand label="Go to dashboard" onClick={handleBrandClick} />
-
-        <div className="eSide__navWrap">
-          <div className="eSide__navSection is-open">
-            <div className="eSide__sectionHeader">
-              <span className="eSide__navLabel">Self-Service</span>
-            </div>
-
-            <nav className="eSide__nav eSide__navPanel" aria-label="Employee navigation">
-              <NavLink
-                to="/employee/dashboard"
-                className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
-              >
-                <FiGrid className="eSide__icon" />
-                <span>User Dashboard</span>
-              </NavLink>
-
-              <NavLink
-                to="/employee/attendance"
-                className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
-              >
-                <FiCalendar className="eSide__icon" />
-                <span>Attendance</span>
-              </NavLink>
-
-              <NavLink
-                to="/employee/approvals"
-                className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
-              >
-                <FiCheckSquare className="eSide__icon" />
-                <span>View Approvals</span>
-              </NavLink>
-
-              <NavLink
-                to="/employee/payslip"
-                className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
-              >
-                <FiFileText className="eSide__icon" />
-                <span>View Payslip</span>
-              </NavLink>
-
-              <NavLink
-                to="/employee/training"
-                className={({ isActive }) => `eSide__item ${isActive ? 'is-active' : ''}`}
-              >
-                <FiBookOpen className="eSide__icon" />
-                <span>Training Materials</span>
-              </NavLink>
-            </nav>
-          </div>
-        </div>
-
-        <div className="eSide__footer">
-          <button className="eSide__logout" type="button" onClick={handleLogout}>
-            <FiLogOut className="eSide__icon" />
-            <span>Logout</span>
-          </button>
-        </div>
-      </aside>
+      <div className={`employeeLayout${!isMobileLayout && sidebarCollapsed ? ' employeeLayout--sidebarCollapsed' : ''}`}>
+      <RoleSidebar
+        brandLabel="Go to dashboard"
+        collapsed={!isMobileLayout && sidebarCollapsed}
+        drawerOpen={drawerOpen}
+        isMobileLayout={isMobileLayout}
+        navSections={navSections}
+        onBrandClick={handleBrandClick}
+        onLogout={handleLogout}
+        onOpenSettings={handleOpenSettings}
+        onToggleSidebar={toggleSidebar}
+      />
 
       <div className="eMain">
         <header className="eTop">
@@ -493,8 +470,8 @@ export default function EmployeeLayout() {
             <button
               className="eTop__ham"
               type="button"
-              aria-label="Open navigation menu"
-              onClick={() => setDrawerOpen(true)}
+              aria-label={isMobileLayout ? (drawerOpen ? 'Close navigation menu' : 'Open navigation menu') : (sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar')}
+              onClick={toggleSidebar}
             >
               <FiMenu />
             </button>
@@ -612,6 +589,7 @@ export default function EmployeeLayout() {
         aria-label="Close navigation menu"
         onClick={() => setDrawerOpen(false)}
       />
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </PageRefreshProvider>
   );
 }

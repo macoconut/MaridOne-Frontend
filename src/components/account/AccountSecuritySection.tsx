@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 import type { TwoFactorSetupResponse } from '../../lib/accountSecurity';
+import './AccountSecuritySection.css';
 
 type PasswordChangeRequest = {
   currentPassword: string;
@@ -15,6 +16,7 @@ type AccountSecuritySectionProps = {
   twoFactorEnabled: boolean;
   twoFactorCode: string;
   setup: TwoFactorSetupResponse | null;
+  errorMessage?: string;
   statusMessage: string;
   sendingVerification: boolean;
   startingTwoFactor: boolean;
@@ -38,6 +40,7 @@ export default function AccountSecuritySection({
   twoFactorEnabled,
   twoFactorCode,
   setup,
+  errorMessage = '',
   statusMessage,
   sendingVerification,
   startingTwoFactor,
@@ -358,6 +361,7 @@ export default function AccountSecuritySection({
       </div>
 
       {statusMessage && <div className="dashSecurity__status">{statusMessage}</div>}
+      {errorMessage && <div className="dashSecurity__error">{errorMessage}</div>}
     </section>
   );
 }
