@@ -50,14 +50,14 @@
 .mgrAtt__btn {
   min-width: 140px;
   min-height: 48px;
-  background: #7b4a8f;
+  background: var(--app-accent);
   color: #fff;
   cursor: pointer;
 }
 
 .mgrAtt__btn--ghost {
-  background: #efe7f5;
-  color: #4b2f69;
+  background: var(--app-accent-soft);
+  color: var(--app-ghost-text);
 }
 
 .mgrAtt__hint,

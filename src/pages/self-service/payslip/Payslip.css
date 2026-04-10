@@ -250,7 +250,7 @@
   justify-content:center;
   padding:2px 7px;
   border-radius:999px;
-  background:#7b4a8f;
+  background:var(--app-accent);
   color:#fff;
   font-size: 15px;
   font-weight:900;

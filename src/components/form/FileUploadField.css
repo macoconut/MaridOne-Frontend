@@ -13,7 +13,7 @@
 }
 
 .fileUploadField__label {
-  color: #5a337d;
+  color: var(--app-label-color);
   font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -28,8 +28,8 @@
   padding: 0 12px;
   border-radius: 999px;
   border: 1px solid rgba(123, 74, 143, 0.14);
-  background: rgba(123, 74, 143, 0.08);
-  color: #5f3a82;
+  background: var(--app-accent-soft);
+  color: var(--app-ghost-text);
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -37,7 +37,7 @@
 
 .fileUploadField__hint {
   margin: 0;
-  color: rgba(59, 34, 87, 0.72);
+  color: var(--app-text-soft);
   font-size: 13px;
   line-height: 1.5;
 }
@@ -50,7 +50,7 @@
   border: 1px dashed rgba(123, 74, 143, 0.24);
   border-radius: 18px;
   background:
-    linear-gradient(180deg, rgba(123, 74, 143, 0.06) 0%, rgba(255, 255, 255, 0.96) 100%);
+    linear-gradient(180deg, var(--app-accent-soft) 0%, var(--app-surface-elevated) 100%);
 }
 
 .fileUploadField__actions {
@@ -77,14 +77,14 @@
 
 .fileUploadField__button {
   border: 1px solid rgba(123, 74, 143, 0.16);
-  background: rgba(123, 74, 143, 0.1);
-  color: #5a337d;
+  background: var(--app-accent-soft);
+  color: var(--app-ghost-text);
 }
 
 .fileUploadField__clear {
   border: 1px solid rgba(123, 74, 143, 0.14);
-  background: rgba(255, 255, 255, 0.94);
-  color: rgba(59, 34, 87, 0.74);
+  background: var(--app-surface-elevated);
+  color: var(--app-text-soft);
 }
 
 .fileUploadField__status {
@@ -95,16 +95,16 @@
   padding: 12px 14px;
   border-radius: 14px;
   border: 1px solid rgba(123, 74, 143, 0.12);
-  background: rgba(255, 255, 255, 0.96);
-  color: rgba(43, 32, 54, 0.72);
+  background: var(--app-surface-elevated);
+  color: var(--app-text-soft);
   font-size: 13px;
   font-weight: 600;
 }
 
 .fileUploadField__status.is-selected {
   border-color: rgba(123, 74, 143, 0.22);
-  background: rgba(123, 74, 143, 0.08);
-  color: #3b2257;
+  background: var(--app-accent-soft);
+  color: var(--app-text);
 }
 
 .fileUploadField__status span {

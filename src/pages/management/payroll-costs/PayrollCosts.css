@@ -38,7 +38,7 @@
 .mPay__exportBtn {
   border: 0;
   border-radius: 8px;
-  background: #7b4a8f;
+  background: var(--app-accent);
   color: #fff;
   height: 38px;
   min-width: 170px;

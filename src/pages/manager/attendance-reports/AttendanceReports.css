@@ -53,15 +53,15 @@
   border-radius: 12px;
   min-width: 132px;
   min-height: 48px;
-  background: #7b4a8f;
+  background: var(--app-accent);
   color: #fff;
   font-weight: 800;
   cursor: pointer;
 }
 
 .mgrRpt__action--ghost {
-  background: #efe7f5;
-  color: #4b2f69;
+  background: var(--app-accent-soft);
+  color: var(--app-ghost-text);
 }
 
 .mgrRpt__filters {

@@ -177,7 +177,7 @@
 .mRunActions button {
   border: 0;
   border-radius: 8px;
-  background: #7b4a8f;
+  background: var(--app-accent);
   min-width: 180px;
   height: 38px;
   color: #fff;

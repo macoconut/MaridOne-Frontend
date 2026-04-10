@@ -199,7 +199,7 @@ body {
   .hrRunFilters__field label,
   .mRunFilters__field label
 ) {
-  color: #5a337d !important;
+  color: var(--app-label-color) !important;
   font-size: 12px !important;
   font-weight: 800 !important;
   letter-spacing: 0.08em !important;
@@ -220,7 +220,7 @@ body {
   min-height: 48px !important;
   border: 1px solid var(--ui-border-strong) !important;
   border-radius: var(--ui-radius-md) !important;
-  background: linear-gradient(180deg, #ffffff 0%, #fcfbff 100%) !important;
+  background: var(--app-surface-elevated) !important;
   box-shadow: var(--ui-shadow-soft) !important;
   overflow: hidden !important;
   transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease !important;
@@ -268,7 +268,7 @@ body {
 }
 
 :where(.uiEmployeeSort__toggle.is-open) {
-  background: rgba(123, 74, 143, 0.08) !important;
+  background: var(--app-accent-soft) !important;
 }
 
 :where(.uiEmployeeSort__toggle svg) {
@@ -315,12 +315,12 @@ body {
 }
 
 :where(.uiEmployeeSort__option:hover:not(:disabled)) {
-  background: rgba(123, 74, 143, 0.08) !important;
+  background: var(--app-accent-soft) !important;
   transform: translateY(-1px) !important;
 }
 
 :where(.uiEmployeeSort__option.is-selected) {
-  background: rgba(123, 74, 143, 0.12) !important;
+  background: var(--app-soft-fill) !important;
 }
 
 :where(.uiEmployeeSort__optionLabel) {
@@ -396,8 +396,8 @@ body {
   top: 50% !important;
   width: 9px !important;
   height: 9px !important;
-  border-right: 2px solid #645775 !important;
-  border-bottom: 2px solid #645775 !important;
+  border-right: 2px solid var(--app-placeholder) !important;
+  border-bottom: 2px solid var(--app-placeholder) !important;
   transform: translateY(-62%) rotate(45deg) !important;
   pointer-events: none !important;
 }
@@ -431,8 +431,8 @@ body {
 ) {
   border: 1px solid rgba(95, 65, 122, 0.28) !important;
   border-radius: 12px 12px 0 0 !important;
-  background: #7b4a8f !important;
-  box-shadow: 0 12px 24px rgba(47, 27, 66, 0.12) !important;
+  background: var(--app-table-head-bg) !important;
+  box-shadow: none !important;
 }
 
 :where(
@@ -448,7 +448,7 @@ body {
   .hrRunTable__head span,
   .mRunTable__head span
 ) {
-  color: rgba(252, 248, 255, 0.96) !important;
+  color: var(--app-table-head-text) !important;
   font-size: 13px !important;
   font-weight: 800 !important;
   letter-spacing: 0.1em !important;

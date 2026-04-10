@@ -1192,7 +1192,8 @@ body.modal-open .eMain{
 
 body[data-app-theme='dark'] .eTop__ham,
 body[data-app-theme='dark'] .eTop__refresh{
-  border-color: rgba(222,210,238,.14);
+  background: var(--app-surface);
+  border-color: var(--app-border);
 }
 
 body[data-app-theme='dark'] .eSide__toggle{
@@ -1200,7 +1201,50 @@ body[data-app-theme='dark'] .eSide__toggle{
 }
 
 body[data-app-theme='dark'] .eSide__toggle:hover{
-  background:rgba(244,237,249,.1);
+  background:var(--app-soft-fill);
+}
+
+body[data-app-theme='dark'] .eSide__navLabel{
+  color: var(--app-sidebar-label);
+}
+
+body[data-app-theme='dark'] .eSide__sectionToggle,
+body[data-app-theme='dark'] .eSide__sectionHeader,
+body[data-app-theme='dark'] .eSide__footer{
+  border-color: rgba(255,255,255,.05);
+}
+
+body[data-app-theme='dark'] .eSide__sectionChevron{
+  color: rgba(226, 232, 240, 0.58);
+}
+
+body[data-app-theme='dark'] .eSide__item,
+body[data-app-theme='dark'] .eSide__footerAction,
+body[data-app-theme='dark'] .eSide__item:link,
+body[data-app-theme='dark'] .eSide__item:visited,
+body[data-app-theme='dark'] .eSide__footerAction:link,
+body[data-app-theme='dark'] .eSide__footerAction:visited{
+  color: var(--app-sidebar-ink);
+}
+
+body[data-app-theme='dark'] .eSide__item.is-active,
+body[data-app-theme='dark'] .eSide__footerAction.is-active{
+  background: var(--app-sidebar-item-active-bg);
+  color: var(--app-sidebar-item-active-text);
+  box-shadow:
+    inset 4px 0 0 var(--app-sidebar-item-active-border),
+    inset 0 0 0 1px rgba(139, 92, 246, 0.08);
+}
+
+body[data-app-theme='dark'] .eSide__item:hover,
+body[data-app-theme='dark'] .eSide__footerAction:hover{
+  background: var(--app-sidebar-item-hover-bg);
+  color: var(--app-sidebar-item-hover-text);
+}
+
+body[data-app-theme='dark'] .eSide__item.is-active .eSide__icon,
+body[data-app-theme='dark'] .eSide__footerAction.is-active .eSide__icon{
+  opacity: 1;
 }
 
 body[data-app-theme='dark'] .backendTest__head span,
@@ -1208,26 +1252,27 @@ body[data-app-theme='dark'] .backendTest__card p,
 body[data-app-theme='dark'] .notifPanel__date,
 body[data-app-theme='dark'] .notifItem__msg,
 body[data-app-theme='dark'] .notifItem__time{
-  color: rgba(244, 237, 249, 0.68);
+  color: var(--app-text-soft);
 }
 
 body[data-app-theme='dark'] .notifPanel{
-  background: rgba(24,18,32,.96);
-  border-color: rgba(222,210,238,.14);
+  background: linear-gradient(180deg, rgba(37, 29, 56, 0.98), rgba(30, 24, 45, 0.98));
+  border-color: var(--app-border-strong);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.34);
 }
 
 body[data-app-theme='dark'] .notifPanel__header,
 body[data-app-theme='dark'] .notifItem{
-  border-bottom-color: rgba(222,210,238,.08);
+  border-bottom-color: rgba(255,255,255,.05);
 }
 
 body[data-app-theme='dark'] .notifItem:hover{
-  background: rgba(173, 123, 196, 0.12);
+  background: var(--app-soft-fill);
 }
 
 body[data-app-theme='dark'] .notifItem--unread{
-  background: linear-gradient(90deg, rgba(173, 123, 196, 0.24), rgba(173, 123, 196, 0.1));
-  box-shadow: inset 3px 0 0 rgba(173, 123, 196, 0.62);
+  background: linear-gradient(90deg, rgba(139, 92, 246, 0.2), rgba(139, 92, 246, 0.08));
+  box-shadow: inset 3px 0 0 var(--app-accent);
 }
 
 body[data-app-theme='dark'] .notifItem__title,

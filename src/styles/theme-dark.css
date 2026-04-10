@@ -1,13 +1,14 @@
 body[data-app-theme='dark'] {
-  --theme-dark-surface: rgba(20, 17, 28, 0.96);
-  --theme-dark-surface-alt: rgba(28, 22, 39, 0.98);
-  --theme-dark-surface-elevated: rgba(39, 31, 53, 0.98);
-  --theme-dark-soft: rgba(142, 102, 182, 0.16);
-  --theme-dark-border: rgba(214, 199, 232, 0.12);
-  --theme-dark-border-strong: rgba(214, 199, 232, 0.22);
-  --theme-dark-copy: rgba(243, 238, 248, 0.8);
-  --theme-dark-muted: rgba(243, 238, 248, 0.62);
-  --theme-dark-shadow: 0 24px 46px rgba(0, 0, 0, 0.34);
+  --theme-dark-surface: var(--app-surface);
+  --theme-dark-surface-alt: var(--app-surface-elevated);
+  --theme-dark-surface-elevated: var(--app-soft-fill-strong);
+  --theme-dark-surface-inset: var(--app-surface-deep);
+  --theme-dark-soft: var(--app-soft-fill);
+  --theme-dark-border: var(--app-border);
+  --theme-dark-border-strong: var(--app-border-strong);
+  --theme-dark-copy: var(--app-text-soft);
+  --theme-dark-muted: var(--app-muted);
+  --theme-dark-shadow: 0 20px 40px rgba(0, 0, 0, 0.28);
 }
 
 body[data-app-theme='dark'] :where(
@@ -17,8 +18,8 @@ body[data-app-theme='dark'] :where(
   .verifyEmailPage
 ) {
   background:
-    radial-gradient(circle at top, rgba(173, 123, 196, 0.18), transparent 34%),
-    linear-gradient(180deg, #181220 0%, #0f0b17 100%) !important;
+    radial-gradient(circle at top, rgba(139, 92, 246, 0.14), transparent 34%),
+    linear-gradient(180deg, #171221 0%, #120f18 100%) !important;
 }
 
 body[data-app-theme='dark'] :where(
@@ -27,8 +28,10 @@ body[data-app-theme='dark'] :where(
   .changePasswordCard,
   .verifyEmailCard
 ) {
-  background: rgba(24, 18, 32, 0.94) !important;
-  border-color: var(--theme-dark-border) !important;
+  background:
+    radial-gradient(circle at top right, rgba(139, 92, 246, 0.12), transparent 30%),
+    linear-gradient(180deg, rgba(37, 29, 56, 0.98), rgba(30, 24, 45, 0.98)) !important;
+  border-color: var(--theme-dark-border-strong) !important;
   box-shadow: var(--theme-dark-shadow) !important;
 }
 
@@ -58,8 +61,8 @@ body[data-app-theme='dark'] :where(
   .forgotPasswordField input,
   .changePasswordInputWrap input
 ) {
-  background: var(--theme-dark-surface-alt) !important;
-  border-color: var(--theme-dark-border) !important;
+  background: var(--theme-dark-surface-inset) !important;
+  border-color: var(--app-input-border) !important;
   color: var(--app-text) !important;
 }
 
@@ -69,9 +72,9 @@ body[data-app-theme='dark'] :where(
   .forgotPasswordSecondary,
   .verifyEmailBtn--ghost
 ) {
-  background: var(--theme-dark-surface-alt) !important;
-  border-color: var(--theme-dark-border) !important;
-  color: var(--app-text) !important;
+  background: var(--app-accent-soft) !important;
+  border-color: var(--theme-dark-border-strong) !important;
+  color: var(--app-ghost-text) !important;
 }
 
 body[data-app-theme='dark'] :where(
@@ -84,22 +87,22 @@ body[data-app-theme='dark'] :where(
   .changePasswordEyebrow,
   .forgotPasswordEyebrow
 ) {
-  color: #d7b4ea !important;
+  color: var(--app-label-color) !important;
 }
 
 body[data-app-theme='dark'] :where(
   .changePasswordHint,
   .eloginHint
 ) {
-  background: rgba(173, 123, 196, 0.12) !important;
+  background: var(--theme-dark-soft) !important;
   border-color: var(--theme-dark-border-strong) !important;
   color: var(--theme-dark-copy) !important;
 }
 
 body[data-app-theme='dark'] .verifyEmailBadge.is-idle,
 body[data-app-theme='dark'] .verifyEmailBadge.is-loading {
-  background: rgba(173, 123, 196, 0.18) !important;
-  color: #eadcf6 !important;
+  background: var(--app-accent-soft) !important;
+  color: var(--app-ghost-text) !important;
 }
 
 body[data-app-theme='dark'] .eContent :where(
@@ -216,7 +219,7 @@ body[data-app-theme='dark'] .eContent :where(
 ) {
   background: var(--theme-dark-surface) !important;
   border-color: var(--theme-dark-border) !important;
-  box-shadow: var(--theme-dark-shadow) !important;
+  box-shadow: none !important;
 }
 
 body[data-app-theme='dark'] .eContent :where(
@@ -247,6 +250,30 @@ body[data-app-theme='dark'] .eContent :where(
   color: var(--app-text) !important;
 }
 
+body[data-app-theme='dark'] .eContent :where(
+  .att__monthSelect,
+  .attScheduleCard__select,
+  .mPay__dateSelect,
+  .mRun__top select,
+  .mRunFilters__field select,
+  .mgrMonth__field select,
+  .mgrMonth__field input,
+  .pay__select,
+  .dashModal__field input,
+  .dashModal__field textarea,
+  .payModal__row select,
+  .payModal__row textarea,
+  .aReviewRunModal__grid input,
+  .apprFilter__field select,
+  .input,
+  .textarea,
+  .uploadBtn
+) {
+  background: var(--theme-dark-surface-inset) !important;
+  border-color: var(--app-input-border) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02) !important;
+}
+
 body[data-app-theme='dark'] .eContent .tmRow:nth-child(even) {
   background: var(--theme-dark-surface-alt) !important;
 }
@@ -257,7 +284,7 @@ body[data-app-theme='dark'] .eContent :where(
   .attBalanceCard__note,
   .mRunTable__head
 ) {
-  background: rgba(173, 123, 196, 0.12) !important;
+  background: var(--theme-dark-soft) !important;
   border-color: var(--theme-dark-border-strong) !important;
   color: var(--theme-dark-copy) !important;
 }
@@ -269,8 +296,8 @@ body[data-app-theme='dark'] .eContent :where(
   .mgrMonth__cell--readonly .hrCal__note,
   .mgrMonth__cell--readonly .hrCal__detail
 ) {
-  background: rgba(173, 123, 196, 0.14) !important;
-  color: #eadcf6 !important;
+  background: var(--app-accent-soft) !important;
+  color: var(--app-ghost-text) !important;
 }
 
 body[data-app-theme='dark'] .eContent :where(
@@ -358,8 +385,8 @@ body[data-app-theme='dark'] .eContent :where(
   .hrDash__dateArrow,
   .hrDash__calendarTrigger
 ) {
-  background: rgba(173, 123, 196, 0.16) !important;
-  color: #eadcf6 !important;
+  background: var(--app-accent-soft) !important;
+  color: var(--app-ghost-text) !important;
 }
 
 body[data-app-theme='dark'] .eContent :where(
@@ -374,17 +401,18 @@ body[data-app-theme='dark'] :where(
   .eMain
 ) {
   background:
-    radial-gradient(circle at top right, rgba(142, 102, 182, 0.14), transparent 32%),
-    linear-gradient(180deg, #0d0a14 0%, #08060c 100%) !important;
+    radial-gradient(circle at top right, rgba(139, 92, 246, 0.12), transparent 30%),
+    linear-gradient(180deg, #120f18 0%, #0e0b14 100%) !important;
 }
 
 body[data-app-theme='dark'] .eSide {
-  background: linear-gradient(180deg, rgba(105, 75, 136, 0.98) 0%, rgba(17, 13, 26, 0.99) 100%) !important;
-  box-shadow: 18px 0 34px rgba(0, 0, 0, 0.34);
+  background: linear-gradient(180deg, rgba(21, 16, 30, 0.99) 0%, rgba(19, 14, 27, 0.99) 100%) !important;
+  border-right: 1px solid var(--app-sidebar-border) !important;
+  box-shadow: none !important;
 }
 
 body[data-app-theme='dark'] .eFooter {
-  background: linear-gradient(90deg, rgba(17, 13, 26, 0.99) 0%, rgba(66, 46, 91, 0.96) 100%) !important;
+  background: linear-gradient(90deg, rgba(21, 16, 30, 0.99) 0%, rgba(37, 29, 56, 0.98) 100%) !important;
 }
 
 body[data-app-theme='dark'] .eTop__refresh {
@@ -398,7 +426,7 @@ body[data-app-theme='dark'] .eTop__bell {
 }
 
 body[data-app-theme='dark'] .eTop__bell:hover {
-  background: rgba(142, 102, 182, 0.12) !important;
+  background: var(--theme-dark-soft) !important;
 }
 
 body[data-app-theme='dark'] .eContent :where(
@@ -499,8 +527,8 @@ body[data-app-theme='dark'] .eContent :where(
 
 body[data-app-theme='dark'] .eContent .modal--request {
   background:
-    radial-gradient(circle at top right, rgba(142, 102, 182, 0.16), transparent 30%),
-    linear-gradient(180deg, rgba(20, 17, 28, 0.98) 0%, rgba(14, 11, 21, 0.96) 100%) !important;
+    radial-gradient(circle at top right, rgba(139, 92, 246, 0.12), transparent 30%),
+    linear-gradient(180deg, rgba(37, 29, 56, 0.98) 0%, rgba(33, 25, 47, 0.98) 100%) !important;
 }
 
 body[data-app-theme='dark'] .eContent :where(
@@ -515,7 +543,7 @@ body[data-app-theme='dark'] .eContent :where(
 }
 
 body[data-app-theme='dark'] .eContent .apprTable__head {
-  background: linear-gradient(180deg, rgba(39, 31, 53, 0.98), rgba(27, 22, 38, 0.98)) !important;
+  background: var(--app-table-head-bg) !important;
 }
 
 body[data-app-theme='dark'] .eContent :where(
@@ -523,7 +551,7 @@ body[data-app-theme='dark'] .eContent :where(
   .attScheduleState--muted,
   .attScheduleDay--empty
 ) {
-  background: rgba(28, 22, 39, 0.72) !important;
+  background: rgba(37, 29, 56, 0.72) !important;
   border-style: dashed !important;
 }
 
@@ -558,7 +586,7 @@ body[data-app-theme='dark'] .eContent :where(
   .requestField__balanceHint,
   .requestUpload__button
 ) {
-  background: rgba(142, 102, 182, 0.12) !important;
+  background: var(--theme-dark-soft) !important;
   border-color: var(--theme-dark-border) !important;
 }
 
@@ -573,11 +601,16 @@ body[data-app-theme='dark'] .eContent :where(
 
 body[data-app-theme='dark'] .eContent :where(
   .attCalendarShell__navBtn,
-  .apprFilter__toggle.is-open,
-  .modal__close
+  .apprFilter__toggle.is-open
 ) {
-  background: rgba(142, 102, 182, 0.14) !important;
-  color: var(--app-text) !important;
+  background: var(--app-accent-soft) !important;
+  color: var(--app-ghost-text) !important;
+}
+
+body[data-app-theme='dark'] .eContent .modal__close {
+  background: var(--app-close-bg) !important;
+  border-color: var(--app-close-border) !important;
+  color: var(--app-close-color) !important;
 }
 
 body[data-app-theme='dark'] .eContent :where(

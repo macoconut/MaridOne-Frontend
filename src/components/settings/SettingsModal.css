@@ -45,7 +45,7 @@
   place-items:center;
   padding:20px;
   overflow-y:auto;
-  background:rgba(22, 14, 34, 0.5);
+  background:var(--app-overlay);
   z-index:3400;
   animation:settingsBackdropIn 180ms ease-out both;
 }
@@ -87,7 +87,7 @@
 }
 
 .settingsModal__eyebrow{
-  color:rgba(95, 47, 120, 0.74);
+  color:var(--app-label-color);
   font-size:12px;
   font-weight:800;
   letter-spacing:0.14em;
@@ -109,10 +109,10 @@
 }
 
 body[data-app-theme='dark'] .settingsModal{
-  border-color:rgba(214, 195, 235, 0.16);
+  border-color:var(--app-border-strong);
   background:
-    radial-gradient(circle at top right, rgba(142, 102, 182, 0.2), transparent 34%),
-    linear-gradient(180deg, rgba(18,14,26,0.98), rgba(12,9,18,0.97));
+    radial-gradient(circle at top right, rgba(139, 92, 246, 0.14), transparent 32%),
+    linear-gradient(180deg, rgba(37, 29, 56, 0.98), rgba(33, 25, 47, 0.98));
 }
 
 @media (max-width: 780px){

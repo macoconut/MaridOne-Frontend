@@ -70,7 +70,7 @@
   border-radius: 12px;
   min-height: 46px;
   padding: 0 18px;
-  background: #7b4a8f;
+  background: var(--app-accent);
   color: #fff;
   font-size: 16px;
   font-weight: 800;
@@ -84,8 +84,8 @@
 }
 
 .verifyEmailBtn--ghost {
-  background: #f0e8f6;
-  color: #513166;
+  background: var(--app-accent-soft);
+  color: var(--app-ghost-text);
   box-shadow: none;
 }
 

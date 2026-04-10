@@ -63,8 +63,8 @@
   border-radius: 10px;
   display: inline-grid;
   place-items: center;
-  background: rgba(123, 74, 143, 0.1);
-  color: #6d3db4;
+  background: var(--app-accent-soft);
+  color: var(--app-ghost-text);
   cursor: pointer;
 }
 
@@ -95,8 +95,8 @@
   border-radius: 10px;
   display: inline-grid;
   place-items: center;
-  background: rgba(123, 74, 143, 0.1);
-  color: #6d3db4;
+  background: var(--app-accent-soft);
+  color: var(--app-ghost-text);
   overflow: hidden;
   cursor: pointer;
 }

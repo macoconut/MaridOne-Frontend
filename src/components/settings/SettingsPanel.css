@@ -193,15 +193,15 @@
 }
 
 .settingsThemeOption__preview.is-dark span:nth-child(1){
-  background:linear-gradient(180deg, #52326b, #130d20);
+  background:linear-gradient(180deg, #15101e, #120f18);
 }
 
 .settingsThemeOption__preview.is-dark span:nth-child(2){
-  background:#241a34;
+  background:#1e182d;
 }
 
 .settingsThemeOption__preview.is-dark span:nth-child(3){
-  background:#15101f;
+  background:#251d38;
 }
 
 .settingsThemeOption__preview.is-system span:nth-child(1){
@@ -209,11 +209,11 @@
 }
 
 .settingsThemeOption__preview.is-system span:nth-child(2){
-  background:linear-gradient(180deg, #f5effa 0%, #241a34 100%);
+  background:linear-gradient(180deg, #f5effa 0%, #251d38 100%);
 }
 
 .settingsThemeOption__preview.is-system span:nth-child(3){
-  background:linear-gradient(90deg, #ffffff 0%, #181220 100%);
+  background:linear-gradient(90deg, #ffffff 0%, #120f18 100%);
 }
 
 .settingsThemeOption__copy{
@@ -354,8 +354,8 @@
   margin-top:14px;
   border-radius:16px;
   padding:14px 16px;
-  background:rgba(123, 74, 143, 0.08);
-  color:rgba(43, 32, 54, 0.78);
+  background:var(--app-accent-soft);
+  color:var(--app-text-soft);
   font-size:14px;
   font-weight:700;
   line-height:1.5;
@@ -367,33 +367,34 @@
 }
 
 body[data-app-theme='dark'] .settingsPanel{
-  --settings-card-border: rgba(214, 195, 235, 0.14);
-  --settings-card-shadow: 0 22px 38px rgba(0, 0, 0, 0.28);
-  --settings-card-copy: rgba(232, 224, 243, 0.72);
-  --settings-soft-bg: rgba(188, 154, 221, 0.14);
-  --settings-soft-strong: rgba(188, 154, 221, 0.16);
-  --settings-security-surface: rgba(188, 154, 221, 0.08);
+  --settings-card-border: var(--app-border);
+  --settings-card-shadow: none;
+  --settings-card-copy: var(--app-text-soft);
+  --settings-soft-bg: var(--app-soft-fill);
+  --settings-soft-strong: var(--app-border-strong);
+  --settings-security-surface: var(--app-surface-elevated);
 }
 
 body[data-app-theme='dark'] .settingsCard{
   background:
-    radial-gradient(circle at top right, rgba(123, 74, 143, 0.2), transparent 30%),
-    linear-gradient(180deg, rgba(28,22,40,0.96), rgba(19,15,28,0.96));
+    radial-gradient(circle at top right, rgba(139, 92, 246, 0.14), transparent 30%),
+    linear-gradient(180deg, rgba(30, 24, 45, 0.98), rgba(30, 24, 45, 0.98));
 }
 
 body[data-app-theme='dark'] .settingsThemeOption,
 body[data-app-theme='dark'] .settingsToggleCard,
 body[data-app-theme='dark'] .settingsMiniCard{
-  background:rgba(35, 28, 48, 0.92);
+  background:var(--app-surface-elevated);
+  border-color: var(--app-border-strong);
 }
 
 body[data-app-theme='dark'] .settingsSwitch__thumb{
-  background:#f7f2fc;
+  background:#f8fafc;
 }
 
 body[data-app-theme='dark'] .settingsThemeOption__detail,
 body[data-app-theme='dark'] .settingsMiniCard__label{
-  color:rgba(232, 224, 243, 0.62);
+  color:var(--app-text-soft);
 }
 
 @media (max-width: 1320px){

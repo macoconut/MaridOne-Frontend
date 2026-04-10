@@ -22,7 +22,7 @@
 .mgrShift__save {
   min-height: 46px;
   border-radius: 14px;
-  background: #7b4a8f;
+  background: var(--app-accent);
   color: #fff;
   font-weight: 800;
   display: inline-flex;

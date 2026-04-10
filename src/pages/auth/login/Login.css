@@ -239,7 +239,7 @@
   padding: 8px 24px;
   border-radius: 12px;
   border: none;
-  background: #7b4a8f;
+  background: var(--app-accent);
   color: #fff;
   font-size: 16px;
   cursor: pointer;
@@ -252,8 +252,8 @@
 }
 
 .submitBtn--ghost {
-  background: #efe6f4;
-  color: #4d2d61;
+  background: var(--app-accent-soft);
+  color: var(--app-ghost-text);
   box-shadow: none;
 }
 

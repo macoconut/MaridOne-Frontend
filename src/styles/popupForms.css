@@ -1,15 +1,52 @@
 :root {
-  --popup-accent: #7b4a8f;
-  --popup-accent-dark: #5f3a82;
-  --popup-ink: #3b2257;
-  --popup-copy: rgba(59, 34, 87, 0.72);
-  --popup-border: rgba(123, 74, 143, 0.14);
+  --popup-accent: var(--app-accent, #7b4a8f);
+  --popup-accent-dark: var(--app-ghost-text, #5f3a82);
+  --popup-ink: var(--app-text, #3b2257);
+  --popup-copy: var(--app-text-soft, rgba(59, 34, 87, 0.72));
+  --popup-border: var(--app-border-strong, rgba(123, 74, 143, 0.14));
   --popup-shadow: 0 26px 60px rgba(32, 21, 49, 0.28);
   --popup-field-shadow: 0 10px 22px rgba(39, 25, 60, 0.05);
   --popup-motion-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --popup-overlay: var(--app-overlay, rgba(30, 19, 47, 0.44));
+  --popup-field-surface: rgba(255, 255, 255, 0.92);
+  --popup-input-surface: var(--app-input-bg, #ffffff);
+  --popup-input-border: var(--app-input-border, rgba(123, 74, 143, 0.18));
+  --popup-control-surface: linear-gradient(180deg, #ffffff 0%, #fcfbff 100%);
+  --popup-control-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  --popup-menu-surface: linear-gradient(180deg, #ffffff 0%, #fcfbff 100%);
+  --popup-close-bg: var(--app-close-bg, linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 245, 255, 0.96)));
+  --popup-close-hover-bg: var(--app-close-bg-hover, linear-gradient(180deg, #ffffff 0%, #f7f0fd 100%));
+  --popup-close-color: var(--app-close-color, rgba(72, 45, 104, 0.82));
+  --popup-close-border: var(--app-close-border, rgba(123, 74, 143, 0.12));
+  --popup-soft-fill: var(--app-accent-soft, rgba(123, 74, 143, 0.1));
+  --popup-focus-ring: 0 0 0 4px rgba(123, 74, 143, 0.12);
+  --popup-danger-surface: #fff7f8;
+  --popup-danger-control-surface: linear-gradient(180deg, rgba(255, 244, 246, 0.96) 0%, #ffffff 100%);
+  --popup-danger-border: rgba(194, 59, 51, 0.68);
+  --popup-danger-ring: 0 0 0 4px rgba(194, 59, 51, 0.12);
   --popup-surface:
     radial-gradient(circle at top right, rgba(191, 154, 223, 0.24), transparent 32%),
     linear-gradient(180deg, #f7f2fb 0%, #ffffff 42%);
+}
+
+body[data-app-theme='dark'] {
+  --popup-shadow: 0 28px 52px rgba(0, 0, 0, 0.36);
+  --popup-field-shadow: none;
+  --popup-field-surface: var(--app-modal-bg);
+  --popup-input-surface: var(--app-input-bg);
+  --popup-input-border: var(--app-input-border);
+  --popup-control-surface: var(--app-input-bg);
+  --popup-control-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  --popup-menu-surface:
+    linear-gradient(180deg, rgba(37, 29, 56, 0.98) 0%, rgba(33, 25, 47, 0.98) 100%);
+  --popup-focus-ring: 0 0 0 4px rgba(139, 92, 246, 0.15);
+  --popup-danger-surface: rgba(76, 18, 32, 0.22);
+  --popup-danger-control-surface: rgba(76, 18, 32, 0.22);
+  --popup-danger-border: rgba(248, 113, 113, 0.48);
+  --popup-danger-ring: 0 0 0 4px rgba(248, 113, 113, 0.12);
+  --popup-surface:
+    radial-gradient(circle at top right, rgba(139, 92, 246, 0.12), transparent 30%),
+    linear-gradient(180deg, rgba(37, 29, 56, 0.98) 0%, rgba(33, 25, 47, 0.98) 100%);
 }
 
 @keyframes popupBackdropIn {
@@ -79,7 +116,7 @@
   place-items: center !important;
   padding: 20px !important;
   overflow-y: auto !important;
-  background: rgba(30, 19, 47, 0.44) !important;
+  background: var(--popup-overlay) !important;
   z-index: 3200 !important;
   animation: popupBackdropIn 180ms ease-out !important;
 }
@@ -217,7 +254,7 @@
 }
 
 :where(.apprModal__eyebrow, .hrAttModal__eyebrow) {
-  color: rgba(91, 52, 126, 0.72) !important;
+  color: var(--app-label-color) !important;
   font-size: 11px !important;
   font-weight: 800 !important;
   letter-spacing: 0.14em !important;
@@ -244,9 +281,9 @@
   height: 48px !important;
   padding: 0 !important;
   border-radius: 16px !important;
-  border: 1px solid rgba(123, 74, 143, 0.12) !important;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 245, 255, 0.96)) !important;
-  color: rgba(72, 45, 104, 0.82) !important;
+  border: 1px solid var(--popup-close-border) !important;
+  background: var(--popup-close-bg) !important;
+  color: var(--popup-close-color) !important;
   display: inline-grid !important;
   place-items: center !important;
   box-shadow: 0 14px 28px rgba(60, 37, 86, 0.1) !important;
@@ -279,10 +316,10 @@
   .aReviewRunModal__close
 ):hover:not(:disabled) {
   transform: translateY(-1px) !important;
-  border-color: rgba(123, 74, 143, 0.22) !important;
-  background: linear-gradient(180deg, #ffffff 0%, #f7f0fd 100%) !important;
+  border-color: var(--popup-border) !important;
+  background: var(--popup-close-hover-bg) !important;
   color: var(--popup-ink) !important;
-  box-shadow: 0 18px 32px rgba(60, 37, 86, 0.14) !important;
+  box-shadow: 0 18px 32px rgba(60, 37, 86, 0.12) !important;
 }
 
 :where(
@@ -299,7 +336,7 @@
   .aReviewPayModal__close,
   .aReviewRunModal__close
 ):focus-visible {
-  outline: 3px solid rgba(123, 74, 143, 0.18) !important;
+  outline: 3px solid rgba(139, 92, 246, 0.18) !important;
   outline-offset: 3px !important;
 }
 
@@ -359,8 +396,8 @@
   border: 0 !important;
   background: linear-gradient(
     90deg,
-    rgba(123, 74, 143, 0.28),
-    rgba(123, 74, 143, 0.04)
+    var(--popup-border),
+    transparent
   ) !important;
   margin: 18px 0 22px !important;
 }
@@ -387,7 +424,7 @@
 ) {
   border: 1px solid var(--popup-border) !important;
   border-radius: 20px !important;
-  background: rgba(255, 255, 255, 0.92) !important;
+  background: var(--popup-field-surface) !important;
   box-shadow: var(--popup-field-shadow) !important;
 }
 
@@ -430,7 +467,7 @@
   .hrAttSummary__card span,
   .hrPayCorrectionSummary__row span
 ) {
-  color: #5a337d !important;
+  color: var(--app-label-color) !important;
   font-size: 13px !important;
   font-weight: 800 !important;
   letter-spacing: 0.04em !important;
@@ -454,10 +491,10 @@
 ) {
   width: 100% !important;
   min-height: 44px !important;
-  border: 1px solid rgba(123, 74, 143, 0.18) !important;
+  border: 1px solid var(--popup-input-border) !important;
   border-radius: 14px !important;
-  background: #fff !important;
-  color: #2b2036 !important;
+  background: var(--popup-input-surface) !important;
+  color: var(--popup-ink) !important;
   font-size: 15px !important;
   padding: 12px 14px !important;
   box-shadow: none !important;
@@ -490,8 +527,8 @@
   .aReviewPayModal__grid input:focus
 ) {
   outline: none !important;
-  border-color: rgba(123, 74, 143, 0.55) !important;
-  box-shadow: 0 0 0 4px rgba(123, 74, 143, 0.12) !important;
+  border-color: var(--popup-accent) !important;
+  box-shadow: var(--popup-focus-ring) !important;
 }
 
 :where(.hrPayPicker, .hrEmpCombo) {
@@ -503,11 +540,11 @@
   position: relative !important;
   display: block !important;
   min-height: 50px !important;
-  border: 1px solid rgba(123, 74, 143, 0.18) !important;
+  border: 1px solid var(--popup-input-border) !important;
   border-radius: 16px !important;
-  background: linear-gradient(180deg, #ffffff 0%, #fcfbff 100%) !important;
+  background: var(--popup-control-surface) !important;
   overflow: hidden !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92) !important;
+  box-shadow: var(--popup-control-shadow) !important;
   transition:
     border-color 160ms ease,
     box-shadow 160ms ease,
@@ -516,26 +553,24 @@
 
 :where(.hrEmpCombo--compact .hrEmpCombo__control, .hrPayPicker--compact .hrPayPicker__control) {
   min-height: 0 !important;
-  border: 1px solid rgba(123, 74, 143, 0.18) !important;
+  border: 1px solid var(--popup-input-border) !important;
   border-radius: 14px !important;
-  background: #fff !important;
+  background: var(--popup-control-surface) !important;
   box-shadow: none !important;
 }
 
 :where(.hrPayPicker__control, .hrEmpCombo__control):focus-within,
 :where(.hrPayPicker.is-open .hrPayPicker__control, .hrEmpCombo.is-open .hrEmpCombo__control) {
-  border-color: rgba(123, 74, 143, 0.36) !important;
-  background: #fff !important;
-  box-shadow:
-    0 0 0 3px rgba(123, 74, 143, 0.1),
-    0 10px 22px rgba(42, 18, 71, 0.08) !important;
+  border-color: var(--popup-accent) !important;
+  background: var(--popup-control-surface) !important;
+  box-shadow: var(--popup-focus-ring) !important;
 }
 
 :where(.hrEmpCombo--compact .hrEmpCombo__control):focus-within,
 :where(.hrEmpCombo--compact.is-open .hrEmpCombo__control) {
-  border-color: rgba(123, 74, 143, 0.55) !important;
-  background: #fff !important;
-  box-shadow: 0 0 0 4px rgba(123, 74, 143, 0.12) !important;
+  border-color: var(--popup-accent) !important;
+  background: var(--popup-control-surface) !important;
+  box-shadow: var(--popup-focus-ring) !important;
 }
 
 :where(.hrPayPicker__input, .hrEmpCombo__input) {
@@ -546,7 +581,7 @@
   border: 0 !important;
   border-radius: 0 !important;
   background: transparent !important;
-  color: #2b2036 !important;
+  color: var(--popup-ink) !important;
   padding: 0 96px 0 18px !important;
   box-shadow: none !important;
 }
@@ -558,7 +593,7 @@
 }
 
 :where(.hrPayPicker__input, .hrEmpCombo__input)::placeholder {
-  color: #7d748f !important;
+  color: var(--app-placeholder) !important;
 }
 
 :where(.hrPayPicker__input, .hrEmpCombo__input):focus {
@@ -588,9 +623,9 @@
   .hrApprForm__row textarea[aria-invalid='true'],
   .aReviewPayModal__grid input[aria-invalid='true']
 ) {
-  border-color: rgba(194, 59, 51, 0.68) !important;
-  background: #fff7f8 !important;
-  box-shadow: 0 0 0 4px rgba(194, 59, 51, 0.12) !important;
+  border-color: var(--popup-danger-border) !important;
+  background: var(--popup-danger-surface) !important;
+  box-shadow: var(--popup-danger-ring) !important;
 }
 
 :where(
@@ -598,9 +633,9 @@
   .hrPayPicker__control[aria-invalid='true'],
   .hrEmpCombo__control[aria-invalid='true']
 ) {
-  border-color: rgba(194, 59, 51, 0.68) !important;
-  background: linear-gradient(180deg, rgba(255, 244, 246, 0.96) 0%, #ffffff 100%) !important;
-  box-shadow: 0 0 0 4px rgba(194, 59, 51, 0.12) !important;
+  border-color: var(--popup-danger-border) !important;
+  background: var(--popup-danger-control-surface) !important;
+  box-shadow: var(--popup-danger-ring) !important;
 }
 
 :where(.hrPayPicker__clear, .hrEmpCombo__clear, .hrPayPicker__toggle, .hrEmpCombo__toggle) {
@@ -615,7 +650,7 @@
   border: 0 !important;
   border-radius: 10px !important;
   background: transparent !important;
-  color: #6a4588 !important;
+  color: var(--popup-accent-dark) !important;
   display: grid !important;
   place-items: center !important;
   box-shadow: none !important;
@@ -625,7 +660,7 @@
 
 :where(.hrPayPicker__clear, .hrEmpCombo__clear) {
   right: 48px !important;
-  color: #8a6176 !important;
+  color: var(--popup-copy) !important;
 }
 
 :where(.hrPayPicker__toggle, .hrEmpCombo__toggle) {
@@ -633,7 +668,7 @@
 }
 
 :where(.hrPayPicker__clear, .hrEmpCombo__clear, .hrPayPicker__toggle, .hrEmpCombo__toggle):hover:not(:disabled) {
-  background: rgba(123, 74, 143, 0.08) !important;
+  background: var(--popup-soft-fill) !important;
 }
 
 :where(.hrPayPicker__clear, .hrEmpCombo__clear, .hrPayPicker__toggle, .hrEmpCombo__toggle):disabled,
@@ -650,7 +685,7 @@
 
 :where(.hrPayPicker.is-open .hrPayPicker__toggle, .hrEmpCombo.is-open .hrEmpCombo__toggle) {
   border: 0 !important;
-  background: rgba(123, 74, 143, 0.08) !important;
+  background: var(--popup-soft-fill) !important;
 }
 
 :where(.hrPayPicker.is-open .hrPayPicker__toggle svg, .hrEmpCombo.is-open .hrEmpCombo__toggle svg) {
@@ -668,9 +703,9 @@
   max-height: 240px !important;
   overflow-y: auto !important;
   padding: 8px !important;
-  border: 1px solid rgba(123, 74, 143, 0.16) !important;
+  border: 1px solid var(--popup-border) !important;
   border-radius: 18px !important;
-  background: linear-gradient(180deg, #ffffff 0%, #fcfbff 100%) !important;
+  background: var(--popup-menu-surface) !important;
   box-shadow: 0 22px 40px rgba(30, 18, 49, 0.18) !important;
 }
 
@@ -694,19 +729,19 @@
 
 :where(.hrPayPicker__option, .hrEmpCombo__option):hover,
 :where(.hrPayPicker__option, .hrEmpCombo__option).is-selected {
-  background: rgba(123, 74, 143, 0.1) !important;
-  border-color: rgba(123, 74, 143, 0.14) !important;
+  background: var(--popup-soft-fill) !important;
+  border-color: var(--popup-border) !important;
   transform: translateY(-1px) !important;
 }
 
 :where(.hrPayPicker__empty, .hrEmpCombo__empty) {
-  color: #685f7c !important;
+  color: var(--popup-copy) !important;
   font-size: 14px !important;
   font-weight: 700 !important;
   line-height: 1.4 !important;
   padding: 12px 14px !important;
   border-radius: 14px !important;
-  background: rgba(123, 74, 143, 0.06) !important;
+  background: var(--popup-soft-fill) !important;
 }
 
 :where(
@@ -754,7 +789,7 @@
   font-weight: 800 !important;
   padding: 0 18px !important;
   cursor: pointer !important;
-  box-shadow: 0 12px 22px rgba(123, 74, 143, 0.18) !important;
+  box-shadow: 0 12px 22px rgba(32, 21, 49, 0.18) !important;
   transition:
     transform 180ms var(--popup-motion-spring),
     box-shadow 180ms ease,
@@ -770,9 +805,9 @@
   .payModal__cancel,
   .hrPayModal .is-muted
 ) {
-  background: rgba(123, 74, 143, 0.1) !important;
+  background: var(--popup-soft-fill) !important;
   color: var(--popup-accent-dark) !important;
-  border: 1px solid rgba(123, 74, 143, 0.18) !important;
+  border: 1px solid var(--popup-border) !important;
   box-shadow: none !important;
 }
 
@@ -786,17 +821,17 @@
   .hrApprModal__footer button:first-child,
   .aReviewPayModal__actions button:first-child
 ) {
-  background: rgba(123, 74, 143, 0.1) !important;
+  background: var(--popup-soft-fill) !important;
   color: var(--popup-accent-dark) !important;
-  border: 1px solid rgba(123, 74, 143, 0.18) !important;
+  border: 1px solid var(--popup-border) !important;
   box-shadow: none !important;
 }
 
 .hrApprForm__actions button:last-child,
 .hrPayModal__inlineBtns button:last-child {
-  background: rgba(123, 74, 143, 0.1) !important;
+  background: var(--popup-soft-fill) !important;
   color: var(--popup-accent-dark) !important;
-  border: 1px solid rgba(123, 74, 143, 0.18) !important;
+  border: 1px solid var(--popup-border) !important;
   box-shadow: none !important;
 }
 
@@ -863,7 +898,7 @@
 }
 
 .hrEmpConfirmLayer {
-  background: rgba(16, 12, 24, 0.44) !important;
+  background: var(--popup-overlay) !important;
 }
 
 .payModal__uploadCard {
@@ -889,17 +924,17 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  border: 1px solid rgba(123, 74, 143, 0.16);
-  background: rgba(123, 74, 143, 0.08);
+  border: 1px solid var(--popup-border);
+  background: var(--popup-soft-fill);
   border-radius: 999px;
   padding: 10px 16px;
   cursor: pointer;
   font-weight: 800;
-  color: #5a337d;
+  color: var(--popup-accent-dark);
 }
 
 .payModal__uploadName {
-  color: rgba(43, 32, 54, 0.72);
+  color: var(--popup-copy);
   font-size: 13px;
   font-weight: 600;
 }
@@ -920,8 +955,8 @@
   min-width: 140px;
   min-height: 42px;
   border-radius: 999px;
-  border: 1px solid rgba(123, 74, 143, 0.18);
-  background: rgba(123, 74, 143, 0.1);
+  border: 1px solid var(--popup-border);
+  background: var(--popup-soft-fill);
   color: var(--popup-accent-dark);
   font-size: 15px;
   font-weight: 800;
@@ -933,7 +968,7 @@
 .decisionPicker__button.is-selected {
   background: var(--popup-accent);
   color: #fff;
-  box-shadow: 0 12px 22px rgba(123, 74, 143, 0.18);
+  box-shadow: 0 12px 22px rgba(32, 21, 49, 0.18);
 }
 
 .decisionPicker__button:disabled {
