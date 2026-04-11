@@ -1670,7 +1670,6 @@ export function AttendanceReportsBoard({
         </div>
       </div>
 
-      {isLoading && <p className="hrAtt__hint">Loading attendance data...</p>}
       {!isLoading && !loadError && rosterMessage && <p className="hrAtt__hint">{rosterMessage}</p>}
 
       <section className="hrAttCard">

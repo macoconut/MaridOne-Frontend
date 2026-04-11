@@ -7,8 +7,9 @@ export default function HrManageSchedule() {
       employeeSingularLabel="employee"
       employeePluralLabel="employees"
       emptyRosterLabel="No employees available"
-      selectionHelpText="Pick an employee from the search box to start planning future shifts for a month."
+      selectionHelpText="Search and select one or more employees to review a monthly schedule and batch-update their default weekly hours."
       showDepartmentFilter
+      enableBatchSelection
     />
   );
 }

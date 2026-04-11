@@ -688,6 +688,13 @@ export default function HrPayRunReporting() {
   ]);
 
   const payTypeReportCsv = useMemo(() => buildCsvContent(payTypeReportRows), [payTypeReportRows]);
+  const hasDownloadableReport = useMemo(() => {
+    if (view === 'employee') {
+      return visibleEmployeeRows.length > 0;
+    }
+
+    return visibleEarningRows.length > 0 || visibleDeductionRows.length > 0;
+  }, [view, visibleDeductionRows.length, visibleEarningRows.length, visibleEmployeeRows.length]);
 
   const closeBreakdownModal = useCallback(() => {
     setSelectedBreakdownItem(null);
@@ -746,6 +753,8 @@ export default function HrPayRunReporting() {
   }
 
   async function downloadCurrentReport() {
+    if (!hasDownloadableReport) return;
+
     setActionError('');
     setIsDownloading(true);
 
@@ -1189,7 +1198,7 @@ export default function HrPayRunReporting() {
           icon={<FiDownload />}
           type="button"
           onClick={() => void downloadCurrentReport()}
-          disabled={isDownloading}
+          disabled={isDownloading || !hasDownloadableReport}
         >
           {isDownloading ? 'Preparing CSV...' : 'Download Report'}
         </ActionButton>

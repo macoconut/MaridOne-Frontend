@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FiChevronDown, FiEdit2, FiFilter, FiPlus, FiSearch, FiUserX, FiX, FiXCircle } from 'react-icons/fi';
+import { FiChevronDown, FiDownload, FiEdit2, FiFilter, FiPlus, FiSearch, FiUserX, FiX, FiXCircle } from 'react-icons/fi';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
@@ -174,6 +174,26 @@ const emptyLeaveBalanceCreateForm: LeaveBalanceCreateForm = {
 
 function normalizeText(value: string) {
   return value.trim().toLowerCase();
+}
+
+function toCsvValue(value: unknown) {
+  const text = String(value ?? '');
+  if (/[",\r\n]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
+function buildCsvContent(rows: string[][]) {
+  return rows.map((row) => row.map(toCsvValue).join(',')).join('\r\n');
+}
+
+function buildEmployeeExportFileName() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `employees-${year}-${month}-${day}.csv`;
 }
 
 function isTerminatedStatus(value?: string | null) {
@@ -564,7 +584,7 @@ export default function HrManageEmp() {
 
   async function loadEmployees() {
     try {
-      const response = await apiFetchJson<unknown>('/api/employees?page=0&size=100');
+      const response = await apiFetchJson<unknown>('/api/employees?page=0&size=5000');
       const mapped = toArray<Record<string, unknown>>(response).map((item, index) => {
         const rowBase = {
           id: String(item.employeeId ?? item.id ?? index + 1),
@@ -629,6 +649,30 @@ export default function HrManageEmp() {
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  }
+
+  function exportEmployeeData() {
+    if (employeeRows.length === 0) return;
+
+    const rows = [
+      ['Employee ID', 'Name', 'Username', 'Status', 'Email', 'Phone', 'Position', 'Department'],
+      ...[...employeeRows]
+        .sort((left, right) => compareEmployees('id', { id: left.id, name: left.name }, { id: right.id, name: right.name }))
+        .map((row) => [row.id, row.name, row.username, row.status, row.email, row.phone, row.position, row.department]),
+    ];
+
+    const csvContent = buildCsvContent(rows);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = buildEmployeeExportFileName();
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+
+    showSuccess('The employee roster has been exported successfully.', 'Employee Data Exported');
   }
 
   function sanitizePhoneNumber(value: string) {
@@ -1576,10 +1620,16 @@ export default function HrManageEmp() {
           title="Employee Management"
           description="Maintain employee records, accounts, and employment details from one directory."
         />
-        <button type="button" className="hrEmpTable__addBtn" onClick={openAddModal}>
-          <FiPlus aria-hidden="true" />
-          <span>Add Employee</span>
-        </button>
+        <div className="hrEmp__headActions">
+          <button type="button" className="hrEmpTable__actionBtn hrEmpTable__actionBtn--secondary" onClick={exportEmployeeData} disabled={employeeRows.length === 0}>
+            <FiDownload aria-hidden="true" />
+            <span>Export Data</span>
+          </button>
+          <button type="button" className="hrEmpTable__actionBtn" onClick={openAddModal}>
+            <FiPlus aria-hidden="true" />
+            <span>Add Employee</span>
+          </button>
+        </div>
       </div>
 
       <section className="hrEmpTable">

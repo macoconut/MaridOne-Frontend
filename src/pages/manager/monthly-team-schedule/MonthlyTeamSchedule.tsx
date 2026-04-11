@@ -59,6 +59,7 @@ type MonthlyScheduleBoardProps = {
   emptyRosterLabel: string;
   selectionHelpText: string;
   showDepartmentFilter?: boolean;
+  enableBatchSelection?: boolean;
 };
 
 function buildCalendarCells(monthStart: string) {
@@ -174,11 +175,13 @@ export function MonthlyScheduleBoard({
   emptyRosterLabel,
   selectionHelpText,
   showDepartmentFilter = false,
+  enableBatchSelection = false,
 }: MonthlyScheduleBoardProps) {
   const { showSuccess } = useUiDialog();
   const initialMonthStart = useMemo(() => normalizeMonthStart(toIsoDate(new Date())), []);
   const [employees, setEmployees] = useState<TeamEmployee[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(null);
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
   const [employeePickerOpen, setEmployeePickerOpen] = useState(false);
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [selectedMonthStart, setSelectedMonthStart] = useState(() => initialMonthStart);
@@ -239,6 +242,14 @@ export function MonthlyScheduleBoard({
   const selectedEmployee = useMemo(
     () => sortedEmployees.find((employee) => employee.id === selectedEmployeeId) ?? null,
     [selectedEmployeeId, sortedEmployees]
+  );
+  const selectedEmployees = useMemo(
+    () => sortedEmployees.filter((employee) => selectedEmployeeIds.includes(employee.id)),
+    [selectedEmployeeIds, sortedEmployees]
+  );
+  const batchTemplateEmployees = useMemo(
+    () => (enableBatchSelection ? selectedEmployees : selectedEmployee ? [selectedEmployee] : []),
+    [enableBatchSelection, selectedEmployee, selectedEmployees]
   );
   const departmentOptions = useMemo(
     () =>
@@ -304,6 +315,14 @@ export function MonthlyScheduleBoard({
     ? 'Day off'
     : `${formatTimeLabel(editorDraft.startTime)} - ${formatTimeLabel(editorDraft.endTime)}`;
   const canClearEmployeePicker = employeeSearch.trim().length > 0;
+  const batchSelectionSummary = useMemo(() => {
+    if (!enableBatchSelection) return '';
+    if (selectedEmployees.length === 0) return `No ${employeePluralLabel} selected for batch updates yet.`;
+    if (selectedEmployees.length === 1) {
+      return `${selectedEmployees[0].name} is selected for calendar viewing and default-hours updates.`;
+    }
+    return `${selectedEmployee?.name ?? selectedEmployees[0].name} is shown in the calendar. Default-hour changes will apply to all ${selectedEmployees.length} selected ${employeePluralLabel}.`;
+  }, [enableBatchSelection, employeePluralLabel, selectedEmployee, selectedEmployees]);
   const activeFilterCount =
     (showDepartmentFilter && roleFilter !== 'all' ? 1 : 0) +
     (showDepartmentFilter && departmentFilter !== 'all' ? 1 : 0);
@@ -319,7 +338,7 @@ export function MonthlyScheduleBoard({
 
   function closeEmployeePicker() {
     setEmployeePickerOpen(false);
-    setEmployeeSearch(selectedEmployee?.name ?? '');
+    setEmployeeSearch(enableBatchSelection ? '' : selectedEmployee?.name ?? '');
   }
 
   function closeEditor() {
@@ -353,10 +372,20 @@ export function MonthlyScheduleBoard({
         }
         return mapped[0]?.id ?? null;
       });
+      setSelectedEmployeeIds((current) => {
+        const validIds = current.filter((id) => mapped.some((employee) => employee.id === id));
+        if (validIds.length > 0) {
+          return validIds;
+        }
+
+        const fallbackId = mapped[0]?.id;
+        return typeof fallbackId === 'number' ? [fallbackId] : [];
+      });
     } catch (error) {
       if (!silent) {
         setEmployees([]);
         setSelectedEmployeeId(null);
+        setSelectedEmployeeIds([]);
         setLoadError(getFriendlyErrorMessage(error, 'employee-load'));
       }
     } finally {
@@ -374,6 +403,23 @@ export function MonthlyScheduleBoard({
   useEffect(() => {
     void loadTeamSchedules();
   }, [loadTeamSchedules]);
+
+  useEffect(() => {
+    if (selectedEmployeeId == null) {
+      if (!enableBatchSelection) {
+        setSelectedEmployeeIds([]);
+      }
+      return;
+    }
+
+    setSelectedEmployeeIds((current) => {
+      if (enableBatchSelection) {
+        return current.includes(selectedEmployeeId) ? current : [selectedEmployeeId, ...current];
+      }
+
+      return current.length === 1 && current[0] === selectedEmployeeId ? current : [selectedEmployeeId];
+    });
+  }, [enableBatchSelection, selectedEmployeeId]);
 
   useEffect(() => {
     const monthDates = getMonthDates(selectedMonthStart);
@@ -481,9 +527,9 @@ export function MonthlyScheduleBoard({
 
   useEffect(() => {
     if (!employeePickerOpen) {
-      setEmployeeSearch(selectedEmployee?.name ?? '');
+      setEmployeeSearch(enableBatchSelection ? '' : selectedEmployee?.name ?? '');
     }
-  }, [employeePickerOpen, selectedEmployee]);
+  }, [employeePickerOpen, enableBatchSelection, selectedEmployee]);
 
   useEffect(() => {
     if (!showDepartmentFilter || !filterOpen) return;
@@ -523,6 +569,28 @@ export function MonthlyScheduleBoard({
   }
 
   function selectEmployee(employee: TeamEmployee) {
+    if (enableBatchSelection) {
+      const isCurrentlySelected = selectedEmployeeIds.includes(employee.id);
+      setSelectedEmployeeIds((current) => {
+        const next = isCurrentlySelected ? current.filter((id) => id !== employee.id) : [...current, employee.id];
+        return [...new Set(next)];
+      });
+      setSelectedEmployeeId((current) => {
+        if (isCurrentlySelected) {
+          if (current !== employee.id) {
+            return current;
+          }
+          const fallback = selectedEmployeeIds.filter((id) => id !== employee.id)[0];
+          return fallback ?? null;
+        }
+        return employee.id;
+      });
+      setEmployeeSearch('');
+      setEmployeePickerOpen(true);
+      employeeSearchInputRef.current?.focus();
+      return;
+    }
+
     setSelectedEmployeeId(employee.id);
     setEmployeeSearch(employee.name);
     setEmployeePickerOpen(false);
@@ -534,8 +602,23 @@ export function MonthlyScheduleBoard({
     employeeSearchInputRef.current?.focus();
   }
 
+  function selectVisibleEmployees() {
+    if (!enableBatchSelection || filteredEmployees.length === 0) return;
+
+    setSelectedEmployeeIds((current) => [...new Set([...current, ...filteredEmployees.map((employee) => employee.id)])]);
+    setSelectedEmployeeId((current) => current ?? filteredEmployees[0]?.id ?? null);
+  }
+
+  function clearSelectedEmployees() {
+    setSelectedEmployeeIds([]);
+    setSelectedEmployeeId(null);
+    setSelectedDateKey(null);
+    setEditorOpen(false);
+    setTemplateEditorOpen(false);
+  }
+
   function openTemplateEditor() {
-    if (!selectedEmployee) return;
+    if (batchTemplateEmployees.length === 0) return;
     setTemplateDrafts(buildTemplateDrafts(selectedEmployee));
     setSelectedTemplateDays([]);
     setTemplateStartTime('08:00');
@@ -620,7 +703,7 @@ export function MonthlyScheduleBoard({
   }
 
   async function applyRecurringTemplate() {
-    if (!selectedEmployee) return;
+    if (batchTemplateEmployees.length === 0) return;
 
     if (selectedTemplateDays.length === 0) {
       setSaveError('Choose at least one weekday to update.');
@@ -642,40 +725,42 @@ export function MonthlyScheduleBoard({
 
     try {
       await Promise.all(
-        selectedTemplateDays.map(async (day) => {
-          const draft = templateDrafts[day] ?? { startTime: '08:00', endTime: '17:00' };
-          if (templateDayOff) {
-            if (draft.shiftId) {
-              await apiFetchJson(`/api/employee/schedule/${draft.shiftId}`, {
-                method: 'DELETE',
-              });
+        batchTemplateEmployees.flatMap((employee) =>
+          selectedTemplateDays.map(async (day) => {
+            const draft = buildTemplateDrafts(employee)[day] ?? { startTime: '08:00', endTime: '17:00' };
+            if (templateDayOff) {
+              if (draft.shiftId) {
+                await apiFetchJson(`/api/employee/schedule/${draft.shiftId}`, {
+                  method: 'DELETE',
+                });
+              }
+              return;
             }
-            return;
-          }
 
-          if (draft.shiftId) {
-            await apiFetchJson('/api/employee/schedule/update', {
-              method: 'PATCH',
+            if (draft.shiftId) {
+              await apiFetchJson('/api/employee/schedule/update', {
+                method: 'PATCH',
+                body: JSON.stringify({
+                  shiftId: draft.shiftId,
+                  startTime: templateStartTime,
+                  endTime: templateEndTime,
+                  dayOfWeek: day,
+                }),
+              });
+              return;
+            }
+
+            await apiFetchJson('/api/employee/schedule/add', {
+              method: 'POST',
               body: JSON.stringify({
-                shiftId: draft.shiftId,
+                empId: employee.id,
                 startTime: templateStartTime,
                 endTime: templateEndTime,
                 dayOfWeek: day,
               }),
             });
-            return;
-          }
-
-          await apiFetchJson('/api/employee/schedule/add', {
-            method: 'POST',
-            body: JSON.stringify({
-              empId: selectedEmployee.id,
-              startTime: templateStartTime,
-              endTime: templateEndTime,
-              dayOfWeek: day,
-            }),
-          });
-        })
+          })
+        )
       );
 
       await loadTeamSchedules();
@@ -683,8 +768,12 @@ export function MonthlyScheduleBoard({
       const savedDays = DAY_ORDER.filter((day) => selectedTemplateDays.includes(day)).map((day) => formatDayLabel(day));
       showSuccess(
         templateDayOff
-          ? `Selected weekdays are now marked as day off for ${savedDays.join(', ')}.`
-          : `Default hours updated for ${savedDays.join(', ')}.`,
+          ? batchTemplateEmployees.length === 1
+            ? `Selected weekdays are now marked as day off for ${savedDays.join(', ')}.`
+            : `Selected weekdays are now marked as day off for ${batchTemplateEmployees.length} ${employeePluralLabel}.`
+          : batchTemplateEmployees.length === 1
+            ? `Default hours updated for ${savedDays.join(', ')}.`
+            : `Default hours updated for ${batchTemplateEmployees.length} ${employeePluralLabel} on ${savedDays.join(', ')}.`,
         templateDayOff ? 'Day Off Saved' : 'Default Hours Saved'
       );
     } catch (error) {
@@ -753,10 +842,16 @@ export function MonthlyScheduleBoard({
                     ? `Loading ${employeePluralLabel}...`
                     : sortedEmployees.length === 0
                       ? emptyRosterLabel
-                      : `Search ${employeeSingularLabel}`
+                      : enableBatchSelection
+                        ? `Search and add ${employeePluralLabel}`
+                        : `Search ${employeeSingularLabel}`
                 }
                 disabled={loadingTeam || sortedEmployees.length === 0}
-                aria-label={`Search ${employeeSingularLabel}`}
+                aria-label={
+                  enableBatchSelection
+                    ? `Search and select ${employeePluralLabel} for batch schedule updates`
+                    : `Search ${employeeSingularLabel}`
+                }
               />
               {canClearEmployeePicker ? (
                 <button
@@ -775,7 +870,7 @@ export function MonthlyScheduleBoard({
                 className="hrEmpCombo__toggle"
                 onClick={() => {
                   if (loadingTeam || sortedEmployees.length === 0) return;
-                  setEmployeeSearch(selectedEmployee?.name ?? '');
+                  setEmployeeSearch(enableBatchSelection ? '' : selectedEmployee?.name ?? '');
                   setEmployeePickerOpen((current) => !current);
                 }}
                 disabled={loadingTeam || sortedEmployees.length === 0}
@@ -785,27 +880,76 @@ export function MonthlyScheduleBoard({
               </button>
             </div>
 
+            {enableBatchSelection ? (
+              <div className="mgrMonth__selectionSummary" aria-live="polite">
+                <div className="mgrMonth__selectionSummaryText">{batchSelectionSummary}</div>
+                {selectedEmployees.length > 0 ? (
+                  <div className="mgrMonth__selectionChips">
+                    {selectedEmployees.slice(0, 4).map((employee) => (
+                      <button
+                        key={employee.id}
+                        type="button"
+                        className={`mgrMonth__selectionChip ${employee.id === selectedEmployeeId ? 'is-active' : ''}`}
+                        onClick={() => setSelectedEmployeeId(employee.id)}
+                        title={
+                          employee.id === selectedEmployeeId
+                            ? `${employee.name} is currently shown in the calendar`
+                            : `Show ${employee.name} in the calendar`
+                        }
+                      >
+                        {employee.name}
+                      </button>
+                    ))}
+                    {selectedEmployees.length > 4 ? (
+                      <span className="mgrMonth__selectionMore">+{selectedEmployees.length - 4} more</span>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
             {employeePickerOpen ? (
               <div className="hrEmpCombo__menu" id="shift-calendar-employee-options" role="listbox">
                 {loadingTeam ? (
                   <div className="hrEmpCombo__empty">{`Loading ${employeePluralLabel}...`}</div>
                 ) : filteredEmployees.length > 0 ? (
-                  filteredEmployees.map((employee) => {
-                    const isSelected = employee.id === selectedEmployeeId;
-                    return (
-                      <button
-                        key={employee.id}
-                        type="button"
-                        role="option"
-                        aria-selected={isSelected}
-                        className={`hrEmpCombo__option ${isSelected ? 'is-selected' : ''}`}
-                        onClick={() => selectEmployee(employee)}
-                      >
-                        <span className="hrEmpCombo__optionName">{employee.name}</span>
-                        <span className="hrEmpCombo__optionMeta">{formatEmployeePickerMeta(employee)}</span>
-                      </button>
-                    );
-                  })
+                  <>
+                    {enableBatchSelection ? (
+                      <div className="mgrMonth__menuActions">
+                        <button type="button" onClick={selectVisibleEmployees}>
+                          Select Visible
+                        </button>
+                        <button type="button" onClick={clearSelectedEmployees} disabled={selectedEmployees.length === 0}>
+                          Clear All
+                        </button>
+                      </div>
+                    ) : null}
+
+                    {filteredEmployees.map((employee) => {
+                      const isSelected = enableBatchSelection
+                        ? selectedEmployeeIds.includes(employee.id)
+                        : employee.id === selectedEmployeeId;
+                      return (
+                        <button
+                          key={employee.id}
+                          type="button"
+                          role="option"
+                          aria-selected={isSelected}
+                          className={`hrEmpCombo__option ${isSelected ? 'is-selected' : ''}`}
+                          onClick={() => selectEmployee(employee)}
+                        >
+                          <span className="hrEmpCombo__optionName">
+                            {employee.name}
+                            {enableBatchSelection && employee.id === selectedEmployeeId ? ' (Calendar)' : ''}
+                          </span>
+                          <span className="hrEmpCombo__optionMeta">
+                            {isSelected && enableBatchSelection ? 'Selected for batch update • ' : ''}
+                            {formatEmployeePickerMeta(employee)}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </>
                 ) : (
                   <div className="hrEmpCombo__empty">{`No ${employeePluralLabel} match that search.`}</div>
                 )}
@@ -868,9 +1012,13 @@ export function MonthlyScheduleBoard({
             type="button"
             className="actionBtnX mgrMonth__toolbarBtn"
             onClick={openTemplateEditor}
-            disabled={!selectedEmployee || loadingTeam || savingTemplate}
+            disabled={batchTemplateEmployees.length === 0 || loadingTeam || savingTemplate}
           >
-            <span className="mgrMonth__toolbarBtnLabel">Edit Default Hours</span>
+            <span className="mgrMonth__toolbarBtnLabel">
+              {enableBatchSelection && batchTemplateEmployees.length > 1
+                ? `Batch Edit Default Hours (${batchTemplateEmployees.length})`
+                : 'Edit Default Hours'}
+            </span>
             <span className="mgrMonth__toolbarBtnIcon" aria-hidden="true">
               <FiCalendar />
             </span>
@@ -1087,15 +1235,31 @@ export function MonthlyScheduleBoard({
             <div className="hrAttModal__top">
               <div>
                 <div className="hrAttModal__eyebrow">Default Hours</div>
-                <div className="hrAttModal__title">{selectedEmployee.name}</div>
+                <div className="hrAttModal__title">
+                  {enableBatchSelection && batchTemplateEmployees.length > 1
+                    ? `${batchTemplateEmployees.length} Employees Selected`
+                    : selectedEmployee.name}
+                </div>
                 <p className="hrAttModal__subtitle">
-                  Choose the weekdays that should share the same default hours. Existing custom day changes stay exactly as they are.
+                  {enableBatchSelection && batchTemplateEmployees.length > 1
+                    ? 'Choose the weekdays that should share the same default hours for every selected employee. Existing custom day changes stay exactly as they are.'
+                    : 'Choose the weekdays that should share the same default hours. Existing custom day changes stay exactly as they are.'}
                 </p>
               </div>
               <ModalCloseButton className="hrAttModal__close" onClick={closeTemplateEditor} />
             </div>
 
             <div className="hrAttModal__rule" />
+
+            {enableBatchSelection && batchTemplateEmployees.length > 1 ? (
+              <div className="mgrMonth__batchTargets" aria-label="Selected employees for batch default hours">
+                {batchTemplateEmployees.map((employee) => (
+                  <span key={employee.id} className={`mgrMonth__batchTarget ${employee.id === selectedEmployeeId ? 'is-active' : ''}`}>
+                    {employee.name}
+                  </span>
+                ))}
+              </div>
+            ) : null}
 
             <section className="mgrMonth__templateWorkspace">
               <div className="mgrMonth__templateApply">

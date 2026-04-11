@@ -12,6 +12,13 @@
   flex-wrap: wrap;
 }
 
+.hrEmp__headActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .hrEmp__title {
   margin: 0;
   color: var(--hr-primary-dark);
@@ -29,7 +36,7 @@
   background: var(--hr-surface);
 }
 
-.hrEmpTable__addBtn {
+.hrEmpTable__actionBtn {
   border: 0;
   background: var(--hr-primary);
   color: #fff;
@@ -42,11 +49,23 @@
   box-shadow: var(--hr-button-shadow);
 }
 
-.hrEmpTable__addBtn {
+.hrEmpTable__actionBtn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   padding: 0 16px;
+}
+
+.hrEmpTable__actionBtn--secondary {
+  background: #efe6f7;
+  color: var(--hr-primary-dark);
+  box-shadow: 0 4px 12px rgba(59, 34, 87, 0.08);
+}
+
+.hrEmpTable__actionBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.64;
+  box-shadow: none;
 }
 
 .hrEmpToolbar {
@@ -949,7 +968,7 @@
     align-items: stretch;
   }
 
-  .hrEmpTable__addBtn {
+  .hrEmpTable__actionBtn {
     justify-content: center;
   }
 

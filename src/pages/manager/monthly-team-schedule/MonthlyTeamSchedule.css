@@ -56,6 +56,82 @@
   text-transform: none;
 }
 
+.mgrMonth__selectionSummary {
+  display: grid;
+  gap: 8px;
+  padding: 10px 2px 0;
+}
+
+.mgrMonth__selectionSummaryText {
+  color: rgba(59, 34, 87, 0.74);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.mgrMonth__selectionChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mgrMonth__selectionChip,
+.mgrMonth__selectionMore {
+  min-height: 30px;
+  border-radius: 999px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.mgrMonth__selectionChip {
+  border: 1px solid rgba(123, 74, 143, 0.16);
+  background: #ffffff;
+  color: #5f3a82;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, transform 140ms ease;
+}
+
+.mgrMonth__selectionChip:hover {
+  transform: translateY(-1px);
+  border-color: rgba(123, 74, 143, 0.28);
+  background: #f8f1fd;
+}
+
+.mgrMonth__selectionChip.is-active {
+  border-color: rgba(123, 74, 143, 0.4);
+  background: linear-gradient(180deg, #f6edfd 0%, #ffffff 100%);
+  color: #2d2142;
+}
+
+.mgrMonth__selectionMore {
+  background: rgba(123, 74, 143, 0.1);
+  color: rgba(59, 34, 87, 0.76);
+}
+
+.mgrMonth__menuActions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 4px 8px;
+}
+
+.mgrMonth__menuActions button {
+  border: 0;
+  background: transparent;
+  color: #6c3f87;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.mgrMonth__menuActions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
+}
+
 .mgrMonth__employeeFilter {
   flex: 0 0 auto;
   z-index: 24;
@@ -259,6 +335,31 @@
   grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.9fr);
   gap: 20px;
   align-items: start;
+}
+
+.mgrMonth__batchTargets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.mgrMonth__batchTarget {
+  min-height: 32px;
+  border-radius: 999px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(123, 74, 143, 0.08);
+  color: rgba(59, 34, 87, 0.8);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.mgrMonth__batchTarget.is-active {
+  background: rgba(123, 74, 143, 0.16);
+  color: #2d2142;
 }
 
 .mgrMonth__templateApply,

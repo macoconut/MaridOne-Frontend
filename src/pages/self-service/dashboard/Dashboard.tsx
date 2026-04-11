@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { FiDownload, FiFileText, FiPlus, FiTrash2 } from 'react-icons/fi';
+import { FiDownload, FiEdit2, FiFileText, FiPlus, FiTrash2 } from 'react-icons/fi';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ActionButton from '../../../components/button/ActionButton';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
@@ -849,8 +849,15 @@ export default function Dashboard() {
         <div className="infoCardX__header">
           <div className="infoCardX__title">Your Information</div>
           <div className="infoCardX__headerActions">
-            <button className="infoCardX__edit" type="button" onClick={openEditModal} disabled={savingEdit}>
-              Edit Info
+            <button
+              className="infoCardX__edit"
+              type="button"
+              onClick={openEditModal}
+              disabled={savingEdit}
+              aria-label="Edit information"
+              title="Edit information"
+            >
+              <FiEdit2 aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -1052,9 +1059,7 @@ export default function Dashboard() {
                         <span className="calCell__event">{primaryDayEvent.title}</span>
                         {dayEvents.length > 1 ? (
                           <span className="calCell__more">+{dayEvents.length - 1} more</span>
-                        ) : (
-                          <span className="calCell__more">View details</span>
-                        )}
+                        ) : null}
                       </div>
                     ) : null}
                   </>
