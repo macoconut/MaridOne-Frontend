@@ -7,9 +7,9 @@ export default function HrManageSchedule() {
       employeeSingularLabel="employee"
       employeePluralLabel="employees"
       emptyRosterLabel="No employees available"
-      selectionHelpText="Search and select one or more employees to review a monthly schedule and batch-update their default weekly hours."
+      selectionHelpText="Pick an employee from the search box to review the monthly calendar, then use Edit Default Hours to update recurring weekly hours for one or more employees."
       showDepartmentFilter
-      enableBatchSelection
+      enableDefaultHoursBatchSelection
     />
   );
 }

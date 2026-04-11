@@ -15,14 +15,23 @@
 }
 
 .mgrMonth__calendarGridWrap {
+  display: flex;
+  flex: 1 1 auto;
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  min-height: 0;
+}
+
+.mgrMonth__calendarGridWrap .hrCal {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
 }
 
 .mgrMonth__calendarPanel.hrAttCalendarShell {
   min-height: 760px;
-  height: auto;
+  height: 760px;
   width: 100%;
   max-width: 100%;
   min-width: 0;
@@ -330,6 +339,168 @@
   flex: 1 1 220px;
 }
 
+.mgrMonth__templateTargetsCard {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 18px;
+  border: 1px solid rgba(123, 74, 143, 0.12);
+  border-radius: 18px;
+  padding: 20px;
+  background:
+    radial-gradient(circle at top right, rgba(191, 154, 223, 0.18), transparent 34%),
+    linear-gradient(180deg, #fbf7ff 0%, #ffffff 100%);
+}
+
+.mgrMonth__templateTargetsHead,
+.mgrMonth__templateTargetsField {
+  display: grid;
+  gap: 6px;
+}
+
+.mgrMonth__sectionIntro {
+  display: grid;
+  gap: 6px;
+}
+
+.mgrMonth__sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mgrMonth__sectionDescription {
+  margin: 0;
+  color: rgba(59, 34, 87, 0.72);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.mgrMonth__selectAllToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0;
+  color: #5d4b73;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.mgrMonth__selectAllToggle input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--app-accent);
+}
+
+.mgrMonth__selectAllToggle.is-disabled {
+  opacity: 0.56;
+}
+
+.mgrMonth__selectAllToggle--ghost {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.mgrMonth__templateTargetsHead h2 {
+  margin: 0;
+  color: #2d2142;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.mgrMonth__templateSearchWrap {
+  position: relative;
+}
+
+.mgrMonth__templateSearchInput {
+  width: 100%;
+  padding-right: 42px !important;
+}
+
+.mgrMonth__templateSearchInput::placeholder {
+  font-weight: 400;
+}
+
+.mgrMonth__templateSearchClear {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0;
+  background: transparent;
+  color: rgba(59, 34, 87, 0.58);
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  transform: translateY(-50%);
+  transition: background 140ms ease, color 140ms ease;
+}
+
+.mgrMonth__templateSearchClear:hover:not(:disabled) {
+  background: rgba(123, 74, 143, 0.08);
+  color: #4d2f63;
+}
+
+.mgrMonth__templateSearchClear:disabled {
+  opacity: 0.56;
+  cursor: not-allowed;
+}
+
+.mgrMonth__templateTargetsToolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.mgrMonth__templateTargetsActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.mgrMonth__templateTargetsActions button,
+.mgrMonth__batchTargetButton {
+  border: 0;
+  cursor: pointer;
+}
+
+.mgrMonth__templateTargetsActions button {
+  min-height: 42px;
+  border-radius: 12px;
+  padding: 0 14px;
+  background: rgba(123, 74, 143, 0.08);
+  color: #6c3f87;
+  font-size: 12px;
+  font-weight: 800;
+  transition: background 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.mgrMonth__templateTargetsActions button:hover:not(:disabled),
+.mgrMonth__batchTargetButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.mgrMonth__templateTargetsActions button:hover:not(:disabled) {
+  background: rgba(123, 74, 143, 0.14);
+  color: #4d2f63;
+}
+
+.mgrMonth__templateTargetsActions button:disabled,
+.mgrMonth__batchTargetButton:disabled,
+.mgrMonth__templateTargetOption:disabled {
+  cursor: not-allowed;
+  opacity: 0.56;
+  transform: none;
+}
+
 .mgrMonth__templateWorkspace {
   display: grid;
   grid-template-columns: minmax(0, 1.55fr) minmax(300px, 0.9fr);
@@ -357,18 +528,77 @@
   font-weight: 800;
 }
 
+.mgrMonth__batchTargetButton {
+  transition: background 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
 .mgrMonth__batchTarget.is-active {
   background: rgba(123, 74, 143, 0.16);
   color: #2d2142;
 }
 
+.mgrMonth__templateTargetList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  max-height: 240px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.mgrMonth__templateTargetOption {
+  border: 1px solid rgba(123, 74, 143, 0.14);
+  border-radius: 14px;
+  min-height: 68px;
+  padding: 12px 14px;
+  background: #fff;
+  display: grid;
+  gap: 6px;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
+}
+
+.mgrMonth__templateTargetOption:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(123, 74, 143, 0.24);
+  box-shadow: 0 12px 24px rgba(57, 37, 89, 0.08);
+}
+
+.mgrMonth__templateTargetOption.is-selected {
+  border-color: rgba(123, 74, 143, 0.4);
+  background: linear-gradient(180deg, #f7effd 0%, #ffffff 100%);
+  box-shadow: 0 0 0 2px rgba(123, 74, 143, 0.12);
+}
+
+.mgrMonth__templateTargetOptionTop {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.mgrMonth__templateTargetOptionTop strong {
+  color: #2d2142;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.mgrMonth__templateTargetOptionMeta {
+  color: rgba(59, 34, 87, 0.72);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
 .mgrMonth__templateApply,
 .mgrMonth__templateTimeCard {
   display: grid;
-  gap: 18px;
+  gap: 14px;
   border: 1px solid rgba(123, 74, 143, 0.12);
   border-radius: 18px;
-  padding: 20px;
+  padding: 18px;
   background: linear-gradient(180deg, #fbf8ff 0%, #ffffff 100%);
   align-content: start;
 }
@@ -381,49 +611,39 @@
 }
 
 .mgrMonth__templateApplyHead {
-  display: grid;
-  gap: 6px;
+  display: block;
 }
 
 .mgrMonth__templateTimeHead {
-  display: grid;
-  gap: 6px;
-}
-
-.mgrMonth__templateApplyHead p,
-.mgrMonth__templateTimeHead p {
-  margin: 0;
-  color: rgba(59, 34, 87, 0.72);
-  font-size: 14px;
-  line-height: 1.55;
+  display: block;
 }
 
 .mgrMonth__templateTimeHead h2 {
   margin: 0;
   color: #2d2142;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 900;
 }
 
 .mgrMonth__templateTimeCard {
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto auto auto 1fr;
   min-height: 100%;
 }
 
 .mgrMonth__templateGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .mgrMonth__templateDay {
   border: 1px solid rgba(123, 74, 143, 0.14);
   border-radius: 14px;
-  min-height: 82px;
-  padding: 16px;
+  min-height: 60px;
+  padding: 12px 14px;
   background: #fff;
-  display: grid;
-  gap: 8px;
+  display: flex;
+  align-items: center;
   text-align: left;
   cursor: pointer;
   transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease, background-color 120ms ease;
@@ -447,26 +667,20 @@
   font-weight: 900;
 }
 
-.mgrMonth__templateDay span {
-  color: rgba(59, 34, 87, 0.72);
-  font-size: 13px;
-  line-height: 1.45;
-}
-
 .mgrMonth__timeGrid--stacked {
-  gap: 14px;
+  gap: 6px;
 }
 
 .mgrMonth__templateNote {
   margin: auto 0 0;
-  padding: 15px 16px;
+  padding: 12px 14px;
   border-radius: 16px;
-  background: var(--app-accent-soft);
+  background: linear-gradient(180deg, rgba(248, 241, 253, 0.9) 0%, rgba(255, 255, 255, 0.96) 100%);
   border: 1px solid rgba(123, 74, 143, 0.12);
-  color: var(--app-text-soft);
+  color: rgba(59, 34, 87, 0.78);
   font-size: 13px;
-  line-height: 1.55;
-  font-weight: 700;
+  line-height: 1.5;
+  font-weight: 500;
 }
 
 .mgrMonth__detailGrid,
@@ -506,31 +720,26 @@
 
 .mgrMonth__dayOffToggle {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 12px;
   border: 1px solid rgba(123, 74, 143, 0.12);
   border-radius: 14px;
-  padding: 14px 16px;
-  background: linear-gradient(180deg, #fbf8ff 0%, #ffffff 100%);
+  padding: 16px;
+  background: #fff;
+  min-height: 60px;
 }
 
 .mgrMonth__dayOffToggle input {
   width: 18px;
   height: 18px;
-  margin-top: 2px;
+  margin: 0;
 }
 
 .mgrMonth__dayOffToggle strong {
   display: block;
   color: #2d2142;
   font-size: 15px;
-  font-weight: 900;
-}
-
-.mgrMonth__dayOffToggle span {
-  color: rgba(59, 34, 87, 0.72);
-  font-size: 13px;
-  line-height: 1.45;
+  font-weight: 800;
 }
 
 .mgrMonth__dayOffToggle.is-disabled {
@@ -557,6 +766,11 @@
   color: rgba(59, 34, 87, 0.72);
   text-align: center;
   font-weight: 700;
+}
+
+.mgrMonth__empty--compact {
+  min-height: 120px;
+  padding: 20px;
 }
 
 @media (max-width: 1180px) {
@@ -591,6 +805,7 @@
   }
 
   .mgrMonth__calendarPanel.hrAttCalendarShell {
+    height: 700px;
     min-height: 700px;
   }
 }
@@ -599,7 +814,8 @@
   .mgrMonth__actions,
   .mgrMonth__detailGrid,
   .mgrMonth__timeGrid,
-  .mgrMonth__templateGrid {
+  .mgrMonth__templateGrid,
+  .mgrMonth__templateTargetList {
     grid-template-columns: 1fr;
   }
 
@@ -626,6 +842,15 @@
 
   .mgrMonth__templateWorkspace {
     grid-template-columns: 1fr;
+  }
+
+  .mgrMonth__sectionHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .mgrMonth__selectAllToggle {
+    align-self: flex-start;
   }
 }
 
@@ -660,7 +885,8 @@
   }
 
   .mgrMonth__templateApply,
-  .mgrMonth__templateTimeCard {
+  .mgrMonth__templateTimeCard,
+  .mgrMonth__templateTargetsCard {
     padding: 16px;
   }
 }
@@ -668,6 +894,7 @@
 @media (max-width: 640px) {
   .mgrMonth__calendarPanel.hrAttCalendarShell {
     padding: 14px;
+    height: auto;
     min-height: 0;
   }
 
