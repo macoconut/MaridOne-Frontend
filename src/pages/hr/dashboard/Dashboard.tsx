@@ -355,6 +355,36 @@ function isOutDirection(direction?: string) {
   return String(direction ?? '').toUpperCase().includes('OUT');
 }
 
+function hasIncompleteAttendanceSequence(logs: AttendanceLog[]) {
+  let hasOpenInLog = false;
+  let hasRecognizedDirection = false;
+
+  for (const log of logs) {
+    if (isInDirection(log.direction)) {
+      hasRecognizedDirection = true;
+      if (hasOpenInLog) {
+        return true;
+      }
+      hasOpenInLog = true;
+      continue;
+    }
+
+    if (isOutDirection(log.direction)) {
+      hasRecognizedDirection = true;
+      if (!hasOpenInLog) {
+        return true;
+      }
+      hasOpenInLog = false;
+    }
+  }
+
+  if (!hasRecognizedDirection) {
+    return logs.length > 0;
+  }
+
+  return hasOpenInLog;
+}
+
 function localTimeLabel(value?: string) {
   if (!value) return undefined;
   const date = new Date(value);
@@ -399,8 +429,6 @@ function buildDailyRecords(
             dateKey ? holidayDateKeys.has(dateKey) : false
           )
         : false;
-      const hasIn = sorted.some((row) => isInDirection(row.direction));
-      const hasOut = sorted.some((row) => isOutDirection(row.direction));
 
       return {
         employeeId,
@@ -411,7 +439,7 @@ function buildDailyRecords(
         outTime: localTimeLabel(lastOut?.timestamp),
         logCount: sorted.length,
         isLate,
-        isIncomplete: !(hasIn && hasOut),
+        isIncomplete: hasIncompleteAttendanceSequence(sorted),
       } satisfies DailyEmployeeRecord;
     })
     .sort((a, b) => a.name.localeCompare(b.name));

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FiDownload, FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
-import ActionButton from '../../../components/button/ActionButton';
+import { FiDownload, FiFilter, FiMoreVertical, FiSearch, FiXCircle } from 'react-icons/fi';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import EmployeeSortMenu from '../../../components/layout/EmployeeSortMenu';
 import PageHeader from '../../../components/layout/PageHeader';
@@ -385,6 +384,7 @@ export default function HrPayRunReporting() {
   const [employeeDirectory, setEmployeeDirectory] = useState<EmployeeDirectoryEntry[]>([]);
   const [payTypeRows, setPayTypeRows] = useState<PayTypeSummaryRow[]>([]);
   const [employeeFilterOpen, setEmployeeFilterOpen] = useState(false);
+  const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [employeeRoleFilter, setEmployeeRoleFilter] = useState('all');
   const [employeeDepartmentFilter, setEmployeeDepartmentFilter] = useState('all');
   const [selectedBreakdownItem, setSelectedBreakdownItem] = useState<PayrollItemRow | null>(null);
@@ -398,6 +398,7 @@ export default function HrPayRunReporting() {
   const [actionError, setActionError] = useState('');
   const [refreshTick, setRefreshTick] = useState(0);
   const silentRefreshRef = useRef(false);
+  const actionMenuRef = useRef<HTMLDivElement | null>(null);
   useErrorDialogEffect(loadError, 'Pay run reporting could not be loaded');
   useErrorDialogEffect(actionError, 'Pay run report could not be exported');
   const handlePageRefresh = useCallback(() => {
@@ -419,6 +420,19 @@ export default function HrPayRunReporting() {
 
     return () => document.body.classList.remove('modal-open');
   }, [selectedBreakdownItem]);
+
+  useEffect(() => {
+    if (!actionMenuOpen) return undefined;
+
+    function handlePointerDown(event: MouseEvent) {
+      if (actionMenuRef.current && !actionMenuRef.current.contains(event.target as Node)) {
+        setActionMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [actionMenuOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -705,6 +719,7 @@ export default function HrPayRunReporting() {
   }, []);
 
   useEscapeDismiss(Boolean(selectedBreakdownItem), closeBreakdownModal, 10);
+  useEscapeDismiss(actionMenuOpen, () => setActionMenuOpen(false), 11);
 
   useEffect(() => {
     closeBreakdownModal();
@@ -845,12 +860,45 @@ export default function HrPayRunReporting() {
           title="Pay Run Reporting"
           description="Analyze payroll totals by employee or pay type before exporting reports."
         />
-        <label className="hrRunSelect hrRunSelect--view" aria-label="Report view">
-          <select value={view} onChange={(e) => setView(e.target.value as ReportView)}>
-            <option value="employee">By Employee</option>
-            <option value="payType">By Earnings / Deductions</option>
-          </select>
-        </label>
+        <div className="hrRun__topActions">
+          <label className="hrRunSelect hrRunSelect--view" aria-label="Report view">
+            <select value={view} onChange={(e) => setView(e.target.value as ReportView)}>
+              <option value="employee">By Employee</option>
+              <option value="payType">By Earnings / Deductions</option>
+            </select>
+          </label>
+
+          <div className="hrRunMenu" ref={actionMenuRef}>
+            <button
+              type="button"
+              className={`hrRunMenu__toggle ${actionMenuOpen ? 'is-open' : ''}`}
+              onClick={() => setActionMenuOpen((open) => !open)}
+              aria-haspopup="menu"
+              aria-expanded={actionMenuOpen}
+              aria-label="Pay run report actions"
+            >
+              <FiMoreVertical />
+            </button>
+
+            {actionMenuOpen ? (
+              <div className="hrRunMenu__panel" role="menu" aria-label="Pay run report actions">
+                <button
+                  type="button"
+                  className="hrRunMenu__item"
+                  role="menuitem"
+                  onClick={() => {
+                    setActionMenuOpen(false);
+                    void downloadCurrentReport();
+                  }}
+                  disabled={isDownloading || !hasDownloadableReport}
+                >
+                  <FiDownload aria-hidden="true" />
+                  <span>{isDownloading ? 'Preparing CSV...' : 'Download Report'}</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
       </div>
 
       <div className="hrRunFilters">
@@ -905,7 +953,10 @@ export default function HrPayRunReporting() {
                   className={`hrRunFilter__toggle ${employeeFilterOpen ? 'is-open' : ''} ${
                     activeEmployeeFilterCount > 0 ? 'is-active' : ''
                   }`}
-                  onClick={() => setEmployeeFilterOpen((open) => !open)}
+                  onClick={() => {
+                    setEmployeeFilterOpen((open) => !open);
+                    setActionMenuOpen(false);
+                  }}
                 >
                   <FiFilter />
                   <span>Filter</span>
@@ -1191,18 +1242,6 @@ export default function HrPayRunReporting() {
           </article>
         </div>
       )}
-
-      <div className="hrRunActions">
-        <ActionButton
-          className="hrRunActions__btn"
-          icon={<FiDownload />}
-          type="button"
-          onClick={() => void downloadCurrentReport()}
-          disabled={isDownloading || !hasDownloadableReport}
-        >
-          {isDownloading ? 'Preparing CSV...' : 'Download Report'}
-        </ActionButton>
-      </div>
     </div>
   );
 }

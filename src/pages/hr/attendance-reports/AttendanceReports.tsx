@@ -6,6 +6,7 @@ import {
   FiChevronRight,
   FiDownload,
   FiFilter,
+  FiMoreVertical,
   FiSearch,
   FiUpload,
   FiUsers,
@@ -402,6 +403,36 @@ function isOutDirection(direction?: string) {
   return (direction ?? '').toUpperCase().includes('OUT');
 }
 
+function hasIncompleteAttendanceSequence(logs: AttendanceLog[]) {
+  let hasOpenInLog = false;
+  let hasRecognizedDirection = false;
+
+  for (const log of logs) {
+    if (isInDirection(log.direction)) {
+      hasRecognizedDirection = true;
+      if (hasOpenInLog) {
+        return true;
+      }
+      hasOpenInLog = true;
+      continue;
+    }
+
+    if (isOutDirection(log.direction)) {
+      hasRecognizedDirection = true;
+      if (!hasOpenInLog) {
+        return true;
+      }
+      hasOpenInLog = false;
+    }
+  }
+
+  if (!hasRecognizedDirection) {
+    return logs.length > 0;
+  }
+
+  return hasOpenInLog;
+}
+
 function isLateDirection(direction?: string) {
   return (direction ?? '').toUpperCase().includes('LATE');
 }
@@ -544,8 +575,6 @@ function buildDailyRecords(
             dateKey ? holidayDateKeys.has(dateKey) : false
           )
         : false;
-      const hasIn = sorted.some((row) => isInDirection(row.direction));
-      const hasOut = sorted.some((row) => isOutDirection(row.direction));
 
       return {
         employeeId,
@@ -556,7 +585,7 @@ function buildDailyRecords(
         outTime: localTimeLabel(lastOut?.timestamp),
         logCount: sorted.length,
         isLate,
-        isIncomplete: !(hasIn && hasOut),
+        isIncomplete: hasIncompleteAttendanceSequence(sorted),
       } satisfies DailyEmployeeRecord;
     })
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -712,10 +741,12 @@ export function AttendanceReportsBoard({
   const [detailOpen, setDetailOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
+  const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [focusOvertime, setFocusOvertime] = useState<OvertimeRequest[]>([]);
   const [isFocusDataLoading, setIsFocusDataLoading] = useState(false);
   const filterRef = useRef<HTMLDivElement | null>(null);
+  const actionMenuRef = useRef<HTMLDivElement | null>(null);
   const silentRefreshRef = useRef(false);
 
   const handlePageRefresh = useCallback(() => {
@@ -744,6 +775,19 @@ export function AttendanceReportsBoard({
     document.addEventListener('mousedown', handlePointerDown);
     return () => document.removeEventListener('mousedown', handlePointerDown);
   }, [filterOpen]);
+
+  useEffect(() => {
+    if (!actionMenuOpen) return undefined;
+
+    function handlePointerDown(event: MouseEvent) {
+      if (actionMenuRef.current && !actionMenuRef.current.contains(event.target as Node)) {
+        setActionMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [actionMenuOpen]);
 
   useEffect(() => {
     setMonthValue(
@@ -792,7 +836,6 @@ export function AttendanceReportsBoard({
         if (cancelled) return;
 
         const nextLogs = toArray<AttendanceLog>(logResponse);
-        setLogs(nextLogs);
 
         const [employeeResult, leaveResult, holidayResult, dailyShiftResult] = await Promise.allSettled([
           apiFetchJson<unknown>(withParams(rosterUrl, { page: '0', size: '500' })),
@@ -867,6 +910,8 @@ export function AttendanceReportsBoard({
         } else if (!isSilentRefresh) {
           setDailyShifts([]);
         }
+
+        setLogs(nextLogs);
 
         if (holidayResult.status === 'fulfilled') {
           const parsed = parseHolidayLookup(holidayResult.value);
@@ -1592,6 +1637,7 @@ export function AttendanceReportsBoard({
   useErrorDialogEffect(actionError, 'Attendance report action could not be completed');
   useEscapeDismiss(detailOpen, () => setDetailOpen(false), 10);
   useEscapeDismiss(importDialogOpen, closeImportDialog, 11);
+  useEscapeDismiss(actionMenuOpen, () => setActionMenuOpen(false), 12);
 
   return (
     <div className="hrAtt">
@@ -1633,40 +1679,97 @@ export function AttendanceReportsBoard({
           )}
         </label>
 
-        <div className="hrAttFilter" ref={filterRef}>
-          <button
-            type="button"
-            className={`hrAttFilter__toggle ${filterOpen ? 'is-open' : ''} ${
-              activeFilterCount > 0 ? 'is-active' : ''
-            }`}
-            onClick={() => setFilterOpen((open) => !open)}
-          >
-            <FiFilter />
-            <span>Filter</span>
-            {activeFilterCount > 0 && <span className="hrAttFilter__count">{activeFilterCount}</span>}
-          </button>
+        <div className="hrAtt__toolbarActions">
+          <div className="hrAttFilter" ref={filterRef}>
+            <button
+              type="button"
+              className={`hrAttFilter__toggle ${filterOpen ? 'is-open' : ''} ${
+                activeFilterCount > 0 ? 'is-active' : ''
+              }`}
+              onClick={() => {
+                setFilterOpen((open) => !open);
+                setActionMenuOpen(false);
+              }}
+            >
+              <FiFilter />
+              <span>Filter</span>
+              {activeFilterCount > 0 && <span className="hrAttFilter__count">{activeFilterCount}</span>}
+            </button>
 
-          {filterOpen && (
-            <div className="hrAttFilter__panel">
-              <label className="hrAttFilter__field">
-                <span>Department</span>
-                <select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}>
-                  <option value="all">All Departments</option>
-                  {departmentOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            {filterOpen && (
+              <div className="hrAttFilter__panel">
+                <label className="hrAttFilter__field">
+                  <span>Department</span>
+                  <select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}>
+                    <option value="all">All Departments</option>
+                    {departmentOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-              <div className="hrAttFilter__actions">
-                <button type="button" onClick={clearFilters}>
-                  Clear Filters
+                <div className="hrAttFilter__actions">
+                  <button type="button" onClick={clearFilters}>
+                    Clear Filters
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="hrAttMenu" ref={actionMenuRef}>
+            <button
+              type="button"
+              className={`hrAttMenu__toggle ${actionMenuOpen ? 'is-open' : ''}`}
+              onClick={() => {
+                setActionMenuOpen((open) => !open);
+                setFilterOpen(false);
+              }}
+              aria-haspopup="menu"
+              aria-expanded={actionMenuOpen}
+              aria-label="Attendance report actions"
+            >
+              <FiMoreVertical />
+            </button>
+
+            {actionMenuOpen ? (
+              <div className="hrAttMenu__panel" role="menu" aria-label="Attendance report actions">
+                {canImport ? (
+                  <button
+                    type="button"
+                    className="hrAttMenu__item"
+                    role="menuitem"
+                    onClick={() => {
+                      setActionError('');
+                      setImportSubmitAttempted(false);
+                      setImportDialogOpen(true);
+                      setActionMenuOpen(false);
+                    }}
+                    disabled={isLoading || isImporting}
+                  >
+                    <FiUpload aria-hidden="true" />
+                    <span>{isImporting ? 'Importing CSV...' : 'Import Attendance (CSV)'}</span>
+                  </button>
+                ) : null}
+
+                <button
+                  type="button"
+                  className="hrAttMenu__item"
+                  role="menuitem"
+                  onClick={() => {
+                    setActionMenuOpen(false);
+                    void downloadAttendanceReport();
+                  }}
+                  disabled={isLoading || isExporting || Boolean(loadError)}
+                >
+                  <FiDownload aria-hidden="true" />
+                  <span>{isExporting ? 'Preparing CSV...' : 'Export Attendance (CSV)'}</span>
                 </button>
               </div>
-            </div>
-          )}
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -1887,34 +1990,6 @@ export function AttendanceReportsBoard({
           )}
         </div>
       </section>
-
-      <div className="hrAtt__calendarActions">
-        {canImport && (
-          <button
-            type="button"
-            className="hrAtt__actionBtn hrAtt__actionBtn--centered"
-            onClick={() => {
-              setActionError('');
-              setImportSubmitAttempted(false);
-              setImportDialogOpen(true);
-            }}
-            disabled={isLoading || isImporting}
-          >
-            <FiUpload aria-hidden="true" />
-            <span>{isImporting ? 'Importing CSV...' : 'Import Attendance (CSV)'}</span>
-          </button>
-        )}
-        <button
-          type="button"
-          className="hrAtt__actionBtn hrAtt__actionBtn--centered"
-          onClick={() => void downloadAttendanceReport()}
-          disabled={isLoading || isExporting || Boolean(loadError)}
-        >
-          <FiDownload aria-hidden="true" />
-          <span>{isExporting ? 'Preparing CSV...' : 'Export Attendance (CSV)'}</span>
-        </button>
-      </div>
-
       {importDialogOpen && (
         <div className="hrAttModalBackdrop" role="dialog" aria-modal="true" aria-label="Import attendance CSV">
           <div className="hrAttModal hrAttModal--import">

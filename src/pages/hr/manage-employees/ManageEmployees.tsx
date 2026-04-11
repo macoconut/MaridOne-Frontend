@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FiChevronDown, FiDownload, FiEdit2, FiFilter, FiPlus, FiSearch, FiUserX, FiX, FiXCircle } from 'react-icons/fi';
+import { FiChevronDown, FiDownload, FiEdit2, FiFilter, FiMoreVertical, FiPlus, FiSearch, FiUserX, FiX, FiXCircle } from 'react-icons/fi';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
@@ -360,6 +360,7 @@ export default function HrManageEmp() {
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
   const [positionFilter, setPositionFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
@@ -372,6 +373,7 @@ export default function HrManageEmp() {
   const [managerPickerOpen, setManagerPickerOpen] = useState(false);
   const [hasExistingUserAccount, setHasExistingUserAccount] = useState(false);
   const managerPickerRef = useRef<HTMLDivElement | null>(null);
+  const exportMenuRef = useRef<HTMLDivElement | null>(null);
 
   const selectedEmployee = useMemo(
     () => employeeRows.find((row) => row.id === form.employeeId) ?? null,
@@ -492,6 +494,7 @@ export default function HrManageEmp() {
     setRefreshTick((tick) => tick + 1);
   };
   useEscapeDismiss(Boolean(detailsDialogEmployeeId), closeDetailsDialog, 10);
+  useEscapeDismiss(exportMenuOpen, () => setExportMenuOpen(false), 11);
   const hasUnsavedModalChanges = useMemo(() => {
     if (!modal) return false;
     return JSON.stringify(form) !== JSON.stringify(initialForm) || managerSearch !== initialManagerSearch;
@@ -556,6 +559,21 @@ export default function HrManageEmp() {
     document.addEventListener('mousedown', handlePointerDown);
     return () => document.removeEventListener('mousedown', handlePointerDown);
   }, [managerPickerOpen]);
+
+  useEffect(() => {
+    if (!exportMenuOpen) {
+      return;
+    }
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!exportMenuRef.current?.contains(event.target as Node)) {
+        setExportMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [exportMenuOpen]);
 
   useEffect(() => {
     if (!showManagerPicker) {
@@ -652,12 +670,11 @@ export default function HrManageEmp() {
   }
 
   function exportEmployeeData() {
-    if (employeeRows.length === 0) return;
+    if (visibleEmployeeRows.length === 0) return;
 
     const rows = [
       ['Employee ID', 'Name', 'Username', 'Status', 'Email', 'Phone', 'Position', 'Department'],
-      ...[...employeeRows]
-        .sort((left, right) => compareEmployees('id', { id: left.id, name: left.name }, { id: right.id, name: right.name }))
+      ...visibleEmployeeRows
         .map((row) => [row.id, row.name, row.username, row.status, row.email, row.phone, row.position, row.department]),
     ];
 
@@ -671,8 +688,9 @@ export default function HrManageEmp() {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
+    setExportMenuOpen(false);
 
-    showSuccess('The employee roster has been exported successfully.', 'Employee Data Exported');
+    showSuccess(`Exported ${visibleEmployeeRows.length} employee record${visibleEmployeeRows.length === 1 ? '' : 's'}.`, 'Employee Data Exported');
   }
 
   function sanitizePhoneNumber(value: string) {
@@ -1621,10 +1639,6 @@ export default function HrManageEmp() {
           description="Maintain employee records, accounts, and employment details from one directory."
         />
         <div className="hrEmp__headActions">
-          <button type="button" className="hrEmpTable__actionBtn hrEmpTable__actionBtn--secondary" onClick={exportEmployeeData} disabled={employeeRows.length === 0}>
-            <FiDownload aria-hidden="true" />
-            <span>Export Data</span>
-          </button>
           <button type="button" className="hrEmpTable__actionBtn" onClick={openAddModal}>
             <FiPlus aria-hidden="true" />
             <span>Add Employee</span>
@@ -1657,7 +1671,10 @@ export default function HrManageEmp() {
                 className={`hrEmpFilter__toggle ${filterOpen ? 'is-open' : ''} ${
                   activeFilterCount > 0 ? 'is-active' : ''
                 }`}
-                onClick={() => setFilterOpen((open) => !open)}
+                onClick={() => {
+                  setFilterOpen((open) => !open);
+                  setExportMenuOpen(false);
+                }}
               >
                 <FiFilter />
                 <span>Filter</span>
@@ -1707,6 +1724,37 @@ export default function HrManageEmp() {
                       Reset Filters
                     </button>
                   </div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="hrEmpMenu" ref={exportMenuRef}>
+              <button
+                type="button"
+                className={`hrEmpMenu__toggle ${exportMenuOpen ? 'is-open' : ''}`}
+                onClick={() => {
+                  setExportMenuOpen((open) => !open);
+                  setFilterOpen(false);
+                }}
+                aria-haspopup="menu"
+                aria-expanded={exportMenuOpen}
+                aria-label="More employee table actions"
+              >
+                <FiMoreVertical />
+              </button>
+
+              {exportMenuOpen ? (
+                <div className="hrEmpMenu__panel" role="menu" aria-label="Employee table actions">
+                  <button
+                    type="button"
+                    className="hrEmpMenu__item"
+                    role="menuitem"
+                    onClick={exportEmployeeData}
+                    disabled={visibleEmployeeRows.length === 0}
+                  >
+                    <FiDownload aria-hidden="true" />
+                    <span>Export as CSV</span>
+                  </button>
                 </div>
               ) : null}
             </div>

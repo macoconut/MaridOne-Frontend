@@ -78,6 +78,12 @@
   gap: 12px;
 }
 
+.hrAtt__toolbarActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .hrAttSearch {
   flex: 1 1 420px;
   min-width: min(320px, 100%);
@@ -213,6 +219,72 @@
   cursor: pointer;
 }
 
+.hrAttMenu {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.hrAttMenu__toggle {
+  min-width: 38px;
+  min-height: 38px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #3b2257;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.hrAttMenu__toggle.is-open {
+  background: transparent;
+}
+
+.hrAttMenu__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  min-width: 216px;
+  border: 1px solid rgba(59, 34, 87, 0.14);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 16px 34px rgba(34, 26, 52, 0.16);
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.hrAttMenu__item {
+  width: 100%;
+  min-height: 40px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #3b2257;
+  font-size: 14px;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hrAttMenu__item:hover:not(:disabled) {
+  background: #f5effb;
+}
+
+.hrAttMenu__item:disabled {
+  opacity: 0.56;
+  cursor: not-allowed;
+}
+
 .hrAtt__actionBtn {
   min-width: 196px;
   height: 42px;
@@ -266,15 +338,6 @@
 .hrAttCard {
   width: 100%;
   max-width: 100%;
-}
-
-.hrAtt__calendarActions {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  width: 100%;
 }
 
 .hrAttCalendarShell {
@@ -1193,6 +1256,11 @@
     align-items: stretch;
   }
 
+  .hrAtt__toolbarActions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
   .hrAttCalendarShell {
     padding: 12px;
     overflow-x: auto;
@@ -1228,6 +1296,12 @@
 
   .hrAttPerson__metrics {
     grid-template-columns: 1fr;
+  }
+
+  .hrAttMenu__panel {
+    left: 0;
+    right: 0;
+    min-width: 0;
   }
 }
 
