@@ -289,6 +289,99 @@ function formatAnnouncementCreatedAt(value?: string) {
   });
 }
 
+type LeaveBalanceRow = {
+  leaveId?: number;
+  balanceHours?: number | string | null;
+  leaveType?: string;
+};
+
+type LeaveRequestRow = {
+  requestId?: number;
+  startDateTime?: string;
+  endDateTime?: string;
+  requestStatus?: string;
+  leaveType?: string;
+};
+
+type ShiftScheduleRow = {
+  shiftId?: number;
+  dayOfWeek?: string;
+  startTime?: string;
+  endTime?: string;
+};
+
+function formatBalanceHours(value?: number | string | null) {
+  const num = typeof value === 'number' ? value : typeof value === 'string' ? parseFloat(value) : 0;
+  if (Number.isNaN(num)) return '0';
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(num);
+}
+
+function getLeaveTypeLabel(type?: string) {
+  switch (type) {
+    case 'SICK_LEAVE': return 'Sick Leave';
+    case 'VACATION_LEAVE': return 'Vacation Leave';
+    case 'MATERNITY_LEAVE': return 'Maternity Leave';
+    case 'PATERNITY_LEAVE': return 'Paternity Leave';
+    case 'SOLO_PARENT_LEAVE': return 'Solo Parent';
+    case 'MAGNA_CARTA': return 'Magna Carta';
+    case 'RA9262': return 'RA 9262';
+    default: return type?.replace(/_/g, ' ') || 'Leave';
+  }
+}
+
+function getLeaveMaxHours(_type?: string) {
+  return 40;
+}
+
+function calculateNextDayOff(
+  approvedLeaves: LeaveRequestRow[],
+  shiftSchedule: ShiftScheduleRow[]
+) {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(0, 0, 0, 0);
+
+  const daysOfWeek = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+
+  // Scan next 30 days
+  for (let i = 0; i < 30; i++) {
+    const cursor = new Date(tomorrow);
+    cursor.setDate(cursor.getDate() + i);
+    const cursorKey = cursor.toISOString().slice(0, 10);
+    const dayName = daysOfWeek[cursor.getDay()];
+
+    // 1. Check approved leaves for this exact date
+    const leaveOnDay = approvedLeaves.find(l => {
+      if (!l.startDateTime) return false;
+      const lStart = l.startDateTime.slice(0, 10);
+      const lEnd = l.endDateTime?.slice(0, 10) || lStart;
+      return cursorKey >= lStart && cursorKey <= lEnd;
+    });
+
+    if (leaveOnDay) {
+      return {
+        date: cursor.toISOString(),
+        reason: getLeaveTypeLabel(leaveOnDay.leaveType),
+        isLeave: true
+      };
+    }
+
+    // 2. Check regular schedule (if day is missing or has no hours, it's a day off)
+    const scheduleForDay = shiftSchedule.find(s => s.dayOfWeek === dayName);
+    const isScheduledWorkDay = scheduleForDay && scheduleForDay.startTime && scheduleForDay.endTime;
+
+    if (!isScheduledWorkDay) {
+      return {
+        date: cursor.toISOString(),
+        reason: 'Scheduled Day Off',
+        isLeave: false
+      };
+    }
+  }
+
+  return null;
+}
+
 function getCalendarEventsByDay(events: CalendarEvent[], year: number, monthIndex: number) {
   const monthStart = new Date(year, monthIndex, 1);
   const monthEnd = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
@@ -368,6 +461,9 @@ export default function Dashboard() {
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
   const [lastLoginLabel, setLastLoginLabel] = useState<string>('Not available');
   const [lastAttendanceLabel, setLastAttendanceLabel] = useState<string>('Not available');
+  const [leaveBalances, setLeaveBalances] = useState<LeaveBalanceRow[]>([]);
+  const [shiftSchedule, setShiftSchedule] = useState<ShiftScheduleRow[]>([]);
+  const [nextLeave, setNextLeave] = useState<LeaveRequestRow | null>(null);
   const [calendarMonthIndex, setCalendarMonthIndex] = useState(new Date().getMonth());
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
   const [refreshTick, setRefreshTick] = useState(0);
@@ -450,6 +546,30 @@ export default function Dashboard() {
               ? fromUser.employeeId
               : null;
         setEmployeeId(resolvedEmpId ?? null);
+
+        if (resolvedEmpId) {
+          // fetch leave balances
+          void apiFetchJson<unknown>(`/api/leave/balance/${resolvedEmpId}`)
+            .then(balances => setLeaveBalances(toArray<LeaveBalanceRow>(balances).filter(b => b.leaveType !== 'BEREAVEMENT_LEAVE')))
+            .catch(() => setLeaveBalances([]));
+
+          // fetch shift schedule
+          void apiFetchJson<unknown>(`/api/employee/schedule/${resolvedEmpId}`)
+            .then(schedule => setShiftSchedule(toArray<ShiftScheduleRow>(schedule)))
+            .catch(() => setShiftSchedule([]));
+
+          // fetch upcoming leaves
+          void apiFetchJson<unknown>(`/api/leave/request/${resolvedEmpId}`)
+            .then(leaves => {
+              // Page object response from backend
+              const list = (leaves as any)?.content || toArray<LeaveRequestRow>(leaves);
+              const upcoming = list
+                .filter((l: any) => l.requestStatus === 'APPROVED' && l.startDateTime && new Date(l.startDateTime) > new Date())
+                .sort((a: any, b: any) => new Date(a.startDateTime!).getTime() - new Date(b.startDateTime!).getTime())[0];
+              setNextLeave(upcoming || null);
+            })
+            .catch(() => setNextLeave(null));
+        }
 
         if (fromUser) {
           setEmployee(fromUser);
@@ -846,39 +966,33 @@ export default function Dashboard() {
 
       {/* INFO CARD */}
       <section className="infoCardX">
-        <div className="infoCardX__header">
-          <div className="infoCardX__title">Your Information</div>
-          <div className="infoCardX__headerActions">
-            <button
-              className="infoCardX__edit"
-              type="button"
-              onClick={openEditModal}
-              disabled={savingEdit}
-              aria-label="Edit information"
-              title="Edit information"
-            >
-              <FiEdit2 aria-hidden="true" />
-            </button>
-          </div>
-        </div>
+        <button
+          className="infoCardX__edit"
+          type="button"
+          onClick={openEditModal}
+          disabled={savingEdit}
+          aria-label="Edit information"
+          title="Edit information"
+        >
+          <FiEdit2 aria-hidden="true" />
+        </button>
 
         <div className="infoCardX__grid">
-          {/* left */}
+          {/* left: Identity */}
           <div className="infoCardX__left">
             <div className="infoCardX__photo" aria-hidden="true" />
-            <div className="infoCardX__name">
-              {employeeName}
+            <div className="infoCardX__bio">
+              <div className="infoCardX__name">{employeeName}</div>
+              <div className="statBlock__sub">
+                Joined {formatDashboardDate(employee?.employmentDateStart || employee?.employmentDate || employee?.dateHired)}
+              </div>
             </div>
           </div>
 
           <div className="infoCardX__divider" />
 
-          {/* middle */}
+          {/* middle: Contacts */}
           <div className="infoCardX__mid">
-            <div className="infoRow">
-              <span className="infoRow__icon">⌂</span>
-              <span>{formatAddress(employee?.address)}</span>
-            </div>
             <div className="infoRow">
               <span className="infoRow__icon">✉</span>
               <span className="infoRow__link">{employee?.email || profile?.username || 'Email not available'}</span>
@@ -887,26 +1001,23 @@ export default function Dashboard() {
               <span className="infoRow__icon">☎</span>
               <span>{employee?.phoneNumber || employee?.contactNumber || 'Phone not available'}</span>
             </div>
+            <div className="infoRow">
+              <span className="infoRow__icon">⌂</span>
+              <span>{formatAddress(employee?.address)}</span>
+            </div>
           </div>
 
           <div className="infoCardX__divider" />
 
-          {/* right */}
+          {/* right: Activity Stats */}
           <div className="infoCardX__right">
             <div className="statBlock">
-              <div className="statBlock__label">Part of Marid since:</div>
-              <div className="statBlock__value">
-                {formatDashboardDate(employee?.employmentDateStart || employee?.employmentDate || employee?.dateHired)}
-              </div>
-            </div>
-
-            <div className="statBlock">
-              <div className="statBlock__label">Last Login:</div>
+              <div className="statBlock__label">Last Portal Login</div>
               <div className="statBlock__value">{lastLoginLabel}</div>
             </div>
 
             <div className="statBlock">
-              <div className="statBlock__label">Last attendance:</div>
+              <div className="statBlock__label">Recent Attendance</div>
               <div className="statBlock__value">{lastAttendanceLabel}</div>
             </div>
           </div>
@@ -926,69 +1037,98 @@ export default function Dashboard() {
             <span className="actionBtnX__arrow">→</span>
           </button>
         ))}
-        {false && (
-          <>
-        <button className="actionBtnX" type="button" onClick={() => navigate(selfServicePath('payslip'))}>
-          <span>View Payslip</span>
-          <span className="actionBtnX__arrow">→</span>
-        </button>
-        <button className="actionBtnX" type="button" onClick={() => navigate(selfServicePath('attendance'))}>
-          <span>View Attendance</span>
-          <span className="actionBtnX__arrow">→</span>
-        </button>
-        {canRequestOvertime && (
-          <button className="actionBtnX" type="button" onClick={() => navigate(selfServicePath('attendance'))}>
-          <span>Request Overtime</span>
-          <span className="actionBtnX__arrow">→</span>
-        </button>
-        )}
-        <button className="actionBtnX" type="button" onClick={() => navigate(selfServicePath('attendance'))}>
-          <span>Request Leave</span>
-          <span className="actionBtnX__arrow">→</span>
-        </button>
-          </>
-        )}
       </section>
 
       {/* LOWER */}
       <section className="lowerGridX">
         {/* left column */}
         <div className="lowerColX">
-          {/* training */}
+          {/* time off summary card */}
           <div className="cardX">
-            <div className="cardX__title">Training and Onboarding Materials</div>
+            <div className="cardX__title">Time-Off & Balances</div>
+            
+            <div className="leaveSplitLayout">
+              {/* Left: Next Day Off */}
+              <div className="leaveSplitLayout__next">
+                {(() => {
+                  const nextOff = calculateNextDayOff(
+                    toArray<LeaveRequestRow>(nextLeave ? [nextLeave] : []),
+                    shiftSchedule
+                  );
 
-            <div className="miniFolders">
-              {materialLibrarySections.map((material) => (
-                <div key={material.id} className="miniFolder">
-                  <div className="miniFolder__main">
-                    <div className="miniFolder__artWrap" aria-hidden="true">
-                      <MaterialArt kind={material.artKind} className="miniFolder__art" />
+                  if (!nextOff) {
+                    return (
+                      <div className="nextDayOffEmpty">
+                        <div className="nextDayOffEmpty__icon">📅</div>
+                        <p>No upcoming time-off scheduled.</p>
+                      </div>
+                    );
+                  }
+
+                  const dateObj = new Date(nextOff.date);
+                  const monthShort = dateObj.toLocaleDateString(undefined, { month: 'short' }).toUpperCase();
+                  const dayNum = dateObj.getDate();
+                  const dayShort = dateObj.toLocaleDateString(undefined, { weekday: 'short' });
+
+                  return (
+                    <div className="nextDayOff">
+                      <div className="nextDayOff__label">
+                        {nextOff.isLeave ? 'Next Approved Leave' : 'Next Day Off'}
+                      </div>
+                      <div className="nextDayOff__badge">
+                        <div className="nextDayOff__badgeMonth">{monthShort}</div>
+                        <div className="nextDayOff__badgeNum">{dayNum}</div>
+                        <div className="nextDayOff__badgeDay">{dayShort}</div>
+                      </div>
                     </div>
-                    <div className="miniFolder__text">
-                      <div className="miniFolder__name">{material.heading}</div>
-                      <p className="miniFolder__intro">{material.introduction}</p>
-                    </div>
-                  </div>
-                  <div className="miniFolder__actions">
-                    <ActionButton
-                      className="miniFolder__btn"
-                      size="sm"
-                      icon={<FiFileText />}
-                      type="button"
-                      onClick={() => navigate(selfServicePath('training'))}
-                    >
-                      {material.dashboardButtonLabel}
-                    </ActionButton>
-                  </div>
-                </div>
-              ))}
+                  );
+                })()}
+              </div>
+
+              {/* Right: Balances */}
+              <div className="leaveSplitLayout__bars">
+                {leaveBalances.length > 0 ? (
+                  [...leaveBalances]
+                    .sort((a, b) => {
+                      const prio: Record<string, number> = { SICK_LEAVE: 1, VACATION_LEAVE: 2 };
+                      return (prio[a.leaveType || ''] || 99) - (prio[b.leaveType || ''] || 99);
+                    })
+                    .slice(0, 4)
+                    .map((balance) => {
+                      const current = typeof balance.balanceHours === 'number' ? balance.balanceHours : parseFloat(balance.balanceHours || '0');
+                      const max = getLeaveMaxHours(balance.leaveType);
+                      const percentage = Math.min(100, (current / max) * 100);
+                      return (
+                        <div key={balance.leaveId || balance.leaveType} className="leaveProgress">
+                          <div className="leaveProgress__top">
+                            <span className="leaveProgress__type">{getLeaveTypeLabel(balance.leaveType)}</span>
+                            <span className="leaveProgress__value">{formatBalanceHours(balance.balanceHours)}h</span>
+                          </div>
+                          <div className="leaveProgress__barWrap">
+                            <div className="leaveProgress__bar" style={{ width: `${percentage}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })
+                ) : (
+                  <div className="leaveBalancesX__empty">No leave balances available.</div>
+                )}
+                {leaveBalances.length > 4 && (
+                  <button
+                    type="button"
+                    className="leaveBalancesX__more"
+                    onClick={() => navigate(selfServicePath('attendance'))}
+                  >
+                    View All Balances →
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
           {/* handbook */}
           <div className="cardX">
-            <div className="cardX__title">Employee Handbook</div>
+            <div className="cardX__title">Company Handbook</div>
 
             <div className="handbookRow">
               <div className="handbookRow__main">
@@ -997,7 +1137,7 @@ export default function Dashboard() {
                 </div>
                 <div className="handbookRow__text">
                   <div className="handbookRow__name">{handbookLibraryCard.heading}</div>
-                  <p className="handbookRow__intro">{handbookLibraryCard.introduction}</p>
+                  <p className="handbookRow__intro u-line-clamp-2">{handbookLibraryCard.introduction}</p>
                 </div>
               </div>
               <div className="handbookRow__actions">

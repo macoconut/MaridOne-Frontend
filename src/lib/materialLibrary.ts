@@ -116,7 +116,7 @@ const onboardingDocuments: LibraryDocument[] = [
 export const handbookLibraryCard: HandbookLibraryCard = {
   heading: 'Policy and Support Guide',
   introduction:
-    'Your official reference for life at Marid. Access complete guidelines on our Code of Ethics, attendance and timekeeping policies, compensation, benefits, and workplace standards.',
+    'Official reference for life at Marid, covering policies, benefits, and workplace standards.',
   viewLabel: 'View Handbook',
   downloadLabel: 'Download Handbook',
   artKind: 'handbook',
@@ -134,7 +134,7 @@ export const materialLibrarySections: MaterialLibrarySection[] = [
     id: 'training',
     heading: 'Training Essentials',
     introduction:
-      'These guides reinforce Marid\'s operational standards, safety compliance, and performance expectations.',
+      'Guides for Marid\'s operational standards, safety compliance, and performance.',
     dashboardButtonLabel: 'Open Training Materials',
     artKind: 'training',
     documents: sortLibraryDocuments(trainingDocuments),
@@ -143,7 +143,7 @@ export const materialLibrarySections: MaterialLibrarySection[] = [
     id: 'onboarding',
     heading: 'Onboarding Starter Pack',
     introduction:
-      'Find key introductions, a checklist for your pre-employment requirements, and immediate system access links.',
+      'Key introductions, requirement checklists, and system access for new hires.',
     dashboardButtonLabel: 'Open Onboarding Materials',
     artKind: 'onboarding',
     documents: sortLibraryDocuments(onboardingDocuments),
