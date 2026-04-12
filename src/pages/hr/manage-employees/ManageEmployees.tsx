@@ -34,6 +34,7 @@ type EmployeeRow = {
   phone: string;
   position: string;
   department: string;
+  exemptionStatus: string;
   searchIndex: string;
 };
 
@@ -325,6 +326,7 @@ function mergeRowWithDetails(row: EmployeeRow, details: EmployeeDetails): Employ
     phone: details.phoneNumber?.trim() ? details.phoneNumber : row.phone,
     position: details.position?.trim() ? details.position : row.position,
     department: details.department?.trim() ? details.department : row.department,
+    exemptionStatus: details.exemptionStatus?.trim() ? details.exemptionStatus : row.exemptionStatus,
   };
 
   return {
@@ -616,6 +618,7 @@ export default function HrManageEmp() {
           phone: String(item.phoneNumber ?? '-'),
           position: String(item.position ?? '-'),
           department: String(item.department ?? '-'),
+          exemptionStatus: String(item.exemptionStatus ?? getDefaultExemptionStatus(String(item.position ?? ''))),
         };
 
         return {
@@ -1767,8 +1770,9 @@ export default function HrManageEmp() {
           <div>Username</div>
           <div className="hrEmpTable__headCell--status">Status</div>
           <div>Position</div>
-          <div>Actions</div>
-        </div>
+          <div>Email</div>
+          <div className="hrEmpTable__headCell--actions"></div>
+          </div>
 
         <div className="hrEmpTable__body">
           {visibleEmployeeRows.length > 0 ? (
@@ -1795,19 +1799,19 @@ export default function HrManageEmp() {
                   </div>
                   <div>{row.username}</div>
                   <div className="hrEmpRow__statusCell">
-                    <span className={`hrEmpRow__statusBadge ${isTerminated ? 'is-terminated' : ''}`}>
-                      {isTerminated ? 'TERMINATED' : row.status}
-                    </span>
+                    {isTerminated ? 'TERMINATED' : row.status}
                   </div>
-                  <div>{row.position}</div>
+                  <div className="hrEmpRow__positionCell">
+                    {row.position}
+                  </div>
+                  <div className="hrEmpRow__emailCell">
+                    {row.email}
+                  </div>
                   <div className="hrEmpRow__actions" onClick={(event) => event.stopPropagation()}>
-                    {isTerminated ? (
-                      <span className="hrEmpRow__terminatedFlag">Employee is terminated</span>
-                    ) : (
+                    {!isTerminated && (
                       <>
-                        <button type="button" className="hrEmpRow__action" onClick={() => void openEditModal(row)}>
+                        <button type="button" className="hrEmpRow__action" onClick={() => void openEditModal(row)} title="Edit employee">
                           <FiEdit2 aria-hidden="true" />
-                          <span>Edit</span>
                         </button>
                         <button
                           type="button"
@@ -1816,7 +1820,6 @@ export default function HrManageEmp() {
                           title="Terminate employee"
                         >
                           <FiUserX aria-hidden="true" />
-                          <span>Terminate</span>
                         </button>
                       </>
                     )}
@@ -1860,14 +1863,23 @@ export default function HrManageEmp() {
       {modal ? (
         <div className="hrEmpModalBackdrop" role="dialog" aria-modal="true">
           <div className={`hrEmpModal ${modal === 'delete' ? 'is-delete' : ''}`}>
-            <h2>{modal === 'add' ? 'ADD EMPLOYEE' : modal === 'edit' ? 'EDIT EMPLOYEE' : 'TERMINATE EMPLOYEE'}</h2>
-            <p className="hrEmpModal__subtitle">
-              {modal === 'add'
-                ? 'Create the employee record and its login account together so HR does not need to manage them separately.'
-                : modal === 'edit'
-                  ? 'Review the employee profile, employment details, and account access before saving the update.'
-                  : 'Confirm the selected employee and document the reason before updating the employment status.'}
-            </p>
+            <div className="hrEmpModal__header">
+              <div>
+                <h2>{modal === 'add' ? 'ADD EMPLOYEE' : modal === 'edit' ? 'EDIT EMPLOYEE' : 'TERMINATE EMPLOYEE'}</h2>
+                <p className="hrEmpModal__subtitle">
+                  {modal === 'add'
+                    ? 'Create the employee record and its login account together so HR does not need to manage them separately.'
+                    : modal === 'edit'
+                      ? 'Review the employee profile, employment details, and account access before saving the update.'
+                      : 'Confirm the selected employee and document the reason before updating the employment status.'}
+                </p>
+              </div>
+              <ModalCloseButton
+                onClick={requestCloseModal}
+                disabled={isSaving}
+                aria-label="Close modal"
+              />
+            </div>
             <div className="hrEmpModal__rule" />
 
             <div className="hrEmpForm">

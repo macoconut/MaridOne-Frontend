@@ -111,6 +111,21 @@ body[data-reduce-motion='true'] *::after {
 }
 
 button,
+a {
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+button:hover:not(:disabled),
+a:hover {
+  transform: scale(1.02);
+}
+
+button:active:not(:disabled),
+a:active {
+  transform: scale(0.98);
+}
+
+button,
 input,
 textarea,
 select {

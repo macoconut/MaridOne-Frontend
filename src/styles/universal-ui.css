@@ -95,6 +95,20 @@ body {
   font-size: 14px !important;
   font-weight: 800 !important;
   letter-spacing: 0.01em !important;
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease !important;
+}
+
+:where(
+  .actionBtnX,
+  .handbookBtn,
+  .miniFolder__btn,
+  .infoCardX__edit,
+  .cardX__manageBtn,
+  .dashSecurityBtn,
+  .verifyEmailBtn,
+  .mRunFilters__refresh
+):hover:not(:disabled) {
+  transform: scale(1.02) !important;
 }
 
 :where(
@@ -125,6 +139,21 @@ body {
   border-radius: var(--ui-radius-md) !important;
   background: var(--ui-surface) !important;
   box-shadow: var(--ui-shadow-soft) !important;
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease !important;
+}
+
+:where(
+  .apprSearch,
+  .hrApprSearch,
+  .hrAttSearch,
+  .hrEmpSearch,
+  .hrPaySearch,
+  .hrAuditSearch,
+  .aReviewRunSearch,
+  .hrRunSearch,
+  .mRunFilters__search
+):focus-within {
+  transform: scale(1.01) !important;
 }
 
 :where(
@@ -172,6 +201,20 @@ body {
   box-shadow: var(--ui-shadow-soft) !important;
   font-size: 14px !important;
   font-weight: 700 !important;
+  transition: transform 0.2s ease-out, background 0.2s ease !important;
+}
+
+:where(
+  .apprFilter__toggle,
+  .hrApprFilter__toggle,
+  .hrAttFilter__toggle,
+  .hrEmpFilter__toggle,
+  .hrPayFilter__toggle,
+  .hrRunFilter__toggle,
+  .hrAuditFilter__toggle,
+  .uiEmployeeSort__toggle
+):hover {
+  transform: scale(1.02) !important;
 }
 
 :where(
