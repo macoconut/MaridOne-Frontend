@@ -216,6 +216,7 @@
   .payModal__top,
   .apprModal__top,
   .hrAttModal__top,
+  .hrPayModal__top,
   .settingsModal__top,
   .hrRunModal__top,
   .aReviewRunModal__top
@@ -226,7 +227,13 @@
   gap: 18px !important;
 }
 
-:where(.modal__meta, .settingsModal__copy, .hrRunModal__heading, .aReviewRunModal__heading) {
+:where(
+  .modal__meta,
+  .settingsModal__copy,
+  .hrRunModal__heading,
+  .aReviewRunModal__heading,
+  .hrPayModal__heading
+) {
   display: flex;
   flex-direction: column;
   gap: 6px;
