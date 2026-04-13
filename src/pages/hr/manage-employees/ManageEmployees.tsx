@@ -1827,9 +1827,8 @@ export default function HrManageEmp() {
               );
             })
           ) : (
-            <div className="hrEmpTable__empty">
-              <strong>No employee records to show.</strong>
-              <span>{emptyStateMessage}</span>
+            <div className="uEmptyState">
+              No employee records to show. {emptyStateMessage}
             </div>
           )}
         </div>

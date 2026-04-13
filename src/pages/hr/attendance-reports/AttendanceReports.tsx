@@ -1822,11 +1822,8 @@ export function AttendanceReportsBoard({
           </div>
 
           {noEmployeeMatches ? (
-            <div className="hrAttCalendarShell__empty">
-              <div className="hrAttCalendarShell__emptyTitle">No employees matched this view.</div>
-              <p className="hrAttCalendarShell__emptyText">
-                Try clearing the employee search or switching the department filter back to all departments.
-              </p>
+            <div className="uEmptyState">
+              No employees matched this view. Try clearing the employee search or switching the department filter back to all departments.
             </div>
           ) : (
             <div className="hrCal" style={calendarGridStyle}>

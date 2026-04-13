@@ -568,9 +568,8 @@ export default function ManagerPendingApprovals() {
             </div>
           </>
         ) : (
-          <div className="mgrPendTable__empty">
-            <span>No matching requests.</span>
-            <span>Try clearing the search or adjusting the filters.</span>
+          <div className="uEmptyState">
+            No matching requests found. Try clearing the search or adjusting the filters.
           </div>
         )}
       </section>

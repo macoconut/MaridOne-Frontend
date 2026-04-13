@@ -1965,19 +1965,12 @@ export default function HrPayslips() {
                 </div>
               </>
             ) : (
-              <div className="mgrPendTable__empty">
-                <span>
-                  {runItems.length > 0
-                    ? 'No payroll items matched the selected role or department filters.'
-                    : 'No payroll items yet for this in-progress run.'}
-                </span>
-                <span>
-                  {runItems.length > 0
-                    ? 'Try clearing the filters to show more employees.'
-                    : canAddManualAdjustmentLine
-                      ? 'Add a manual adjustment line to create the first payroll item for this run.'
-                      : 'Process the payroll period or add adjustment items first.'}
-                </span>
+              <div className="uEmptyState">
+                {runItems.length > 0
+                  ? 'No payroll items matched the selected role or department filters. Try clearing the filters to show more employees.'
+                  : canAddManualAdjustmentLine
+                    ? 'No payroll items yet for this in-progress run. Add a manual adjustment line to create the first payroll item.'
+                    : 'No payroll items yet for this in-progress run. Process the payroll period or add adjustment items first.'}
               </div>
             )}
           </div>
@@ -2086,9 +2079,10 @@ export default function HrPayslips() {
               </div>
             </>
           ) : (
-            <div className="mgrPendTable__empty">
-              <span>{disputes.length > 0 ? 'No matching disputes.' : 'No disputes yet.'}</span>
-              <span>{disputes.length > 0 ? 'Try clearing the search or adjusting the filters.' : 'New employee disputes will show up here.'}</span>
+            <div className="uEmptyState">
+              {disputes.length > 0
+                ? 'No matching disputes found for your search or filters.'
+                : 'No payroll disputes have been submitted yet. New employee disputes will show up here.'}
             </div>
           )}
         </div>

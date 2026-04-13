@@ -708,13 +708,10 @@ export default function HrApprovals() {
             </div>
           </>
         ) : (
-          <div className="hrApprEmptyState">
-            <strong>{requests.length > 0 ? 'No requests matched this view.' : 'No employee requests yet.'}</strong>
-            <p>
-              {requests.length > 0
-                ? 'Try clearing the search or relaxing the filters to bring the full request list back.'
-                : 'Approved, pending, and denied leave or overtime requests will appear here once employees start filing them.'}
-            </p>
+          <div className="uEmptyState">
+            {requests.length > 0
+              ? 'No requests matched this view. Try clearing the search or relaxing the filters to bring the full request list back.'
+              : 'No employee requests yet. Approved, pending, and denied leave or overtime requests will appear here once employees start filing them.'}
           </div>
         )}
       </section>

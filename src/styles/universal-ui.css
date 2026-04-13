@@ -689,6 +689,22 @@ body {
   text-transform: uppercase !important;
 }
 
+:where(.uEmptyState) {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  padding: 64px 24px !important;
+  width: 100% !important;
+  color: var(--ui-muted-color) !important;
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  line-height: 1.6 !important;
+  letter-spacing: 0.01em !important;
+  background: transparent !important;
+}
+
 :where(.brand__logo) {
   width: 52px !important;
   height: 52px !important;

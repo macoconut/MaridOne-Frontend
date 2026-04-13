@@ -1068,7 +1068,7 @@ export default function HrPayRunReporting() {
                 </button>
               ))
             ) : (
-              <article className="hrRunEmpty">{isLoading ? 'Loading pay run details...' : employeeEmptyMessage}</article>
+              <article className="uEmptyState">{isLoading ? 'Loading pay run details...' : employeeEmptyMessage}</article>
             )}
           </div>
         </section>
@@ -1097,7 +1097,7 @@ export default function HrPayRunReporting() {
                       </article>
                     ))
                   ) : (
-                    <article className="hrRunEmpty hrRunEmpty--group">No earnings matched this payroll run.</article>
+                    <article className="uEmptyState">No earnings matched this payroll run.</article>
                   )}
                 </div>
               </section>
@@ -1123,7 +1123,7 @@ export default function HrPayRunReporting() {
                       </article>
                     ))
                   ) : (
-                    <article className="hrRunEmpty hrRunEmpty--group">No deductions matched this payroll run.</article>
+                    <article className="uEmptyState">No deductions matched this payroll run.</article>
                   )}
                 </div>
               </section>
@@ -1131,7 +1131,7 @@ export default function HrPayRunReporting() {
           ) : (
             <section className="hrRunTable hrRunTable--summaryView" aria-label="Pay type summary table">
               <div className="hrRunTable__body hrRunTable__body--summary">
-                <article className="hrRunEmpty">
+                <article className="uEmptyState">
                   {isLoading ? 'Loading pay type totals...' : getEmptyRunMessage(selectedRun, 'payType', 0)}
                 </article>
               </div>

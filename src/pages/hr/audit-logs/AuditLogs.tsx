@@ -969,17 +969,8 @@ export default function HrAuditLogs() {
               </div>
             ))
           ) : (
-            <div className="hrAuditRow">
-              <span className="hrAuditRow__actor">
-                <span className="hrAuditRow__actorName">No matching logs.</span>
-              </span>
-              <span className="hrAuditRow__message">
-                <span className="hrAuditRow__title">There are no create, update, or delete entries in this view.</span>
-                <span className="hrAuditRow__detail">Try clearing the search or adjusting the filters.</span>
-              </span>
-              <span className="hrAuditRow__meta">
-                <span className="hrAuditRow__time">-</span>
-              </span>
+            <div className="uEmptyState">
+              No audit logs matched your current search or filters. Try adjusting them to see more activity.
             </div>
           )}
         </div>
