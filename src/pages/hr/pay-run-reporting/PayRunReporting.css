@@ -28,180 +28,120 @@
 
 .hrRunFilters {
   display: grid;
-  grid-template-columns: 1.4fr minmax(240px, 320px) minmax(320px, 420px);
-  gap: 8px 12px;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px 24px;
   align-items: end;
 }
 
 .hrRunFilters__field {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-}
-
-.hrRunFilters__field label {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--hr-muted);
-}
-
-.hrRunFilters__field--sort .uiEmployeeSort,
-.hrRunFilters__field--sort .uiEmployeeSort__toggle {
-  width: 100%;
-}
-
-.hrRunSearch {
-  min-height: 48px;
-  border: 1px solid rgba(59, 34, 87, 0.16);
-  border-radius: 10px;
-  background: #fff;
-  padding: 0 10px;
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 8px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
-}
-
-.hrRunSearch svg {
-  color: #5c5470;
-  font-size: 15px;
-}
-
-.hrRunSearch input {
-  border: 0;
-  background: transparent;
-  font-size: 15px;
-  color: #2b2036;
-  width: 100%;
-}
-
-.hrRunSearch input:focus {
-  outline: none;
-}
-
-.hrRunSearch button {
-  border: 0;
-  background: transparent;
-  width: 22px;
-  height: 22px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  color: #676278;
-  cursor: pointer;
+  gap: 4px;
 }
 
 .hrRunFilters__searchGroup {
   display: flex;
-  align-items: stretch;
   gap: 0;
 }
 
-.hrRunFilter {
+.hrRunFilters__dateGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hrRunDateInput {
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  width: 210px;
+  padding: 0 14px;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: var(--ui-radius-md);
+  background: #fff;
+  box-shadow: var(--ui-shadow-soft);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hrRunDateInput:hover {
+  border-color: rgba(59, 34, 87, 0.24);
+}
+
+.hrRunDateInput:focus-within {
+  border-color: rgba(123, 74, 143, 0.4);
+  box-shadow: 0 4px 14px rgba(123, 74, 143, 0.12);
+}
+
+.hrRunDateInput svg {
+  color: var(--app-label-color);
+  font-size: 15px;
   flex: 0 0 auto;
+  pointer-events: none;
+}
+
+.hrRunDateInput__value {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ui-title-color);
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hrRunDateInput input[type="date"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 5;
+}
+
+.hrRunDateInput input[type="date"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.hrRunFilters__dateSeparator {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--hr-muted);
+}
+
+.hrRunFilters__field label {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--hr-muted);
+  margin-left: 2px;
 }
 
 .hrRunFilters__actions {
   display: flex;
   align-items: stretch;
-  gap: 10px;
+  gap: 12px;
 }
 
 .hrRunFilters__actions .uiEmployeeSort {
-  flex: 1 1 auto;
+  width: 240px;
 }
 
 .hrRunFilters__actions .uiEmployeeSort__toggle {
   width: 100%;
 }
 
-.hrRunFilter__toggle {
-  min-height: 48px;
-  border: 1px solid rgba(59, 34, 87, 0.16);
-  border-radius: 10px;
-  background: #fff;
-  padding: 0 12px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: #3b2257;
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-}
-
-.hrRunFilter__toggle.is-active {
-  border-color: rgba(123, 74, 143, 0.4);
-}
-
-.hrRunFilter__toggle.is-open {
-  background: #f5effb;
-}
-
-.hrRunFilter__count {
-  min-width: 20px;
-  height: 20px;
-  border-radius: 999px;
-  background: rgba(123, 74, 143, 0.14);
-  color: #6a3f81;
-  display: inline-flex;
-  align-items: center;
+.hrRunFilters__actions .uFilter__toggle {
+  min-width: 110px;
   justify-content: center;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.hrRunFilter__panel {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  z-index: 20;
-  min-width: 250px;
-  border: 1px solid rgba(59, 34, 87, 0.14);
-  border-radius: 14px;
-  background: #fff;
-  box-shadow: 0 16px 34px rgba(34, 26, 52, 0.16);
-  padding: 12px;
-  display: grid;
-  gap: 10px;
-}
-
-.hrRunFilter__field {
-  display: grid;
-  gap: 4px;
-}
-
-.hrRunFilter__field span {
-  font-size: 13px;
-  font-weight: 800;
-  color: #5a4d6e;
-}
-
-.hrRunFilter__field select {
-  height: 36px;
-  border: 1px solid rgba(59, 34, 87, 0.14);
-  border-radius: 8px;
-  background: #f8f4fc;
-  padding: 0 10px;
-  color: #3f3a4c;
-  font-size: 14px;
-}
-
-.hrRunFilter__actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.hrRunFilter__actions button {
-  border: 0;
-  background: transparent;
-  color: #7e2952;
-  font-size: 13px;
-  font-weight: 800;
-  cursor: pointer;
 }
 
 .hrRunMenu {

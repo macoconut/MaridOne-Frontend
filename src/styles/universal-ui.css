@@ -132,14 +132,22 @@ body {
   .hrAuditSearch,
   .aReviewRunSearch,
   .hrRunSearch,
-  .mRunFilters__search
+  .mRunFilters__search,
+  .uSearch
 ) {
+  flex: 1 1 420px !important;
+  min-width: min(320px, 100%) !important;
   min-height: 48px !important;
   border: 1px solid var(--ui-border-strong) !important;
   border-radius: var(--ui-radius-md) !important;
   background: var(--ui-surface) !important;
   box-shadow: var(--ui-shadow-soft) !important;
-  transition: transform 0.2s ease-out, box-shadow 0.2s ease !important;
+  display: grid !important;
+  grid-template-columns: auto minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 10px !important;
+  padding: 0 12px !important;
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease, border-color 0.2s ease !important;
 }
 
 :where(
@@ -151,9 +159,11 @@ body {
   .hrAuditSearch,
   .aReviewRunSearch,
   .hrRunSearch,
-  .mRunFilters__search
+  .mRunFilters__search,
+  .uSearch
 ):focus-within {
   transform: scale(1.01) !important;
+  border-color: rgba(123, 74, 143, 0.4) !important;
 }
 
 :where(
@@ -165,9 +175,31 @@ body {
   .hrAuditSearch input,
   .aReviewRunSearch input,
   .hrRunSearch input,
-  .mRunFilters__search input
+  .mRunFilters__search input,
+  .uSearch input
 ) {
-  font-size: 14px !important;
+  border: 0 !important;
+  background: transparent !important;
+  width: 100% !important;
+  font-size: 15px !important;
+  color: var(--ui-title-color) !important;
+  outline: none !important;
+}
+
+:where(
+  .apprSearch input,
+  .hrApprSearch input,
+  .hrAttSearch input,
+  .hrEmpSearch input,
+  .hrPaySearch input,
+  .hrAuditSearch input,
+  .aReviewRunSearch input,
+  .hrRunSearch input,
+  .mRunFilters__search input,
+  .uSearch input
+)::placeholder {
+  font-weight: 500 !important;
+  opacity: 0.64 !important;
 }
 
 :where(
@@ -179,9 +211,34 @@ body {
   .hrAuditSearch svg,
   .aReviewRunSearch svg,
   .hrRunSearch svg,
-  .mRunFilters__search svg
+  .mRunFilters__search svg,
+  .uSearch svg
 ) {
   color: var(--app-label-color) !important;
+  font-size: 16px !important;
+}
+
+:where(
+  .apprSearch button,
+  .hrApprSearch button,
+  .hrAttSearch button,
+  .hrEmpSearch button,
+  .hrPaySearch button,
+  .hrAuditSearch button,
+  .aReviewRunSearch button,
+  .hrRunSearch button,
+  .mRunFilters__search button,
+  .uSearch button
+) {
+  border: 0 !important;
+  background: transparent !important;
+  width: 24px !important;
+  height: 24px !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 0 !important;
+  color: var(--ui-muted-color) !important;
+  cursor: pointer !important;
 }
 
 :where(
@@ -192,16 +249,23 @@ body {
   .hrPayFilter__toggle,
   .hrRunFilter__toggle,
   .hrAuditFilter__toggle,
-  .uiEmployeeSort__toggle
+  .uiEmployeeSort__toggle,
+  .uFilter__toggle
 ) {
   min-height: 48px !important;
   border: 1px solid var(--ui-border-strong) !important;
   border-radius: var(--ui-radius-md) !important;
   background: var(--ui-surface) !important;
   box-shadow: var(--ui-shadow-soft) !important;
-  font-size: 14px !important;
-  font-weight: 700 !important;
-  transition: transform 0.2s ease-out, background 0.2s ease !important;
+  padding: 0 14px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  color: var(--ui-title-color) !important;
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  cursor: pointer !important;
+  transition: transform 0.2s ease-out, background 0.2s ease, border-color 0.2s ease !important;
 }
 
 :where(
@@ -212,9 +276,39 @@ body {
   .hrPayFilter__toggle,
   .hrRunFilter__toggle,
   .hrAuditFilter__toggle,
-  .uiEmployeeSort__toggle
-):hover {
+  .uiEmployeeSort__toggle,
+  .uFilter__toggle
+):hover:not(:disabled) {
   transform: scale(1.02) !important;
+  background: var(--app-surface-alt, #fdfafd) !important;
+}
+
+:where(
+  .apprFilter__toggle.is-active,
+  .hrApprFilter__toggle.is-active,
+  .hrAttFilter__toggle.is-active,
+  .hrEmpFilter__toggle.is-active,
+  .hrPayFilter__toggle.is-active,
+  .hrRunFilter__toggle.is-active,
+  .hrAuditFilter__toggle.is-active,
+  .uFilter__toggle.is-active
+) {
+  border-color: rgba(123, 74, 143, 0.4) !important;
+}
+
+:where(
+  .apprFilter__toggle.is-open,
+  .hrApprFilter__toggle.is-open,
+  .hrAttFilter__toggle.is-open,
+  .hrEmpFilter__toggle.is-open,
+  .hrPayFilter__toggle.is-open,
+  .hrRunFilter__toggle.is-open,
+  .hrAuditFilter__toggle.is-open,
+  .uiEmployeeSort__toggle.is-open,
+  .uFilter__toggle.is-open
+) {
+  background: var(--app-accent-soft) !important;
+  border-color: rgba(123, 74, 143, 0.3) !important;
 }
 
 :where(
@@ -225,12 +319,35 @@ body {
   .hrPayFilter__panel,
   .hrRunFilter__panel,
   .hrAuditFilter__panel,
-  .uiEmployeeSort__panel
+  .uiEmployeeSort__panel,
+  .uFilter__panel
 ) {
+  position: absolute !important;
+  top: calc(100% + 8px) !important;
+  right: 0 !important;
+  z-index: 100 !important;
+  min-width: 260px !important;
   border: 1px solid var(--ui-border) !important;
   border-radius: var(--ui-radius-lg) !important;
   background: var(--ui-surface) !important;
   box-shadow: var(--ui-shadow-medium) !important;
+  padding: 14px !important;
+  display: grid !important;
+  gap: 12px !important;
+}
+
+:where(
+  .apprFilter__field,
+  .hrApprFilter__field,
+  .hrAttFilter__field,
+  .hrEmpFilter__field,
+  .hrPayFilter__field,
+  .hrRunFilter__field,
+  .hrAuditFilter__field,
+  .uFilter__field
+) {
+  display: grid !important;
+  gap: 6px !important;
 }
 
 :where(
@@ -243,13 +360,86 @@ body {
   .hrAuditFilter__field span,
   .aReviewRunFilters__field label,
   .hrRunFilters__field label,
-  .mRunFilters__field label
+  .mRunFilters__field label,
+  .uFilter__field span
 ) {
   color: var(--app-label-color) !important;
   font-size: 12px !important;
   font-weight: 800 !important;
   letter-spacing: 0.08em !important;
   text-transform: uppercase !important;
+}
+
+:where(
+  .apprFilter__field select,
+  .hrApprFilter__field select,
+  .hrAttFilter__field select,
+  .hrEmpFilter__field select,
+  .hrPayFilter__field select,
+  .hrRunFilter__field select,
+  .hrAuditFilter__field select,
+  .mRun__top select,
+  .mRunFilters__field select,
+  .aReviewPay__field select,
+  .pay__select,
+  .hrDash__dateFilter,
+  .uFilter__field select
+) {
+  min-height: 44px !important;
+  border: 1px solid var(--ui-border-strong) !important;
+  border-radius: var(--ui-radius-sm) !important;
+  background: var(--app-surface-elevated) !important;
+  color: var(--ui-title-color) !important;
+  font-size: 14px !important;
+  box-shadow: none !important;
+  padding: 0 10px !important;
+  outline: none !important;
+}
+
+:where(
+  .apprFilter__actions,
+  .hrApprFilter__actions,
+  .hrAttFilter__actions,
+  .hrEmpFilter__actions,
+  .hrPayFilter__actions,
+  .hrAuditFilter__actions,
+  .uFilter__actions
+) {
+  display: flex !important;
+  justify-content: flex-end !important;
+  margin-top: 4px !important;
+}
+
+:where(
+  .apprFilter__actions button,
+  .hrApprFilter__actions button,
+  .hrAttFilter__actions button,
+  .hrEmpFilter__actions button,
+  .hrPayFilter__actions button,
+  .hrAuditFilter__actions button,
+  .uFilter__actions button
+) {
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--app-ghost-text) !important;
+  min-height: 40px !important;
+  border-radius: 999px !important;
+  padding: 4px 12px !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  cursor: pointer !important;
+}
+
+:where(
+  .apprFilter__actions button:hover,
+  .hrApprFilter__actions button:hover,
+  .hrAttFilter__actions button:hover,
+  .hrEmpFilter__actions button:hover,
+  .hrPayFilter__actions button:hover,
+  .hrAuditFilter__actions button:hover,
+  .uFilter__actions button:hover
+) {
+  background: var(--app-soft-fill) !important;
 }
 
 :where(
@@ -298,13 +488,13 @@ body {
     0 16px 30px rgba(32, 21, 49, 0.12) !important;
 }
 
-:where(.uiEmployeeSort) {
+:where(.uiEmployeeSort, .uFilter) {
   position: relative !important;
   display: flex !important;
   align-items: stretch !important;
 }
 
-:where(.uiEmployeeSort__toggle) {
+:where(.uiEmployeeSort__toggle, .uFilter__toggle) {
   padding: 0 12px !important;
   display: inline-flex !important;
   align-items: center !important;
@@ -313,17 +503,17 @@ body {
   cursor: pointer !important;
 }
 
-:where(.uiEmployeeSort__toggle.is-open) {
+:where(.uiEmployeeSort__toggle.is-open, .uFilter__toggle.is-open) {
   background: var(--app-accent-soft) !important;
 }
 
-:where(.uiEmployeeSort__toggle svg) {
+:where(.uiEmployeeSort__toggle svg, .uFilter__toggle svg) {
   color: var(--app-label-color) !important;
   font-size: 15px !important;
   flex: 0 0 auto !important;
 }
 
-:where(.uiEmployeeSort__value) {
+:where(.uiEmployeeSort__value, .uFilter__value) {
   min-width: 44px !important;
   padding: 4px 10px !important;
   border-radius: 999px !important;
@@ -336,15 +526,19 @@ body {
   text-transform: uppercase !important;
 }
 
-:where(.uiEmployeeSort__panel) {
+:where(.uiEmployeeSort__panel, .uFilter__panel) {
   position: absolute !important;
   top: calc(100% + 8px) !important;
   right: 0 !important;
-  z-index: 24 !important;
-  min-width: 250px !important;
-  padding: 12px !important;
+  z-index: 100 !important;
+  min-width: 260px !important;
+  border: 1px solid var(--ui-border) !important;
+  border-radius: var(--ui-radius-lg) !important;
+  background: var(--ui-surface) !important;
+  box-shadow: var(--ui-shadow-medium) !important;
+  padding: 14px !important;
   display: grid !important;
-  gap: 8px !important;
+  gap: 12px !important;
 }
 
 :where(.uiEmployeeSort__option) {
@@ -379,29 +573,6 @@ body {
   color: var(--ui-copy-color) !important;
   font-size: 13px !important;
   line-height: 1.45 !important;
-}
-
-:where(
-  .apprFilter__field select,
-  .hrApprFilter__field select,
-  .hrAttFilter__field select,
-  .hrEmpFilter__field select,
-  .hrPayFilter__field select,
-  .hrRunFilter__field select,
-  .hrAuditFilter__field select,
-  .mRun__top select,
-  .mRunFilters__field select,
-  .aReviewPay__field select,
-  .pay__select,
-  .hrDash__dateFilter
-) {
-  min-height: 44px !important;
-  border: 1px solid var(--ui-border-strong) !important;
-  border-radius: var(--ui-radius-sm) !important;
-  background: var(--app-surface-elevated) !important;
-  color: var(--ui-title-color) !important;
-  font-size: 14px !important;
-  box-shadow: none !important;
 }
 
 :where(
@@ -449,17 +620,34 @@ body {
 }
 
 :where(
-  .apprFilter__actions button,
-  .hrApprFilter__actions button,
-  .hrAttFilter__actions button,
-  .hrEmpFilter__actions button,
-  .hrPayFilter__actions button,
-  .hrAuditFilter__actions button
+  .hrEmpRow,
+  .hrRunEmployee,
+  .hrApprRow,
+  .hrAuditRow,
+  .hrAttRow,
+  .hrPayRunRow,
+  .hrPayRow,
+  .mgrPendRow,
+  .payTableRow,
+  .apprTableRow
 ) {
-  min-height: 40px !important;
-  border-radius: 999px !important;
-  font-size: 13px !important;
-  font-weight: 800 !important;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s ease !important;
+}
+
+:where(
+  .hrEmpRow,
+  .hrRunEmployee,
+  .hrApprRow,
+  .hrAuditRow,
+  .hrAttRow,
+  .hrPayRunRow,
+  .hrPayRow,
+  .mgrPendRow,
+  .payTableRow,
+  .apprTableRow
+):hover:not(:disabled) {
+  transform: translateX(4px) scale(1.002) !important;
+  z-index: 1 !important;
 }
 
 :where(

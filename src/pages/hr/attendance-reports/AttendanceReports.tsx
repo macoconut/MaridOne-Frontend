@@ -1665,7 +1665,7 @@ export function AttendanceReportsBoard({
       </div>
 
       <div className="hrAtt__toolbar">
-        <label className="hrAttSearch" aria-label="Search employees">
+        <label className="uSearch" aria-label="Search employees">
           <FiSearch />
           <input
             value={searchValue}
@@ -1680,10 +1680,10 @@ export function AttendanceReportsBoard({
         </label>
 
         <div className="hrAtt__toolbarActions">
-          <div className="hrAttFilter" ref={filterRef}>
+          <div className="uFilter" ref={filterRef}>
             <button
               type="button"
-              className={`hrAttFilter__toggle ${filterOpen ? 'is-open' : ''} ${
+              className={`uFilter__toggle ${filterOpen ? 'is-open' : ''} ${
                 activeFilterCount > 0 ? 'is-active' : ''
               }`}
               onClick={() => {
@@ -1693,12 +1693,11 @@ export function AttendanceReportsBoard({
             >
               <FiFilter />
               <span>Filter</span>
-              {activeFilterCount > 0 && <span className="hrAttFilter__count">{activeFilterCount}</span>}
             </button>
 
             {filterOpen && (
-              <div className="hrAttFilter__panel">
-                <label className="hrAttFilter__field">
+              <div className="uFilter__panel">
+                <label className="uFilter__field">
                   <span>Department</span>
                   <select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}>
                     <option value="all">All Departments</option>
@@ -1710,7 +1709,7 @@ export function AttendanceReportsBoard({
                   </select>
                 </label>
 
-                <div className="hrAttFilter__actions">
+                <div className="uFilter__actions">
                   <button type="button" onClick={clearFilters}>
                     Clear Filters
                   </button>

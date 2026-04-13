@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FiDownload, FiFilter, FiMoreVertical, FiSearch, FiXCircle } from 'react-icons/fi';
+import { FiCalendar, FiDownload, FiFilter, FiMoreVertical, FiSearch, FiXCircle } from 'react-icons/fi';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import EmployeeSortMenu from '../../../components/layout/EmployeeSortMenu';
+import SortMenu, { type SortOption } from '../../../components/layout/SortMenu';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
@@ -18,6 +19,7 @@ type PayrollRunRow = {
   payId?: number;
   periodStart?: string;
   periodEnd?: string;
+  paymentDate?: string;
   periodDescription?: string;
   payrollStatus?: string;
   runType?: string;
@@ -104,6 +106,50 @@ const DEFAULT_DEDUCTION_BREAKDOWN_LABELS = [
 ];
 const EMPTY_POSTED_RUN_LABEL = 'No posted payroll runs are available yet.';
 
+type PayTypeSortKey = 'name' | 'amount';
+
+const PAY_TYPE_SORT_OPTIONS: Array<SortOption<PayTypeSortKey>> = [
+  {
+    value: 'name',
+    label: 'Alphabetical',
+    hint: 'Show categories in alphabetical order.',
+  },
+  {
+    value: 'amount',
+    label: 'Amount',
+    hint: 'Show categories with highest totals first.',
+  },
+];
+
+function getCurrentMonthRange() {
+  const now = new Date();
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+  const format = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  return {
+    from: format(firstDay),
+    to: format(lastDay),
+  };
+}
+
+function formatDateHuman(isoDate: string) {
+  if (!isoDate) return 'Select Date';
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) return isoDate;
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
 function formatCurrency(value: unknown) {
   const options: Intl.NumberFormatOptions = {
     minimumFractionDigits: 2,
@@ -177,6 +223,9 @@ function buildEmployeeDirectory(response: unknown) {
 }
 
 function formatRunLabel(run: PayrollRunRow) {
+  if (run.paymentDate) {
+    return `${formatDate(run.paymentDate)} (${formatDate(run.periodStart)} - ${formatDate(run.periodEnd)})`;
+  }
   if (run.periodStart || run.periodEnd) {
     return `${formatDate(run.periodStart)} to ${formatDate(run.periodEnd)}`;
   }
@@ -206,6 +255,9 @@ function toOptionalText(value: unknown) {
 }
 
 function compareRunsDescending(a: PayrollRunRow, b: PayrollRunRow) {
+  const payDateDiff = toSortStamp(b.paymentDate) - toSortStamp(a.paymentDate);
+  if (payDateDiff !== 0) return payDateDiff;
+
   const endDiff = toSortStamp(b.periodEnd) - toSortStamp(a.periodEnd);
   if (endDiff !== 0) return endDiff;
 
@@ -357,6 +409,10 @@ function getEmptyRunMessage(run: PayrollRunRow | null, view: ReportView, availab
     return availableRunCount > 0 ? 'No pay type totals matched this payroll run.' : EMPTY_POSTED_RUN_LABEL;
   }
 
+  if (run.payId === -1) {
+    return 'No posted payroll data was found within the selected date range. Try adjusting your filters or check if payroll runs have been posted for this period.';
+  }
+
   if ((run.itemCount ?? 0) > 0) {
     return view === 'employee'
       ? 'No employee totals matched this payroll run.'
@@ -378,21 +434,24 @@ export default function HrPayRunReporting() {
   const [view, setView] = useState<ReportView>('employee');
   const [filterValue, setFilterValue] = useState('');
   const [employeeSort, setEmployeeSort] = useState<EmployeeSortKey>('id');
-  const [runs, setRuns] = useState<PayrollRunRow[]>([]);
-  const [selectedPayId, setSelectedPayId] = useState<number | null>(null);
+  const [payTypeSort, setPayTypeSort] = useState<'name' | 'amount'>('name');
+  const initialDateRange = useMemo(() => getCurrentMonthRange(), []);
+  const [fromDate, setFromDate] = useState(initialDateRange.from);
+  const [toDate, setToDate] = useState(initialDateRange.to);
   const [employeeRows, setEmployeeRows] = useState<PayrollItemRow[]>([]);
   const [employeeDirectory, setEmployeeDirectory] = useState<EmployeeDirectoryEntry[]>([]);
   const [payTypeRows, setPayTypeRows] = useState<PayTypeSummaryRow[]>([]);
-  const [employeeFilterOpen, setEmployeeFilterOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [dateRangeOpen, setDateRangeOpen] = useState(false);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
-  const [employeeRoleFilter, setEmployeeRoleFilter] = useState('all');
-  const [employeeDepartmentFilter, setEmployeeDepartmentFilter] = useState('all');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [departmentFilter, setDepartmentFilter] = useState('all');
   const [selectedBreakdownItem, setSelectedBreakdownItem] = useState<PayrollItemRow | null>(null);
   const [selectedBreakdownEarnings, setSelectedBreakdownEarnings] = useState<PayrollBreakdownLine[]>([]);
   const [selectedBreakdownDeductions, setSelectedBreakdownDeductions] = useState<PayrollBreakdownLine[]>([]);
   const [isLoadingBreakdown, setIsLoadingBreakdown] = useState(false);
   const [breakdownError, setBreakdownError] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [actionError, setActionError] = useState('');
@@ -407,10 +466,6 @@ export default function HrPayRunReporting() {
   }, []);
 
   const filterLabel = useMemo(() => (view === 'employee' ? 'Employee:' : 'Category:'), [view]);
-  const selectableRuns = useMemo(
-    () => (view === 'employee' ? runs.filter((run) => run.payrollStatus === 'POSTED') : runs),
-    [runs, view]
-  );
 
   useAutoRefreshingPage(handlePageRefresh, { intervalMs: 15000 });
 
@@ -457,67 +512,16 @@ export default function HrPayRunReporting() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function loadRuns() {
-      const isSilentRefresh = silentRefreshRef.current;
-      if (!isSilentRefresh) {
-        setIsLoading(true);
-        setLoadError('');
-      }
-
-      try {
-        const runResponse = await apiFetchJson<unknown>('/api/payroll/run');
-        if (cancelled) return;
-
-        const nextRuns = [...toArray<PayrollRunRow>(runResponse)].sort(compareRunsDescending);
-        setRuns(nextRuns);
-        setLoadError('');
-      } catch (error) {
-        if (cancelled) return;
-        if (!isSilentRefresh) {
-          setRuns([]);
-          setSelectedPayId(null);
-          setEmployeeRows([]);
-          setPayTypeRows([]);
-          setLoadError(getFriendlyErrorMessage(error, 'payroll-run'));
-          setIsLoading(false);
-        } else {
-          silentRefreshRef.current = false;
-        }
-      }
-    }
-
-    void loadRuns();
-    return () => {
-      cancelled = true;
-    };
-  }, [refreshTick]);
-
-  useEffect(() => {
-    const selectedExists = selectableRuns.some((run) => run.payId === selectedPayId);
-    const defaultRun = selectableRuns.find((run) => (run.itemCount ?? 0) > 0) ?? selectableRuns[0] ?? null;
-    const nextPayId =
-      selectedExists && selectedPayId != null ? selectedPayId : typeof defaultRun?.payId === 'number' ? defaultRun.payId : null;
-
-    if (nextPayId !== selectedPayId) {
-      setSelectedPayId(nextPayId);
-    }
-  }, [selectableRuns, selectedPayId]);
-
-  useEffect(() => {
-    if (selectedPayId == null || !selectableRuns.some((run) => run.payId === selectedPayId)) {
+    if (!fromDate || !toDate) {
       setEmployeeRows([]);
       setPayTypeRows([]);
-      setLoadError('');
       setIsLoading(false);
-      silentRefreshRef.current = false;
       return;
     }
 
     let cancelled = false;
 
-    async function loadRunDetails() {
+    async function loadReportDetails() {
       const isSilentRefresh = silentRefreshRef.current;
       if (!isSilentRefresh) {
         setIsLoading(true);
@@ -526,8 +530,8 @@ export default function HrPayRunReporting() {
 
       try {
         const [itemsResponse, summaryResponse] = await Promise.all([
-          apiFetchJson<unknown>(`/api/payroll/run/${selectedPayId}/items?page=0&size=200`),
-          apiFetchJson<unknown>(`/api/payroll/run/summary/${selectedPayId}`),
+          apiFetchJson<unknown>(`/api/payroll/report/items?from=${fromDate}&to=${toDate}&page=0&size=500`),
+          apiFetchJson<unknown>(`/api/payroll/report/summary?from=${fromDate}&to=${toDate}`),
         ]);
 
         if (cancelled) return;
@@ -550,17 +554,25 @@ export default function HrPayRunReporting() {
       }
     }
 
-    void loadRunDetails();
+    void loadReportDetails();
 
     return () => {
       cancelled = true;
     };
-  }, [selectableRuns, selectedPayId]);
+  }, [fromDate, toDate, refreshTick]);
 
-  const selectedRun = useMemo(
-    () => selectableRuns.find((run) => run.payId === selectedPayId) ?? null,
-    [selectableRuns, selectedPayId]
-  );
+  const selectedRun = useMemo(() => {
+    if (!fromDate || !toDate) return null;
+    return {
+      payId: -1,
+      periodStart: fromDate,
+      periodEnd: toDate,
+      periodDescription: `Report range: ${fromDate} to ${toDate}`,
+      payrollStatus: 'POSTED',
+      runType: 'REGULAR',
+      itemCount: employeeRows.length,
+    } as PayrollRunRow;
+  }, [fromDate, toDate, employeeRows.length]);
 
   const selectedBreakdownGross = selectedBreakdownItem ? toAmount(selectedBreakdownItem.grossPay) : 0;
   const selectedBreakdownNet = selectedBreakdownItem ? toAmount(selectedBreakdownItem.netPay) : 0;
@@ -588,12 +600,12 @@ export default function HrPayRunReporting() {
     });
   }, [employeeDirectoryById, employeeRows]);
 
-  const employeeRoleOptions = useMemo(
+  const roleOptions = useMemo(
     () => Array.from(new Set(employeeReportRows.map((row) => row.role).filter(Boolean))).sort(),
     [employeeReportRows]
   );
 
-  const employeeDepartmentOptions = useMemo(
+  const departmentOptions = useMemo(
     () => Array.from(new Set(employeeReportRows.map((row) => row.department).filter(Boolean))).sort(),
     [employeeReportRows]
   );
@@ -610,11 +622,11 @@ export default function HrPayRunReporting() {
 
     return filtered
       .filter((row) => {
-        if (employeeRoleFilter !== 'all' && row.role !== employeeRoleFilter) {
+        if (roleFilter !== 'all' && row.role !== roleFilter) {
           return false;
         }
 
-        if (employeeDepartmentFilter !== 'all' && row.department !== employeeDepartmentFilter) {
+        if (departmentFilter !== 'all' && row.department !== departmentFilter) {
           return false;
         }
 
@@ -627,7 +639,7 @@ export default function HrPayRunReporting() {
         { id: right.empId, name: formatEmployeeName(right) }
       )
     );
-  }, [employeeDepartmentFilter, employeeReportRows, employeeRoleFilter, employeeSort, normalizedFilter]);
+  }, [departmentFilter, employeeReportRows, roleFilter, employeeSort, normalizedFilter]);
 
   const visiblePayTypeRows = useMemo(() => {
     const filtered =
@@ -636,11 +648,17 @@ export default function HrPayRunReporting() {
         : payTypeRows.filter((row) => {
             const payType = String(row.payType ?? '').toLowerCase();
             const kind = String(getSummaryAdjustmentKind(row) ?? '').toLowerCase();
-            return payType.includes(normalizedFilter) || kind.includes(normalizedFilter);
+            const friendlyPayType = formatSummaryLabel(row.payType).toLowerCase();
+            return payType.includes(normalizedFilter) || kind.includes(normalizedFilter) || friendlyPayType.includes(normalizedFilter);
           });
 
-    return filtered.sort((a, b) => formatSummaryLabel(a.payType).localeCompare(formatSummaryLabel(b.payType)));
-  }, [normalizedFilter, payTypeRows]);
+    return filtered.sort((a, b) => {
+      if (payTypeSort === 'amount') {
+        return toAmount(b.total) - toAmount(a.total);
+      }
+      return formatSummaryLabel(a.payType).localeCompare(formatSummaryLabel(b.payType));
+    });
+  }, [normalizedFilter, payTypeRows, payTypeSort]);
 
   const visibleEarningRows = useMemo(
     () => visiblePayTypeRows.filter((row) => getSummaryAdjustmentKind(row) === 'EARNING'),
@@ -663,9 +681,9 @@ export default function HrPayRunReporting() {
   );
 
   const reportLabel = useMemo(() => {
-    if (!selectedRun) return 'Payroll Run Report';
-    return formatRunLabel(selectedRun);
-  }, [selectedRun]);
+    if (!fromDate || !toDate) return 'Pay Run Report';
+    return `Report from ${formatDate(fromDate)} to ${formatDate(toDate)}`;
+  }, [fromDate, toDate]);
 
   const reportFileStem = useMemo(() => {
     return reportLabel
@@ -673,13 +691,13 @@ export default function HrPayRunReporting() {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '') || 'payroll-run-report';
   }, [reportLabel]);
-  const activeEmployeeFilterCount = [employeeRoleFilter, employeeDepartmentFilter].filter(
+  const activeFilterCount = [roleFilter, departmentFilter].filter(
     (value) => value !== 'all'
   ).length;
   const employeeEmptyMessage =
-    employeeRows.length > 0 && visibleEmployeeRows.length === 0 && (normalizedFilter || activeEmployeeFilterCount > 0)
+    employeeRows.length > 0 && visibleEmployeeRows.length === 0 && (normalizedFilter || activeFilterCount > 0)
       ? 'No employee totals matched the current search or filters.'
-      : getEmptyRunMessage(selectedRun, 'employee', selectableRuns.length);
+      : getEmptyRunMessage(selectedRun, 'employee', 0);
 
   const payTypeReportRows = useMemo(() => {
     return [
@@ -720,10 +738,11 @@ export default function HrPayRunReporting() {
 
   useEscapeDismiss(Boolean(selectedBreakdownItem), closeBreakdownModal, 10);
   useEscapeDismiss(actionMenuOpen, () => setActionMenuOpen(false), 11);
+  useEscapeDismiss(dateRangeOpen, () => setDateRangeOpen(false), 12);
 
   useEffect(() => {
     closeBreakdownModal();
-  }, [closeBreakdownModal, selectedPayId, view]);
+  }, [closeBreakdownModal, view]);
 
   function mapBreakdownLines(response: unknown, lineType: PayrollBreakdownLine['lineType']) {
     return toArray<Record<string, unknown>>(response)
@@ -848,9 +867,9 @@ export default function HrPayRunReporting() {
     }
   }
 
-  function clearEmployeeFilters() {
-    setEmployeeRoleFilter('all');
-    setEmployeeDepartmentFilter('all');
+  function clearFilters() {
+    setRoleFilter('all');
+    setDepartmentFilter('all');
   }
 
   return (
@@ -905,7 +924,7 @@ export default function HrPayRunReporting() {
         <div className="hrRunFilters__field hrRunFilters__field--search">
           <label>{filterLabel}</label>
           <div className="hrRunFilters__searchGroup">
-            <label className="hrRunSearch" aria-label={view === 'employee' ? 'Search employees' : 'Search pay types'}>
+            <label className="uSearch" aria-label={view === 'employee' ? 'Search employees' : 'Search pay types'}>
               <FiSearch />
               <input
                 value={filterValue}
@@ -913,7 +932,7 @@ export default function HrPayRunReporting() {
                 placeholder={view === 'employee' ? 'Search by employee name or ID' : 'Search by earnings or deductions type'}
               />
               {filterValue && (
-                <button type="button" aria-label="Clear filter" onClick={() => setFilterValue('')}>
+                <button type="button" aria-label="Clear search" onClick={() => setFilterValue('')}>
                   <FiXCircle />
                 </button>
               )}
@@ -921,90 +940,100 @@ export default function HrPayRunReporting() {
           </div>
         </div>
 
-        <div className="hrRunFilters__field">
-          <label>Payroll Period:</label>
-          <label className="hrRunSelect" aria-label="Payroll period">
-            <select
-              value={selectedPayId ?? ''}
-              onChange={(e) => setSelectedPayId(e.target.value ? Number(e.target.value) : null)}
-              disabled={selectableRuns.length === 0}
-            >
-              {selectableRuns.length > 0 ? (
-                selectableRuns.map((run) => (
-                  <option key={run.payId} value={run.payId}>
-                    {formatRunLabel(run)}
-                  </option>
-                ))
-              ) : (
-                <option value="">{EMPTY_POSTED_RUN_LABEL}</option>
-              )}
-            </select>
-          </label>
-        </div>
-
-        {view === 'employee' ? (
-          <div className="hrRunFilters__field hrRunFilters__field--sort">
-            <label>Sort By:</label>
-            <div className="hrRunFilters__actions">
-              <EmployeeSortMenu value={employeeSort} onChange={setEmployeeSort} />
-              <div className="hrRunFilter">
-                <button
-                  type="button"
-                  className={`hrRunFilter__toggle ${employeeFilterOpen ? 'is-open' : ''} ${
-                    activeEmployeeFilterCount > 0 ? 'is-active' : ''
-                  }`}
-                  onClick={() => {
-                    setEmployeeFilterOpen((open) => !open);
-                    setActionMenuOpen(false);
-                  }}
-                >
-                  <FiFilter />
-                  <span>Filter</span>
-                  {activeEmployeeFilterCount > 0 ? (
-                    <span className="hrRunFilter__count">{activeEmployeeFilterCount}</span>
-                  ) : null}
-                </button>
-
-                {employeeFilterOpen ? (
-                  <div className="hrRunFilter__panel">
-                    <label className="hrRunFilter__field">
-                      <span>Role</span>
-                      <select value={employeeRoleFilter} onChange={(event) => setEmployeeRoleFilter(event.target.value)}>
-                        <option value="all">All Roles</option>
-                        {employeeRoleOptions.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <label className="hrRunFilter__field">
-                      <span>Department</span>
-                      <select
-                        value={employeeDepartmentFilter}
-                        onChange={(event) => setEmployeeDepartmentFilter(event.target.value)}
-                      >
-                        <option value="all">All Departments</option>
-                        {employeeDepartmentOptions.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    <div className="hrRunFilter__actions">
-                      <button type="button" onClick={clearEmployeeFilters}>
-                        Reset Filters
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
+        <div className="hrRunFilters__field hrRunFilters__field--dates">
+          <label>Date Range:</label>
+          <div className="hrRunFilters__dateGroup">
+            <div className="hrRunDateInput">
+              <FiCalendar />
+              <span className="hrRunDateInput__value">{formatDateHuman(fromDate)}</span>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                aria-label="From date"
+              />
+            </div>
+            <span className="hrRunFilters__dateSeparator">to</span>
+            <div className="hrRunDateInput">
+              <FiCalendar />
+              <span className="hrRunDateInput__value">{formatDateHuman(toDate)}</span>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                aria-label="To date"
+              />
             </div>
           </div>
-        ) : null}
+        </div>
+
+        <div className="hrRunFilters__field hrRunFilters__field--sort">
+          <label>Sort By:</label>
+          <div className="hrRunFilters__actions">
+            {view === 'employee' ? (
+              <EmployeeSortMenu value={employeeSort} onChange={setEmployeeSort} />
+            ) : (
+              <SortMenu
+                value={payTypeSort}
+                onChange={setPayTypeSort}
+                options={PAY_TYPE_SORT_OPTIONS}
+                panelLabel="Sort categories"
+              />
+            )}
+            <div className="uFilter">
+              <button
+                type="button"
+                className={`uFilter__toggle ${filterOpen ? 'is-open' : ''} ${
+                  activeFilterCount > 0 ? 'is-active' : ''
+                }`}
+                onClick={() => {
+                  setFilterOpen((open) => !open);
+                  setActionMenuOpen(false);
+                }}
+              >
+                <FiFilter />
+                <span>Filter</span>
+              </button>
+
+              {filterOpen ? (
+                <div className="uFilter__panel">
+                  <label className="uFilter__field">
+                    <span>Role</span>
+                    <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
+                      <option value="all">All Roles</option>
+                      {roleOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="uFilter__field">
+                    <span>Department</span>
+                    <select
+                      value={departmentFilter}
+                      onChange={(event) => setDepartmentFilter(event.target.value)}
+                    >
+                      <option value="all">All Departments</option>
+                      {departmentOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <div className="uFilter__actions">
+                    <button type="button" onClick={clearFilters}>
+                      Reset Filters
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
       </div>
 
       {view === 'employee' ? (
@@ -1103,7 +1132,7 @@ export default function HrPayRunReporting() {
             <section className="hrRunTable hrRunTable--summaryView" aria-label="Pay type summary table">
               <div className="hrRunTable__body hrRunTable__body--summary">
                 <article className="hrRunEmpty">
-                  {isLoading ? 'Loading pay type totals...' : getEmptyRunMessage(selectedRun, 'payType', selectableRuns.length)}
+                  {isLoading ? 'Loading pay type totals...' : getEmptyRunMessage(selectedRun, 'payType', 0)}
                 </article>
               </div>
             </section>

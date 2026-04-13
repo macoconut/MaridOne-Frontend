@@ -1651,7 +1651,7 @@ export default function HrManageEmp() {
 
       <section className="hrEmpTable">
         <div className="hrEmpToolbar">
-          <label className="hrEmpSearch" aria-label="Search employees">
+          <label className="uSearch" aria-label="Search employees">
             <FiSearch />
             <input
               value={searchValue}
@@ -1668,10 +1668,10 @@ export default function HrManageEmp() {
           <div className="hrEmpToolbar__actions">
             <EmployeeSortMenu value={employeeSort} onChange={setEmployeeSort} />
 
-            <div className="hrEmpFilter">
+            <div className="uFilter">
               <button
                 type="button"
-                className={`hrEmpFilter__toggle ${filterOpen ? 'is-open' : ''} ${
+                className={`uFilter__toggle ${filterOpen ? 'is-open' : ''} ${
                   activeFilterCount > 0 ? 'is-active' : ''
                 }`}
                 onClick={() => {
@@ -1681,12 +1681,11 @@ export default function HrManageEmp() {
               >
                 <FiFilter />
                 <span>Filter</span>
-                {activeFilterCount > 0 ? <span className="hrEmpFilter__count">{activeFilterCount}</span> : null}
               </button>
 
               {filterOpen ? (
-                <div className="hrEmpFilter__panel">
-                  <label className="hrEmpFilter__field">
+                <div className="uFilter__panel">
+                  <label className="uFilter__field">
                     <span>Status</span>
                     <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
                       <option value="all">All Statuses</option>
@@ -1698,7 +1697,7 @@ export default function HrManageEmp() {
                     </select>
                   </label>
 
-                  <label className="hrEmpFilter__field">
+                  <label className="uFilter__field">
                     <span>Role</span>
                     <select value={positionFilter} onChange={(event) => setPositionFilter(event.target.value)}>
                       <option value="all">All Roles</option>
@@ -1710,7 +1709,7 @@ export default function HrManageEmp() {
                     </select>
                   </label>
 
-                  <label className="hrEmpFilter__field">
+                  <label className="uFilter__field">
                     <span>Department</span>
                     <select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}>
                       <option value="all">All Departments</option>
@@ -1722,7 +1721,7 @@ export default function HrManageEmp() {
                     </select>
                   </label>
 
-                  <div className="hrEmpFilter__actions">
+                  <div className="uFilter__actions">
                     <button type="button" onClick={clearFilters}>
                       Reset Filters
                     </button>

@@ -34,6 +34,7 @@ type PayrollRunDto = {
   payId?: number;
   periodStart?: string;
   periodEnd?: string;
+  paymentDate?: string;
   periodDescription?: string;
   payrollStatus?: string;
   runType?: string;
@@ -102,6 +103,7 @@ type DisputeRow = {
 type RunFormState = {
   periodStart: string;
   periodEnd: string;
+  paymentDate: string;
   runType: 'REGULAR' | 'ADJUSTMENT';
 };
 
@@ -284,14 +286,40 @@ function employeeLabelFromParts(firstName?: string, lastName?: string, employeeI
   return 'Employee unavailable';
 }
 
+function getStandardPaymentDate(startIso: string, endIso: string): string | null {
+  if (!startIso || !endIso) return null;
+  const [startYear, startMonth, startDay] = startIso.split('-').map(Number);
+  const [endYear, endMonth, endDay] = endIso.split('-').map(Number);
+
+  // 11th to 25th of the same month -> Payout on 30th
+  if (startDay === 11 && endDay === 25 && startYear === endYear && startMonth === endMonth) {
+    const daysInMonth = new Date(startYear, startMonth, 0).getDate();
+    const payDay = Math.min(30, daysInMonth);
+    return `${startYear}-${String(startMonth).padStart(2, '0')}-${String(payDay).padStart(2, '0')}`;
+  }
+
+  // 26th to 10th of next month -> Payout on 15th
+  const isNextMonth =
+    (startMonth === 12 && endMonth === 1 && endYear === startYear + 1) ||
+    (endMonth === startMonth + 1 && endYear === startYear);
+
+  if (startDay === 26 && endDay === 10 && isNextMonth) {
+    return `${endYear}-${String(endMonth).padStart(2, '0')}-15`;
+  }
+
+  return null;
+}
+
 function createDefaultRunForm(): RunFormState {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const todayIso = toISODate(today);
 
   return {
     periodStart: toISODate(start),
-    periodEnd: toISODate(today),
+    periodEnd: todayIso,
+    paymentDate: todayIso,
     runType: 'REGULAR',
   };
 }
@@ -657,6 +685,7 @@ export default function HrPayslips() {
     runModalOpen &&
     (runForm.periodStart !== initialRunForm.periodStart ||
       runForm.periodEnd !== initialRunForm.periodEnd ||
+      runForm.paymentDate !== initialRunForm.paymentDate ||
       runForm.runType !== initialRunForm.runType);
   const isManualLineDirty =
     manualLineModalOpen &&
@@ -742,6 +771,7 @@ export default function HrPayslips() {
     setRunForm((prev) => ({
       periodStart: run.periodStart ?? prev.periodStart,
       periodEnd: run.periodEnd ?? prev.periodEnd,
+      paymentDate: run.paymentDate ?? prev.paymentDate,
       runType: normalizeRunType(run.runType),
     }));
   }
@@ -1720,6 +1750,7 @@ export default function HrPayslips() {
         body: JSON.stringify({
           periodStart: runForm.periodStart,
           periodEnd: runForm.periodEnd,
+          paymentDate: runForm.paymentDate,
           periodDescription: describeRun(runForm.periodStart, runForm.periodEnd),
           payrollStatus: 'IN_PROGRESS',
           runType: runForm.runType,
@@ -1842,24 +1873,21 @@ export default function HrPayslips() {
                 </button>
               )}
               <EmployeeSortMenu value={runItemSort} onChange={setRunItemSort} />
-              <div className="hrPayFilter">
+              <div className="uFilter">
                 <button
                   type="button"
-                  className={`hrPayFilter__toggle ${runItemFilterOpen ? 'is-open' : ''} ${
+                  className={`uFilter__toggle ${runItemFilterOpen ? 'is-open' : ''} ${
                     activeRunItemFilterCount > 0 ? 'is-active' : ''
                   }`}
                   onClick={() => setRunItemFilterOpen((open) => !open)}
                 >
                   <FiFilter />
                   <span>Filter</span>
-                  {activeRunItemFilterCount > 0 ? (
-                    <span className="hrPayFilter__count">{activeRunItemFilterCount}</span>
-                  ) : null}
                 </button>
 
                 {runItemFilterOpen ? (
-                  <div className="hrPayFilter__panel">
-                    <label className="hrPayFilter__field">
+                  <div className="uFilter__panel">
+                    <label className="uFilter__field">
                       <span>Role</span>
                       <select value={runItemRoleFilter} onChange={(event) => setRunItemRoleFilter(event.target.value)}>
                         <option value="all">All Roles</option>
@@ -1871,7 +1899,7 @@ export default function HrPayslips() {
                       </select>
                     </label>
 
-                    <label className="hrPayFilter__field">
+                    <label className="uFilter__field">
                       <span>Department</span>
                       <select
                         value={runItemDepartmentFilter}
@@ -1886,7 +1914,7 @@ export default function HrPayslips() {
                       </select>
                     </label>
 
-                    <div className="hrPayFilter__actions">
+                    <div className="uFilter__actions">
                       <button type="button" onClick={clearRunItemFilters}>
                         Reset Filters
                       </button>
@@ -1960,7 +1988,7 @@ export default function HrPayslips() {
         <header className="hrPayPanel__head">Payroll Dispute from Employees</header>
 
         <div className="hrPayToolbar">
-          <label className="hrPaySearch" aria-label="Search payroll disputes">
+          <label className="uSearch" aria-label="Search payroll disputes">
             <FiSearch />
             <input
               value={disputeSearchValue}
@@ -1974,22 +2002,21 @@ export default function HrPayslips() {
             )}
           </label>
 
-          <div className="hrPayFilter">
+          <div className="uFilter">
             <button
               type="button"
-              className={`hrPayFilter__toggle ${disputeFilterOpen ? 'is-open' : ''} ${
+              className={`uFilter__toggle ${disputeFilterOpen ? 'is-open' : ''} ${
                 activeDisputeFilterCount > 0 ? 'is-active' : ''
               }`}
               onClick={() => setDisputeFilterOpen((open) => !open)}
             >
               <FiFilter />
               <span>Filter</span>
-              {activeDisputeFilterCount > 0 && <span className="hrPayFilter__count">{activeDisputeFilterCount}</span>}
             </button>
 
             {disputeFilterOpen && (
-              <div className="hrPayFilter__panel">
-                <label className="hrPayFilter__field">
+              <div className="uFilter__panel">
+                <label className="uFilter__field">
                   <span>Dispute Type</span>
                   <select
                     value={disputeTypeFilter}
@@ -2004,7 +2031,7 @@ export default function HrPayslips() {
                   </select>
                 </label>
 
-                <label className="hrPayFilter__field">
+                <label className="uFilter__field">
                   <span>Status</span>
                   <select
                     value={disputeStatusFilter}
@@ -2016,7 +2043,7 @@ export default function HrPayslips() {
                   </select>
                 </label>
 
-                <div className="hrPayFilter__actions">
+                <div className="uFilter__actions">
                   <button type="button" onClick={clearDisputeFilters}>
                     Clear Filters
                   </button>
@@ -2081,7 +2108,15 @@ export default function HrPayslips() {
                   type="date"
                   value={runForm.periodStart}
                   aria-invalid={isRunPeriodStartInvalid ? 'true' : undefined}
-                  onChange={(event) => setRunForm((prev) => ({ ...prev, periodStart: event.target.value }))}
+                  onChange={(event) => {
+                    const nextStart = event.target.value;
+                    setRunForm((prev) => {
+                      const next = { ...prev, periodStart: nextStart };
+                      const standard = getStandardPaymentDate(next.periodStart, next.periodEnd);
+                      if (standard) next.paymentDate = standard;
+                      return next;
+                    });
+                  }}
                   max={runForm.periodEnd || todayIsoDate}
                 />
               </label>
@@ -2091,12 +2126,35 @@ export default function HrPayslips() {
                   type="date"
                   value={runForm.periodEnd}
                   aria-invalid={isRunPeriodEndInvalid ? 'true' : undefined}
-                  onChange={(event) => setRunForm((prev) => ({ ...prev, periodEnd: event.target.value }))}
+                  onChange={(event) => {
+                    const nextEnd = event.target.value;
+                    setRunForm((prev) => {
+                      const next = { ...prev, periodEnd: nextEnd };
+                      const standard = getStandardPaymentDate(next.periodStart, next.periodEnd);
+                      if (standard) next.paymentDate = standard;
+                      return next;
+                    });
+                  }}
                   min={runForm.periodStart || undefined}
                   max={todayIsoDate}
                 />
               </label>
               <label>
+                <span>
+                  Payment Date:
+                  {getStandardPaymentDate(runForm.periodStart, runForm.periodEnd) === runForm.paymentDate && (
+                    <small style={{ color: 'var(--hr-primary)', marginLeft: '6px', fontWeight: 'bold' }}>
+                      (Standard)
+                    </small>
+                  )}
+                </span>
+                <input
+                  type="date"
+                  value={runForm.paymentDate}
+                  onChange={(event) => setRunForm((prev) => ({ ...prev, paymentDate: event.target.value }))}
+                  min={runForm.periodEnd || undefined}
+                />
+              </label>              <label>
                 <span>Run Type:</span>
                 <select
                   value={runForm.runType}

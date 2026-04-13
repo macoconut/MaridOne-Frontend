@@ -577,7 +577,7 @@ export default function HrApprovals() {
         />
 
         <div className="hrAppr__toolbar">
-          <label className="hrApprSearch" aria-label="Search approvals">
+          <label className="uSearch" aria-label="Search approvals">
             <FiSearch />
             <input
               value={searchValue}
@@ -591,22 +591,21 @@ export default function HrApprovals() {
             )}
           </label>
 
-          <div className="hrApprFilter">
+          <div className="uFilter">
             <button
               type="button"
-              className={`hrApprFilter__toggle ${filterOpen ? 'is-open' : ''} ${
+              className={`uFilter__toggle ${filterOpen ? 'is-open' : ''} ${
                 activeFilterCount > 0 ? 'is-active' : ''
               }`}
               onClick={() => setFilterOpen((open) => !open)}
             >
               <FiFilter />
               <span>Filter</span>
-              {activeFilterCount > 0 && <span className="hrApprFilter__count">{activeFilterCount}</span>}
             </button>
 
             {filterOpen && (
-              <div className="hrApprFilter__panel">
-                <label className="hrApprFilter__field">
+              <div className="uFilter__panel">
+                <label className="uFilter__field">
                   <span>Request Type</span>
                   <select
                     value={typeFilter}
@@ -618,7 +617,7 @@ export default function HrApprovals() {
                   </select>
                 </label>
 
-                <label className="hrApprFilter__field">
+                <label className="uFilter__field">
                   <span>Status</span>
                   <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}>
                     <option value="all">All Statuses</option>
@@ -629,7 +628,7 @@ export default function HrApprovals() {
                   </select>
                 </label>
 
-                <label className="hrApprFilter__field">
+                <label className="uFilter__field">
                   <span>Leave Pay</span>
                   <select
                     value={leavePaidFilter}
@@ -642,7 +641,7 @@ export default function HrApprovals() {
                   </select>
                 </label>
 
-                <label className="hrApprFilter__field">
+                <label className="uFilter__field">
                   <span>OT Type</span>
                   <select
                     value={overtimeTypeFilter}
@@ -661,7 +660,7 @@ export default function HrApprovals() {
                   </select>
                 </label>
 
-                <div className="hrApprFilter__actions">
+                <div className="uFilter__actions">
                   <button type="button" onClick={clearFilters}>
                     Clear Filters
                   </button>

@@ -874,7 +874,7 @@ export default function HrAuditLogs() {
 
       <section className="hrAuditTable">
         <div className="hrAuditToolbar">
-          <label className="hrAuditSearch" aria-label="Search audit logs">
+          <label className="uSearch" aria-label="Search audit logs">
             <FiSearch />
             <input
               value={searchValue}
@@ -888,20 +888,19 @@ export default function HrAuditLogs() {
             )}
           </label>
 
-          <div className="hrAuditFilter">
+          <div className="uFilter">
             <button
               type="button"
-              className={`hrAuditFilter__toggle ${filterOpen ? 'is-open' : ''} ${activeFilterCount > 0 ? 'is-active' : ''}`}
+              className={`uFilter__toggle ${filterOpen ? 'is-open' : ''} ${activeFilterCount > 0 ? 'is-active' : ''}`}
               onClick={() => setFilterOpen((open) => !open)}
             >
               <FiFilter />
               <span>Filter</span>
-              {activeFilterCount > 0 && <span className="hrAuditFilter__count">{activeFilterCount}</span>}
             </button>
 
             {filterOpen && (
-              <div className="hrAuditFilter__panel">
-                <label className="hrAuditFilter__field">
+              <div className="uFilter__panel">
+                <label className="uFilter__field">
                   <span>Log Type</span>
                   <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value as TypeFilter)}>
                     <option value="all">All Changes</option>
@@ -911,7 +910,7 @@ export default function HrAuditLogs() {
                   </select>
                 </label>
 
-                <label className="hrAuditFilter__field">
+                <label className="uFilter__field">
                   <span>Time Window</span>
                   <select value={timeFilter} onChange={(event) => setTimeFilter(event.target.value as TimeFilter)}>
                     <option value="all">All Time</option>
@@ -921,7 +920,7 @@ export default function HrAuditLogs() {
                   </select>
                 </label>
 
-                <div className="hrAuditFilter__actions">
+                <div className="uFilter__actions">
                   <button type="button" onClick={clearFilters}>
                     Clear Filters
                   </button>
