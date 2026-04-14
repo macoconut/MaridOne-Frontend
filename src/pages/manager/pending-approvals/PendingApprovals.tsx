@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
 import ApprovalStatusSummary from '../../../components/approvals/ApprovalStatusSummary';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
@@ -71,8 +72,8 @@ type ManagerRequest = {
   referenceValue: string;
   requestLabel: string;
   requestKind: string;
-  durationLabel: string;
-  requestDateTime: string;
+  requestDate: string;
+  requestTime: string;
   decisionSummary?: string;
   managerDecisionSummary?: string;
   managerReviewer?: string;
@@ -120,10 +121,21 @@ function formatTimeOnly(value?: string) {
   });
 }
 
-function formatPeriod(start?: string, end?: string) {
-  const startLabel = formatDateOnly(start);
-  const endLabel = formatDateOnly(end);
-  return startLabel === endLabel ? startLabel : `${startLabel} to ${endLabel}`;
+function formatPeriodOnly(source: SourceType, start?: string, end?: string, workDate?: string) {
+  const resolvedStart = source === 'overtime' ? start || workDate : start;
+  const resolvedEnd = source === 'overtime' ? end || start || workDate : end;
+  const startDateLabel = formatDateOnly(resolvedStart);
+  const endDateLabel = formatDateOnly(resolvedEnd);
+  if (startDateLabel === '-' && endDateLabel === '-') return '-';
+  if (startDateLabel === endDateLabel) return startDateLabel;
+  return `${startDateLabel} to ${endDateLabel}`;
+}
+
+function formatTimeRangeOnly(start?: string, end?: string) {
+  const startTimeLabel = formatTimeOnly(start);
+  const endTimeLabel = formatTimeOnly(end);
+  if (startTimeLabel === '-' && endTimeLabel === '-') return '-';
+  return `${startTimeLabel} to ${endTimeLabel}`;
 }
 
 function formatRequestType(value?: string) {
@@ -228,6 +240,7 @@ export default function ManagerPendingApprovals() {
   const [decisionSubmitAttempted, setDecisionSubmitAttempted] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [confirmDecisionOpen, setConfirmDecisionOpen] = useState(false);
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [attachmentError, setAttachmentError] = useState('');
   const [openingAttachmentId, setOpeningAttachmentId] = useState<number | null>(null);
@@ -239,7 +252,41 @@ export default function ManagerPendingApprovals() {
   useErrorDialogEffect(loadError, 'Team requests could not be loaded');
   useErrorDialogEffect(submitError, 'Team request decision could not be completed');
   useErrorDialogEffect(attachmentError, 'Attachment could not be opened');
-  useEscapeDismiss(Boolean(selectedId), () => setSelectedId(null), 10);
+
+  const selected = useMemo(
+    () => requests.find((request) => request.id === selectedId) ?? null,
+    [selectedId, requests]
+  );
+  const activeFilterCount = [typeFilter, statusFilter].filter((value) => value !== 'all').length;
+  const normalizedSelectedStatus = String(selected?.status ?? '').toUpperCase();
+  const hasFinalDecision = selected
+    ? ['APPROVED', 'REJECTED', 'CANCELLED'].includes(normalizedSelectedStatus)
+    : false;
+  const canReviewSelected = selected
+    ? normalizedSelectedStatus === 'PENDING_MANAGER' || normalizedSelectedStatus === 'PENDING'
+    : false;
+
+  const isDirty = useMemo(() => {
+    if (!selected || !canReviewSelected) return false;
+    if (pendingDecision !== null) return true;
+    if (decisionReason.trim() !== '') return true;
+    return false;
+  }, [selected, canReviewSelected, pendingDecision, decisionReason]);
+
+  function requestCloseModal() {
+    if (isDirty) {
+      setConfirmDiscardOpen(true);
+    } else {
+      setSelectedId(null);
+    }
+  }
+
+  function discardAndCloseModal() {
+    setConfirmDiscardOpen(false);
+    setSelectedId(null);
+  }
+
+  useEscapeDismiss(Boolean(selectedId), requestCloseModal, 10);
 
   async function loadRequests() {
     try {
@@ -267,11 +314,11 @@ export default function ManagerPendingApprovals() {
           status: item.requestStatus || 'PENDING_MANAGER',
           reason: attachment.cleanText,
           referenceLabel: 'Leave Period',
-          referenceValue: formatPeriod(item.startDateTime, item.endDateTime),
+          referenceValue: formatPeriodOnly('leave', item.startDateTime, item.endDateTime),
           requestLabel: 'Leave Request',
           requestKind: `${leaveTypeLabel} - ${payLabel}`,
-          durationLabel: formatLeaveDuration(item.startDateTime, item.endDateTime),
-          requestDateTime: formatRequestDateTime('leave', item.startDateTime, item.endDateTime),
+          requestDate: formatPeriodOnly('leave', item.startDateTime, item.endDateTime),
+          requestTime: formatTimeRangeOnly(item.startDateTime, item.endDateTime),
           decisionSummary: item.approverReason || '',
           managerDecisionSummary: item.managerApproverReason || '',
           managerReviewer: item.managerApprover || '',
@@ -302,8 +349,8 @@ export default function ManagerPendingApprovals() {
           referenceValue: `${formatDateTime(item.startTime)} to ${formatDateTime(item.endTime)}`,
           requestLabel: 'Overtime Request',
           requestKind: `${formatRequestType(item.overtimeType || 'Overtime')} - ${payLabel}`,
-          durationLabel: formatClockWindow(item.startTime, item.endTime),
-          requestDateTime: formatRequestDateTime('overtime', item.startTime, item.endTime, item.workDate),
+          requestDate: formatPeriodOnly('overtime', item.startTime, item.endTime, item.workDate),
+          requestTime: formatTimeRangeOnly(item.startTime, item.endTime),
           decisionSummary: item.approveReason || '',
           managerDecisionSummary: item.managerApproveReason || '',
           managerReviewer: item.managerApprover || '',
@@ -361,8 +408,8 @@ export default function ManagerPendingApprovals() {
         request.type,
         request.requestLabel,
         request.requestKind,
-        request.durationLabel,
-        request.requestDateTime,
+        request.requestDate,
+        request.requestTime,
         request.decisionSummary,
         statusLabel(request.status),
       ]
@@ -385,19 +432,6 @@ export default function ManagerPendingApprovals() {
       { label: 'Cancelled', value: cancelled, tone: 'cancelled' as const },
     ];
   }, [visibleRequests]);
-
-  const selected = useMemo(
-    () => requests.find((request) => request.id === selectedId) ?? null,
-    [selectedId, requests]
-  );
-  const activeFilterCount = [typeFilter, statusFilter].filter((value) => value !== 'all').length;
-  const normalizedSelectedStatus = String(selected?.status ?? '').toUpperCase();
-  const hasFinalDecision = selected
-    ? ['APPROVED', 'REJECTED', 'CANCELLED'].includes(normalizedSelectedStatus)
-    : false;
-  const canReviewSelected = selected
-    ? normalizedSelectedStatus === 'PENDING_MANAGER' || normalizedSelectedStatus === 'PENDING'
-    : false;
 
   useEffect(() => {
     setDecisionReason('');
@@ -567,8 +601,8 @@ export default function ManagerPendingApprovals() {
               <span>Name</span>
               <span>Request</span>
               <span>Specific Type</span>
-              <span>Duration</span>
-              <span>Date and Time</span>
+              <span>Date</span>
+              <span>Time</span>
               <span className="mgrPendTable__headCell--status">Status</span>
             </div>
 
@@ -583,8 +617,8 @@ export default function ManagerPendingApprovals() {
                   <span className="mgrPendTable__cell mgrPendTable__cell--name">{request.employee}</span>
                   <span className="mgrPendTable__cell">{request.requestLabel}</span>
                   <span className="mgrPendTable__cell">{request.requestKind}</span>
-                  <span className="mgrPendTable__cell">{request.durationLabel}</span>
-                  <span className="mgrPendTable__cell">{request.requestDateTime}</span>
+                  <span className="mgrPendTable__cell">{request.requestDate}</span>
+                  <span className="mgrPendTable__cell">{request.requestTime}</span>
                   <span className="mgrPendTable__cell mgrPendTable__cell--status">
                     <span className={`hrApprRow__status hrApprRow__status--${toStatusCode(request.status).toLowerCase()}`}>
                       {statusLabel(request.status)}
@@ -601,7 +635,7 @@ export default function ManagerPendingApprovals() {
         )}
       </section>
 
-      {selected && (
+      {selected && createPortal(
         <div className="hrApprModalBackdrop" role="dialog" aria-modal="true">
           <div className="hrApprModal">
             <div className="dashModal__top">
@@ -613,36 +647,26 @@ export default function ManagerPendingApprovals() {
                   Review the team request details, then either forward the request to HR or deny it here.
                 </p>
               </div>
-              <ModalCloseButton className="hrApprModal__close" onClick={() => setSelectedId(null)} />
+              <ModalCloseButton className="hrApprModal__close" onClick={requestCloseModal} />
             </div>
 
             <div className="hrApprModal__rule" />
 
             <div className="hrApprForm__row hrApprForm__row--2">
               <label>
-                <span>Reference:</span>
-                <input value={`${selected.referenceLabel}: ${selected.referenceValue}`} readOnly />
+                <span>Type:</span>
+                <input value={selected.type} readOnly />
               </label>
               <label>
                 <span>Current Status:</span>
-                <div
-                  className={`hrApprForm__statusBadge hrApprForm__statusBadge--${toStatusCode(
-                    selected.status
-                  ).toLowerCase()}`}
-                >
-                  {statusLabel(selected.status)}
-                </div>
+                <input value={statusLabel(selected.status)} readOnly />
               </label>
             </div>
 
-            <div className="hrApprForm__row hrApprForm__row--2">
+            <div className="hrApprForm__row">
               <label>
                 <span>Recorded At:</span>
                 <input value={selected.submittedAt} readOnly />
-              </label>
-              <label>
-                <span>Type:</span>
-                <input value={selected.type} readOnly />
               </label>
             </div>
 
@@ -715,14 +739,8 @@ export default function ManagerPendingApprovals() {
             )}
 
             {hasFinalDecision && (
-              <p className="hrApprForm__hint">This request already has a final decision recorded.</p>
+              <div className="hrApprModal__rule" />
             )}
-
-            {!hasFinalDecision && normalizedSelectedStatus === 'PENDING_HR' && (
-              <p className="hrApprForm__hint">This request was already endorsed by the manager and is now waiting for HR review.</p>
-            )}
-
-            <div className="hrApprModal__rule" />
 
             <div className="hrApprForm__row">
               <label className="decisionPicker">
@@ -769,7 +787,7 @@ export default function ManagerPendingApprovals() {
             <div className="hrApprModal__footer">
               {canReviewSelected ? (
                 <>
-                  <button type="button" onClick={() => setSelectedId(null)} disabled={isSaving}>
+                  <button type="button" onClick={requestCloseModal} disabled={isSaving}>
                     Cancel
                   </button>
                   <button type="button" onClick={requestDecisionConfirmation} disabled={isSaving || !pendingDecision}>
@@ -783,14 +801,24 @@ export default function ManagerPendingApprovals() {
                   </button>
                 </>
               ) : (
-                <button type="button" onClick={() => setSelectedId(null)} disabled={isSaving}>
+                <button type="button" onClick={requestCloseModal} disabled={isSaving}>
                   Close
                 </button>
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
+      <ConfirmDialog
+        open={confirmDiscardOpen}
+        title="Discard Unsaved Changes?"
+        message="You have unsaved review progress. If you close this request now, your edits will be lost."
+        confirmLabel="Discard Changes"
+        cancelLabel="Keep Editing"
+        onConfirm={discardAndCloseModal}
+        onCancel={() => setConfirmDiscardOpen(false)}
+      />
       <ConfirmDialog
         open={confirmDecisionOpen}
         title={pendingDecision === 'REJECTED' ? 'Confirm Denial' : 'Confirm Forward to HR'}

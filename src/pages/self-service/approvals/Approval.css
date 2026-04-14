@@ -224,7 +224,7 @@
   font-size: 14px;
   border-bottom:1px solid rgba(0,0,0,0.08);
   background:#fff;
-  color: #2f2c39;
+  color: #000;
   line-height: 1.45;
 }
 
@@ -266,149 +266,166 @@
   color:#5f6370;
 }
 
-.apprModal__hero{
-  margin-top:14px;
-  border-radius:16px;
-  padding:14px 16px;
-  background: linear-gradient(135deg, #43245f 0%, #6f4584 100%);
-  color:#fff;
-  display:flex;
-  justify-content:space-between;
-  gap:18px;
-  align-items:flex-end;
-}
-
-.apprModal__heroLabel{
-  font-size: 15px;
-  text-transform:uppercase;
-  letter-spacing:.08em;
-  opacity:.78;
-  margin-bottom:6px;
-}
-
-.apprModal__status{
-  display:inline-flex;
-  align-items:center;
-  padding:8px 14px;
-  border-radius:999px;
-  font-size: 16px;
-  font-weight:900;
-  letter-spacing:.04em;
-  text-transform:uppercase;
-  background: rgba(255,255,255,0.16);
-  border:1px solid rgba(255,255,255,0.18);
-}
-
-.apprModal__status--approved{
-  background:#dff4e7;
-  color:#246543;
-  border-color:transparent;
-}
-
-.apprModal__status--denied{
-  background:#f8dddf;
-  color:#933e46;
-  border-color:transparent;
-}
-
-.apprModal__status--pending{
-  background:#efe7f8;
-  color:#5a3778;
-  border-color:transparent;
-}
-
-.apprModal__status--cancelled{
-  background:#eceff3;
-  color:#4f5868;
-  border-color:transparent;
-}
-
-.apprModal__heroMeta{
-  display:grid;
-  grid-template-columns: repeat(2, minmax(120px, 1fr));
-  gap: 12px 18px;
-}
-
-.apprModal__heroMeta span{
-  display:block;
-  font-size: 16px;
-  text-transform:uppercase;
-  letter-spacing:.08em;
-  opacity:.76;
-  margin-bottom:5px;
-}
-
-.apprModal__heroMeta strong{
-  display:block;
-  font-size: 15px;
-  line-height:1.35;
-}
-
-.apprModal__summary{
-  display:grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px 16px;
-}
-
-.apprModal__card{
+.apprModal__content{
   display:flex;
   flex-direction:column;
-  gap:6px;
-  padding:14px 14px 12px;
-  border-radius:14px;
-  background:#fff;
-  border:1px solid rgba(77, 52, 104, 0.10);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.60);
+  gap: 16px;
+  margin-top:16px;
 }
 
-.apprModal__card span{
-  color:#4d415b;
-  font-size: 15px;
-  font-weight:800;
-  text-transform:uppercase;
-  letter-spacing:.04em;
-}
-
-.apprModal__card strong{
-  margin:0;
-  color:#2b2036;
-  font-size: 15px;
-  line-height:1.4;
-}
-
-.apprModal__body{
-  display:flex;
-  flex-direction:column;
+.apprModal__tilesWrapper{
+  display: flex;
+  flex-direction: column;
   gap: 12px;
-  margin-top:14px;
 }
 
-.apprModal__section{
-  background:#fff;
-  border:1px solid rgba(77, 52, 104, 0.10);
-  border-radius:16px;
-  padding:14px 16px;
+.apprModal__tilesRow{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
 }
 
-.apprModal__section--compact{
-  background:#f8f3fc;
+.apprModal__tile{
+  background: #fff;
+  border: 1px solid rgba(77, 52, 104, 0.08); /* Matched to request reason border */
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.02); /* Matched to request reason shadow */
 }
 
-.apprModal__sectionTitle{
+.apprModal__tile--status,
+.apprModal__tile--type{
+  background: #f8f4fc;
+  border-color: rgba(95, 47, 120, 0.1);
+  border-left: 5px solid #5f2f78;
+}
+
+.apprModal__tile--type strong {
+  font-size: 20px !important;
+  font-weight: 700 !important;
+}
+
+.apprModal__typeValue {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.apprModal__payBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.apprModal__payBadge--paid {
+  background: #dff4e7;
+  color: #246543;
+}
+
+.apprModal__payBadge--unpaid {
+  background: #f8dddf;
+  color: #933e46;
+}
+
+.apprModal__tile > span{
   color:#5f2f78;
-  font-size: 16px;
+  font-size: 15px; /* Matched to request reason label */
   font-weight:900;
   text-transform:uppercase;
   letter-spacing:.06em;
-  margin-bottom:8px;
 }
 
-.apprModal__sectionBody{
+.apprModal__tile strong{
+  margin:0;
+  color:#2b2036;
+  font-size: 15px; /* Matched to request reason value */
+  line-height:1.4;
+  font-weight: 400;
+}
+
+.apprModal__badge{
+  display:inline-flex;
+  align-items:center;
+  width: fit-content;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 18px;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.apprModal__badge--approved{ background:#dff4e7; color:#246543; }
+.apprModal__badge--denied{ background:#f8dddf; color:#933e46; }
+.apprModal__badge--pending{ background:#efe7f8; color:#5a3778; }
+.apprModal__badge--cancelled{ background:#eceff3; color:#4f5868; }
+
+.apprModal__messages{
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.apprModal__message{
+  background: #fff;
+  border: 1px solid rgba(77, 52, 104, 0.08);
+  border-radius: 14px;
+  padding: 16px 20px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+}
+
+.apprModal__message--manager{
+  background: #fcfaff;
+  border-left: 4px solid #7b4a8f;
+}
+
+.apprModal__message--hr{
+  background: #f8f4fc;
+  border-left: 4px solid #5f2f78;
+}
+
+.apprModal__message span{
+  display: block;
+  color:#5f2f78;
+  font-size: 15px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+  margin-bottom:10px;
+}
+
+.apprModal__message p{
   margin:0;
   color:#2b2036;
   font-size: 15px;
   line-height:1.6;
   white-space:pre-wrap;
+}
+
+.apprModal__subNote{
+  display:block !important;
+  margin-top:14px !important;
+  opacity:0.8 !important;
+  font-size:11px !important;
+  font-weight:400 !important;
+  text-transform:none !important;
+  letter-spacing:normal !important;
+  color: #5a4d6e !important;
+  border-top: 1px dashed rgba(95, 47, 120, 0.15) !important;
+  padding-top: 10px !important;
+}
+
+.apprModal__subNote strong {
+  font-weight: 700 !important;
 }
 
 @media (max-width: 1320px){
@@ -459,17 +476,7 @@
     display:none;
   }
 
-  .apprModal__hero{
-    flex-direction:column;
-    align-items:flex-start;
-  }
-
-  .apprModal__heroMeta{
-    grid-template-columns: 1fr;
-    width:100%;
-  }
-
-  .apprModal__summary{
+  .apprModal__tilesRow{
     grid-template-columns: 1fr;
   }
 }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
 import ApprovalStatusSummary from '../../../components/approvals/ApprovalStatusSummary';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
@@ -30,11 +31,15 @@ type ApprovalItem = {
   requestType: string;
   requestDetail: string;
   requestTarget: string;
+  durationLabel?: string;
   status: ApprovalStatus;
   approvedBy: string;
   requestReason: string;
   decisionReason: string;
   decisionDate: string;
+  managerApprover?: string;
+  managerDecisionReason?: string;
+  managerDecisionDate?: string;
 };
 
 type ApprovalTypeFilter = 'all' | 'Leave' | 'Overtime' | 'Payslip Dispute';
@@ -52,6 +57,9 @@ type LeaveRow = {
   approvedAt?: string;
   paid?: boolean;
   isPaid?: boolean;
+  managerApprover?: string;
+  managerApproverReason?: string;
+  managerApprovedAt?: string;
 };
 
 type OvertimeRow = {
@@ -59,6 +67,7 @@ type OvertimeRow = {
   requestAt?: string;
   workDate?: string;
   startTime?: string;
+  endTime?: string;
   approvedAt?: string;
   requestStatus?: string;
   approver?: string;
@@ -66,6 +75,9 @@ type OvertimeRow = {
   approveReason?: string;
   overtimeType?: string;
   paid?: boolean;
+  managerApprover?: string;
+  managerApproveReason?: string;
+  managerApprovedAt?: string;
 };
 
 type DisputeRow = {
@@ -136,6 +148,26 @@ function formatTime(value?: string) {
   return Number.isNaN(date.getTime())
     ? value
     : date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+function formatLeaveDuration(start?: string, end?: string) {
+  if (!start || !end) return '-';
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return '-';
+
+  const startDay = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+  const endDay = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+  const diffDays = Math.max(1, Math.round((endDay.getTime() - startDay.getTime()) / 86400000) + 1);
+  return `${diffDays} day${diffDays === 1 ? '' : 's'}`;
+}
+
+function formatClockWindow(start?: string, end?: string) {
+  if (!start || !end) return '-';
+  const startStr = formatTime(start);
+  const endStr = formatTime(end);
+  if (startStr === '-' && endStr === '-') return '-';
+  return `${startStr} to ${endStr}`;
 }
 
 function formatLeaveType(value?: string) {
@@ -272,6 +304,27 @@ export default function Approval() {
         const status = mapApprovalStatus(row.requestStatus);
         const requestStamp = row.startDateTime ? Date.parse(row.startDateTime) || 0 : 0;
         const requestId = row.requestId ?? index;
+        const startDateStr = formatDate(row.startDateTime);
+        const endDateStr = formatDate(row.endDateTime);
+        const requestTarget = startDateStr === endDateStr ? startDateStr : `${startDateStr} to ${endDateStr}`;
+
+        const managerNote = (row.managerApproverReason || '').trim();
+        const rawDecisionNote = (row.approverReason || '').trim();
+        const hasHrApprover = row.approver && row.approver !== '-' && row.approver !== row.managerApprover;
+
+        let finalDecisionReason = '';
+        if (status === 'Cancelled') {
+          finalDecisionReason = 'Request cancelled by employee.';
+        } else if (status.startsWith('Pending')) {
+          finalDecisionReason = '';
+        } else if (status === 'Denied' && !hasHrApprover) {
+          finalDecisionReason = '';
+        } else if (rawDecisionNote === '-' || rawDecisionNote === managerNote) {
+          finalDecisionReason = '';
+        } else {
+          finalDecisionReason = rawDecisionNote;
+        }
+
         return {
           id: `leave-${String(requestId)}`,
           source: 'leave' as const,
@@ -280,18 +333,41 @@ export default function Approval() {
           dateOfRequest: formatDate(row.startDateTime),
           requestType: 'Leave',
           requestDetail: buildLeaveDetail(row.leaveType, row.paid ?? row.isPaid),
-          requestTarget: `${formatDate(row.startDateTime)} to ${formatDate(row.endDateTime)}`,
+          requestTarget,
+          durationLabel: formatLeaveDuration(row.startDateTime, row.endDateTime),
           status,
           approvedBy: status.startsWith('Pending') ? '-' : status === 'Cancelled' ? '-' : row.approver?.trim() || '-',
           requestReason: row.reason ?? '-',
-          decisionReason: status === 'Cancelled' ? 'Request cancelled by employee.' : row.approverReason ?? '-',
+          decisionReason: finalDecisionReason,
           decisionDate: formatDateTime(row.approvedAt),
+          managerApprover: row.managerApprover,
+          managerDecisionReason: managerNote,
+          managerDecisionDate: formatDateTime(row.managerApprovedAt),
         };
       });
 
       const overtimeItems = toArray<OvertimeRow>(otResponse).map((row, index) => {
         const status = mapApprovalStatus(row.requestStatus);
         const overtimeId = row.overtimeId ?? index;
+        const workDateStr = formatDate(row.workDate);
+
+        const managerNote = (row.managerApproveReason || '').trim();
+        const rawDecisionNote = (row.approveReason || '').trim();
+        const hasHrApprover = row.approver && row.approver !== '-' && row.approver !== row.managerApprover;
+
+        let finalDecisionReason = '';
+        if (status === 'Cancelled') {
+          finalDecisionReason = 'Request cancelled by employee.';
+        } else if (status.startsWith('Pending')) {
+          finalDecisionReason = '';
+        } else if (status === 'Denied' && !hasHrApprover) {
+          finalDecisionReason = '';
+        } else if (rawDecisionNote === '-' || rawDecisionNote === managerNote) {
+          finalDecisionReason = '';
+        } else {
+          finalDecisionReason = rawDecisionNote;
+        }
+
         return {
           id: `overtime-${String(overtimeId)}`,
           source: 'overtime' as const,
@@ -300,21 +376,35 @@ export default function Approval() {
           dateOfRequest: formatDate(row.requestAt),
           requestType: 'Overtime',
           requestDetail: buildOvertimeDetail(row.overtimeType, row.paid),
-          requestTarget:
-            row.startTime
-              ? `${formatDate(row.workDate)} at ${formatTime(row.startTime)}`
-              : formatDate(row.workDate),
+          requestTarget: workDateStr,
+          durationLabel: formatClockWindow(row.startTime, row.endTime),
           status,
           approvedBy: status.startsWith('Pending') ? '-' : status === 'Cancelled' ? '-' : row.approver ?? '-',
           requestReason: row.reason ?? '-',
-          decisionReason: status === 'Cancelled' ? 'Request cancelled by employee.' : row.approveReason ?? '-',
+          decisionReason: finalDecisionReason,
           decisionDate: formatDateTime(row.approvedAt),
+          managerApprover: row.managerApprover,
+          managerDecisionReason: managerNote,
+          managerDecisionDate: formatDateTime(row.managerApprovedAt),
         };
       });
 
       const disputeItems = toArray<DisputeRow>(disputeResponse).map((row, index) => {
         const status = mapApprovalStatus(row.status);
         const disputeId = row.id ?? index;
+        const rawDecisionNote = (row.statusReason || '').trim();
+
+        let finalDecisionReason = '';
+        if (status === 'Cancelled') {
+          finalDecisionReason = 'Request cancelled by employee.';
+        } else if (status.startsWith('Pending')) {
+          finalDecisionReason = '';
+        } else if (rawDecisionNote === '-') {
+          finalDecisionReason = '';
+        } else {
+          finalDecisionReason = rawDecisionNote;
+        }
+
         return {
           id: `dispute-${String(disputeId)}`,
           source: 'dispute' as const,
@@ -330,7 +420,7 @@ export default function Approval() {
           status,
           approvedBy: status.startsWith('Pending') ? '-' : status === 'Cancelled' ? '-' : resolveDisputeApprover(row),
           requestReason: row.reason ?? '-',
-          decisionReason: status === 'Cancelled' ? 'Request cancelled by employee.' : row.statusReason ?? '-',
+          decisionReason: finalDecisionReason,
           decisionDate: formatDateTime(row.updatedAt),
         };
       });
@@ -569,13 +659,16 @@ export default function Approval() {
         </div>
       </section>
 
-      {selectedApproval && (
+      {selectedApproval && createPortal(
         <div className="apprModalBackdrop" role="dialog" aria-modal="true" aria-label="Approval details">
           <div className="apprModal">
             <div className="apprModal__top">
               <div>
-                <div className="apprModal__eyebrow">Request Breakdown</div>
-                <div className="apprModal__title">{selectedApproval.requestType}</div>
+                <div className="apprModal__title">
+                  {selectedApproval.requestType === 'Payslip Dispute'
+                    ? selectedApproval.requestType
+                    : `${selectedApproval.requestType} Request`}
+                </div>
                 <p className="apprModal__subtitle">
                   Review the request timeline, current status, and recorded decision notes for this approval item.
                 </p>
@@ -583,52 +676,81 @@ export default function Approval() {
               <ModalCloseButton className="apprModal__close" onClick={() => setSelectedApprovalId(null)} />
             </div>
 
-            <div className="apprModal__hero">
-              <div>
-                <div className="apprModal__heroLabel">Current Status</div>
-                <div className={`apprModal__status apprModal__status--${approvalStatusTone(selectedApproval.status)}`}>
-                  {selectedApproval.status}
-                </div>
-              </div>
-              <div className="apprModal__heroMeta">
-                <div>
-                  <span>Type / Topic</span>
-                  <strong>{selectedApproval.requestDetail}</strong>
-                </div>
-                <div>
-                  <span>Handled By</span>
-                  <strong>{selectedApproval.approvedBy}</strong>
-                </div>
-              </div>
-            </div>
+            <div className={`apprModal__statusTone apprModal__statusTone--${approvalStatusTone(selectedApproval.status)}`} />
 
-            <div className="apprModal__rule" />
-
-            <div className="apprModal__summary">
-              <div className="apprModal__card">
-                <span>Date of Request</span>
-                <strong>{displayRequestDate(selectedApproval)}</strong>
-              </div>
-              <div className="apprModal__card">
-                <span>Period / Target</span>
-                <strong>{selectedApproval.requestTarget}</strong>
-              </div>
-              <div className="apprModal__card">
-                <span>Decision Timestamp</span>
-                <strong>{selectedApproval.decisionDate}</strong>
-              </div>
-            </div>
-
-            <div className="apprModal__body">
-              <div className="apprModal__section">
-                <div className="apprModal__sectionTitle">Request Reason</div>
-                <p className="apprModal__sectionBody">{selectedApproval.requestReason}</p>
-              </div>
-              <div className="apprModal__section">
-                <div className="apprModal__sectionTitle">
-                  {selectedApproval.status === 'Cancelled' ? 'Cancellation Note' : 'Approval / Denial Reason'}
+            <div className="apprModal__content">
+              <div className="apprModal__tilesWrapper">
+                <div className="apprModal__tilesRow">
+                  <div className="apprModal__tile apprModal__tile--status">
+                    <span>Current Status</span>
+                    <div className={`apprModal__badge apprModal__badge--${approvalStatusTone(selectedApproval.status)}`}>
+                      {selectedApproval.status}
+                    </div>
+                  </div>
+                  <div className="apprModal__tile apprModal__tile--type">
+                    <span>Request Type</span>
+                    <div className="apprModal__typeValue">
+                      <strong>{selectedApproval.requestDetail.split(' - ')[0]}</strong>
+                      {selectedApproval.requestDetail.includes(' - ') && (
+                        <span className={`apprModal__payBadge apprModal__payBadge--${selectedApproval.requestDetail.split(' - ')[1].toLowerCase()}`}>
+                          {selectedApproval.requestDetail.split(' - ')[1]}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <p className="apprModal__sectionBody">{selectedApproval.decisionReason}</p>
+
+                <div className="apprModal__tilesRow">
+                  <div className="apprModal__tile">
+                    <span>Date of Request</span>
+                    <strong>{displayRequestDate(selectedApproval)}</strong>
+                  </div>
+                  <div className="apprModal__tile">
+                    <span>Period / Target</span>
+                    <strong>{selectedApproval.requestTarget}</strong>
+                  </div>
+                  {selectedApproval.durationLabel && (
+                    <div className="apprModal__tile">
+                      <span>Duration</span>
+                      <strong>{selectedApproval.durationLabel}</strong>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="apprModal__messages">
+                <div className="apprModal__message">
+                  <span>Request Reason</span>
+                  <p>{selectedApproval.requestReason}</p>
+                </div>
+
+                {selectedApproval.managerDecisionReason && selectedApproval.managerDecisionReason.trim() !== '' && (
+                  <div className="apprModal__message apprModal__message--manager">
+                    <span>MANAGER REMARKS</span>
+                    <p>
+                      {selectedApproval.managerDecisionReason}
+                      {selectedApproval.managerApprover && (
+                        <span className="apprModal__subNote">
+                          Reviewed by <strong>{selectedApproval.managerApprover}</strong> {selectedApproval.managerDecisionDate && <>on <strong>{selectedApproval.managerDecisionDate}</strong></>}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                )}
+
+                {selectedApproval.decisionReason && selectedApproval.decisionReason.trim() !== '' && (
+                  <div className="apprModal__message apprModal__message--hr">
+                    <span>{selectedApproval.status === 'Cancelled' ? 'CANCELLATION NOTE' : 'HR REMARKS'}</span>
+                    <p>
+                      {selectedApproval.decisionReason}
+                      {selectedApproval.approvedBy && selectedApproval.approvedBy !== '-' && (
+                        <span className="apprModal__subNote">
+                          Reviewed by <strong>{selectedApproval.approvedBy}</strong> {selectedApproval.decisionDate && <>on <strong>{selectedApproval.decisionDate}</strong></>}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -643,7 +765,8 @@ export default function Approval() {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       <ConfirmDialog
         open={confirmCancelOpen}
