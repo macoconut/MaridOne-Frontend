@@ -644,9 +644,54 @@
   color: #43518c;
 }
 
-.hrAttModal--import {
-  width: min(760px, 96vw);
+.hrAttModal--import,
+.hrAttModal--export {
+  width: min(560px, 96vw);
 }
+
+.hrAttExportForm {
+  display: grid;
+  gap: 24px;
+}
+
+.hrAttExportForm__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.hrAttExportForm__field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.hrAttExportForm__field span {
+  font-size: 13px;
+  font-weight: 800;
+  color: #5d4b73;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.hrAttExportForm__field input {
+  height: 44px;
+  border: 1px solid rgba(82, 56, 116, 0.16);
+  border-radius: 12px;
+  padding: 0 14px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  color: #2b2036;
+  background: #fff;
+}
+
+.hrAttExportForm__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
 .hrAttImport {
   display: grid;
   gap: 18px;

@@ -732,6 +732,15 @@ export function AttendanceReportsBoard({
   const [actionError, setActionError] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exportFromDate, setExportFromDate] = useState('');
+  const [exportToDate, setExportToDate] = useState('');
+
+  useEffect(() => {
+    setExportFromDate(monthStartKey);
+    setExportToDate(monthEndKey);
+  }, [monthStartKey, monthEndKey]);
+
   const [importFile, setImportFile] = useState<File | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [importSummary, setImportSummary] = useState<AttendanceImportSummary | null>(null);
@@ -1478,49 +1487,6 @@ export function AttendanceReportsBoard({
     selectedRecords,
   ]);
 
-  const attendanceExportRows = useMemo(() => {
-    const rows: AttendanceExportRow[] = [];
-
-    for (const [dateKey, dayLogs] of logsByDate.entries()) {
-      if (dateKey < monthStartKey || dateKey > monthEndKey) continue;
-
-      const dailyRecords = buildDailyRecords(dayLogs, filteredEmployeeById, dateKey);
-      rows.push(
-        ...dailyRecords.map((record) => ({
-          employeeId: String(record.employeeId),
-          employeeName: record.name,
-          date: dateKey,
-          timeIn: record.inTime ?? '',
-          timeOut: record.outTime ?? '',
-        }))
-      );
-    }
-
-    return rows.sort((a, b) => {
-      const aId = Number(a.employeeId);
-      const bId = Number(b.employeeId);
-      const bothNumeric = Number.isFinite(aId) && Number.isFinite(bId);
-      if (bothNumeric && aId !== bId) return aId - bId;
-
-      const idDiff = a.employeeId.localeCompare(b.employeeId);
-      if (idDiff !== 0) return idDiff;
-
-      const dateDiff = a.date.localeCompare(b.date);
-      if (dateDiff !== 0) return dateDiff;
-
-      return a.employeeName.localeCompare(b.employeeName);
-    });
-  }, [filteredEmployeeById, logsByDate, monthEndKey, monthStartKey]);
-
-  const attendanceExportCsv = useMemo(
-    () =>
-      buildCsvContent([
-        ['Employee ID', 'Employee Name', 'Date', 'Time In', 'Time Out'],
-        ...attendanceExportRows.map((row) => [row.employeeId, row.employeeName, row.date, row.timeIn, row.timeOut]),
-      ]),
-    [attendanceExportRows]
-  );
-
   const monthOptions = useMemo(() => {
     const startYear = Math.min(todayYear, year) - 5;
     const endYear = Math.max(todayYear, year) + 5;
@@ -1598,20 +1564,81 @@ export function AttendanceReportsBoard({
     }
   }
 
-  async function downloadAttendanceReport() {
+  async function downloadAttendanceReportInRange() {
     setActionError('');
     setIsExporting(true);
 
     try {
-      const blob = new Blob([attendanceExportCsv], { type: 'text/csv;charset=utf-8;' });
+      const fromDate = new Date(`${exportFromDate}T00:00:00`);
+      const toDate = new Date(`${exportToDate}T23:59:59`);
+
+      if (fromDate > toDate) {
+        throw new Error('From date cannot be after To date.');
+      }
+
+      // We fetch all logs for the range. 
+      // Note: backend might have size limits, but the existing code uses size: 5000.
+      const logResponse = await apiFetchJson<unknown>(
+        withParams(logsUrl, {
+          page: '0',
+          size: '10000', 
+          timestampAfter: fromDate.toISOString(),
+          timestampBefore: toDate.toISOString(),
+        })
+      );
+
+      const exportLogs = toArray<AttendanceLog>(logResponse);
+      const overnightWindows = buildOvernightShiftWindows(dailyShifts, filteredEmployeeIdSet);
+
+      const rows: AttendanceExportRow[] = [];
+      const logsByRangeDate = new Map<string, AttendanceLog[]>();
+
+      for (const log of exportLogs) {
+        if (typeof log.employeeId !== 'number' || !filteredEmployeeIdSet.has(log.employeeId)) continue;
+        const key = resolveAttendanceReportDateKey(log, overnightWindows);
+        if (!key || key < exportFromDate || key > exportToDate) continue;
+        const current = logsByRangeDate.get(key) ?? [];
+        current.push(log);
+        logsByRangeDate.set(key, current);
+      }
+
+      for (const [dateKey, dayLogs] of logsByRangeDate.entries()) {
+        const dailyRecords = buildDailyRecords(dayLogs, filteredEmployeeById, dateKey);
+        rows.push(
+          ...dailyRecords.map((record) => ({
+            employeeId: String(record.employeeId),
+            employeeName: record.name,
+            date: dateKey,
+            timeIn: record.inTime ?? '',
+            timeOut: record.outTime ?? '',
+          }))
+        );
+      }
+
+      rows.sort((a, b) => {
+        const aId = Number(a.employeeId);
+        const bId = Number(b.employeeId);
+        if (Number.isFinite(aId) && Number.isFinite(bId) && aId !== bId) return aId - bId;
+        const idDiff = a.employeeId.localeCompare(b.employeeId);
+        if (idDiff !== 0) return idDiff;
+        return a.date.localeCompare(b.date);
+      });
+
+      const csv = buildCsvContent([
+        ['Employee ID', 'Employee Name', 'Date', 'Time In', 'Time Out'],
+        ...rows.map((row) => [row.employeeId, row.employeeName, row.date, row.timeIn, row.timeOut]),
+      ]);
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `attendance-report-${year}-${pad2(monthIndex + 1)}.csv`;
+      link.download = `attendance-report-${exportFromDate}-to-${exportToDate}.csv`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
+      setExportDialogOpen(false);
     } catch (error) {
       setActionError(getFriendlyErrorMessage(error));
     } finally {
@@ -1740,7 +1767,7 @@ export function AttendanceReportsBoard({
                   role="menuitem"
                   onClick={() => {
                     setActionMenuOpen(false);
-                    void downloadAttendanceReport();
+                    setExportDialogOpen(true);
                   }}
                   disabled={isLoading || isExporting || Boolean(loadError)}
                 >
@@ -2284,6 +2311,64 @@ export function AttendanceReportsBoard({
               <button className="hrAtt__actionBtn hrAtt__actionBtn--ghost" type="button" onClick={() => setDetailOpen(false)}>
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {exportDialogOpen && (
+        <div className="hrAttModalBackdrop" role="dialog" aria-modal="true" aria-label="Export attendance CSV">
+          <div className="hrAttModal hrAttModal--export">
+            <div className="hrAttModal__top">
+              <div>
+                <div className="hrAttModal__title">Export Attendance</div>
+                <p className="hrAttModal__subtitle">
+                  Select a date range to export the attendance summary for all currently filtered employees.
+                </p>
+              </div>
+              <ModalCloseButton className="hrAttModal__close" onClick={() => setExportDialogOpen(false)} />
+            </div>
+
+            <div className="hrAttModal__rule" />
+
+            <div className="hrAttExportForm">
+              <div className="hrAttExportForm__grid">
+                <label className="hrAttExportForm__field">
+                  <span>From Date</span>
+                  <input
+                    type="date"
+                    value={exportFromDate}
+                    onChange={(e) => setExportFromDate(e.target.value)}
+                  />
+                </label>
+                <label className="hrAttExportForm__field">
+                  <span>To Date</span>
+                  <input
+                    type="date"
+                    value={exportToDate}
+                    onChange={(e) => setExportToDate(e.target.value)}
+                  />
+                </label>
+              </div>
+
+              <div className="hrAttExportForm__actions">
+                <button
+                  type="button"
+                  className="hrAtt__actionBtn hrAtt__actionBtn--ghost"
+                  onClick={() => setExportDialogOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="hrAtt__actionBtn"
+                  onClick={() => void downloadAttendanceReportInRange()}
+                  disabled={isExporting}
+                >
+                  <FiDownload aria-hidden="true" />
+                  <span>{isExporting ? 'Preparing CSV...' : 'Download CSV'}</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

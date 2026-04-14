@@ -208,6 +208,7 @@
 .alertDialog__card {
   width: min(460px, 96vw) !important;
   max-height: none !important;
+  padding: 32px 36px 36px !important;
 }
 
 :where(
@@ -609,6 +610,7 @@
   align-items: center !important;
   min-height: 30px !important;
   padding: 0 12px !important;
+  margin-bottom: 16px !important;
   border-radius: 999px !important;
   background: var(--popup-soft-fill) !important;
   color: var(--app-label-color) !important;
