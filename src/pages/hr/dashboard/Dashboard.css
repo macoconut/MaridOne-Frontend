@@ -123,7 +123,8 @@
 
 .hrStatRow {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  /* Force 6 columns on desktop */
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -131,51 +132,68 @@
   border: 1.5px solid rgba(0, 0, 0, 0.22);
   border-radius: 10px;
   background: #fff;
-  min-height: 66px;
-  padding: 10px 12px;
+  min-height: 60px;
+  padding: 8px 10px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   box-shadow: 0 8px 15px rgba(0, 0, 0, 0.08);
 }
 
 .hrStatCard__ring {
   --ring-fill: 72deg;
   --ring-color: #b83573;
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   flex: 0 0 auto;
   background: conic-gradient(var(--ring-color) 0 var(--ring-fill), #f1dde8 var(--ring-fill) 360deg);
+  display: grid;
+  place-items: center;
 }
 
 .hrStatCard__ring::after {
   content: '';
   display: block;
-  width: 24px;
-  height: 24px;
-  margin: 9px;
+  width: 20px;
+  height: 20px;
   background: #fff;
   border-radius: 50%;
+  grid-area: 1/1;
+}
+
+.hrStatCard__valueInRing {
+  grid-area: 1/1;
+  z-index: 1;
+  font-size: 13px;
+  font-weight: 900;
+  color: var(--hr-primary-dark);
+}
+
+.hrStatCard__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
 }
 
 .hrStatCard__label {
   color: #2f2050;
   font-size: 16px;
   font-weight: 800;
-}
-
-.hrStatCard__value {
-  color: #2f2050;
-  font-size: 22px;
-  font-weight: 900;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .hrStatCard__helper {
-  margin-top: 2px;
   color: #6a5b82;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .hrPanel {
@@ -404,10 +422,14 @@
   background: #e5d8de;
 }
 
+.hrDeptStatRow__dot--upcoming {
+  background: #93a5d1;
+}
+
 .hrDeptStatRow__value {
   color: var(--hr-primary-dark);
   font-size: 18px;
-  font-weight: 900;
+  font-weight: 500;
 }
 
 .hrWeekDeptCard__name {
@@ -505,6 +527,10 @@
   background: #e5d8de;
 }
 
+.hrLegend__item--upcoming::before {
+  background: #93a5d1;
+}
+
 .hrDash__bottomRow {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -575,11 +601,10 @@
 }
 
 .hrPerson {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 6px;
-  align-items: start;
-  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 16px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.16);
 }
 
@@ -591,9 +616,101 @@
   padding-top: 8px;
 }
 
-.hrPerson--timed {
-  grid-template-columns: 1fr auto;
+.hrPerson__name {
+  color: #1e1d2d;
+  font-size: 16px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 1px;
+}
+
+.hrPerson__meta {
+  font-size: 12px; /* Smaller department */
+  font-weight: 400;
+  color: #666;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hrPerson__sub {
+  font-size: 13px; /* Smaller role */
+  font-weight: 400;
+  color: #555;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hrPerson__time {
+  font-size: 14px;
+  font-weight: 400;
+  color: #555;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hrPerson__infoRow span {
+  font-size: 13px;
+  font-weight: 400;
+  color: #555;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hrPerson__row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.hrPerson__row--split {
+  justify-content: space-between;
+}
+
+.hrPerson__metaGroup {
+  display: flex;
+  align-items: center;
   gap: 12px;
+}
+
+.hrPerson__indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.hrPerson__indicator--in {
+  background: rgba(64, 178, 123, 0.16);
+  color: #237653;
+}
+
+.hrPerson__indicator--out {
+  background: rgba(83, 121, 208, 0.16);
+  color: #3558a8;
+}
+
+.hrPerson__indicator--late {
+  background: rgba(239, 107, 156, 0.16);
+  color: #b83573;
+}
+
+.hrPerson__indicator--neutral {
+  background: rgba(123, 74, 143, 0.12);
+  color: #5c4476;
 }
 
 .hrEmptyState {
@@ -623,107 +740,6 @@
   line-height: 1.45;
 }
 
-.hrPerson__name {
-  color: #1e1d2d;
-  font-size: 16px;
-  font-weight: 800;
-}
-
-.hrPerson__topLine {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-}
-
-.hrPerson__body {
-  min-width: 0;
-}
-
-.hrPerson__meta {
-  color: #3f3e46;
-  font-size: 15px;
-  line-height: 1.35;
-  word-break: break-word;
-}
-
-.hrPerson--feed {
-  gap: 2px;
-}
-
-.hrPerson__feedTop,
-.hrPerson__feedBottom {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 12px;
-  min-height: 24px;
-}
-
-.hrPerson__feedBottom {
-  gap: 6px;
-}
-
-.hrPerson__indicator {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 44px;
-  height: 24px;
-  padding: 0 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 0.05em;
-}
-
-.hrPerson__indicator--in {
-  background: rgba(64, 178, 123, 0.16);
-  color: #237653;
-}
-
-.hrPerson__indicator--out {
-  background: rgba(83, 121, 208, 0.16);
-  color: #3558a8;
-}
-
-.hrPerson__indicator--late {
-  background: rgba(239, 107, 156, 0.16);
-  color: #b83573;
-}
-
-.hrPerson__indicator--neutral {
-  background: rgba(123, 74, 143, 0.12);
-  color: #5c4476;
-}
-
-.hrPerson__time {
-  font-size: 16px;
-  color: #444;
-  white-space: nowrap;
-  padding-top: 2px;
-}
-
-.hrPerson__time--panel {
-  padding-top: 0;
-  justify-self: end;
-}
-
-.hrPerson__infoRow {
-  margin-top: 3px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.hrPerson__infoRow span {
-  font-size: 15px;
-  color: #4a4a56;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
 @media (max-width: 1400px) {
   .hrDash__grid {
     grid-template-columns: 1fr;
@@ -737,7 +753,7 @@
 
 @media (max-width: 1100px) {
   .hrStatRow {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .hrDept {
@@ -794,7 +810,7 @@
   }
 
   .hrStatRow {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .hrDeptGrid {
@@ -826,7 +842,7 @@
   }
 
   .hrStatCard__label {
-    font-size: 16px;
+    font-size: 16px; white-space: normal;
   }
 
   .hrPerson__name {
@@ -869,17 +885,17 @@
     padding: 12px;
   }
 
-  .hrPerson--timed,
-  .hrPerson__topLine,
-  .hrPerson__feedTop,
-  .hrPerson__feedBottom {
+  .hrPerson__row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .hrPerson__time {
+    justify-self: start;
+  }
+
+  .hrStatRow {
     grid-template-columns: 1fr;
   }
-
-  .hrPerson__time,
-  .hrPerson__time--panel {
-    justify-self: start;
-    white-space: normal;
-  }
 }
-

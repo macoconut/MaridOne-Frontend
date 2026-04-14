@@ -55,6 +55,13 @@ type EmployeeDetails = {
   department?: string;
   userAccountName?: string;
   managerId?: number;
+  sssNumber?: string;
+  philhealthNumber?: string;
+  pagibigNumber?: string;
+  tinNumber?: string;
+  emergencyContactName?: string;
+  emergencyContactRelationship?: string;
+  emergencyContactNumber?: string;
   address?: {
     permanentAddress?: string;
     temporaryAddress?: string;
@@ -118,6 +125,13 @@ type FormState = {
   state: string;
   country: string;
   zipCode: string;
+  sssNumber: string;
+  philhealthNumber: string;
+  pagibigNumber: string;
+  tinNumber: string;
+  emergencyContactName: string;
+  emergencyContactRelationship: string;
+  emergencyContactNumber: string;
   reason: string;
 };
 
@@ -165,6 +179,13 @@ const emptyForm: FormState = {
   state: '',
   country: '',
   zipCode: '',
+  sssNumber: '',
+  philhealthNumber: '',
+  pagibigNumber: '',
+  tinNumber: '',
+  emergencyContactName: '',
+  emergencyContactRelationship: '',
+  emergencyContactNumber: '',
   reason: '',
 };
 
@@ -1028,6 +1049,13 @@ export default function HrManageEmp() {
         state: payload.address?.state ?? '',
         country: payload.address?.country ?? '',
         zipCode: payload.address?.zipCode ?? '',
+        sssNumber: payload.sssNumber ?? '',
+        philhealthNumber: payload.philhealthNumber ?? '',
+        pagibigNumber: payload.pagibigNumber ?? '',
+        tinNumber: payload.tinNumber ?? '',
+        emergencyContactName: payload.emergencyContactName ?? '',
+        emergencyContactRelationship: payload.emergencyContactRelationship ?? '',
+        emergencyContactNumber: payload.emergencyContactNumber ?? '',
         reason: '',
       };
       const nextManagerSearch =
@@ -1139,6 +1167,13 @@ export default function HrManageEmp() {
       department: showDepartmentPicker ? form.department.trim() || undefined : undefined,
       yearlySalary: parseYearlySalary(form.yearlySalary),
       managerId: showManagerPicker ? parseManagerId(form.managerId, form.employeeId) : undefined,
+      sssNumber: form.sssNumber.trim() || undefined,
+      philhealthNumber: form.philhealthNumber.trim() || undefined,
+      pagibigNumber: form.pagibigNumber.trim() || undefined,
+      tinNumber: form.tinNumber.trim() || undefined,
+      emergencyContactName: form.emergencyContactName.trim() || undefined,
+      emergencyContactRelationship: form.emergencyContactRelationship.trim() || undefined,
+      emergencyContactNumber: form.emergencyContactNumber.trim() || undefined,
       address: {
         permanentAddress: form.permanentAddress.trim() || undefined,
         temporaryAddress: form.temporaryAddress.trim() || undefined,
@@ -1541,6 +1576,46 @@ export default function HrManageEmp() {
               <div className="hrEmpDetails__item">
                 <span>Birth Date</span>
                 <strong>{formatDateValue(details.birthDate)}</strong>
+              </div>
+            </div>
+          </section>
+
+          <section className="hrEmpDetails__card">
+            <h3>Government Identifiers</h3>
+            <div className="hrEmpDetails__items">
+              <div className="hrEmpDetails__item">
+                <span>SSS Number</span>
+                <strong>{displayValue(details.sssNumber)}</strong>
+              </div>
+              <div className="hrEmpDetails__item">
+                <span>PhilHealth ID</span>
+                <strong>{displayValue(details.philhealthNumber)}</strong>
+              </div>
+              <div className="hrEmpDetails__item">
+                <span>Pag-IBIG MID</span>
+                <strong>{displayValue(details.pagibigNumber)}</strong>
+              </div>
+              <div className="hrEmpDetails__item">
+                <span>TIN</span>
+                <strong>{displayValue(details.tinNumber)}</strong>
+              </div>
+            </div>
+          </section>
+
+          <section className="hrEmpDetails__card">
+            <h3>Emergency Contact</h3>
+            <div className="hrEmpDetails__items">
+              <div className="hrEmpDetails__item">
+                <span>Contact Name</span>
+                <strong>{displayValue(details.emergencyContactName)}</strong>
+              </div>
+              <div className="hrEmpDetails__item">
+                <span>Relationship</span>
+                <strong>{displayValue(details.emergencyContactRelationship)}</strong>
+              </div>
+              <div className="hrEmpDetails__item hrEmpDetails__item--full">
+                <span>Contact Number</span>
+                <strong>{displayValue(details.emergencyContactNumber)}</strong>
               </div>
             </div>
           </section>
@@ -2178,6 +2253,74 @@ export default function HrManageEmp() {
                           onChange={(event) => setField('phoneNumber', sanitizePhoneNumber(event.target.value))}
                         />
                         {phoneHasError && <span className="hrEmpField__hint is-error">{phoneHelperMessage}</span>}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="hrEmpForm__section">
+                    <div className="hrEmpForm__sectionTitle">Government Identifiers</div>
+                    <div className="hrEmpForm__grid">
+                      <div className="hrEmpField">
+                        <label>SSS Number</label>
+                        <input
+                          value={form.sssNumber}
+                          placeholder="00-0000000-0"
+                          onChange={(event) => setField('sssNumber', event.target.value)}
+                        />
+                      </div>
+                      <div className="hrEmpField">
+                        <label>PhilHealth ID</label>
+                        <input
+                          value={form.philhealthNumber}
+                          placeholder="00-000000000-0"
+                          onChange={(event) => setField('philhealthNumber', event.target.value)}
+                        />
+                      </div>
+                      <div className="hrEmpField">
+                        <label>Pag-IBIG MID</label>
+                        <input
+                          value={form.pagibigNumber}
+                          placeholder="0000-0000-0000"
+                          onChange={(event) => setField('pagibigNumber', event.target.value)}
+                        />
+                      </div>
+                      <div className="hrEmpField">
+                        <label>TIN</label>
+                        <input
+                          value={form.tinNumber}
+                          placeholder="000-000-000-000"
+                          onChange={(event) => setField('tinNumber', event.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="hrEmpForm__section">
+                    <div className="hrEmpForm__sectionTitle">Emergency Contact</div>
+                    <div className="hrEmpForm__grid">
+                      <div className="hrEmpField">
+                        <label>Contact Name</label>
+                        <input
+                          value={form.emergencyContactName}
+                          placeholder="Full name of emergency contact"
+                          onChange={(event) => setField('emergencyContactName', event.target.value)}
+                        />
+                      </div>
+                      <div className="hrEmpField">
+                        <label>Relationship</label>
+                        <input
+                          value={form.emergencyContactRelationship}
+                          placeholder="e.g. Spouse, Parent, Sibling"
+                          onChange={(event) => setField('emergencyContactRelationship', event.target.value)}
+                        />
+                      </div>
+                      <div className="hrEmpField">
+                        <label>Contact Number</label>
+                        <input
+                          value={form.emergencyContactNumber}
+                          placeholder="Phone number"
+                          onChange={(event) => setField('emergencyContactNumber', event.target.value)}
+                        />
                       </div>
                     </div>
                   </div>

@@ -23,6 +23,7 @@ type EmployeeDetails = {
   department?: string;
   email?: string;
   taxNumber?: string;
+  tinNumber?: string;
   address?: {
     permanentAddress?: string;
     temporaryAddress?: string;
@@ -807,7 +808,7 @@ export default function Payslip() {
             </div>
             <div className="payInfo__row">
               <span>Tax Number</span>
-              <span className="payInfo__line">{employeeInfo?.taxNumber ?? '-'}</span>
+              <span className="payInfo__line">{employeeInfo?.tinNumber || employeeInfo?.taxNumber || '-'}</span>
             </div>
             <div className="payInfo__row">
               <span>Designation</span>

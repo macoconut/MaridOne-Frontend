@@ -614,6 +614,18 @@
   font-weight: 800;
 }
 
+.dashModal__sectionHeader {
+  grid-column: 1 / -1;
+  font-size: 14px;
+  font-weight: 900;
+  color: var(--purple);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(123, 74, 143, 0.1);
+}
+
 .announcementModal__list{
   display:grid;
   gap: 12px;

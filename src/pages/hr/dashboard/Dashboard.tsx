@@ -68,6 +68,7 @@ type DepartmentBreakdownItem = {
   absent: number;
   onLeave: number;
   dayOff: number;
+  upcoming: number;
 };
 
 type DailyEmployeeRecord = {
@@ -110,9 +111,9 @@ type AttendanceOverviewDashboardProps = {
   weeklyWindowIncludesSelectedDate?: boolean;
 };
 
-type AttendanceStatusKey = 'present' | 'late' | 'absent' | 'onLeave' | 'dayOff';
+type AttendanceStatusKey = 'present' | 'late' | 'absent' | 'onLeave' | 'dayOff' | 'upcoming';
 
-type AttendanceStatusTone = 't1' | 't2' | 't3' | 't4' | 't5';
+type AttendanceStatusTone = 't1' | 't2' | 't3' | 't4' | 't5' | 't6';
 
 type AttendanceStatusSummary = Record<AttendanceStatusKey, number> & {
   headcount: number;
@@ -135,6 +136,7 @@ const STATUS_CONFIG: Record<
   absent: { label: 'Absent', tone: 't3', color: '#f2a6a8' },
   onLeave: { label: 'On Leave', tone: 't4', color: '#deb0ba' },
   dayOff: { label: 'Day Off', tone: 't5', color: '#e5d8de' },
+  upcoming: { label: 'Upcoming', tone: 't6', color: '#93a5d1' },
 };
 
 const DEFAULT_WORKING_DAYS = new Set([1, 2, 3, 4, 5, 6]);
@@ -505,19 +507,25 @@ function rosterRows(payload: unknown) {
 }
 
 function resolveDepartmentLabel(employee: EmployeeRow) {
-  const value = String(employee.department ?? '').trim();
-  if (value) return value;
-
-  switch (employee.position.toUpperCase()) {
-    case 'HR':
-      return 'HR';
-    case 'ACCOUNTING':
-      return 'Accounting';
-    case 'MANAGEMENT':
-      return 'Management';
-    default:
-      return 'Unassigned';
+  let value = String(employee.department ?? '').trim();
+  if (!value) {
+    switch (employee.position.toUpperCase()) {
+      case 'HR':
+        value = 'HR';
+        break;
+      case 'ACCOUNTING':
+        value = 'Accounting';
+        break;
+      case 'MANAGEMENT':
+        value = 'Management';
+        break;
+      default:
+        value = 'Unassigned';
+    }
   }
+
+  // Strip " Department" or " department" if present
+  return value.replace(/\s+Department$/i, '');
 }
 
 function buildAttendanceSummary(
@@ -538,6 +546,7 @@ function buildAttendanceSummary(
     absent: 0,
     onLeave: 0,
     dayOff: 0,
+    upcoming: 0,
   };
 
   for (const employeeId of employeeIds) {
@@ -577,12 +586,8 @@ function buildAttendanceSummary(
       leaveRequestsByEmployee.get(employeeId) || []
     )) {
       // If shift hasn't started, we don't count them as absent yet.
-      // They are part of headcount but not categorized as absent.
-      // However, for consistency in summary (where headcount = sum of statuses),
-      // we might want to put them in 'dayOff' or a new 'notStarted' status.
-      // User said "all employees should not be marked as absent if their shift is not yet happening".
-      // I'll put them in 'dayOff' for now to keep the headcount balanced, 
-      // or just not count them in absent.
+      // We put them in 'upcoming' for now to keep the headcount balanced.
+      summary.upcoming += 1;
       continue;
     }
 
@@ -1127,6 +1132,7 @@ export function AttendanceOverviewDashboard({
         absent: 0,
         onLeave: 0,
         dayOff: 0,
+        upcoming: 0,
       };
 
       current.headcount += 1;
@@ -1148,6 +1154,7 @@ export function AttendanceOverviewDashboard({
       current.absent += employeeSummary.absent;
       current.onLeave += employeeSummary.onLeave;
       current.dayOff += employeeSummary.dayOff;
+      current.upcoming += employeeSummary.upcoming;
       grouped.set(label, current);
     }
 
@@ -1320,10 +1327,11 @@ export function AttendanceOverviewDashboard({
           <section className="hrStatRow">
             {metricCards.map((card) => (
               <article key={card.key} className="hrStatCard">
-                <div className="hrStatCard__ring" style={card.ringStyle} />
+                <div className="hrStatCard__ring" style={card.ringStyle}>
+                  <span className="hrStatCard__valueInRing">{card.value}</span>
+                </div>
                 <div className="hrStatCard__body">
                   <div className="hrStatCard__label">{card.label}</div>
-                  <div className="hrStatCard__value">{card.value}</div>
                   <div className="hrStatCard__helper">{card.helper}</div>
                 </div>
               </article>
@@ -1445,6 +1453,7 @@ export function AttendanceOverviewDashboard({
                         absent: department.absent,
                         onLeave: department.onLeave,
                         dayOff: department.dayOff,
+                        upcoming: department.upcoming,
                       };
                       const chartPoints = donutPoints(summary);
                       const donutBackground = buildDonutBackground(chartPoints);
@@ -1533,10 +1542,10 @@ export function AttendanceOverviewDashboard({
                 {absentToday.length > 0 ? (
                   absentToday.map((item) => (
                     <article key={item.id} className="hrPerson">
-                      <div className="hrPerson__body">
-                        <div className="hrPerson__name">{item.name}</div>
-                        <div className="hrPerson__meta">{item.summary}</div>
-                        <div className="hrPerson__meta">{item.detail}</div>
+                      <div className="hrPerson__name">{item.name}</div>
+                      <div className="hrPerson__row hrPerson__row--split">
+                        <span className="hrPerson__sub">{item.summary}</span>
+                        <span className="hrPerson__meta">{item.detail}</span>
                       </div>
                     </article>
                   ))
@@ -1570,13 +1579,13 @@ export function AttendanceOverviewDashboard({
                 {lateToday.length > 0 ? (
                   lateToday.map((item) => (
                     <article key={item.id} className="hrPerson">
-                      <div className="hrPerson__body">
-                        <div className="hrPerson__topLine">
-                          <div className="hrPerson__name">{item.name}</div>
-                          <div className="hrPerson__time hrPerson__time--panel">{item.timeIn}</div>
-                        </div>
-                        <div className="hrPerson__meta">{item.summary}</div>
-                        <div className="hrPerson__meta">{item.detail}</div>
+                      <div className="hrPerson__row hrPerson__row--split">
+                        <div className="hrPerson__name">{item.name}</div>
+                        <div className="hrPerson__time">{item.timeIn}</div>
+                      </div>
+                      <div className="hrPerson__row hrPerson__row--split">
+                        <span className="hrPerson__sub">{item.summary}</span>
+                        <span className="hrPerson__meta">{item.detail}</span>
                       </div>
                     </article>
                   ))
@@ -1600,12 +1609,12 @@ export function AttendanceOverviewDashboard({
                 {onLeave.length > 0 ? (
                   onLeave.map((item) => (
                     <article key={item.id} className="hrPerson">
-                      <div className="hrPerson__body">
-                        <div className="hrPerson__name">{item.name}</div>
-                        <div className="hrPerson__meta">{item.summary}</div>
-                        <div className="hrPerson__meta">{item.detail}</div>
-                        <div className="hrPerson__infoRow">
-                          <span>
+                      <div className="hrPerson__name">{item.name}</div>
+                      <div className="hrPerson__row hrPerson__row--split">
+                        <span className="hrPerson__sub">{item.summary}</span>
+                        <div className="hrPerson__metaGroup">
+                          <span className="hrPerson__meta">{item.detail}</span>
+                          <span className="hrPerson__meta">
                             <FiCalendar /> {item.period}
                           </span>
                         </div>
@@ -1633,15 +1642,15 @@ export function AttendanceOverviewDashboard({
             {attendanceFeed.length > 0 ? (
               attendanceFeed.map((item) => (
                 <article key={item.id} className="hrPerson hrPerson--feed">
-                  <div className="hrPerson__feedTop">
+                  <div className="hrPerson__row hrPerson__row--split">
                     <div className="hrPerson__name">{item.name}</div>
-                    <div className="hrPerson__time">{item.time}</div>
-                  </div>
-                  <div className="hrPerson__feedBottom">
-                    <div className="hrPerson__meta">{item.position}</div>
                     <span className={`hrPerson__indicator hrPerson__indicator--${item.directionTone}`}>
                       {item.directionLabel}
                     </span>
+                  </div>
+                  <div className="hrPerson__row hrPerson__row--split">
+                    <span className="hrPerson__time">{item.time}</span>
+                    <span className="hrPerson__meta">{item.position}</span>
                   </div>
                 </article>
               ))

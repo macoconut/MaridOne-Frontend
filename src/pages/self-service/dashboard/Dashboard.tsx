@@ -44,6 +44,13 @@ type UserDetails = {
     dateHired?: string;
     position?: string;
     employmentStatus?: string;
+    sssNumber?: string;
+    philhealthNumber?: string;
+    pagibigNumber?: string;
+    tinNumber?: string;
+    emergencyContactName?: string;
+    emergencyContactRelationship?: string;
+    emergencyContactNumber?: string;
   };
 };
 
@@ -147,6 +154,13 @@ function createEditDraft(source: UserDetails['employee'] | null | undefined) {
     state: typeof rawAddress.state === 'string' ? rawAddress.state : '',
     country: typeof rawAddress.country === 'string' ? rawAddress.country : '',
     zipCode: typeof rawAddress.zipCode === 'string' ? rawAddress.zipCode : '',
+    sssNumber: typeof source?.sssNumber === 'string' ? source.sssNumber : '',
+    philhealthNumber: typeof source?.philhealthNumber === 'string' ? source.philhealthNumber : '',
+    pagibigNumber: typeof source?.pagibigNumber === 'string' ? source.pagibigNumber : '',
+    tinNumber: typeof source?.tinNumber === 'string' ? source.tinNumber : '',
+    emergencyContactName: typeof source?.emergencyContactName === 'string' ? source.emergencyContactName : '',
+    emergencyContactRelationship: typeof source?.emergencyContactRelationship === 'string' ? source.emergencyContactRelationship : '',
+    emergencyContactNumber: typeof source?.emergencyContactNumber === 'string' ? source.emergencyContactNumber : '',
   };
 }
 
@@ -492,6 +506,13 @@ export default function Dashboard() {
     state: '',
     country: '',
     zipCode: '',
+    sssNumber: '',
+    philhealthNumber: '',
+    pagibigNumber: '',
+    tinNumber: '',
+    emergencyContactName: '',
+    emergencyContactRelationship: '',
+    emergencyContactNumber: '',
   });
 
   useErrorDialogEffect(editError, 'Profile changes could not be saved');
@@ -932,6 +953,13 @@ export default function Dashboard() {
         body: JSON.stringify({
           email: editDraft.email.trim() || undefined,
           phoneNumber: editDraft.phoneNumber.trim() || undefined,
+          sssNumber: editDraft.sssNumber.trim() || undefined,
+          philhealthNumber: editDraft.philhealthNumber.trim() || undefined,
+          pagibigNumber: editDraft.pagibigNumber.trim() || undefined,
+          tinNumber: editDraft.tinNumber.trim() || undefined,
+          emergencyContactName: editDraft.emergencyContactName.trim() || undefined,
+          emergencyContactRelationship: editDraft.emergencyContactRelationship.trim() || undefined,
+          emergencyContactNumber: editDraft.emergencyContactNumber.trim() || undefined,
           address: {
             permanentAddress: editDraft.permanentAddress.trim() || undefined,
             temporaryAddress: editDraft.temporaryAddress.trim() || undefined,
@@ -1467,6 +1495,66 @@ export default function Dashboard() {
                   value={editDraft.zipCode}
                   placeholder="Optional ZIP code"
                   onChange={(e) => setEditField('zipCode', e.target.value)}
+                />
+              </label>
+
+              <div className="dashModal__sectionHeader">Government Identifiers</div>
+              <label className="dashModal__field">
+                <span>SSS Number</span>
+                <input
+                  value={editDraft.sssNumber}
+                  placeholder="00-0000000-0"
+                  onChange={(e) => setEditField('sssNumber', e.target.value)}
+                />
+              </label>
+              <label className="dashModal__field">
+                <span>PhilHealth ID</span>
+                <input
+                  value={editDraft.philhealthNumber}
+                  placeholder="00-000000000-0"
+                  onChange={(e) => setEditField('philhealthNumber', e.target.value)}
+                />
+              </label>
+              <label className="dashModal__field">
+                <span>Pag-IBIG MID</span>
+                <input
+                  value={editDraft.pagibigNumber}
+                  placeholder="0000-0000-0000"
+                  onChange={(e) => setEditField('pagibigNumber', e.target.value)}
+                />
+              </label>
+              <label className="dashModal__field">
+                <span>TIN</span>
+                <input
+                  value={editDraft.tinNumber}
+                  placeholder="000-000-000-000"
+                  onChange={(e) => setEditField('tinNumber', e.target.value)}
+                />
+              </label>
+
+              <div className="dashModal__sectionHeader">Emergency Contact</div>
+              <label className="dashModal__field">
+                <span>Contact Name</span>
+                <input
+                  value={editDraft.emergencyContactName}
+                  placeholder="Full name"
+                  onChange={(e) => setEditField('emergencyContactName', e.target.value)}
+                />
+              </label>
+              <label className="dashModal__field">
+                <span>Relationship</span>
+                <input
+                  value={editDraft.emergencyContactRelationship}
+                  placeholder="e.g. Spouse, Sibling"
+                  onChange={(e) => setEditField('emergencyContactRelationship', e.target.value)}
+                />
+              </label>
+              <label className="dashModal__field dashModal__field--full">
+                <span>Contact Number</span>
+                <input
+                  value={editDraft.emergencyContactNumber}
+                  placeholder="Phone number"
+                  onChange={(e) => setEditField('emergencyContactNumber', e.target.value)}
                 />
               </label>
             </div>
