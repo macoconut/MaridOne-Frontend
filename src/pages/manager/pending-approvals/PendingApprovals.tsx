@@ -26,9 +26,13 @@ type LeaveDto = {
   requestAt?: string;
   requestStatus?: string;
   reason?: string;
-  isPaid?: boolean;
+  paid?: boolean;
+  suggestedPaid?: boolean;
   leaveType?: string;
   approverReason?: string;
+  managerApprover?: string;
+  managerApproverReason?: string;
+  managerApprovedAt?: string;
 };
 
 type OvertimeDto = {
@@ -42,6 +46,11 @@ type OvertimeDto = {
   overtimeType?: string;
   reason?: string;
   approveReason?: string;
+  paid?: boolean;
+  suggestedPaid?: boolean;
+  managerApprover?: string;
+  managerApproveReason?: string;
+  managerApprovedAt?: string;
 };
 
 type RequestType = 'Leave' | 'Overtime';
@@ -65,6 +74,9 @@ type ManagerRequest = {
   durationLabel: string;
   requestDateTime: string;
   decisionSummary?: string;
+  managerDecisionSummary?: string;
+  managerReviewer?: string;
+  managerReviewedAt?: string;
   sortStamp: number;
   leaveType?: string;
   requestId?: number;
@@ -176,12 +188,15 @@ function normalizeText(value?: string) {
 function toStatusCode(status: string) {
   const normalized = status.toUpperCase();
   if (normalized === 'DENIED') return 'REJECTED';
+  if (normalized === 'PENDING_MANAGER' || normalized === 'PENDING_HR' || normalized === 'PENDING') return 'PENDING';
   return normalized;
 }
 
 function statusLabel(status: string) {
-  const normalized = toStatusCode(status);
-  if (normalized === 'PENDING') return 'Pending';
+  const normalized = status.toUpperCase();
+  if (normalized === 'PENDING_MANAGER') return 'Pending Manager Review';
+  if (normalized === 'PENDING_HR') return 'Awaiting HR';
+  if (normalized === 'PENDING') return 'Pending Manager Review';
   if (normalized === 'APPROVED') return 'Approved';
   if (normalized === 'REJECTED') return 'Denied';
   if (normalized === 'CANCELLED') return 'Cancelled';
@@ -240,7 +255,7 @@ export default function ManagerPendingApprovals() {
       const leaveRows = toArray<LeaveDto>(leaveRes).map((item, idx) => {
         const attachment = extractAttachmentReference(item.reason);
         const leaveTypeLabel = formatRequestType(item.leaveType);
-        const payLabel = item.isPaid === false ? 'Unpaid' : 'Paid';
+        const payLabel = item.paid === false ? 'Unpaid' : 'Paid';
         return {
           id: `leave-${item.requestId ?? idx}`,
           requestId: item.requestId,
@@ -249,7 +264,7 @@ export default function ManagerPendingApprovals() {
           submittedAt: formatDateTime(item.requestAt ?? item.startDateTime),
           type: 'Leave' as const,
           source: 'leave' as const,
-          status: item.requestStatus || 'PENDING',
+          status: item.requestStatus || 'PENDING_MANAGER',
           reason: attachment.cleanText,
           referenceLabel: 'Leave Period',
           referenceValue: formatPeriod(item.startDateTime, item.endDateTime),
@@ -258,6 +273,9 @@ export default function ManagerPendingApprovals() {
           durationLabel: formatLeaveDuration(item.startDateTime, item.endDateTime),
           requestDateTime: formatRequestDateTime('leave', item.startDateTime, item.endDateTime),
           decisionSummary: item.approverReason || '',
+          managerDecisionSummary: item.managerApproverReason || '',
+          managerReviewer: item.managerApprover || '',
+          managerReviewedAt: formatDateTime(item.managerApprovedAt),
           sortStamp:
             item.requestAt ? Date.parse(item.requestAt) || 0 : item.startDateTime ? Date.parse(item.startDateTime) || 0 : 0,
           leaveType: item.leaveType,
@@ -269,6 +287,7 @@ export default function ManagerPendingApprovals() {
 
       const overtimeRows = toArray<OvertimeDto>(overtimeRes).map((item, idx) => {
         const attachment = extractAttachmentReference(item.reason);
+        const payLabel = item.paid === false ? 'Unpaid' : 'Paid';
         return {
           id: `overtime-${item.overtimeId ?? idx}`,
           overtimeId: item.overtimeId,
@@ -277,15 +296,18 @@ export default function ManagerPendingApprovals() {
           submittedAt: formatDateTime(item.requestAt),
           type: 'Overtime' as const,
           source: 'overtime' as const,
-          status: item.requestStatus || 'PENDING',
+          status: item.requestStatus || 'PENDING_MANAGER',
           reason: attachment.cleanText,
           referenceLabel: 'Work Window',
           referenceValue: `${formatDateTime(item.startTime)} to ${formatDateTime(item.endTime)}`,
           requestLabel: 'Overtime Request',
-          requestKind: formatRequestType(item.overtimeType || 'Overtime'),
+          requestKind: `${formatRequestType(item.overtimeType || 'Overtime')} - ${payLabel}`,
           durationLabel: formatClockWindow(item.startTime, item.endTime),
           requestDateTime: formatRequestDateTime('overtime', item.startTime, item.endTime, item.workDate),
           decisionSummary: item.approveReason || '',
+          managerDecisionSummary: item.managerApproveReason || '',
+          managerReviewer: item.managerApprover || '',
+          managerReviewedAt: formatDateTime(item.managerApprovedAt),
           sortStamp: item.requestAt ? Date.parse(item.requestAt) || 0 : 0,
           attachmentPathId: attachment.attachmentPathId ?? undefined,
         };
@@ -369,8 +391,13 @@ export default function ManagerPendingApprovals() {
     [selectedId, requests]
   );
   const activeFilterCount = [typeFilter, statusFilter].filter((value) => value !== 'all').length;
-  const hasFinalDecision = selected ? toStatusCode(selected.status) !== 'PENDING' : false;
-  const canReviewSelected = selected && toStatusCode(selected.status) === 'PENDING';
+  const normalizedSelectedStatus = String(selected?.status ?? '').toUpperCase();
+  const hasFinalDecision = selected
+    ? ['APPROVED', 'REJECTED', 'CANCELLED'].includes(normalizedSelectedStatus)
+    : false;
+  const canReviewSelected = selected
+    ? normalizedSelectedStatus === 'PENDING_MANAGER' || normalizedSelectedStatus === 'PENDING'
+    : false;
 
   useEffect(() => {
     setDecisionReason('');
@@ -512,9 +539,9 @@ export default function ManagerPendingApprovals() {
                 <label className="uFilter__field">
                   <span>Status</span>
                   <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}>
-                    <option value="all">All Statuses</option>
-                    <option value="PENDING">Pending</option>
-                    <option value="APPROVED">Approved</option>
+                  <option value="all">All Statuses</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="APPROVED">Approved</option>
                     <option value="REJECTED">Denied</option>
                     <option value="CANCELLED">Cancelled</option>
                   </select>
@@ -583,7 +610,7 @@ export default function ManagerPendingApprovals() {
                   {selected.employee} - {selected.type}
                 </h2>
                 <p className="hrApprModal__subtitle">
-                  Review the team request details and current status.
+                  Review the team request details, then either forward the request to HR or deny it here.
                 </p>
               </div>
               <ModalCloseButton className="hrApprModal__close" onClick={() => setSelectedId(null)} />
@@ -656,10 +683,32 @@ export default function ManagerPendingApprovals() {
               </div>
             </div>
 
-            {selected.decisionSummary && (
+            {selected.managerDecisionSummary && (
               <div className="hrApprForm__row">
                 <label>
-                  <span>Latest Decision Note:</span>
+                  <span>Manager Review Note:</span>
+                  <textarea value={selected.managerDecisionSummary} readOnly />
+                </label>
+              </div>
+            )}
+
+            {selected.managerReviewer && selected.managerReviewedAt && (
+              <div className="hrApprForm__row hrApprForm__row--2">
+                <label>
+                  <span>Reviewed By:</span>
+                  <input value={selected.managerReviewer} readOnly />
+                </label>
+                <label>
+                  <span>Reviewed At:</span>
+                  <input value={selected.managerReviewedAt} readOnly />
+                </label>
+              </div>
+            )}
+
+            {selected.decisionSummary && hasFinalDecision && (
+              <div className="hrApprForm__row">
+                <label>
+                  <span>Final Decision Note:</span>
                   <textarea value={selected.decisionSummary} readOnly />
                 </label>
               </div>
@@ -669,11 +718,15 @@ export default function ManagerPendingApprovals() {
               <p className="hrApprForm__hint">This request already has a final decision recorded.</p>
             )}
 
+            {!hasFinalDecision && normalizedSelectedStatus === 'PENDING_HR' && (
+              <p className="hrApprForm__hint">This request was already endorsed by the manager and is now waiting for HR review.</p>
+            )}
+
             <div className="hrApprModal__rule" />
 
             <div className="hrApprForm__row">
               <label className="decisionPicker">
-                <span>Manager Approval:</span>
+                <span>Manager Review:</span>
                 <div className="decisionPicker__actions">
                   <button
                     type="button"
@@ -681,7 +734,7 @@ export default function ManagerPendingApprovals() {
                     disabled={isSaving || !canReviewSelected}
                     onClick={() => setPendingDecision('APPROVED')}
                   >
-                    Approve
+                    Forward to HR
                   </button>
                   <button
                     type="button"
@@ -694,7 +747,7 @@ export default function ManagerPendingApprovals() {
                 </div>
                 {canReviewSelected && (
                   <p className="decisionPicker__note">
-                    Choose the outcome here first. The request will only be submitted when you use the confirm button below.
+                    Forwarding sends the request to HR for the final decision. Denying here ends the request immediately.
                   </p>
                 )}
               </label>
@@ -723,7 +776,7 @@ export default function ManagerPendingApprovals() {
                     {isSaving
                       ? 'Saving...'
                       : pendingDecision === 'APPROVED'
-                        ? 'Confirm Approval'
+                        ? 'Confirm Forward to HR'
                         : pendingDecision === 'REJECTED'
                           ? 'Confirm Denial'
                           : 'Confirm Decision'}
@@ -740,13 +793,15 @@ export default function ManagerPendingApprovals() {
       )}
       <ConfirmDialog
         open={confirmDecisionOpen}
-        title={pendingDecision === 'REJECTED' ? 'Confirm Denial' : 'Confirm Approval'}
+        title={pendingDecision === 'REJECTED' ? 'Confirm Denial' : 'Confirm Forward to HR'}
         message={
           selected
-            ? `Apply this ${pendingDecision === 'REJECTED' ? 'denial' : 'approval'} to ${selected.employee}'s ${selected.type.toLowerCase()} request?`
+            ? pendingDecision === 'REJECTED'
+              ? `Deny ${selected.employee}'s ${selected.type.toLowerCase()} request now?`
+              : `Forward ${selected.employee}'s ${selected.type.toLowerCase()} request to HR for the final decision?`
             : 'Confirm this team approval decision?'
         }
-        confirmLabel={pendingDecision === 'REJECTED' ? 'Confirm Denial' : 'Confirm Approval'}
+        confirmLabel={pendingDecision === 'REJECTED' ? 'Confirm Denial' : 'Forward to HR'}
         cancelLabel="Go Back"
         isBusy={isSaving}
         onConfirm={() => {

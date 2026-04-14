@@ -399,12 +399,18 @@ export default function ManagerDashboard() {
   }, [teamLeaves]);
 
   const pendingLeaveCount = useMemo(
-    () => teamLeaves.filter((request) => String(request.requestStatus ?? '').toUpperCase() === 'PENDING').length,
+    () =>
+      teamLeaves.filter((request) =>
+        ['PENDING_MANAGER', 'PENDING'].includes(String(request.requestStatus ?? '').toUpperCase())
+      ).length,
     [teamLeaves]
   );
 
   const pendingOvertimeCount = useMemo(
-    () => teamOvertime.filter((request) => String(request.requestStatus ?? '').toUpperCase() === 'PENDING').length,
+    () =>
+      teamOvertime.filter((request) =>
+        ['PENDING_MANAGER', 'PENDING'].includes(String(request.requestStatus ?? '').toUpperCase())
+      ).length,
     [teamOvertime]
   );
   const savedEmailNormalized = employee?.email?.trim().toLowerCase() ?? '';

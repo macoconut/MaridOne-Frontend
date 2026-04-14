@@ -14,7 +14,12 @@ import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './Approval.css';
 
 type ApprovalSource = 'leave' | 'overtime' | 'dispute';
-type ApprovalStatus = 'Pending' | 'Approved' | 'Denied' | 'Cancelled';
+type ApprovalStatus =
+  | 'Pending Manager Review'
+  | 'Pending HR Review'
+  | 'Approved'
+  | 'Denied'
+  | 'Cancelled';
 
 type ApprovalItem = {
   id: string;
@@ -33,7 +38,7 @@ type ApprovalItem = {
 };
 
 type ApprovalTypeFilter = 'all' | 'Leave' | 'Overtime' | 'Payslip Dispute';
-type ApprovalStatusFilter = 'all' | ApprovalStatus;
+type ApprovalStatusFilter = 'all' | 'Pending' | 'Approved' | 'Denied' | 'Cancelled';
 
 type LeaveRow = {
   requestId?: number;
@@ -60,6 +65,7 @@ type OvertimeRow = {
   reason?: string;
   approveReason?: string;
   overtimeType?: string;
+  paid?: boolean;
 };
 
 type DisputeRow = {
@@ -147,6 +153,11 @@ function buildLeaveDetail(leaveType?: string, isPaid?: boolean) {
   return `${formatLeaveType(leaveType)}${payLabel}`;
 }
 
+function buildOvertimeDetail(overtimeType?: string, isPaid?: boolean) {
+  const payLabel = isPaid === false ? ' - Unpaid' : ' - Paid';
+  return `${formatLeaveType(overtimeType || 'OT')}${payLabel}`;
+}
+
 function buildDisputeDetail(subject?: string) {
   const trimmed = typeof subject === 'string' ? subject.trim() : '';
   return trimmed.length > 0 ? trimmed : 'Payroll dispute';
@@ -161,10 +172,19 @@ function buildPayrollPeriodLabel(start?: string, end?: string) {
 
 function mapApprovalStatus(status?: string): ApprovalStatus {
   const normalized = String(status ?? '').toUpperCase();
+  if (normalized === 'PENDING_HR') return 'Pending HR Review';
+  if (normalized === 'PENDING_MANAGER' || normalized === 'PENDING') return 'Pending Manager Review';
   if (normalized === 'APPROVED') return 'Approved';
   if (normalized === 'REJECTED' || normalized === 'DENIED') return 'Denied';
   if (normalized === 'CANCELLED') return 'Cancelled';
-  return 'Pending';
+  return 'Pending Manager Review';
+}
+
+function approvalStatusTone(status: ApprovalStatus) {
+  if (status === 'Approved') return 'approved';
+  if (status === 'Denied') return 'denied';
+  if (status === 'Cancelled') return 'cancelled';
+  return 'pending';
 }
 
 function displayRequestDate(item: ApprovalItem) {
@@ -190,7 +210,7 @@ export default function Approval() {
     () => approvals.find((item) => item.id === selectedApprovalId) ?? null,
     [approvals, selectedApprovalId]
   );
-  const canCancelSelected = selectedApproval?.status === 'Pending';
+  const canCancelSelected = selectedApproval?.status.startsWith('Pending');
 
   useEffect(() => {
     if (selectedApproval) document.body.classList.add('modal-open');
@@ -262,7 +282,7 @@ export default function Approval() {
           requestDetail: buildLeaveDetail(row.leaveType, row.paid ?? row.isPaid),
           requestTarget: `${formatDate(row.startDateTime)} to ${formatDate(row.endDateTime)}`,
           status,
-          approvedBy: status === 'Pending' ? '-' : status === 'Cancelled' ? '-' : row.approver?.trim() || '-',
+          approvedBy: status.startsWith('Pending') ? '-' : status === 'Cancelled' ? '-' : row.approver?.trim() || '-',
           requestReason: row.reason ?? '-',
           decisionReason: status === 'Cancelled' ? 'Request cancelled by employee.' : row.approverReason ?? '-',
           decisionDate: formatDateTime(row.approvedAt),
@@ -279,13 +299,13 @@ export default function Approval() {
           sortStamp: row.requestAt ? Date.parse(row.requestAt) || 0 : 0,
           dateOfRequest: formatDate(row.requestAt),
           requestType: 'Overtime',
-          requestDetail: formatLeaveType(row.overtimeType || 'OT'),
+          requestDetail: buildOvertimeDetail(row.overtimeType, row.paid),
           requestTarget:
             row.startTime
               ? `${formatDate(row.workDate)} at ${formatTime(row.startTime)}`
               : formatDate(row.workDate),
           status,
-          approvedBy: status === 'Pending' ? '-' : status === 'Cancelled' ? '-' : row.approver ?? '-',
+          approvedBy: status.startsWith('Pending') ? '-' : status === 'Cancelled' ? '-' : row.approver ?? '-',
           requestReason: row.reason ?? '-',
           decisionReason: status === 'Cancelled' ? 'Request cancelled by employee.' : row.approveReason ?? '-',
           decisionDate: formatDateTime(row.approvedAt),
@@ -308,7 +328,7 @@ export default function Approval() {
               ? payrollPeriodByItemId.get(row.itemId) ?? 'Payroll period unavailable'
               : 'Payroll period unavailable',
           status,
-          approvedBy: status === 'Pending' ? '-' : status === 'Cancelled' ? '-' : resolveDisputeApprover(row),
+          approvedBy: status.startsWith('Pending') ? '-' : status === 'Cancelled' ? '-' : resolveDisputeApprover(row),
           requestReason: row.reason ?? '-',
           decisionReason: status === 'Cancelled' ? 'Request cancelled by employee.' : row.statusReason ?? '-',
           decisionDate: formatDateTime(row.updatedAt),
@@ -371,8 +391,14 @@ export default function Approval() {
         return false;
       }
 
-      if (statusFilter !== 'all' && item.status !== statusFilter) {
-        return false;
+      if (statusFilter !== 'all') {
+        if (statusFilter === 'Pending') {
+          if (!item.status.startsWith('Pending')) {
+            return false;
+          }
+        } else if (item.status !== statusFilter) {
+          return false;
+        }
       }
 
       if (!normalizedSearch) {
@@ -411,7 +437,7 @@ export default function Approval() {
       },
       {
         label: 'Pending',
-        value: visibleApprovals.filter((item) => item.status === 'Pending').length,
+        value: visibleApprovals.filter((item) => item.status.startsWith('Pending')).length,
         tone: 'pending' as const,
       },
       {
@@ -528,7 +554,7 @@ export default function Approval() {
                 <div>{row.requestType}</div>
                 <div>{row.requestDetail}</div>
                 <div>{row.requestTarget}</div>
-                <div className={`apprStatus apprStatus--${row.status.toLowerCase()}`}>
+                <div className={`apprStatus apprStatus--${approvalStatusTone(row.status)}`}>
                   {row.status}
                 </div>
                 <div>{row.approvedBy}</div>
@@ -560,7 +586,7 @@ export default function Approval() {
             <div className="apprModal__hero">
               <div>
                 <div className="apprModal__heroLabel">Current Status</div>
-                <div className={`apprModal__status apprModal__status--${selectedApproval.status.toLowerCase()}`}>
+                <div className={`apprModal__status apprModal__status--${approvalStatusTone(selectedApproval.status)}`}>
                   {selectedApproval.status}
                 </div>
               </div>

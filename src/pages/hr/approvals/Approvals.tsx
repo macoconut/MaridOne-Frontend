@@ -24,6 +24,12 @@ type OvertimeDto = {
   overtimeType?: string;
   reason?: string;
   approveReason?: string;
+  paid?: boolean;
+  suggestedPaid?: boolean;
+  paidOverrideReason?: string;
+  managerApprover?: string;
+  managerApproveReason?: string;
+  managerApprovedAt?: string;
 };
 
 type LeaveDto = {
@@ -39,6 +45,16 @@ type LeaveDto = {
   leaveType?: string;
   approverReason?: string;
   paid?: boolean;
+  suggestedPaid?: boolean;
+  paidOverrideReason?: string;
+  managerApprover?: string;
+  managerApproverReason?: string;
+  managerApprovedAt?: string;
+};
+
+type LeaveBalanceRow = {
+  leaveType?: string;
+  balanceHours?: number | string;
 };
 
 type EmployeeDirectoryRow = {
@@ -83,9 +99,14 @@ type HrRequest = {
   durationLabel: string;
   requestDateTime: string;
   decisionSummary?: string;
-  isPaid?: boolean;
+  paid?: boolean;
+  suggestedPaid?: boolean;
+  paidOverrideReason?: string;
   overtimeType?: string;
   leaveType?: string;
+  managerApprover?: string;
+  managerDecisionSummary?: string;
+  managerReviewedAt?: string;
   attachmentPathId?: number;
   sortStamp: number;
 };
@@ -208,17 +229,21 @@ function resolvedEmployeeLabel(
 }
 
 function requestStatusPriority(status: string) {
-  const normalized = toStatusCode(status);
-  if (normalized === 'PENDING') return 0;
-  if (normalized === 'APPROVED') return 1;
-  if (normalized === 'REJECTED') return 2;
-  if (normalized === 'CANCELLED') return 3;
+  const normalized = status.toUpperCase();
+  if (normalized === 'PENDING_HR') return 0;
+  if (normalized === 'PENDING_MANAGER') return 1;
+  if (normalized === 'PENDING') return 2;
+  if (normalized === 'APPROVED') return 3;
+  if (normalized === 'REJECTED') return 4;
+  if (normalized === 'CANCELLED') return 5;
   return 4;
 }
 
 function statusLabel(status: string) {
-  const normalized = toStatusCode(status);
-  if (normalized === 'PENDING') return 'Pending';
+  const normalized = status.toUpperCase();
+  if (normalized === 'PENDING_HR') return 'Pending HR Review';
+  if (normalized === 'PENDING_MANAGER') return 'Pending Manager Review';
+  if (normalized === 'PENDING') return 'Pending Manager Review';
   if (normalized === 'APPROVED') return 'Approved';
   if (normalized === 'REJECTED') return 'Denied';
   if (normalized === 'CANCELLED') return 'Cancelled';
@@ -228,6 +253,7 @@ function statusLabel(status: string) {
 function toStatusCode(status: string) {
   const normalized = status.toUpperCase();
   if (normalized === 'DENIED') return 'REJECTED';
+  if (normalized === 'PENDING_MANAGER' || normalized === 'PENDING_HR' || normalized === 'PENDING') return 'PENDING';
   return normalized;
 }
 
@@ -252,6 +278,9 @@ export default function HrApprovals() {
   const [isSaving, setIsSaving] = useState(false);
   const [pendingDecision, setPendingDecision] = useState<'APPROVED' | 'REJECTED' | null>(null);
   const [decisionReason, setDecisionReason] = useState('');
+  const [pendingPaidDecision, setPendingPaidDecision] = useState<boolean | null>(null);
+  const [paidOverrideReason, setPaidOverrideReason] = useState('');
+  const [leaveBalanceLabel, setLeaveBalanceLabel] = useState('Not available');
   const [decisionSubmitAttempted, setDecisionSubmitAttempted] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [confirmDecisionOpen, setConfirmDecisionOpen] = useState(false);
@@ -308,6 +337,7 @@ export default function HrApprovals() {
 
       const overtimeRows = toArray<OvertimeDto>(overtimeRes.value).map((item, idx) => {
         const attachment = extractAttachmentReference(item.reason);
+        const payLabel = item.paid === false ? 'Unpaid' : 'Paid';
         return {
           id: `overtime-${item.overtimeId ?? idx}`,
           employeeId: item.employeeId,
@@ -316,16 +346,22 @@ export default function HrApprovals() {
           submittedAt: formatDateTime(item.requestAt),
           type: 'Overtime' as const,
           source: 'overtime' as const,
-          status: item.requestStatus || 'PENDING',
+          status: item.requestStatus || 'PENDING_MANAGER',
           reason: attachment.cleanText,
           referenceLabel: 'Work Date',
           referenceValue: formatDateOnly(item.workDate),
           requestLabel: 'Overtime Request',
-          requestKind: formatRequestType(item.overtimeType || 'Overtime'),
+          requestKind: `${formatRequestType(item.overtimeType || 'Overtime')} - ${payLabel}`,
           durationLabel: formatClockWindow(item.startTime, item.endTime),
           requestDateTime: formatRequestDateTime('overtime', item.startTime, item.endTime, item.workDate),
           decisionSummary: item.approveReason || '',
           overtimeType: item.overtimeType,
+          paid: item.paid,
+          suggestedPaid: item.suggestedPaid,
+          paidOverrideReason: item.paidOverrideReason,
+          managerApprover: item.managerApprover,
+          managerDecisionSummary: item.managerApproveReason || '',
+          managerReviewedAt: formatDateTime(item.managerApprovedAt),
           attachmentPathId: attachment.attachmentPathId ?? undefined,
           sortStamp: item.requestAt ? Date.parse(item.requestAt) || 0 : 0,
         };
@@ -344,7 +380,7 @@ export default function HrApprovals() {
           submittedAt: formatDateTime(item.requestAt ?? item.startDateTime),
           type: 'Leave' as const,
           source: 'leave' as const,
-          status: item.requestStatus || 'PENDING',
+          status: item.requestStatus || 'PENDING_MANAGER',
           reason: attachment.cleanText,
           referenceLabel: 'Leave Period',
           referenceValue: `${formatDateOnly(item.startDateTime)} - ${formatDateOnly(item.endDateTime)}`,
@@ -353,7 +389,12 @@ export default function HrApprovals() {
           durationLabel: formatLeaveDuration(item.startDateTime, item.endDateTime),
           requestDateTime: formatRequestDateTime('leave', item.startDateTime, item.endDateTime),
           decisionSummary: item.approverReason || '',
-          isPaid: item.paid,
+          paid: item.paid,
+          suggestedPaid: item.suggestedPaid,
+          paidOverrideReason: item.paidOverrideReason,
+          managerApprover: item.managerApprover,
+          managerDecisionSummary: item.managerApproverReason || '',
+          managerReviewedAt: formatDateTime(item.managerApprovedAt),
           leaveType: item.leaveType,
           attachmentPathId: attachment.attachmentPathId ?? undefined,
           sortStamp:
@@ -361,7 +402,9 @@ export default function HrApprovals() {
         };
       });
 
-      const merged = [...leaveRows, ...overtimeRows].sort(
+      const merged = [...leaveRows, ...overtimeRows]
+        .filter((request) => String(request.status ?? '').toUpperCase() !== 'PENDING_MANAGER')
+        .sort(
         (a, b) =>
           requestStatusPriority(a.status) - requestStatusPriority(b.status) ||
           b.sortStamp - a.sortStamp ||
@@ -397,7 +440,7 @@ export default function HrApprovals() {
           return false;
         }
         const shouldBePaid = leavePaidFilter === 'paid';
-        if ((request.isPaid ?? true) !== shouldBePaid) {
+        if ((request.paid ?? true) !== shouldBePaid) {
           return false;
         }
       }
@@ -455,16 +498,61 @@ export default function HrApprovals() {
   const activeFilterCount = [typeFilter, statusFilter, leavePaidFilter, overtimeTypeFilter].filter(
     (value) => value !== 'all'
   ).length;
-  const hasFinalDecision = selected ? toStatusCode(selected.status) !== 'PENDING' : false;
-  const canReviewSelected = selected ? toStatusCode(selected.status) === 'PENDING' : false;
+  const normalizedSelectedStatus = String(selected?.status ?? '').toUpperCase();
+  const hasFinalDecision = selected
+    ? ['APPROVED', 'REJECTED', 'CANCELLED'].includes(normalizedSelectedStatus)
+    : false;
+  const canReviewSelected = selected ? normalizedSelectedStatus === 'PENDING_HR' : false;
+  const selectedSuggestedPaid = Boolean(selected?.suggestedPaid ?? selected?.paid ?? true);
 
   useEffect(() => {
     setDecisionReason('');
+    setPendingPaidDecision(selected?.paid ?? selected?.suggestedPaid ?? true);
+    setPaidOverrideReason(selected?.paidOverrideReason ?? '');
+    setLeaveBalanceLabel('Not available');
     setDecisionSubmitAttempted(false);
     setSubmitError('');
     setPendingDecision(null);
     setConfirmDecisionOpen(false);
   }, [selectedId]);
+
+  useEffect(() => {
+    if (!selected || selected.source !== 'leave' || typeof selected.employeeId !== 'number' || !selected.leaveType) {
+      setLeaveBalanceLabel('Not applicable');
+      return;
+    }
+
+    let cancelled = false;
+    setLeaveBalanceLabel('Loading...');
+
+    void (async () => {
+      try {
+        const balances = await apiFetchJson<unknown>(`/api/leave/balance/${selected.employeeId}`);
+        const matchingBalance = toArray<LeaveBalanceRow>(balances).find(
+          (row) => String(row.leaveType ?? '').toUpperCase() === String(selected.leaveType ?? '').toUpperCase()
+        );
+        const rawBalance = matchingBalance?.balanceHours;
+        const balanceNumber =
+          typeof rawBalance === 'number'
+            ? rawBalance
+            : typeof rawBalance === 'string'
+              ? Number(rawBalance)
+              : Number.NaN;
+
+        if (!cancelled) {
+          setLeaveBalanceLabel(Number.isFinite(balanceNumber) ? `${balanceNumber.toFixed(2)} hrs` : 'No balance record');
+        }
+      } catch {
+        if (!cancelled) {
+          setLeaveBalanceLabel('Balance unavailable');
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selected]);
 
   useEffect(() => {
     if (selected) document.body.classList.add('modal-open');
@@ -502,6 +590,17 @@ export default function HrApprovals() {
       return;
     }
 
+    if (pendingDecision === 'APPROVED' && (selected.source === 'leave' || selected.source === 'overtime')) {
+      if (pendingPaidDecision == null) {
+        setSubmitError('Choose whether this approved request should be treated as paid or unpaid.');
+        return;
+      }
+      if (pendingPaidDecision !== selectedSuggestedPaid && paidOverrideReason.trim().length < 5) {
+        setSubmitError('Please explain why HR is overriding the paid or unpaid treatment.');
+        return;
+      }
+    }
+
     setSubmitError('');
     setIsSaving(true);
     try {
@@ -513,6 +612,11 @@ export default function HrApprovals() {
             leaveType: selected.leaveType,
             requestStatus: pendingDecision,
             approverReason: trimmedReason,
+            paid: pendingDecision === 'APPROVED' ? pendingPaidDecision : undefined,
+            paidOverrideReason:
+              pendingDecision === 'APPROVED' && pendingPaidDecision !== selectedSuggestedPaid
+                ? paidOverrideReason.trim()
+                : undefined,
           }),
         });
       } else {
@@ -523,6 +627,11 @@ export default function HrApprovals() {
             overtimeId,
             updateStatus: pendingDecision,
             approveReason: trimmedReason,
+            paid: pendingDecision === 'APPROVED' ? pendingPaidDecision : undefined,
+            paidOverrideReason:
+              pendingDecision === 'APPROVED' && pendingPaidDecision !== selectedSuggestedPaid
+                ? paidOverrideReason.trim()
+                : undefined,
           }),
         });
       }
@@ -548,6 +657,16 @@ export default function HrApprovals() {
       setSubmitError('Please enter at least 5 characters explaining the decision.');
       return;
     }
+    if (pendingDecision === 'APPROVED' && (selected.source === 'leave' || selected.source === 'overtime')) {
+      if (pendingPaidDecision == null) {
+        setSubmitError('Choose whether this approved request should be treated as paid or unpaid.');
+        return;
+      }
+      if (pendingPaidDecision !== selectedSuggestedPaid && paidOverrideReason.trim().length < 5) {
+        setSubmitError('Please explain why HR is overriding the paid or unpaid treatment.');
+        return;
+      }
+    }
     setSubmitError('');
     setConfirmDecisionOpen(true);
   }
@@ -571,7 +690,7 @@ export default function HrApprovals() {
           title={selected ? 'Review Employee Request' : 'Requests from Employees'}
           description={
             selected
-              ? 'Review the selected employee request before recording an approval or denial.'
+              ? 'Review the manager recommendation, confirm the paid or unpaid treatment, and record the final HR decision.'
               : 'Review leave and overtime requests here. Payroll disputes stay in Manage Payslips.'
           }
         />
@@ -724,7 +843,7 @@ export default function HrApprovals() {
                 <h2 className="hrApprModal__title">
                   {selected.employee} - {selected.type}
                 </h2>
-                <p className="hrApprModal__subtitle">Review the request details, choose an approval outcome, and confirm the decision after the reason is complete.</p>
+                <p className="hrApprModal__subtitle">Review the manager recommendation, confirm the paid or unpaid treatment when needed, and record the final HR decision here.</p>
               </div>
               <ModalCloseButton className="hrApprModal__close" onClick={() => setSelectedId(null)} />
             </div>
@@ -797,10 +916,32 @@ export default function HrApprovals() {
             {selected.decisionSummary && (
               <div className="hrApprForm__row">
                 <label>
-                  <span>Latest Decision Note:</span>
+                  <span>Final Decision Note:</span>
                   <textarea value={selected.decisionSummary} readOnly />
                 </label>
               </div>
+            )}
+
+            {(selected.managerApprover || selected.managerDecisionSummary) && (
+              <>
+                <div className="hrApprForm__row hrApprForm__row--2">
+                  <label>
+                    <span>Manager Reviewer:</span>
+                    <input value={selected.managerApprover || '-'} readOnly />
+                  </label>
+                  <label>
+                    <span>Manager Reviewed At:</span>
+                    <input value={selected.managerReviewedAt || '-'} readOnly />
+                  </label>
+                </div>
+
+                <div className="hrApprForm__row">
+                  <label>
+                    <span>Manager Review Note:</span>
+                    <textarea value={selected.managerDecisionSummary || 'No manager note provided.'} readOnly />
+                  </label>
+                </div>
+              </>
             )}
 
             {hasFinalDecision && (
@@ -809,9 +950,74 @@ export default function HrApprovals() {
 
             <div className="hrApprModal__rule" />
 
+            {(selected.source === 'leave' || selected.source === 'overtime') && (
+              <>
+                <div className="hrApprForm__row hrApprForm__row--2">
+                  <label>
+                    <span>System Suggestion:</span>
+                    <input value={selectedSuggestedPaid ? 'Paid' : 'Unpaid'} readOnly />
+                  </label>
+                  {selected.source === 'leave' ? (
+                    <label>
+                      <span>Available Leave Balance:</span>
+                      <input value={leaveBalanceLabel} readOnly />
+                    </label>
+                  ) : (
+                    <label>
+                      <span>Current OT Treatment:</span>
+                      <input value={selected.paid === false ? 'Unpaid' : 'Paid'} readOnly />
+                    </label>
+                  )}
+                </div>
+
+                <div className="hrApprForm__row">
+                  <label className="decisionPicker">
+                    <span>{selected.source === 'leave' ? 'Leave Pay Treatment:' : 'Overtime Pay Treatment:'}</span>
+                    <div className="decisionPicker__actions">
+                      <button
+                        type="button"
+                        className={`decisionPicker__button ${pendingPaidDecision === true ? 'is-selected' : ''}`}
+                        disabled={isSaving || !canReviewSelected}
+                        onClick={() => setPendingPaidDecision(true)}
+                      >
+                        Paid
+                      </button>
+                      <button
+                        type="button"
+                        className={`decisionPicker__button ${pendingPaidDecision === false ? 'is-selected' : ''}`}
+                        disabled={isSaving || !canReviewSelected}
+                        onClick={() => setPendingPaidDecision(false)}
+                      >
+                        Unpaid
+                      </button>
+                    </div>
+                    {canReviewSelected && (
+                      <p className="decisionPicker__note">
+                        Keep the system suggestion when possible. If HR changes it, add an override reason below for the audit trail.
+                      </p>
+                    )}
+                  </label>
+                </div>
+
+                {canReviewSelected && pendingPaidDecision !== selectedSuggestedPaid && (
+                  <div className="hrApprForm__row">
+                    <label>
+                      <span>Paid / Unpaid Override Reason:</span>
+                      <textarea
+                        value={paidOverrideReason}
+                        onChange={(e) => setPaidOverrideReason(e.target.value)}
+                        placeholder="Explain why HR is overriding the paid or unpaid treatment"
+                        aria-invalid={decisionSubmitAttempted && paidOverrideReason.trim().length < 5 ? 'true' : undefined}
+                      />
+                    </label>
+                  </div>
+                )}
+              </>
+            )}
+
             <div className="hrApprForm__row">
               <label className="decisionPicker">
-                <span>Administrative Approval:</span>
+                <span>HR Final Decision:</span>
                 <div className="decisionPicker__actions">
                   <button
                     type="button"
@@ -832,7 +1038,7 @@ export default function HrApprovals() {
                 </div>
                 {canReviewSelected && (
                   <p className="decisionPicker__note">
-                    Choose the outcome here first. The request will only be submitted when you use the confirm button below.
+                    HR is the final approver. Choose the outcome here first, then confirm it below.
                   </p>
                 )}
               </label>
@@ -881,7 +1087,9 @@ export default function HrApprovals() {
         title={pendingDecision === 'REJECTED' ? 'Confirm Denial' : 'Confirm Approval'}
         message={
           selected
-            ? `Apply this ${pendingDecision === 'REJECTED' ? 'denial' : 'approval'} to ${selected.employee}'s ${selected.type.toLowerCase()} request?`
+            ? pendingDecision === 'REJECTED'
+              ? `Deny ${selected.employee}'s ${selected.type.toLowerCase()} request now?`
+              : `Finalize ${selected.employee}'s ${selected.type.toLowerCase()} request as ${pendingPaidDecision === false ? 'unpaid' : 'paid'} and approve it?`
             : 'Confirm this approval decision?'
         }
         confirmLabel={pendingDecision === 'REJECTED' ? 'Confirm Denial' : 'Confirm Approval'}
