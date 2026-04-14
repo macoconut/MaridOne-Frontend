@@ -20,6 +20,7 @@ import { apiFetchJson, toArray } from '../../../lib/api';
 import { mapNotificationItem } from '../../../lib/notificationRouting';
 import { getAuthToken, getUserEmail } from '../../../lib/session';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
+import { getManilaNow } from '../../../lib/manilaTime';
 import '../../self-service/dashboard/Dashboard.css';
 import './Dashboard.css';
 
@@ -180,8 +181,8 @@ export default function ManagerDashboard() {
   const [eventHighlights, setEventHighlights] = useState<string[]>([]);
   const [lastLoginLabel, setLastLoginLabel] = useState<string>('Not available');
   const [lastAttendanceLabel, setLastAttendanceLabel] = useState<string>('Not available');
-  const [calendarMonthIndex, setCalendarMonthIndex] = useState(new Date().getMonth());
-  const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
+  const [calendarMonthIndex, setCalendarMonthIndex] = useState(() => getManilaNow().month - 1);
+  const [calendarYear, setCalendarYear] = useState(() => getManilaNow().year);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState('');
   const [editOpen, setEditOpen] = useState(false);
@@ -377,7 +378,7 @@ export default function ManagerDashboard() {
     return emp?.fullName || fromParts || 'Manager Name';
   }, [employee]);
 
-  const todayKey = localDateKey(new Date().toISOString());
+  const todayKey = getManilaNow().dateKey;
   const activeToday = useMemo(() => {
     return new Set(
       teamLogs
@@ -389,7 +390,11 @@ export default function ManagerDashboard() {
 
   const onLeaveToday = useMemo(() => {
     return teamLeaves.filter((request) => String(request.requestStatus ?? '').toUpperCase() === 'APPROVED')
-      .filter((request) => isTodayWithin(request.startDateTime, request.endDateTime))
+      .filter((request) => {
+        const manila = getManilaNow();
+        const manilaNowDate = new Date(manila.year, manila.month - 1, manila.day);
+        return isTodayWithin(request.startDateTime, request.endDateTime, manilaNowDate);
+      })
       .length;
   }, [teamLeaves]);
 

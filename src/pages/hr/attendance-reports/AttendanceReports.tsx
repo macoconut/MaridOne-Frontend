@@ -20,6 +20,7 @@ import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
+import { getManilaNow } from '../../../lib/manilaTime';
 import './AttendanceReports.css';
 
 type AttendanceLog = {
@@ -687,6 +688,22 @@ function rosterRows(payload: unknown) {
   }));
 }
 
+function isEmployeeScheduledToHaveStartedByNow(
+  employee: EmployeeRow | undefined,
+  dateKey: string,
+  todayDateKey: string,
+  leaveRequests: LeaveRequest[] = []
+) {
+  if (dateKey < todayDateKey) return true;
+  if (dateKey > todayDateKey) return false;
+
+  const scheduledStartMinutes = resolveEffectiveScheduledStartMinutes(employee, dateKey, leaveRequests);
+  if (scheduledStartMinutes === null) return true;
+
+  const manila = getManilaNow();
+  return manila.totalMinutes >= scheduledStartMinutes;
+}
+
 export default function HrAttendanceReports() {
   return <AttendanceReportsBoard audienceLabel="HR" />;
 }
@@ -698,10 +715,9 @@ export function AttendanceReportsBoard({
   leavesUrl = '/api/leave/request',
   descriptionOverride,
 }: AttendanceReportsBoardProps) {
-  const today = useMemo(() => new Date(), []);
-  const todayYear = today.getFullYear();
-  const todayMonthIndex = today.getMonth();
-  const todayDateKey = toISODate(todayYear, todayMonthIndex, today.getDate());
+  const todayDateKey = useMemo(() => getManilaNow().dateKey, []);
+  const todayYear = useMemo(() => getManilaNow().year, []);
+  const todayMonthIndex = useMemo(() => getManilaNow().month - 1, []);
   const [year, setYear] = useState(todayYear);
   const [monthIndex, setMonthIndex] = useState(todayMonthIndex);
   const monthLabel = new Date(year, monthIndex, 1).toLocaleDateString(undefined, {
@@ -1274,12 +1290,13 @@ export function AttendanceReportsBoard({
       const absentCount =
         hasFullRoster && !isFutureDate && !isHoliday
           ? activeEmployees.filter((employee) => hasDailyShiftOnDate(employee, dateKey))
+              .filter((employee) => isEmployeeScheduledToHaveStartedByNow(employee, dateKey, todayDateKey, approvedLeavesByDate.get(dateKey) || []))
               .filter((employee) => !loggedEmployeeIds.has(employee.id))
               .filter((employee) => !leaveEmployeeIds.has(employee.id)).length
           : 0;
       const dayOffCount =
         hasFullRoster && !isFutureDate && !isHoliday
-          ? activeEmployees.filter((employee) => isKnownDayOffOnDate(employee, dateKey))
+          ? activeEmployees.filter((employee) => isKnownDayOffOnDate(employee, dateKey) || (hasDailyShiftOnDate(employee, dateKey) && !isEmployeeScheduledToHaveStartedByNow(employee, dateKey, todayDateKey, approvedLeavesByDate.get(dateKey) || [])))
               .filter((employee) => !leaveEmployeeIds.has(employee.id)).length
           : 0;
 
@@ -1433,12 +1450,15 @@ export function AttendanceReportsBoard({
     const leaveEmployeeIds = selectedDateKey ? approvedLeaveEmployeeIdsByDate.get(selectedDateKey) ?? new Set<number>() : new Set<number>();
     return activeEmployees
       .filter((employee) => hasDailyShiftOnDate(employee, selectedDateKey))
+      .filter((employee) => isEmployeeScheduledToHaveStartedByNow(employee, selectedDateKey, todayDateKey, focusLeavesByDate.get(selectedDateKey) || []))
       .filter((employee) => !loggedEmployeeIds.has(employee.id))
       .filter((employee) => !leaveEmployeeIds.has(employee.id))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [
     activeEmployees,
     hasDailyShiftOnDate,
+    todayDateKey,
+    focusLeavesByDate,
     approvedLeaveEmployeeIdsByDate,
     hasFullRoster,
     selectedDateKey,

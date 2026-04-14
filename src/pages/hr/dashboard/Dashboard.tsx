@@ -5,6 +5,7 @@ import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
+import { getManilaNow } from '../../../lib/manilaTime';
 import './Dashboard.css';
 
 type AttendanceLog = {
@@ -526,7 +527,9 @@ function buildAttendanceSummary(
   onLeaveSet: Set<number>,
   employeeById: Map<number, EmployeeRow>,
   dateKey: string,
-  isHoliday: boolean
+  todayKey: string,
+  isHoliday: boolean,
+  leaveRequestsByEmployee: Map<number, LeaveRequest[]> = new Map()
 ) {
   const summary: AttendanceStatusSummary = {
     headcount: employeeIds.length,
@@ -563,6 +566,23 @@ function buildAttendanceSummary(
 
     if (!isScheduled) {
       summary.dayOff += 1;
+      continue;
+    }
+
+    // Check if shift has started yet
+    if (!isEmployeeScheduledToHaveStartedByNow(
+      employee,
+      dateKey,
+      todayKey,
+      leaveRequestsByEmployee.get(employeeId) || []
+    )) {
+      // If shift hasn't started, we don't count them as absent yet.
+      // They are part of headcount but not categorized as absent.
+      // However, for consistency in summary (where headcount = sum of statuses),
+      // we might want to put them in 'dayOff' or a new 'notStarted' status.
+      // User said "all employees should not be marked as absent if their shift is not yet happening".
+      // I'll put them in 'dayOff' for now to keep the headcount balanced, 
+      // or just not count them in absent.
       continue;
     }
 
@@ -617,6 +637,22 @@ function buildDonutBackground(points: DonutPoint[]) {
   return `conic-gradient(${segments.join(', ')})`;
 }
 
+function isEmployeeScheduledToHaveStartedByNow(
+  employee: EmployeeRow | undefined,
+  dateKey: string,
+  todayKey: string,
+  leaveRequests: LeaveRequest[] = []
+) {
+  if (dateKey < todayKey) return true;
+  if (dateKey > todayKey) return false;
+
+  const scheduledStartMinutes = resolveEffectiveScheduledStartMinutes(employee, dateKey, leaveRequests);
+  if (scheduledStartMinutes === null) return true;
+
+  const manila = getManilaNow();
+  return manila.totalMinutes >= scheduledStartMinutes;
+}
+
 export default function HrDashboard() {
   return <AttendanceOverviewDashboard audience="HR" />;
 }
@@ -635,10 +671,7 @@ export function AttendanceOverviewDashboard({
   weeklyWindowAnchor = 'today',
   weeklyWindowIncludesSelectedDate = true,
 }: AttendanceOverviewDashboardProps) {
-  const today = new Date();
-  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(
-    today.getDate()
-  ).padStart(2, '0')}`;
+  const todayKey = useMemo(() => getManilaNow().dateKey, []);
   const todayDate = useMemo(() => dateFromKey(todayKey), [todayKey]);
   const includeWeeklyFeed = feedWindowDays > 1;
   const isWeeklyPrimaryPanel = primaryPanelMode === 'weekly';
@@ -989,6 +1022,14 @@ export function AttendanceOverviewDashboard({
     if (selectedIsHoliday) return [];
     return activeEmployees
       .filter((employee) => isEmployeeScheduledOnDate(employee, effectiveSelectedDateKey))
+      .filter((employee) =>
+        isEmployeeScheduledToHaveStartedByNow(
+          employee,
+          effectiveSelectedDateKey,
+          todayKey,
+          selectedLeaveRequestsByEmployee.get(employee.id) || []
+        )
+      )
       .filter((employee) => !loggedEmployeeIds.has(employee.id))
       .filter((employee) => !employeesOnLeaveToday.has(employee.id))
       .sort((a, b) => a.name.localeCompare(b.name))
@@ -998,7 +1039,15 @@ export function AttendanceOverviewDashboard({
         summary: employee.position || 'No position assigned',
         detail: resolveDepartmentLabel(employee),
       }));
-  }, [activeEmployees, effectiveSelectedDateKey, employeesOnLeaveToday, loggedEmployeeIds, selectedIsHoliday]);
+  }, [
+    activeEmployees,
+    effectiveSelectedDateKey,
+    todayKey,
+    selectedLeaveRequestsByEmployee,
+    employeesOnLeaveToday,
+    loggedEmployeeIds,
+    selectedIsHoliday,
+  ]);
 
   const lateToday = useMemo(() => {
     return activeEmployees
@@ -1022,7 +1071,9 @@ export function AttendanceOverviewDashboard({
         employeesOnLeaveToday,
         employeeById,
         effectiveSelectedDateKey,
-        selectedIsHoliday
+        todayKey,
+        selectedIsHoliday,
+        selectedLeaveRequestsByEmployee
       ),
     [
       activeEmployeeIds,
@@ -1032,6 +1083,8 @@ export function AttendanceOverviewDashboard({
       lateSet,
       presentSet,
       selectedIsHoliday,
+      todayKey,
+      selectedLeaveRequestsByEmployee,
     ]
   );
 
@@ -1085,7 +1138,9 @@ export function AttendanceOverviewDashboard({
         employeesOnLeaveToday,
         employeeById,
         effectiveSelectedDateKey,
-        selectedIsHoliday
+        todayKey,
+        selectedIsHoliday,
+        selectedLeaveRequestsByEmployee
       );
 
       current.present += employeeSummary.present;
@@ -1167,7 +1222,9 @@ export function AttendanceOverviewDashboard({
           dayOnLeaveSet,
           employeeById,
           dateKey,
-          dayIsHoliday
+          todayKey,
+          dayIsHoliday,
+          approvedLeavesByEmployee
         ),
       });
 

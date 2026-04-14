@@ -15,6 +15,7 @@ import { apiFetchJson, toArray } from '../../../lib/api';
 import { compareEmployees, type EmployeeSortKey } from '../../../lib/employeeSort';
 import { formatPayrollRunTypeLabel, hasBonusEarning } from '../../../lib/payrollRunLabels';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
+import { getManilaNow } from '../../../lib/manilaTime';
 import './PayrollReview.css';
 
 type ReportView = 'employee' | 'payType';
@@ -86,20 +87,14 @@ const PAY_TYPE_SORT_OPTIONS: Array<SortOption<PayTypeSortKey>> = [
 ];
 
 function getCurrentMonthRange() {
-  const now = new Date();
-  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-  const format = (date: Date) => {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const d = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-  };
+  const manila = getManilaNow();
+  const firstDayIso = `${manila.year}-${String(manila.month).padStart(2, '0')}-01`;
+  const lastDayDate = new Date(manila.year, manila.month, 0);
+  const lastDayIso = `${manila.year}-${String(manila.month).padStart(2, '0')}-${String(lastDayDate.getDate()).padStart(2, '0')}`;
 
   return {
-    from: format(firstDay),
-    to: format(lastDay),
+    from: firstDayIso,
+    to: lastDayIso,
   };
 }
 

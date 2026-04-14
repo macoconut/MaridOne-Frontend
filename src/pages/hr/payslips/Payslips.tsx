@@ -14,6 +14,7 @@ import { compareEmployees, type EmployeeSortKey } from '../../../lib/employeeSor
 import { formatPayrollRunTypeLabel, formatPayrollStatusLabel, hasBonusEarning } from '../../../lib/payrollRunLabels';
 import { extractAttachmentReference, openDocumentAttachment } from '../../../lib/documentAttachments';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
+import { getManilaNow } from '../../../lib/manilaTime';
 import '../approvals/Approvals.css';
 import '../../manager/pending-approvals/PendingApprovals.css';
 import './Payslips.css';
@@ -160,14 +161,6 @@ function mapDisputeType(subject?: string): Exclude<DisputeTypeFilter, 'all'> {
   return 'Other';
 }
 
-function pad2(value: number) {
-  return String(value).padStart(2, '0');
-}
-
-function toISODate(date: Date) {
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
-}
-
 function formatDate(value?: string) {
   if (!value) return 'Not available';
   const date = new Date(value);
@@ -311,13 +304,12 @@ function getStandardPaymentDate(startIso: string, endIso: string): string | null
 }
 
 function createDefaultRunForm(): RunFormState {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const start = new Date(now.getFullYear(), now.getMonth(), 1);
-  const todayIso = toISODate(today);
+  const manila = getManilaNow();
+  const todayIso = manila.dateKey;
+  const start = `${manila.year}-${String(manila.month).padStart(2, '0')}-01`;
 
   return {
-    periodStart: toISODate(start),
+    periodStart: start,
     periodEnd: todayIso,
     paymentDate: todayIso,
     runType: 'REGULAR',
@@ -373,7 +365,7 @@ function normalizeRunType(value?: string): RunFormState['runType'] {
 }
 
 function getTodayIsoDate() {
-  return toISODate(new Date());
+  return getManilaNow().dateKey;
 }
 
 function isFutureIsoDate(value: string, todayIsoDate: string) {

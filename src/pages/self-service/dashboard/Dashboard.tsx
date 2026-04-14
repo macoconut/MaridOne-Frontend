@@ -19,6 +19,7 @@ import {
 import { getSelfServicePath } from '../../../lib/roleRoutes';
 import { getAuthToken, getUserEmail, getUserRole } from '../../../lib/session';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
+import { getManilaNow } from '../../../lib/manilaTime';
 import './Dashboard.css';
 
 type UserDetails = {
@@ -94,8 +95,13 @@ function toDateTimeLocalValue(value: Date) {
   return `${value.getFullYear()}-${padDateTimePart(value.getMonth() + 1)}-${padDateTimePart(value.getDate())}T${padDateTimePart(value.getHours())}:${padDateTimePart(value.getMinutes())}`;
 }
 
-function createAnnouncementDraft(baseDate = new Date()): AnnouncementDraft {
-  const start = new Date(baseDate);
+function createAnnouncementDraft(baseDate?: Date): AnnouncementDraft {
+  const start = baseDate ? new Date(baseDate) : new Date();
+  if (!baseDate) {
+    const manila = getManilaNow();
+    start.setFullYear(manila.year, manila.month - 1, manila.day);
+    start.setHours(manila.hour, manila.minute, 0, 0);
+  }
   start.setSeconds(0, 0);
 
   const roundedMinutes = start.getMinutes() <= 30 ? 30 : 60;
@@ -462,8 +468,8 @@ export default function Dashboard() {
   const [leaveBalances, setLeaveBalances] = useState<LeaveBalanceRow[]>([]);
   const [shiftSchedule, setShiftSchedule] = useState<ShiftScheduleRow[]>([]);
   const [nextLeave, setNextLeave] = useState<LeaveRequestRow | null>(null);
-  const [calendarMonthIndex, setCalendarMonthIndex] = useState(new Date().getMonth());
-  const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
+  const [calendarMonthIndex, setCalendarMonthIndex] = useState(() => getManilaNow().month - 1);
+  const [calendarYear, setCalendarYear] = useState(() => getManilaNow().year);
   const [refreshTick, setRefreshTick] = useState(0);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState('');

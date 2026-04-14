@@ -15,6 +15,7 @@ import { ApiError, apiFetchJson, apiFetchRaw, toArray } from '../../../lib/api';
 import { uploadDocument } from '../../../lib/documentUpload';
 import { getUserEmail, getUserRole } from '../../../lib/session';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
+import { getManilaNow } from '../../../lib/manilaTime';
 
 type LeaveType =
   | 'SICK_LEAVE'
@@ -389,17 +390,13 @@ function buildAttendanceHistory(logs: unknown): AttendanceHistory {
 }
 
 export default function Attendance() {
-  const today = useMemo(() => new Date(), []);
-  const todayKey = useMemo(
-    () => `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`,
-    [today]
-  );
+  const todayKey = useMemo(() => getManilaNow().dateKey, []);
   const nonSickLeaveMinDate = useMemo(
     () => addDays(todayKey, NON_SICK_LEAVE_NOTICE_DAYS),
     [todayKey]
   );
-  const [year, setYear] = useState(today.getFullYear());
-  const [monthIndex, setMonthIndex] = useState(today.getMonth());
+  const [year, setYear] = useState(() => getManilaNow().year);
+  const [monthIndex, setMonthIndex] = useState(() => getManilaNow().month - 1);
   const monthLabel = new Date(year, monthIndex, 1).toLocaleDateString(undefined, {
     month: 'long',
     year: 'numeric',
@@ -407,8 +404,9 @@ export default function Attendance() {
 
   const [monthValue, setMonthValue] = useState(monthLabel);
   const monthOptions = useMemo(() => {
-    const startYear = Math.min(today.getFullYear(), year) - 5;
-    const endYear = Math.max(today.getFullYear(), year) + 5;
+    const manila = getManilaNow();
+    const startYear = Math.min(manila.year, year) - 5;
+    const endYear = Math.max(manila.year, year) + 5;
     const totalMonths = (endYear - startYear + 1) * 12;
 
     return Array.from({ length: totalMonths }, (_, index) =>
@@ -417,7 +415,7 @@ export default function Attendance() {
         year: 'numeric',
       })
     );
-  }, [today, year]);
+  }, [year]);
 
   // Leave modal state
   const [leaveOpen, setLeaveOpen] = useState(false);
@@ -571,12 +569,13 @@ export default function Attendance() {
   }, [monthLabel]);
 
   useEffect(() => {
-    if (today.getFullYear() === year && today.getMonth() === monthIndex) {
+    const manila = getManilaNow();
+    if (manila.year === year && manila.month - 1 === monthIndex) {
       setSelectedDateKey(todayKey);
     } else {
       setSelectedDateKey('');
     }
-  }, [monthIndex, today, todayKey, year]);
+  }, [monthIndex, todayKey, year]);
 
   useEffect(() => {
     let cancelled = false;
@@ -904,8 +903,8 @@ export default function Attendance() {
   }, [attendanceByDate, daysInMonth, requestEntries, sundayBasedStart, year]);
 
   function openLeaveForToday() {
-    const now = new Date();
-    const iso = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+    const manila = getManilaNow();
+    const iso = manila.dateKey;
     setStartDate(iso);
     setStartTime('08:00');
     setEndDate(iso);
@@ -960,8 +959,8 @@ export default function Attendance() {
 
   function openOtForToday() {
     if (!canRequestOvertime) return;
-    const now = new Date();
-    const iso = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+    const manila = getManilaNow();
+    const iso = manila.dateKey;
     setOtStartDate(iso);
     setOtEndDate(iso);
     setOtStartTime('17:00');
@@ -1021,9 +1020,9 @@ export default function Attendance() {
         setAttendanceByDate(updatedHistory.sessionsByDate);
         setLatestAttendanceDirection(updatedHistory.latestDirection);
       } else {
-        const now = new Date();
-        const dateKey = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
-        const timeLabel = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const manila = getManilaNow();
+        const dateKey = manila.dateKey;
+        const timeLabel = `${String(manila.hour).padStart(2, '0')}:${String(manila.minute).padStart(2, '0')}`;
         setAttendanceByDate((prev) => {
           const current = prev[dateKey] ?? [];
           const lastSession = current[current.length - 1];
@@ -1420,8 +1419,8 @@ export default function Attendance() {
 
             {calendarCells.map((c, idx) => {
               const dateKey = c.day ? toISODate(year, monthIndex, c.day) : '';
-              const todayKey = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
-              const isToday = c.day !== null && dateKey === todayKey;
+              const manila = getManilaNow();
+              const isToday = c.day !== null && dateKey === manila.dateKey;
               const isSelected = c.day !== null && dateKey === selectedDateKey;
               const hasRequest = c.day !== null && approvedRequestDateKeys.has(dateKey);
               const clickable = c.day !== null;
