@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FiCalendar, FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
+import { FiCalendar, FiEye, FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
+
+type AggregatedEmployeeRow = EmployeeReportRow & {
+  itemIds: number[];
+};
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import EmployeeSortMenu from '../../../components/layout/EmployeeSortMenu';
 import SortMenu, { type SortOption } from '../../../components/layout/SortMenu';
 import PageHeader from '../../../components/layout/PageHeader';
-import ActionButton from '../../../components/button/ActionButton';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
@@ -66,34 +69,6 @@ type PayTypeSummaryRow = {
   adjustmentKind?: AdjustmentKind;
   total?: number | string;
 };
-
-const DEFAULT_EARNING_BREAKDOWN_LABELS = [
-  'Basic Pay',
-  'Bonus',
-  'Approved Overtime',
-  'Regular Holiday Premium',
-  'Special Holiday Premium',
-  'Rest Day Premium',
-  'Night Differential',
-  'OT Night Differential',
-  'Premium Pay',
-  'Manual Adjustment',
-];
-
-const DEFAULT_DEDUCTION_BREAKDOWN_LABELS = [
-  'SSS Contribution',
-  'PhilHealth Contribution',
-  'Pag-IBIG Contribution',
-  'Withholding Tax',
-  'Late Penalty',
-  'Absent Deduction',
-  'SSS Loan',
-  'PagIbig Loan',
-  'Cash Advance',
-  'Manual Adjustment',
-  'Equipment Loss Penalty',
-  'HMO Upgrade',
-];
 
 type PayTypeSortKey = 'name' | 'amount';
 
@@ -280,103 +255,6 @@ function normalizeBreakdownLabel(label: string, lineType: PayrollBreakdownLine['
   return trimmed;
 }
 
-function toCsvValue(value: unknown) {
-  const text = String(value ?? '');
-  if (/[",\r\n]/.test(text)) {
-    return `"${text.replace(/"/g, '""')}"`;
-  }
-  return text;
-}
-
-function buildCsvContent(rows: string[][]) {
-  return rows.map((row) => row.map(toCsvValue).join(',')).join('\r\n');
-}
-
-function sumBreakdownAmounts(response: unknown) {
-  return toArray<Record<string, unknown>>(response).reduce((sum, row) => sum + toAmount(row.amount), 0);
-}
-
-function orderBreakdownLabels(observedLabels: string[], defaultLabels: string[]) {
-  const uniqueObserved = Array.from(new Set(observedLabels.filter(Boolean)));
-  const preferred = [...defaultLabels];
-  const remaining = uniqueObserved
-    .filter((label) => !defaultLabels.includes(label))
-    .sort((a, b) => a.localeCompare(b));
-  return [...preferred, ...remaining];
-}
-
-function buildBreakdownAmountMap(lines: PayrollBreakdownLine[], lineType: PayrollBreakdownLine['lineType']) {
-  const amounts = new Map<string, number>();
-
-  for (const line of lines) {
-    const label = normalizeBreakdownLabel(line.label, lineType);
-    amounts.set(label, (amounts.get(label) ?? 0) + toAmount(line.amount));
-  }
-
-  return amounts;
-}
-
-function buildEmployeeReportRows(
-  reportLabel: string,
-  payrollStatus: string,
-  rows: {
-    employeeId: string;
-    employeeName: string;
-    grossPay: string;
-    earningsTotal: string;
-    deductionsTotal: string;
-    netPay: string;
-    earnings: PayrollBreakdownLine[];
-    deductions: PayrollBreakdownLine[];
-  }[]
-) {
-  const earningsBreakdownLabels = orderBreakdownLabels(
-    rows.flatMap((row) => row.earnings.map((line) => normalizeBreakdownLabel(line.label, 'EARNING'))),
-    DEFAULT_EARNING_BREAKDOWN_LABELS
-  );
-  const deductionsBreakdownLabels = orderBreakdownLabels(
-    rows.flatMap((row) => row.deductions.map((line) => normalizeBreakdownLabel(line.label, 'DEDUCTION'))),
-    DEFAULT_DEDUCTION_BREAKDOWN_LABELS
-  );
-
-  return [
-    ['Report', reportLabel],
-    ['Status', payrollStatus],
-    [''],
-    ['Employee ID', 'Employee Name', 'Gross Pay', 'Earnings Total', 'Deductions Total', 'Net Pay'],
-    ...rows.map((row) => [
-      row.employeeId,
-      row.employeeName,
-      row.grossPay,
-      row.earningsTotal,
-      row.deductionsTotal,
-      row.netPay,
-    ]),
-    [''],
-    ['Earnings Breakdown'],
-    ['Employee ID', 'Employee Name', ...earningsBreakdownLabels],
-    ...rows.map((row) => {
-      const earningsAmounts = buildBreakdownAmountMap(row.earnings, 'EARNING');
-      return [
-        row.employeeId,
-        row.employeeName,
-        ...earningsBreakdownLabels.map((label) => formatCurrency(earningsAmounts.get(label) ?? 0)),
-      ];
-    }),
-    [''],
-    ['Deductions Breakdown'],
-    ['Employee ID', 'Employee Name', ...deductionsBreakdownLabels],
-    ...rows.map((row) => {
-      const deductionsAmounts = buildBreakdownAmountMap(row.deductions, 'DEDUCTION');
-      return [
-        row.employeeId,
-        row.employeeName,
-        ...deductionsBreakdownLabels.map((label) => formatCurrency(deductionsAmounts.get(label) ?? 0)),
-      ];
-    }),
-  ];
-}
-
 function getEmptyRunMessage(run: PayrollRunRow | null, view: ReportView, availableRunCount: number) {
   if (!run) {
     if (view === 'employee') {
@@ -423,7 +301,7 @@ export default function AccountingPayrollReview() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [roleFilter, setRoleFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
-  const [selectedBreakdownItem, setSelectedBreakdownItem] = useState<PayrollItemRow | null>(null);
+  const [selectedBreakdownItem, setSelectedBreakdownItem] = useState<AggregatedEmployeeRow | null>(null);
   const [selectedBreakdownEarnings, setSelectedBreakdownEarnings] = useState<PayrollBreakdownLine[]>([]);
   const [selectedBreakdownDeductions, setSelectedBreakdownDeductions] = useState<PayrollBreakdownLine[]>([]);
   const [isLoadingBreakdown, setIsLoadingBreakdown] = useState(false);
@@ -572,28 +450,36 @@ export default function AccountingPayrollReview() {
   );
 
   const visibleEmployeeRows = useMemo(() => {
-    const filtered =
-      !normalizedFilter || normalizedFilter === 'all'
-        ? [...employeeReportRows]
-        : employeeReportRows.filter((row) => {
-            const name = formatEmployeeName(row).toLowerCase();
-            const empId = String(row.empId ?? '').toLowerCase();
-            return name.includes(normalizedFilter) || empId.includes(normalizedFilter);
-          });
+    const filtered = employeeReportRows.filter((row) => {
+      const name = formatEmployeeName(row).toLowerCase();
+      const empId = String(row.empId ?? '').toLowerCase();
+      const matchesSearch = !normalizedFilter || normalizedFilter === 'all' || name.includes(normalizedFilter) || empId.includes(normalizedFilter);
+      const matchesRole = roleFilter === 'all' || row.role === roleFilter;
+      const matchesDept = departmentFilter === 'all' || row.department === departmentFilter;
+      return matchesSearch && matchesRole && matchesDept;
+    });
 
-    return filtered
-      .filter((row) => {
-        if (roleFilter !== 'all' && row.role !== roleFilter) {
-          return false;
+    const aggregatedMap = new Map<number, AggregatedEmployeeRow>();
+    for (const row of filtered) {
+      const empId = row.empId;
+      if (typeof empId !== 'number') continue;
+
+      const existing = aggregatedMap.get(empId);
+      if (existing) {
+        existing.grossPay = toAmount(existing.grossPay) + toAmount(row.grossPay);
+        existing.netPay = toAmount(existing.netPay) + toAmount(row.netPay);
+        if (typeof row.itemId === 'number' && !existing.itemIds.includes(row.itemId)) {
+          existing.itemIds.push(row.itemId);
         }
+      } else {
+        aggregatedMap.set(empId, {
+          ...row,
+          itemIds: typeof row.itemId === 'number' ? [row.itemId] : [],
+        });
+      }
+    }
 
-        if (departmentFilter !== 'all' && row.department !== departmentFilter) {
-          return false;
-        }
-
-        return true;
-      })
-      .sort((left, right) =>
+    return Array.from(aggregatedMap.values()).sort((left, right) =>
       compareEmployees(
         employeeSort,
         { id: left.empId, name: formatEmployeeName(left) },
@@ -679,8 +565,8 @@ export default function AccountingPayrollReview() {
       .filter((line) => Number.isFinite(line.lineId) && line.lineId > 0);
   }
 
-  async function openBreakdownModal(row: PayrollItemRow) {
-    if (typeof row.itemId !== 'number') return;
+  async function openBreakdownModal(row: AggregatedEmployeeRow) {
+    if (row.itemIds.length === 0) return;
 
     setSelectedBreakdownItem(row);
     setSelectedBreakdownEarnings([]);
@@ -689,13 +575,35 @@ export default function AccountingPayrollReview() {
     setIsLoadingBreakdown(true);
 
     try {
-      const [earningsResponse, deductionsResponse] = await Promise.all([
-        apiFetchJson<unknown>(`/api/payroll/item/earnings/${row.itemId}`),
-        apiFetchJson<unknown>(`/api/payroll/item/deductions/${row.itemId}`),
-      ]);
+      const allEarnings: PayrollBreakdownLine[] = [];
+      const allDeductions: PayrollBreakdownLine[] = [];
 
-      setSelectedBreakdownEarnings(mapBreakdownLines(earningsResponse, 'EARNING'));
-      setSelectedBreakdownDeductions(mapBreakdownLines(deductionsResponse, 'DEDUCTION'));
+      await Promise.all(
+        row.itemIds.map(async (itemId) => {
+          const [earningsResponse, deductionsResponse] = await Promise.all([
+            apiFetchJson<unknown>(`/api/payroll/item/earnings/${itemId}`),
+            apiFetchJson<unknown>(`/api/payroll/item/deductions/${itemId}`),
+          ]);
+          allEarnings.push(...mapBreakdownLines(earningsResponse, 'EARNING'));
+          allDeductions.push(...mapBreakdownLines(deductionsResponse, 'DEDUCTION'));
+        })
+      );
+
+      const sumLines = (lines: PayrollBreakdownLine[]) => {
+        const map = new Map<string, PayrollBreakdownLine>();
+        for (const line of lines) {
+          const existing = map.get(line.label);
+          if (existing) {
+            existing.amount = toMoneyString(toAmount(existing.amount) + toAmount(line.amount));
+          } else {
+            map.set(line.label, { ...line });
+          }
+        }
+        return Array.from(map.values());
+      };
+
+      setSelectedBreakdownEarnings(sumLines(allEarnings));
+      setSelectedBreakdownDeductions(sumLines(allDeductions));
     } catch (error) {
       setBreakdownError(getFriendlyErrorMessage(error, 'payroll-run'));
     } finally {
@@ -847,27 +755,25 @@ export default function AccountingPayrollReview() {
             <span>NAME</span>
             <span>Gross Pay</span>
             <span>Net Pay</span>
-            <span className="aReviewRunTable__headCell--action">Details</span>
+            <span className="aReviewRunTable__headCell--action"></span>
           </div>
 
           <div className="aReviewRunTable__body">
             {!isLoading && visibleEmployeeRows.length > 0 ? (
               visibleEmployeeRows.map((row, index) => (
                 <button
-                  key={`${row.itemId ?? row.empId ?? index}`}
+                  key={`${row.empId ?? index}`}
                   type="button"
                   className="aReviewRunEmployee aReviewRunEmployee--interactive"
                   onClick={() => void openBreakdownModal(row)}
-                  disabled={typeof row.itemId !== 'number'}
+                  disabled={row.itemIds.length === 0}
                 >
                   <div className="aReviewRunEmployee__id">{row.empId ?? '-'}</div>
                   <div className="aReviewRunEmployee__name">{formatEmployeeName(row)}</div>
                   <div className="aReviewRunEmployee__gross">{formatCurrency(row.grossPay)}</div>
                   <div className="aReviewRunEmployee__value">{formatCurrency(row.netPay)}</div>
                   <div className="aReviewRunEmployee__action">
-                    <span className="aReviewRunPreviewPill">
-                      {typeof row.itemId === 'number' ? 'View Breakdown' : 'Unavailable'}
-                    </span>
+                    <FiEye className="aReviewRunEmployee__eye" />
                   </div>
                 </button>
               ))
@@ -965,7 +871,14 @@ export default function AccountingPayrollReview() {
             <div className="aReviewRunModal__grid">
               <label>
                 <span>Payroll Item</span>
-                <input value={`#${selectedBreakdownItem.itemId ?? '-'}`} readOnly />
+                <input
+                  value={
+                    selectedBreakdownItem.itemIds.length > 1
+                      ? `Multiple (${selectedBreakdownItem.itemIds.length})`
+                      : `#${selectedBreakdownItem.itemIds[0] ?? '-'}`
+                  }
+                  readOnly
+                />
               </label>
               <label>
                 <span>Run Status</span>

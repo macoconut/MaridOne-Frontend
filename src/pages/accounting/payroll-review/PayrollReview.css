@@ -413,13 +413,12 @@
   color: var(--hr-primary-dark);
   font-size: 16px;
   font-weight: 900;
-  font-family: var(--font-heading);
 }
 
 .aReviewRunTable__head--employee {
   box-sizing: border-box;
   width: max(100%, 860px);
-  grid-template-columns: 120px minmax(220px, 1.45fr) minmax(140px, 1fr) minmax(140px, 1fr) minmax(132px, 152px);
+  grid-template-columns: 120px minmax(220px, 1.45fr) minmax(140px, 1fr) minmax(140px, 1fr) 80px;
   gap: 12px;
 }
 
@@ -429,7 +428,8 @@
 }
 
 .aReviewRunTable__headCell--action {
-  text-align: center;
+  text-align: right;
+  padding-right: 12px;
 }
 
 .aReviewRunTable__body {
@@ -451,7 +451,7 @@
   padding: 12px 0;
   border-bottom: 1px solid var(--hr-line);
   display: grid;
-  grid-template-columns: 120px minmax(220px, 1.45fr) minmax(140px, 1fr) minmax(140px, 1fr) minmax(132px, 152px);
+  grid-template-columns: 120px minmax(220px, 1.45fr) minmax(140px, 1fr) minmax(140px, 1fr) 80px;
   gap: 12px;
   align-items: center;
 }
@@ -478,14 +478,12 @@
   font-size: 14px;
   font-weight: 800;
   color: var(--hr-muted);
-  font-family: var(--font-heading);
 }
 
 .aReviewRunEmployee__name {
   font-size: 15px;
   font-weight: 800;
   color: var(--hr-text);
-  font-family: var(--font-heading);
 }
 
 .aReviewRunEmployee__name,
@@ -503,7 +501,21 @@
 
 .aReviewRunEmployee__action {
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
+  padding-right: 12px;
+}
+
+.aReviewRunEmployee__eye {
+  color: var(--hr-primary);
+  font-size: 18px;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all 0.2s ease;
+}
+
+.aReviewRunEmployee:hover .aReviewRunEmployee__eye {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .aReviewRunPreviewPill {
@@ -519,7 +531,6 @@
   font-size: 12px;
   font-weight: 800;
   text-align: center;
-  font-family: var(--font-heading);
 }
 
 .aReviewRunEmployee--interactive:disabled .aReviewRunPreviewPill {
@@ -573,7 +584,6 @@
 .aReviewRunTypeRow__label {
   min-width: 0;
   font-weight: 700;
-  font-family: var(--font-heading);
 }
 
 .aReviewRunTypeRow__value {
@@ -604,7 +614,6 @@
   font-weight: 900;
   letter-spacing: 0.02em;
   text-transform: uppercase;
-  font-family: var(--font-heading);
 }
 
 .aReviewRunGroup__caption {
@@ -618,7 +627,6 @@
   font-size: 16px;
   font-weight: 900;
   text-align: right;
-  font-family: var(--font-heading);
 }
 
 .aReviewRunEmpty {
@@ -667,10 +675,9 @@
   border-radius: 10px;
   padding: 0 12px;
   background: #fbf8ff;
-  font-weight: 700;
+  font-weight: 500;
   color: #2b2036;
   font-size: 14px;
-  font-family: var(--font-heading);
 }
 
 .aReviewRunBreakdownTotals {
@@ -694,7 +701,6 @@
   color: #665c7b;
   font-size: 14px;
   font-weight: 700;
-  font-family: var(--font-heading);
 }
 
 .aReviewRunBreakdownTotals__card strong {
@@ -732,7 +738,6 @@
   color: #3c2856;
   font-size: 16px;
   font-weight: 900;
-  font-family: var(--font-heading);
 }
 
 .aReviewRunBreakdown__head span {
@@ -763,7 +768,6 @@
   color: #2e2445;
   font-size: 15px;
   font-weight: 800;
-  font-family: var(--font-heading);
 }
 
 .aReviewRunBreakdown__row span {

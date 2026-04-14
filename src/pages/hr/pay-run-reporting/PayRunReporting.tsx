@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FiCalendar, FiDownload, FiFilter, FiMoreVertical, FiSearch, FiXCircle } from 'react-icons/fi';
+import { FiCalendar, FiDownload, FiEye, FiFilter, FiMoreVertical, FiSearch, FiXCircle } from 'react-icons/fi';
+
+type AggregatedEmployeeRow = EmployeeReportRow & {
+  itemIds: number[];
+};
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import EmployeeSortMenu from '../../../components/layout/EmployeeSortMenu';
 import SortMenu, { type SortOption } from '../../../components/layout/SortMenu';
@@ -427,7 +431,7 @@ export default function HrPayRunReporting() {
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [roleFilter, setRoleFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
-  const [selectedBreakdownItem, setSelectedBreakdownItem] = useState<PayrollItemRow | null>(null);
+  const [selectedBreakdownItem, setSelectedBreakdownItem] = useState<AggregatedEmployeeRow | null>(null);
   const [selectedBreakdownEarnings, setSelectedBreakdownEarnings] = useState<PayrollBreakdownLine[]>([]);
   const [selectedBreakdownDeductions, setSelectedBreakdownDeductions] = useState<PayrollBreakdownLine[]>([]);
   const [isLoadingBreakdown, setIsLoadingBreakdown] = useState(false);
@@ -592,28 +596,36 @@ export default function HrPayRunReporting() {
   );
 
   const visibleEmployeeRows = useMemo(() => {
-    const filtered =
-      !normalizedFilter || normalizedFilter === 'all'
-        ? [...employeeReportRows]
-        : employeeReportRows.filter((row) => {
-            const name = formatEmployeeName(row).toLowerCase();
-            const empId = String(row.empId ?? '').toLowerCase();
-            return name.includes(normalizedFilter) || empId.includes(normalizedFilter);
-          });
+    const filtered = employeeReportRows.filter((row) => {
+      const name = formatEmployeeName(row).toLowerCase();
+      const empId = String(row.empId ?? '').toLowerCase();
+      const matchesSearch = !normalizedFilter || normalizedFilter === 'all' || name.includes(normalizedFilter) || empId.includes(normalizedFilter);
+      const matchesRole = roleFilter === 'all' || row.role === roleFilter;
+      const matchesDept = departmentFilter === 'all' || row.department === departmentFilter;
+      return matchesSearch && matchesRole && matchesDept;
+    });
 
-    return filtered
-      .filter((row) => {
-        if (roleFilter !== 'all' && row.role !== roleFilter) {
-          return false;
+    const aggregatedMap = new Map<number, AggregatedEmployeeRow>();
+    for (const row of filtered) {
+      const empId = row.empId;
+      if (typeof empId !== 'number') continue;
+
+      const existing = aggregatedMap.get(empId);
+      if (existing) {
+        existing.grossPay = toAmount(existing.grossPay) + toAmount(row.grossPay);
+        existing.netPay = toAmount(existing.netPay) + toAmount(row.netPay);
+        if (typeof row.itemId === 'number' && !existing.itemIds.includes(row.itemId)) {
+          existing.itemIds.push(row.itemId);
         }
+      } else {
+        aggregatedMap.set(empId, {
+          ...row,
+          itemIds: typeof row.itemId === 'number' ? [row.itemId] : [],
+        });
+      }
+    }
 
-        if (departmentFilter !== 'all' && row.department !== departmentFilter) {
-          return false;
-        }
-
-        return true;
-      })
-      .sort((left, right) =>
+    return Array.from(aggregatedMap.values()).sort((left, right) =>
       compareEmployees(
         employeeSort,
         { id: left.empId, name: formatEmployeeName(left) },
@@ -740,8 +752,8 @@ export default function HrPayRunReporting() {
       .filter((line) => Number.isFinite(line.lineId) && line.lineId > 0);
   }
 
-  async function openBreakdownModal(row: PayrollItemRow) {
-    if (typeof row.itemId !== 'number') return;
+  async function openBreakdownModal(row: AggregatedEmployeeRow) {
+    if (row.itemIds.length === 0) return;
 
     setSelectedBreakdownItem(row);
     setSelectedBreakdownEarnings([]);
@@ -750,13 +762,35 @@ export default function HrPayRunReporting() {
     setIsLoadingBreakdown(true);
 
     try {
-      const [earningsResponse, deductionsResponse] = await Promise.all([
-        apiFetchJson<unknown>(`/api/payroll/item/earnings/${row.itemId}`),
-        apiFetchJson<unknown>(`/api/payroll/item/deductions/${row.itemId}`),
-      ]);
+      const allEarnings: PayrollBreakdownLine[] = [];
+      const allDeductions: PayrollBreakdownLine[] = [];
 
-      setSelectedBreakdownEarnings(mapBreakdownLines(earningsResponse, 'EARNING'));
-      setSelectedBreakdownDeductions(mapBreakdownLines(deductionsResponse, 'DEDUCTION'));
+      await Promise.all(
+        row.itemIds.map(async (itemId) => {
+          const [earningsResponse, deductionsResponse] = await Promise.all([
+            apiFetchJson<unknown>(`/api/payroll/item/earnings/${itemId}`),
+            apiFetchJson<unknown>(`/api/payroll/item/deductions/${itemId}`),
+          ]);
+          allEarnings.push(...mapBreakdownLines(earningsResponse, 'EARNING'));
+          allDeductions.push(...mapBreakdownLines(deductionsResponse, 'DEDUCTION'));
+        })
+      );
+
+      const sumLines = (lines: PayrollBreakdownLine[]) => {
+        const map = new Map<string, PayrollBreakdownLine>();
+        for (const line of lines) {
+          const existing = map.get(line.label);
+          if (existing) {
+            existing.amount = toMoneyString(toAmount(existing.amount) + toAmount(line.amount));
+          } else {
+            map.set(line.label, { ...line });
+          }
+        }
+        return Array.from(map.values());
+      };
+
+      setSelectedBreakdownEarnings(sumLines(allEarnings));
+      setSelectedBreakdownDeductions(sumLines(allDeductions));
     } catch (error) {
       setBreakdownError(getFriendlyErrorMessage(error, 'payroll-run'));
     } finally {
@@ -1021,27 +1055,25 @@ export default function HrPayRunReporting() {
             <span>NAME</span>
             <span>Gross Pay</span>
             <span>Net Pay</span>
-            <span className="hrRunTable__headCell--action">Details</span>
+            <span className="hrRunTable__headCell--action"></span>
           </div>
 
           <div className="hrRunTable__body">
             {!isLoading && visibleEmployeeRows.length > 0 ? (
               visibleEmployeeRows.map((row, index) => (
                 <button
-                  key={`${row.itemId ?? row.empId ?? index}`}
+                  key={`${row.empId ?? index}`}
                   type="button"
                   className="hrRunEmployee hrRunEmployee--interactive"
                   onClick={() => void openBreakdownModal(row)}
-                  disabled={typeof row.itemId !== 'number'}
+                  disabled={row.itemIds.length === 0}
                 >
                   <div className="hrRunEmployee__id">{row.empId ?? '-'}</div>
                   <div className="hrRunEmployee__name">{formatEmployeeName(row)}</div>
                   <div className="hrRunEmployee__gross">{formatCurrency(row.grossPay)}</div>
                   <div className="hrRunEmployee__value">{formatCurrency(row.netPay)}</div>
                   <div className="hrRunEmployee__action">
-                    <span className="hrRunPreviewPill">
-                      {typeof row.itemId === 'number' ? 'View Breakdown' : 'Unavailable'}
-                    </span>
+                    <FiEye className="hrRunEmployee__eye" />
                   </div>
                 </button>
               ))
@@ -1139,7 +1171,14 @@ export default function HrPayRunReporting() {
             <div className="hrRunModal__grid">
               <label>
                 <span>Payroll Item</span>
-                <input value={`#${selectedBreakdownItem.itemId ?? '-'}`} readOnly />
+                <input
+                  value={
+                    selectedBreakdownItem.itemIds.length > 1
+                      ? `Multiple (${selectedBreakdownItem.itemIds.length})`
+                      : `#${selectedBreakdownItem.itemIds[0] ?? '-'}`
+                  }
+                  readOnly
+                />
               </label>
               <label>
                 <span>Run Status</span>

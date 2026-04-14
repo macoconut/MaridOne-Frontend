@@ -289,7 +289,7 @@
 .hrRunTable__head--employee {
   box-sizing: border-box;
   width: max(100%, 860px);
-  grid-template-columns: 120px minmax(220px, 1.45fr) minmax(140px, 1fr) minmax(140px, 1fr) minmax(132px, 152px);
+  grid-template-columns: 120px minmax(220px, 1.45fr) minmax(140px, 1fr) minmax(140px, 1fr) 80px;
   gap: 12px;
 }
 
@@ -299,7 +299,8 @@
 }
 
 .hrRunTable__headCell--action {
-  text-align: center;
+  text-align: right;
+  padding-right: 12px;
 }
 
 .hrRunTable__body {
@@ -326,7 +327,7 @@
   padding: 12px 0;
   border-bottom: 1px solid var(--hr-line);
   display: grid;
-  grid-template-columns: 120px minmax(220px, 1.45fr) minmax(140px, 1fr) minmax(140px, 1fr) minmax(132px, 152px);
+  grid-template-columns: 120px minmax(220px, 1.45fr) minmax(140px, 1fr) minmax(140px, 1fr) 80px;
   gap: 12px;
   align-items: center;
 }
@@ -376,7 +377,21 @@
 
 .hrRunEmployee__action {
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
+  padding-right: 12px;
+}
+
+.hrRunEmployee__eye {
+  color: var(--hr-primary);
+  font-size: 18px;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all 0.2s ease;
+}
+
+.hrRunEmployee:hover .hrRunEmployee__eye {
+  opacity: 1;
+  transform: scale(1);
 }
 
 .hrRunPreviewPill {
