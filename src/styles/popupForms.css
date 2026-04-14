@@ -473,7 +473,9 @@
   .hrPayModal__grid label,
   .hrPayModal__area,
   .hrApprForm__row label,
-  .aReviewPayModal__grid label
+  .aReviewPayModal__grid label,
+  .hrRunModal__grid label,
+  .aReviewRunModal__grid label
 ) {
   padding: 18px !important;
 }

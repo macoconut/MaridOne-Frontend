@@ -1115,7 +1115,22 @@ export function MonthlyScheduleBoard({
             <button type="button" className="hrAttCalendarShell__navBtn" onClick={() => shiftMonth(-1)} aria-label="Previous month">
               <FiChevronLeft />
             </button>
-            <div className="hrAttCalendarShell__month">{formatMonthLabel(selectedMonthStart)}</div>
+            <div className="uCalendarMonthPicker uCalendarMonthPicker--minimal">
+              <span>{formatMonthLabel(selectedMonthStart)}</span>
+              <FiChevronRight style={{ transform: 'rotate(90deg)' }} />
+              <select
+                className="hrAtt__monthSelect"
+                value={selectedMonthStart}
+                onChange={(event) => setSelectedMonthStart(event.target.value)}
+                aria-label="Select month"
+              >
+                {monthOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <button type="button" className="hrAttCalendarShell__navBtn" onClick={() => shiftMonth(1)} aria-label="Next month">
               <FiChevronRight />
             </button>

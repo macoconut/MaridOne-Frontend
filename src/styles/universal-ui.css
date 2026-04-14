@@ -705,6 +705,49 @@ body {
   background: transparent !important;
 }
 
+:where(.uCalendarMonthPicker) {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 6px 12px !important;
+  border-radius: var(--ui-radius-sm) !important;
+  background: var(--app-accent-soft) !important;
+  color: var(--ui-title-color) !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  cursor: pointer !important;
+  transition: background 0.2s ease !important;
+}
+
+:where(.uCalendarMonthPicker):hover {
+  background: var(--app-soft-fill-strong) !important;
+}
+
+:where(.uCalendarMonthPicker--minimal) {
+  background: transparent !important;
+  padding-left: 12px !important;
+  padding-right: 8px !important;
+  margin-left: -12px !important;
+  margin-right: -8px !important;
+}
+
+:where(.uCalendarMonthPicker svg) {
+  font-size: 14px !important;
+  color: var(--app-label-color) !important;
+  flex: 0 0 auto !important;
+}
+
+:where(.uCalendarMonthPicker select) {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  opacity: 0 !important;
+  cursor: pointer !important;
+  z-index: 2 !important;
+}
+
 :where(.brand__logo) {
   width: 52px !important;
   height: 52px !important;

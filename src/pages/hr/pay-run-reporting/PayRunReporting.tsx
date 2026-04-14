@@ -91,14 +91,14 @@ const DEFAULT_EARNING_BREAKDOWN_LABELS = [
 ];
 
 const DEFAULT_DEDUCTION_BREAKDOWN_LABELS = [
-  'SSS',
-  'PhilHealth',
-  'PagIbig',
+  'SSS Contribution',
+  'PhilHealth Contribution',
+  'Pag-IBIG Contribution',
   'Withholding Tax',
   'Late Penalty',
   'Absent Deduction',
   'SSS Loan',
-  'PagIbig Loan',
+  'Pag-IBIG Loan',
   'Cash Advance',
   'Manual Adjustment',
   'Equipment Loss Penalty',
@@ -232,12 +232,6 @@ function formatRunLabel(run: PayrollRunRow) {
   return run.periodDescription || 'Payroll period unavailable';
 }
 
-function toSortStamp(value?: string) {
-  if (!value) return 0;
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? 0 : parsed;
-}
-
 function toMoneyString(value: unknown) {
   if (typeof value === 'number' && Number.isFinite(value)) return value.toFixed(2);
   if (typeof value === 'string' && value.trim().length > 0) return value;
@@ -252,19 +246,6 @@ function toOptionalMoneyString(value: unknown) {
 
 function toOptionalText(value: unknown) {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
-}
-
-function compareRunsDescending(a: PayrollRunRow, b: PayrollRunRow) {
-  const payDateDiff = toSortStamp(b.paymentDate) - toSortStamp(a.paymentDate);
-  if (payDateDiff !== 0) return payDateDiff;
-
-  const endDiff = toSortStamp(b.periodEnd) - toSortStamp(a.periodEnd);
-  if (endDiff !== 0) return endDiff;
-
-  const startDiff = toSortStamp(b.periodStart) - toSortStamp(a.periodStart);
-  if (startDiff !== 0) return startDiff;
-
-  return (b.payId ?? 0) - (a.payId ?? 0);
 }
 
 function formatSummaryLabel(value?: string) {
@@ -294,10 +275,10 @@ function normalizeBreakdownLabel(label: string, lineType: PayrollBreakdownLine['
   const normalized = trimmed.replace(/[\s_-]+/g, ' ').trim().toLowerCase();
 
   if (lineType === 'DEDUCTION') {
-    if (normalized === 'sss contribution' || normalized === 'sss') return 'SSS';
-    if (normalized === 'philhealth contribution' || normalized === 'philhealth') return 'PhilHealth';
-    if (normalized === 'pag ibig contribution' || normalized === 'pag ibig' || normalized === 'pagibig') return 'PagIbig';
-    if (normalized === 'pag ibig loan' || normalized === 'pagibig loan') return 'PagIbig Loan';
+    if (normalized === 'sss contribution' || normalized === 'sss') return 'SSS Contribution';
+    if (normalized === 'philhealth contribution' || normalized === 'philhealth') return 'PhilHealth Contribution';
+    if (normalized === 'pag ibig contribution' || normalized === 'pag ibig' || normalized === 'pagibig') return 'Pag-IBIG Contribution';
+    if (normalized === 'pag ibig loan' || normalized === 'pagibig loan') return 'Pag-IBIG Loan';
     if (normalized.startsWith('withholding tax') || normalized.startsWith('bracket level')) return 'Withholding Tax';
   }
 
@@ -750,10 +731,7 @@ export default function HrPayRunReporting() {
         key: `${lineType}-${String(row.earningsId ?? row.deductionsId ?? idx + 1)}`,
         lineId: Number(row.earningsId ?? row.deductionsId),
         lineType,
-        label:
-          lineType === 'EARNING'
-            ? String(row.description ?? `Earning ${idx + 1}`)
-            : formatSummaryLabel(String(row.description ?? row.deductionType ?? `Deduction ${idx + 1}`)),
+        label: normalizeBreakdownLabel(String(row.description ?? row.deductionType ?? (lineType === 'EARNING' ? `Earning ${idx + 1}` : `Deduction ${idx + 1}`)), lineType),
         amount: toMoneyString(row.amount),
         originalAmount: toOptionalMoneyString(row.originalAmount),
         adjustedBy: toOptionalText(row.adjustedBy),

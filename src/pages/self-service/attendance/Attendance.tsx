@@ -1302,24 +1302,6 @@ export default function Attendance() {
           description="Review your work logs, requests, shifts, and events in one monthly calendar."
         />
         <div className="att__controls">
-          <div className="att__monthSelectWrap">
-            <select
-              className="att__monthSelect"
-              value={monthValue}
-              onChange={(e) => {
-                setMonthValue(e.target.value);
-                parseMonthValue(e.target.value);
-              }}
-            >
-              {monthOptions.map((label) => {
-                return (
-                  <option key={label} value={label}>
-                    {label}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
           <button className="attClockBtn attClockBtn--schedule" type="button" onClick={openSchedule} title="View My Schedule">
             <span>My Schedule</span>
             <span className="attClockBtn__icon">
@@ -1385,7 +1367,27 @@ export default function Attendance() {
             >
               <FiChevronLeft aria-hidden="true" />
             </button>
-            <strong className="attCalendarShell__month">{monthLabel}</strong>
+
+            <div className="uCalendarMonthPicker uCalendarMonthPicker--minimal">
+              <span>{monthLabel}</span>
+              <FiChevronRight style={{ transform: 'rotate(90deg)' }} />
+              <select
+                value={monthValue}
+                onChange={(e) => {
+                  setMonthValue(e.target.value);
+                  parseMonthValue(e.target.value);
+                }}
+              >
+                {monthOptions.map((label) => {
+                  return (
+                    <option key={label} value={label}>
+                      {label}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
             <button
               type="button"
               className="attCalendarShell__navBtn"

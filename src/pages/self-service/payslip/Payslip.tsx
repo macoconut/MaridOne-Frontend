@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { FiAlertCircle, FiCheckCircle, FiDownload, FiPrinter, FiXCircle } from 'react-icons/fi';
+import { useEffect, useMemo, useState, useRef, useId } from 'react';
+import { FiAlertCircle, FiCheckCircle, FiChevronRight, FiDownload, FiPrinter, FiXCircle, FiCalendar } from 'react-icons/fi';
 import { apiFetchJson, apiFetchRaw, toArray } from '../../../lib/api';
 import { uploadDocument } from '../../../lib/documentUpload';
 import ActionButton from '../../../components/button/ActionButton';
@@ -22,6 +22,7 @@ type EmployeeDetails = {
   position?: string;
   department?: string;
   email?: string;
+  taxNumber?: string;
   address?: {
     permanentAddress?: string;
     temporaryAddress?: string;
@@ -38,6 +39,7 @@ type PayrollItemRow = {
   runDetails?: {
     periodStart?: string;
     periodEnd?: string;
+    paymentDate?: string;
   };
 };
 
@@ -91,7 +93,7 @@ function formatAdjustmentTimestamp(value?: string) {
   if (!value) return '-';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(undefined, {
+  return date.toLocaleString('en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -104,7 +106,7 @@ function formatDisplayDate(value?: string) {
   if (!value) return '-';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -215,9 +217,8 @@ export default function Payslip() {
   const [employeeId, setEmployeeId] = useState<number | null>(null);
   const [payrollItems, setPayrollItems] = useState<PayrollItemRow[]>([]);
   const [selectedPeriodIndex, setSelectedPeriodIndex] = useState(0);
-  const [payslipPeriods, setPayslipPeriods] = useState<string[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
-  const [selectedRun, setSelectedRun] = useState<{ periodStart?: string; periodEnd?: string } | null>(null);
+  const [selectedRun, setSelectedRun] = useState<{ periodStart?: string; periodEnd?: string; paymentDate?: string } | null>(null);
   const [employeeInfo, setEmployeeInfo] = useState<EmployeeDetails | null>(null);
   const [earnings, setEarnings] = useState<PayslipLine[]>([]);
   const [deductions, setDeductions] = useState<PayslipLine[]>([]);
@@ -233,6 +234,11 @@ export default function Payslip() {
   const [printingPayslip, setPrintingPayslip] = useState(false);
   const [payslipActionError, setPayslipActionError] = useState('');
   const [refreshTick, setRefreshTick] = useState(0);
+
+  const [periodDropdownOpen, setPeriodDropdownOpen] = useState(false);
+  const periodDropdownRef = useRef<HTMLDivElement | null>(null);
+  const periodDropdownId = useId();
+
   const isDisputeDirty =
     disputeOpen &&
     (disputeSubject !== 'Overtime pay dispute' || disputeReason.trim().length > 0 || disputeFile !== null);
@@ -262,6 +268,30 @@ export default function Payslip() {
   }, [confirmDisputeSubmit, disputeOpen]);
 
   useEffect(() => {
+    if (!periodDropdownOpen) return undefined;
+
+    function handlePointerDown(event: MouseEvent) {
+      if (periodDropdownRef.current && !periodDropdownRef.current.contains(event.target as Node)) {
+        setPeriodDropdownOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setPeriodDropdownOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [periodDropdownOpen]);
+
+  useEffect(() => {
     void (async () => {
       try {
         const username = getUserEmail();
@@ -287,35 +317,22 @@ export default function Payslip() {
         const items = await apiFetchJson<unknown>(`/api/payroll/item/${resolvedEmpId}`);
         const rows = toArray<PayrollItemRow>(items);
         setPayrollItems(rows);
-        setPayslipPeriods(
-          rows.map((row, idx) => {
-            const start = row.runDetails?.periodStart;
-            const end = row.runDetails?.periodEnd;
-            return start && end ? formatPeriodLabel(start, end) : `Payslip ${idx + 1}`;
-          })
-        );
-        setSelectedPeriodIndex((currentIndex) => {
-          const nextIndex =
-            currentIndex >= 0 && currentIndex < rows.length ? currentIndex : 0;
-          const selected = rows[nextIndex];
 
-          setSelectedItemId(
-            typeof selected?.id === 'number'
-              ? selected.id
-              : typeof selected?.itemId === 'number'
-                ? selected.itemId
-                : null
-          );
-          setSelectedRun(selected?.runDetails ?? null);
-
-          return nextIndex;
-        });
+        if (rows.length > 0) {
+          const selected = rows[0];
+          setSelectedPeriodIndex(0);
+          setSelectedItemId(selected.id ?? selected.itemId ?? null);
+          setSelectedRun(selected.runDetails ?? null);
+        } else {
+          setSelectedPeriodIndex(0);
+          setSelectedItemId(null);
+          setSelectedRun(null);
+        }
       } catch {
         setEmployeeId(null);
         setEmployeeInfo(null);
         setPayrollItems([]);
         setSelectedPeriodIndex(0);
-        setPayslipPeriods([]);
         setSelectedItemId(null);
         setSelectedRun(null);
       }
@@ -325,14 +342,14 @@ export default function Payslip() {
   function handlePeriodChange(index: number) {
     setSelectedPeriodIndex(index);
     const selected = payrollItems[index];
-    setSelectedItemId(
-      typeof selected?.id === 'number'
-        ? selected.id
-        : typeof selected?.itemId === 'number'
-          ? selected.itemId
-          : null
-    );
-    setSelectedRun(selected?.runDetails ?? null);
+    if (selected) {
+      setSelectedItemId(selected.id ?? selected.itemId ?? null);
+      setSelectedRun(selected.runDetails ?? null);
+    } else {
+      setSelectedItemId(null);
+      setSelectedRun(null);
+    }
+    setPeriodDropdownOpen(false);
   }
 
   useEffect(() => {
@@ -432,7 +449,6 @@ export default function Payslip() {
     () => formatPeriodLabel(selectedRun?.periodStart, selectedRun?.periodEnd),
     [selectedRun]
   );
-  const taxNumber = '-';
   const department = employeeInfo?.department?.trim() || '-';
 
   useEffect(() => {
@@ -697,6 +713,15 @@ export default function Payslip() {
     setConfirmDisputeSubmit(true);
   }
 
+  const selectedPeriodLabel = useMemo(() => {
+    if (payrollItems.length === 0) return 'No payslip available';
+    const paymentDate = payrollItems[selectedPeriodIndex]?.runDetails?.paymentDate;
+    if (paymentDate) return formatDisplayDate(paymentDate);
+    const periodEnd = payrollItems[selectedPeriodIndex]?.runDetails?.periodEnd;
+    if (periodEnd) return formatDisplayDate(periodEnd);
+    return `Payslip ${selectedPeriodIndex + 1}`;
+  }, [payrollItems, selectedPeriodIndex]);
+
   return (
     <div className="pay">
       <div className="pay__head">
@@ -704,23 +729,49 @@ export default function Payslip() {
           title="Payslips"
           description="Review each pay period, download your summary, and file payroll disputes when needed."
         />
-        <div className="pay__selectWrap">
-          <select
-            className="pay__select"
-            value={selectedPeriodIndex}
-            onChange={(e) => handlePeriodChange(Number(e.target.value))}
-            disabled={payslipPeriods.length === 0}
+        <div className="payPeriodSelector" ref={periodDropdownRef}>
+          <button
+            type="button"
+            className={`payPeriodSelector__toggle ${periodDropdownOpen ? 'is-open' : ''}`}
+            aria-expanded={periodDropdownOpen}
+            aria-controls={periodDropdownId}
+            aria-haspopup="menu"
+            onClick={() => setPeriodDropdownOpen((curr) => !curr)}
+            disabled={payrollItems.length === 0}
           >
-            {payslipPeriods.length > 0 ? (
-              payslipPeriods.map((period, idx) => (
-                <option key={period} value={idx}>
-                  {period}
-                </option>
-              ))
-            ) : (
-              <option>No payslip periods available</option>
-            )}
-          </select>
+            <FiCalendar aria-hidden="true" />
+            <div className="payPeriodSelector__current">
+              <span className="payPeriodSelector__label">PAYMENT DATE</span>
+              <span className="payPeriodSelector__value">{selectedPeriodLabel}</span>
+            </div>
+            <FiChevronRight className="payPeriodSelector__arrow" />
+          </button>
+
+          {periodDropdownOpen && (
+            <div id={periodDropdownId} className="payPeriodSelector__panel" role="menu">
+              {payrollItems.map((item, idx) => {
+                const isSelected = idx === selectedPeriodIndex;
+                const paymentDate = item.runDetails?.paymentDate;
+                const periodLabel = formatPeriodLabel(item.runDetails?.periodStart, item.runDetails?.periodEnd);
+
+                return (
+                  <button
+                    key={item.id ?? item.itemId ?? idx}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={isSelected}
+                    className={`payPeriodSelector__option ${isSelected ? 'is-selected' : ''}`}
+                    onClick={() => handlePeriodChange(idx)}
+                  >
+                    <span className="payPeriodSelector__optionDate">
+                      {paymentDate ? formatDisplayDate(paymentDate) : formatDisplayDate(item.runDetails?.periodEnd) || `Payslip ${idx + 1}`}
+                    </span>
+                    <span className="payPeriodSelector__optionPeriod">{periodLabel}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
@@ -756,7 +807,7 @@ export default function Payslip() {
             </div>
             <div className="payInfo__row">
               <span>Tax Number</span>
-              <span className="payInfo__line">{taxNumber}</span>
+              <span className="payInfo__line">{employeeInfo?.taxNumber ?? '-'}</span>
             </div>
             <div className="payInfo__row">
               <span>Designation</span>
@@ -770,8 +821,8 @@ export default function Payslip() {
 
           <div className="payInfo__col">
             <div className="payInfo__row">
-              <span>Pay Period</span>
-              <span className="payInfo__line">{displayPayPeriod}</span>
+              <span>Payment Date</span>
+              <span className="payInfo__line">{formatDisplayDate(selectedRun?.paymentDate || selectedRun?.periodEnd)}</span>
             </div>
             <div className="payInfo__row">
               <span>Start Date</span>
@@ -900,7 +951,7 @@ export default function Payslip() {
           icon={<FiDownload />}
           type="button"
           onClick={() => void handleDownload()}
-          disabled={printingPayslip}
+          disabled={printingPayslip || !selectedItemId}
         >
           {printingPayslip ? 'Preparing Payslip...' : 'Download Payslip'}
         </ActionButton>
@@ -910,11 +961,18 @@ export default function Payslip() {
           icon={<FiPrinter />}
           type="button"
           onClick={() => void handlePrintPayslip()}
-          disabled={printingPayslip}
+          disabled={printingPayslip || !selectedItemId}
         >
           {printingPayslip ? 'Opening Payslip...' : 'Print Payslip'}
         </ActionButton>
-        <ActionButton className="payBtn" size="lg" icon={<FiAlertCircle />} type="button" onClick={openDisputeForm}>
+        <ActionButton
+          className="payBtn"
+          size="lg"
+          icon={<FiAlertCircle />}
+          type="button"
+          onClick={openDisputeForm}
+          disabled={!selectedItemId}
+        >
           File Dispute
         </ActionButton>
       </div>

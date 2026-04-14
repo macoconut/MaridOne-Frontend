@@ -14,7 +14,6 @@ import { apiFetchJson, toArray } from '../../../lib/api';
 import {
   downloadLibraryDocument,
   handbookLibraryCard,
-  materialLibrarySections,
   openLibraryDocument,
 } from '../../../lib/materialLibrary';
 import { getSelfServicePath } from '../../../lib/roleRoutes';
@@ -454,7 +453,6 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { showError, showSuccess } = useUiDialog();
   const userRole = getUserRole() ?? 'employee';
-  const canRequestOvertime = userRole === 'employee';
   const [profile, setProfile] = useState<UserDetails | null>(null);
   const [employee, setEmployee] = useState<UserDetails['employee'] | null>(null);
   const [employeeId, setEmployeeId] = useState<number | null>(null);

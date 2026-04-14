@@ -1643,25 +1643,6 @@ export function AttendanceReportsBoard({
     <div className="hrAtt">
       <div className="hrAtt__head">
         <PageHeader title="Attendance Report" description={attendanceReportDescription} />
-
-        <div className="hrAtt__controls">
-          <div className="hrAtt__monthSelectWrap">
-            <select
-              className="hrAtt__monthSelect"
-              value={monthValue}
-              onChange={(event) => {
-                setMonthValue(event.target.value);
-                parseMonthValue(event.target.value);
-              }}
-            >
-              {monthOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
       </div>
 
       <div className="hrAtt__toolbar">
@@ -1788,7 +1769,25 @@ export function AttendanceReportsBoard({
             >
               <FiChevronLeft aria-hidden="true" />
             </button>
-            <strong className="hrAttCalendarShell__month">{monthLabel}</strong>
+
+            <div className="uCalendarMonthPicker uCalendarMonthPicker--minimal">
+              <span>{monthLabel}</span>
+              <FiChevronRight style={{ transform: 'rotate(90deg)' }} />
+              <select
+                value={monthValue}
+                onChange={(e) => {
+                  setMonthValue(e.target.value);
+                  parseMonthValue(e.target.value);
+                }}
+              >
+                {monthOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <button
               type="button"
               className="hrAttCalendarShell__navBtn"

@@ -536,14 +536,8 @@ export default function Approval() {
               </button>
             ))
           ) : (
-            <div className="apprRow">
-              <div>No matching approval requests.</div>
-              <div>-</div>
-              <div>-</div>
-              <div>-</div>
-              <div>-</div>
-              <div>-</div>
-              <div>-</div>
+            <div className="uEmptyState">
+              No matching approval requests.
             </div>
           )}
         </div>

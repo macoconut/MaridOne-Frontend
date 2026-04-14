@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FiSearch, FiXCircle } from 'react-icons/fi';
+import { FiCalendar, FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import EmployeeSortMenu from '../../../components/layout/EmployeeSortMenu';
+import SortMenu, { type SortOption } from '../../../components/layout/SortMenu';
 import PageHeader from '../../../components/layout/PageHeader';
+import ActionButton from '../../../components/button/ActionButton';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
@@ -18,6 +20,7 @@ type PayrollRunRow = {
   payId?: number;
   periodStart?: string;
   periodEnd?: string;
+  paymentDate?: string;
   periodDescription?: string;
   payrollStatus?: string;
   runType?: string;
@@ -31,6 +34,17 @@ type PayrollItemRow = {
   itemId?: number;
   grossPay?: number | string;
   netPay?: number | string;
+};
+
+type EmployeeDirectoryEntry = {
+  id: number;
+  role: string;
+  department: string;
+};
+
+type EmployeeReportRow = PayrollItemRow & {
+  role: string;
+  department: string;
 };
 
 type PayrollBreakdownLine = {
@@ -52,6 +66,78 @@ type PayTypeSummaryRow = {
   adjustmentKind?: AdjustmentKind;
   total?: number | string;
 };
+
+const DEFAULT_EARNING_BREAKDOWN_LABELS = [
+  'Basic Pay',
+  'Bonus',
+  'Approved Overtime',
+  'Regular Holiday Premium',
+  'Special Holiday Premium',
+  'Rest Day Premium',
+  'Night Differential',
+  'OT Night Differential',
+  'Premium Pay',
+  'Manual Adjustment',
+];
+
+const DEFAULT_DEDUCTION_BREAKDOWN_LABELS = [
+  'SSS Contribution',
+  'PhilHealth Contribution',
+  'Pag-IBIG Contribution',
+  'Withholding Tax',
+  'Late Penalty',
+  'Absent Deduction',
+  'SSS Loan',
+  'PagIbig Loan',
+  'Cash Advance',
+  'Manual Adjustment',
+  'Equipment Loss Penalty',
+  'HMO Upgrade',
+];
+
+type PayTypeSortKey = 'name' | 'amount';
+
+const PAY_TYPE_SORT_OPTIONS: Array<SortOption<PayTypeSortKey>> = [
+  {
+    value: 'name',
+    label: 'Alphabetical',
+    hint: 'Show categories in alphabetical order.',
+  },
+  {
+    value: 'amount',
+    label: 'Amount',
+    hint: 'Show categories with highest totals first.',
+  },
+];
+
+function getCurrentMonthRange() {
+  const now = new Date();
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+  const format = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  return {
+    from: format(firstDay),
+    to: format(lastDay),
+  };
+}
+
+function formatDateHuman(isoDate: string) {
+  if (!isoDate) return 'Select Date';
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) return isoDate;
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
 
 function formatCurrency(value: unknown) {
   const options: Intl.NumberFormatOptions = {
@@ -110,17 +196,29 @@ function formatEmployeeName(row: PayrollItemRow) {
   return 'Unnamed employee';
 }
 
+function buildEmployeeDirectory(response: unknown) {
+  return toArray<Record<string, unknown>>(response)
+    .map((item, index) => {
+      const id = Number(item.employeeId ?? item.id ?? index + 1);
+      if (!Number.isFinite(id) || id <= 0) return null;
+
+      return {
+        id,
+        role: typeof item.position === 'string' ? item.position.trim() : '',
+        department: typeof item.department === 'string' ? item.department.trim() : '',
+      } satisfies EmployeeDirectoryEntry;
+    })
+    .filter((entry): entry is EmployeeDirectoryEntry => entry !== null);
+}
+
 function formatRunLabel(run: PayrollRunRow) {
+  if (run.paymentDate) {
+    return `${formatDate(run.paymentDate)} (${formatDate(run.periodStart)} - ${formatDate(run.periodEnd)})`;
+  }
   if (run.periodStart || run.periodEnd) {
     return `${formatDate(run.periodStart)} to ${formatDate(run.periodEnd)}`;
   }
   return run.periodDescription || 'Payroll period unavailable';
-}
-
-function toSortStamp(value?: string) {
-  if (!value) return 0;
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? 0 : parsed;
 }
 
 function toMoneyString(value: unknown) {
@@ -139,23 +237,13 @@ function toOptionalText(value: unknown) {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 }
 
-function compareRunsDescending(a: PayrollRunRow, b: PayrollRunRow) {
-  const endDiff = toSortStamp(b.periodEnd) - toSortStamp(a.periodEnd);
-  if (endDiff !== 0) return endDiff;
-
-  const startDiff = toSortStamp(b.periodStart) - toSortStamp(a.periodStart);
-  if (startDiff !== 0) return startDiff;
-
-  return (b.payId ?? 0) - (a.payId ?? 0);
-}
-
 function formatSummaryLabel(value?: string) {
   const key = String(value ?? '').trim();
   if (!key) return 'Unknown line item';
   const normalized = key.replace(/[\s_]+/g, '').toUpperCase();
-  if (normalized === 'PAGIBIG') return 'PagIbig';
-  if (normalized === 'PHILHEALTH') return 'PhilHealth';
-  if (normalized === 'SSS') return 'SSS';
+  if (normalized === 'PAGIBIG') return 'Pag-IBIG Contribution';
+  if (normalized === 'PHILHEALTH') return 'PhilHealth Contribution';
+  if (normalized === 'SSS') return 'SSS Contribution';
   if (normalized === 'BONUS') return 'Bonus';
   return key
     .toLowerCase()
@@ -169,6 +257,126 @@ function getSummaryAdjustmentKind(row: PayTypeSummaryRow) {
   return row.adjustment ?? row.adjustmentKind;
 }
 
+function normalizeBreakdownLabel(label: string, lineType: PayrollBreakdownLine['lineType']) {
+  const trimmed = label.trim();
+  if (!trimmed) return lineType === 'EARNING' ? 'Other Earnings' : 'Other Deductions';
+
+  const normalized = trimmed.replace(/[\s_-]+/g, ' ').trim().toLowerCase();
+
+  if (lineType === 'DEDUCTION') {
+    if (normalized === 'sss contribution' || normalized === 'sss') return 'SSS Contribution';
+    if (normalized === 'philhealth contribution' || normalized === 'philhealth') return 'PhilHealth Contribution';
+    if (normalized === 'pag ibig contribution' || normalized === 'pag ibig' || normalized === 'pagibig') return 'Pag-IBIG Contribution';
+    if (normalized === 'pag ibig loan' || normalized === 'pagibig loan') return 'Pag-IBIG Loan';
+    if (normalized.startsWith('withholding tax') || normalized.startsWith('bracket level')) return 'Withholding Tax';
+  }
+
+  if (lineType === 'EARNING') {
+    if (normalized === 'basic salary') return 'Basic Pay';
+    if (normalized === 'overtime' || normalized === 'approved overtime') return 'Approved Overtime';
+    if (normalized === 'bonus') return 'Bonus';
+  }
+
+  return trimmed;
+}
+
+function toCsvValue(value: unknown) {
+  const text = String(value ?? '');
+  if (/[",\r\n]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
+function buildCsvContent(rows: string[][]) {
+  return rows.map((row) => row.map(toCsvValue).join(',')).join('\r\n');
+}
+
+function sumBreakdownAmounts(response: unknown) {
+  return toArray<Record<string, unknown>>(response).reduce((sum, row) => sum + toAmount(row.amount), 0);
+}
+
+function orderBreakdownLabels(observedLabels: string[], defaultLabels: string[]) {
+  const uniqueObserved = Array.from(new Set(observedLabels.filter(Boolean)));
+  const preferred = [...defaultLabels];
+  const remaining = uniqueObserved
+    .filter((label) => !defaultLabels.includes(label))
+    .sort((a, b) => a.localeCompare(b));
+  return [...preferred, ...remaining];
+}
+
+function buildBreakdownAmountMap(lines: PayrollBreakdownLine[], lineType: PayrollBreakdownLine['lineType']) {
+  const amounts = new Map<string, number>();
+
+  for (const line of lines) {
+    const label = normalizeBreakdownLabel(line.label, lineType);
+    amounts.set(label, (amounts.get(label) ?? 0) + toAmount(line.amount));
+  }
+
+  return amounts;
+}
+
+function buildEmployeeReportRows(
+  reportLabel: string,
+  payrollStatus: string,
+  rows: {
+    employeeId: string;
+    employeeName: string;
+    grossPay: string;
+    earningsTotal: string;
+    deductionsTotal: string;
+    netPay: string;
+    earnings: PayrollBreakdownLine[];
+    deductions: PayrollBreakdownLine[];
+  }[]
+) {
+  const earningsBreakdownLabels = orderBreakdownLabels(
+    rows.flatMap((row) => row.earnings.map((line) => normalizeBreakdownLabel(line.label, 'EARNING'))),
+    DEFAULT_EARNING_BREAKDOWN_LABELS
+  );
+  const deductionsBreakdownLabels = orderBreakdownLabels(
+    rows.flatMap((row) => row.deductions.map((line) => normalizeBreakdownLabel(line.label, 'DEDUCTION'))),
+    DEFAULT_DEDUCTION_BREAKDOWN_LABELS
+  );
+
+  return [
+    ['Report', reportLabel],
+    ['Status', payrollStatus],
+    [''],
+    ['Employee ID', 'Employee Name', 'Gross Pay', 'Earnings Total', 'Deductions Total', 'Net Pay'],
+    ...rows.map((row) => [
+      row.employeeId,
+      row.employeeName,
+      row.grossPay,
+      row.earningsTotal,
+      row.deductionsTotal,
+      row.netPay,
+    ]),
+    [''],
+    ['Earnings Breakdown'],
+    ['Employee ID', 'Employee Name', ...earningsBreakdownLabels],
+    ...rows.map((row) => {
+      const earningsAmounts = buildBreakdownAmountMap(row.earnings, 'EARNING');
+      return [
+        row.employeeId,
+        row.employeeName,
+        ...earningsBreakdownLabels.map((label) => formatCurrency(earningsAmounts.get(label) ?? 0)),
+      ];
+    }),
+    [''],
+    ['Deductions Breakdown'],
+    ['Employee ID', 'Employee Name', ...deductionsBreakdownLabels],
+    ...rows.map((row) => {
+      const deductionsAmounts = buildBreakdownAmountMap(row.deductions, 'DEDUCTION');
+      return [
+        row.employeeId,
+        row.employeeName,
+        ...deductionsBreakdownLabels.map((label) => formatCurrency(deductionsAmounts.get(label) ?? 0)),
+      ];
+    }),
+  ];
+}
+
 function getEmptyRunMessage(run: PayrollRunRow | null, view: ReportView, availableRunCount: number) {
   if (!run) {
     if (view === 'employee') {
@@ -178,6 +386,10 @@ function getEmptyRunMessage(run: PayrollRunRow | null, view: ReportView, availab
     }
 
     return availableRunCount > 0 ? 'No pay type totals matched this payroll run.' : 'No payroll runs are available yet.';
+  }
+
+  if (run.payId === -1) {
+    return 'No posted payroll data was found within the selected date range. Try adjusting your filters or check if payroll runs have been posted for this period.';
   }
 
   if ((run.itemCount ?? 0) > 0) {
@@ -201,30 +413,33 @@ export default function AccountingPayrollReview() {
   const [view, setView] = useState<ReportView>('employee');
   const [filterValue, setFilterValue] = useState('');
   const [employeeSort, setEmployeeSort] = useState<EmployeeSortKey>('id');
-  const [runs, setRuns] = useState<PayrollRunRow[]>([]);
-  const [selectedPayId, setSelectedPayId] = useState<number | null>(null);
+  const [payTypeSort, setPayTypeSort] = useState<'name' | 'amount'>('name');
+  const initialDateRange = useMemo(() => getCurrentMonthRange(), []);
+  const [fromDate, setFromDate] = useState(initialDateRange.from);
+  const [toDate, setToDate] = useState(initialDateRange.to);
   const [employeeRows, setEmployeeRows] = useState<PayrollItemRow[]>([]);
+  const [employeeDirectory, setEmployeeDirectory] = useState<EmployeeDirectoryEntry[]>([]);
   const [payTypeRows, setPayTypeRows] = useState<PayTypeSummaryRow[]>([]);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [departmentFilter, setDepartmentFilter] = useState('all');
   const [selectedBreakdownItem, setSelectedBreakdownItem] = useState<PayrollItemRow | null>(null);
   const [selectedBreakdownEarnings, setSelectedBreakdownEarnings] = useState<PayrollBreakdownLine[]>([]);
   const [selectedBreakdownDeductions, setSelectedBreakdownDeductions] = useState<PayrollBreakdownLine[]>([]);
   const [isLoadingBreakdown, setIsLoadingBreakdown] = useState(false);
   const [breakdownError, setBreakdownError] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [refreshTick, setRefreshTick] = useState(0);
   const silentRefreshRef = useRef(false);
   useErrorDialogEffect(loadError, 'Payroll review data could not be loaded');
+
   const handlePageRefresh = useCallback(() => {
     silentRefreshRef.current = true;
     setRefreshTick((tick) => tick + 1);
   }, []);
 
   const filterLabel = useMemo(() => (view === 'employee' ? 'Employee:' : 'Category:'), [view]);
-  const selectableRuns = useMemo(
-    () => (view === 'employee' ? runs.filter((run) => run.payrollStatus === 'POSTED') : runs),
-    [runs, view]
-  );
 
   useAutoRefreshingPage(handlePageRefresh, { intervalMs: 15000 });
 
@@ -238,65 +453,36 @@ export default function AccountingPayrollReview() {
   useEffect(() => {
     let cancelled = false;
 
-    async function loadRuns() {
-      const isSilentRefresh = silentRefreshRef.current;
-      if (!isSilentRefresh) {
-        setIsLoading(true);
-        setLoadError('');
-      }
-
+    async function loadEmployeeDirectory() {
       try {
-        const runResponse = await apiFetchJson<unknown>('/api/payroll/run');
+        const response = await apiFetchJson<unknown>('/api/employees?page=0&size=500');
         if (cancelled) return;
-
-        const nextRuns = [...toArray<PayrollRunRow>(runResponse)].sort(compareRunsDescending);
-        setRuns(nextRuns);
-        setLoadError('');
-      } catch (error) {
-        if (cancelled) return;
-        if (!isSilentRefresh) {
-          setRuns([]);
-          setSelectedPayId(null);
-          setEmployeeRows([]);
-          setPayTypeRows([]);
-          setLoadError(getFriendlyErrorMessage(error, 'payroll-run'));
-          setIsLoading(false);
-        } else {
-          silentRefreshRef.current = false;
+        setEmployeeDirectory(buildEmployeeDirectory(response));
+      } catch {
+        if (!cancelled) {
+          setEmployeeDirectory([]);
         }
       }
     }
 
-    void loadRuns();
+    void loadEmployeeDirectory();
+
     return () => {
       cancelled = true;
     };
-  }, [refreshTick]);
+  }, []);
 
   useEffect(() => {
-    const selectedExists = selectableRuns.some((run) => run.payId === selectedPayId);
-    const defaultRun = selectableRuns.find((run) => (run.itemCount ?? 0) > 0) ?? selectableRuns[0] ?? null;
-    const nextPayId =
-      selectedExists && selectedPayId != null ? selectedPayId : typeof defaultRun?.payId === 'number' ? defaultRun.payId : null;
-
-    if (nextPayId !== selectedPayId) {
-      setSelectedPayId(nextPayId);
-    }
-  }, [selectableRuns, selectedPayId]);
-
-  useEffect(() => {
-    if (selectedPayId == null || !selectableRuns.some((run) => run.payId === selectedPayId)) {
+    if (!fromDate || !toDate) {
       setEmployeeRows([]);
       setPayTypeRows([]);
-      setLoadError('');
       setIsLoading(false);
-      silentRefreshRef.current = false;
       return;
     }
 
     let cancelled = false;
 
-    async function loadRunDetails() {
+    async function loadReportDetails() {
       const isSilentRefresh = silentRefreshRef.current;
       if (!isSilentRefresh) {
         setIsLoading(true);
@@ -305,8 +491,8 @@ export default function AccountingPayrollReview() {
 
       try {
         const [itemsResponse, summaryResponse] = await Promise.all([
-          apiFetchJson<unknown>(`/api/payroll/run/${selectedPayId}/items?page=0&size=1000`),
-          apiFetchJson<unknown>(`/api/payroll/run/summary/${selectedPayId}`),
+          apiFetchJson<unknown>(`/api/payroll/report/items?from=${fromDate}&to=${toDate}&page=0&size=500`),
+          apiFetchJson<unknown>(`/api/payroll/report/summary?from=${fromDate}&to=${toDate}`),
         ]);
 
         if (cancelled) return;
@@ -329,17 +515,25 @@ export default function AccountingPayrollReview() {
       }
     }
 
-    void loadRunDetails();
+    void loadReportDetails();
 
     return () => {
       cancelled = true;
     };
-  }, [selectableRuns, selectedPayId]);
+  }, [fromDate, toDate, refreshTick]);
 
-  const selectedRun = useMemo(
-    () => selectableRuns.find((run) => run.payId === selectedPayId) ?? null,
-    [selectableRuns, selectedPayId]
-  );
+  const selectedRun = useMemo(() => {
+    if (!fromDate || !toDate) return null;
+    return {
+      payId: -1,
+      periodStart: fromDate,
+      periodEnd: toDate,
+      periodDescription: `Report range: ${fromDate} to ${toDate}`,
+      payrollStatus: 'POSTED',
+      runType: 'REGULAR',
+      itemCount: employeeRows.length,
+    } as PayrollRunRow;
+  }, [fromDate, toDate, employeeRows.length]);
 
   const selectedBreakdownGross = selectedBreakdownItem ? toAmount(selectedBreakdownItem.grossPay) : 0;
   const selectedBreakdownNet = selectedBreakdownItem ? toAmount(selectedBreakdownItem.netPay) : 0;
@@ -352,25 +546,61 @@ export default function AccountingPayrollReview() {
   }, [selectedBreakdownDeductions, selectedBreakdownGross, selectedBreakdownItem, selectedBreakdownNet]);
 
   const normalizedFilter = filterValue.trim().toLowerCase();
+  const employeeDirectoryById = useMemo(
+    () => new Map(employeeDirectory.map((entry) => [entry.id, entry])),
+    [employeeDirectory]
+  );
+  const employeeReportRows = useMemo<EmployeeReportRow[]>(() => {
+    return employeeRows.map((row) => {
+      const entry = typeof row.empId === 'number' ? employeeDirectoryById.get(row.empId) : undefined;
+      return {
+        ...row,
+        role: entry?.role ?? '',
+        department: entry?.department ?? '',
+      };
+    });
+  }, [employeeDirectoryById, employeeRows]);
+
+  const roleOptions = useMemo(
+    () => Array.from(new Set(employeeReportRows.map((row) => row.role).filter(Boolean))).sort(),
+    [employeeReportRows]
+  );
+
+  const departmentOptions = useMemo(
+    () => Array.from(new Set(employeeReportRows.map((row) => row.department).filter(Boolean))).sort(),
+    [employeeReportRows]
+  );
 
   const visibleEmployeeRows = useMemo(() => {
     const filtered =
       !normalizedFilter || normalizedFilter === 'all'
-        ? [...employeeRows]
-        : employeeRows.filter((row) => {
+        ? [...employeeReportRows]
+        : employeeReportRows.filter((row) => {
             const name = formatEmployeeName(row).toLowerCase();
             const empId = String(row.empId ?? '').toLowerCase();
             return name.includes(normalizedFilter) || empId.includes(normalizedFilter);
           });
 
-    return filtered.sort((left, right) =>
+    return filtered
+      .filter((row) => {
+        if (roleFilter !== 'all' && row.role !== roleFilter) {
+          return false;
+        }
+
+        if (departmentFilter !== 'all' && row.department !== departmentFilter) {
+          return false;
+        }
+
+        return true;
+      })
+      .sort((left, right) =>
       compareEmployees(
         employeeSort,
         { id: left.empId, name: formatEmployeeName(left) },
         { id: right.empId, name: formatEmployeeName(right) }
       )
     );
-  }, [employeeRows, employeeSort, normalizedFilter]);
+  }, [departmentFilter, employeeReportRows, roleFilter, employeeSort, normalizedFilter]);
 
   const visiblePayTypeRows = useMemo(() => {
     const filtered =
@@ -379,11 +609,17 @@ export default function AccountingPayrollReview() {
         : payTypeRows.filter((row) => {
             const payType = String(row.payType ?? '').toLowerCase();
             const kind = String(getSummaryAdjustmentKind(row) ?? '').toLowerCase();
-            return payType.includes(normalizedFilter) || kind.includes(normalizedFilter);
+            const friendlyPayType = formatSummaryLabel(row.payType).toLowerCase();
+            return payType.includes(normalizedFilter) || kind.includes(normalizedFilter) || friendlyPayType.includes(normalizedFilter);
           });
 
-    return filtered.sort((a, b) => formatSummaryLabel(a.payType).localeCompare(formatSummaryLabel(b.payType)));
-  }, [normalizedFilter, payTypeRows]);
+    return filtered.sort((a, b) => {
+      if (payTypeSort === 'amount') {
+        return toAmount(b.total) - toAmount(a.total);
+      }
+      return formatSummaryLabel(a.payType).localeCompare(formatSummaryLabel(b.payType));
+    });
+  }, [normalizedFilter, payTypeRows, payTypeSort]);
 
   const visibleEarningRows = useMemo(
     () => visiblePayTypeRows.filter((row) => getSummaryAdjustmentKind(row) === 'EARNING'),
@@ -405,6 +641,15 @@ export default function AccountingPayrollReview() {
     [visibleDeductionRows]
   );
 
+  const activeFilterCount = [roleFilter, departmentFilter].filter(
+    (value) => value !== 'all'
+  ).length;
+
+  const employeeEmptyMessage =
+    employeeRows.length > 0 && visibleEmployeeRows.length === 0 && (normalizedFilter || activeFilterCount > 0)
+      ? 'No employee totals matched the current search or filters.'
+      : getEmptyRunMessage(selectedRun, 'employee', 0);
+
   const closeBreakdownModal = useCallback(() => {
     setSelectedBreakdownItem(null);
     setSelectedBreakdownEarnings([]);
@@ -417,7 +662,7 @@ export default function AccountingPayrollReview() {
 
   useEffect(() => {
     closeBreakdownModal();
-  }, [closeBreakdownModal, selectedPayId, view]);
+  }, [closeBreakdownModal, view]);
 
   function mapBreakdownLines(response: unknown, lineType: PayrollBreakdownLine['lineType']) {
     return toArray<Record<string, unknown>>(response)
@@ -425,10 +670,7 @@ export default function AccountingPayrollReview() {
         key: `${lineType}-${String(row.earningsId ?? row.deductionsId ?? idx + 1)}`,
         lineId: Number(row.earningsId ?? row.deductionsId),
         lineType,
-        label:
-          lineType === 'EARNING'
-            ? String(row.description ?? `Earning ${idx + 1}`)
-            : String(row.description ?? row.deductionType ?? `Deduction ${idx + 1}`),
+        label: normalizeBreakdownLabel(String(row.description ?? row.deductionType ?? `Deduction ${idx + 1}`), lineType),
         amount: toMoneyString(row.amount),
         originalAmount: toOptionalMoneyString(row.originalAmount),
         adjustedBy: toOptionalText(row.adjustedBy),
@@ -461,6 +703,11 @@ export default function AccountingPayrollReview() {
     }
   }
 
+  function clearFilters() {
+    setRoleFilter('all');
+    setDepartmentFilter('all');
+  }
+
   return (
     <div className="aReviewPay">
       <div className="aReviewRun__top">
@@ -468,59 +715,129 @@ export default function AccountingPayrollReview() {
           title="Payslip Review"
           description="Analyze payroll totals by employee or pay type before printing or cross-checking posted values."
         />
-        <label className="aReviewRunSelect aReviewRunSelect--view" aria-label="Report view">
-          <select value={view} onChange={(e) => setView(e.target.value as ReportView)}>
-            <option value="employee">By Employee</option>
-            <option value="payType">By Earnings / Deductions</option>
-          </select>
-        </label>
+        <div className="aReviewRun__topActions">
+          <label className="aReviewRunSelect aReviewRunSelect--view" aria-label="Report view">
+            <select value={view} onChange={(e) => setView(e.target.value as ReportView)}>
+              <option value="employee">By Employee</option>
+              <option value="payType">By Earnings / Deductions</option>
+            </select>
+          </label>
+        </div>
       </div>
 
       <div className="aReviewRunFilters">
         <div className="aReviewRunFilters__field aReviewRunFilters__field--search">
           <label>{filterLabel}</label>
-          <label className="aReviewRunSearch" aria-label={view === 'employee' ? 'Search employees' : 'Search pay types'}>
-            <FiSearch />
-            <input
-              value={filterValue}
-              onChange={(e) => setFilterValue(e.target.value)}
-              placeholder={view === 'employee' ? 'Search by employee name' : 'Search by earnings or deductions type'}
-            />
-            {filterValue && (
-              <button type="button" aria-label="Clear filter" onClick={() => setFilterValue('')}>
-                <FiXCircle />
-              </button>
-            )}
-          </label>
-        </div>
-
-        <div className="aReviewRunFilters__field">
-          <label>Payroll Period:</label>
-          <label className="aReviewRunSelect" aria-label="Payroll period">
-            <select
-              value={selectedPayId ?? ''}
-              onChange={(e) => setSelectedPayId(e.target.value ? Number(e.target.value) : null)}
-              disabled={selectableRuns.length === 0}
-            >
-              {selectableRuns.length > 0 ? (
-                selectableRuns.map((run) => (
-                  <option key={run.payId} value={run.payId}>
-                    {formatRunLabel(run)}
-                  </option>
-                ))
-              ) : (
-                <option value="">{view === 'employee' ? 'No posted payroll runs yet' : 'No payroll runs yet'}</option>
+          <div className="aReviewRunFilters__searchGroup">
+            <label className="uSearch" aria-label={view === 'employee' ? 'Search employees' : 'Search pay types'}>
+              <FiSearch />
+              <input
+                value={filterValue}
+                onChange={(e) => setFilterValue(e.target.value)}
+                placeholder={view === 'employee' ? 'Search by employee name or ID' : 'Search by earnings or deductions type'}
+              />
+              {filterValue && (
+                <button type="button" aria-label="Clear search" onClick={() => setFilterValue('')}>
+                  <FiXCircle />
+                </button>
               )}
-            </select>
-          </label>
+            </label>
+          </div>
         </div>
 
-        {view === 'employee' ? (
-          <div className="aReviewRunFilters__field aReviewRunFilters__field--sort">
-            <label>Sort By:</label>
-            <EmployeeSortMenu value={employeeSort} onChange={setEmployeeSort} />
+        <div className="aReviewRunFilters__field aReviewRunFilters__field--dates">
+          <label>Date Range:</label>
+          <div className="aReviewRunFilters__dateGroup">
+            <div className="aReviewRunDateInput">
+              <FiCalendar />
+              <span className="aReviewRunDateInput__value">{formatDateHuman(fromDate)}</span>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                aria-label="From date"
+              />
+            </div>
+            <span className="aReviewRunFilters__dateSeparator">to</span>
+            <div className="aReviewRunDateInput">
+              <FiCalendar />
+              <span className="aReviewRunDateInput__value">{formatDateHuman(toDate)}</span>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                aria-label="To date"
+              />
+            </div>
           </div>
-        ) : null}
+        </div>
+
+        <div className="aReviewRunFilters__field aReviewRunFilters__field--sort">
+          <label>Sort By:</label>
+          <div className="aReviewRunFilters__actions">
+            {view === 'employee' ? (
+              <EmployeeSortMenu value={employeeSort} onChange={setEmployeeSort} />
+            ) : (
+              <SortMenu
+                value={payTypeSort}
+                onChange={setPayTypeSort}
+                options={PAY_TYPE_SORT_OPTIONS}
+                panelLabel="Sort categories"
+              />
+            )}
+            <div className="uFilter">
+              <button
+                type="button"
+                className={`uFilter__toggle ${filterOpen ? 'is-open' : ''} ${
+                  activeFilterCount > 0 ? 'is-active' : ''
+                }`}
+                onClick={() => {
+                  setFilterOpen((open) => !open);
+                }}
+              >
+                <FiFilter />
+                <span>Filter</span>
+              </button>
+
+              {filterOpen ? (
+                <div className="uFilter__panel">
+                  <label className="uFilter__field">
+                    <span>Role</span>
+                    <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
+                      <option value="all">All Roles</option>
+                      {roleOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="uFilter__field">
+                    <span>Department</span>
+                    <select
+                      value={departmentFilter}
+                      onChange={(event) => setDepartmentFilter(event.target.value)}
+                    >
+                      <option value="all">All Departments</option>
+                      {departmentOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <div className="uFilter__actions">
+                    <button type="button" onClick={clearFilters}>
+                      Reset Filters
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
       </div>
 
       {view === 'employee' ? (
@@ -555,9 +872,7 @@ export default function AccountingPayrollReview() {
                 </button>
               ))
             ) : (
-              <article className="aReviewRunEmpty">
-                {isLoading ? 'Loading pay run details...' : getEmptyRunMessage(selectedRun, 'employee', selectableRuns.length)}
-              </article>
+              <article className="uEmptyState">{isLoading ? 'Loading pay run details...' : employeeEmptyMessage}</article>
             )}
           </div>
         </section>
@@ -586,7 +901,7 @@ export default function AccountingPayrollReview() {
                       </article>
                     ))
                   ) : (
-                    <article className="aReviewRunEmpty aReviewRunEmpty--group">No earnings matched this payroll run.</article>
+                    <article className="uEmptyState">No earnings matched this payroll run.</article>
                   )}
                 </div>
               </section>
@@ -612,7 +927,7 @@ export default function AccountingPayrollReview() {
                       </article>
                     ))
                   ) : (
-                    <article className="aReviewRunEmpty aReviewRunEmpty--group">No deductions matched this payroll run.</article>
+                    <article className="uEmptyState">No deductions matched this payroll run.</article>
                   )}
                 </div>
               </section>
@@ -620,8 +935,8 @@ export default function AccountingPayrollReview() {
           ) : (
             <section className="aReviewRunTable aReviewRunTable--summaryView" aria-label="Pay type summary table">
               <div className="aReviewRunTable__body aReviewRunTable__body--summary">
-                <article className="aReviewRunEmpty">
-                  {isLoading ? 'Loading pay type totals...' : getEmptyRunMessage(selectedRun, 'payType', selectableRuns.length)}
+                <article className="uEmptyState">
+                  {isLoading ? 'Loading pay type totals...' : getEmptyRunMessage(selectedRun, 'payType', 0)}
                 </article>
               </div>
             </section>
@@ -636,7 +951,7 @@ export default function AccountingPayrollReview() {
               <div className="aReviewRunModal__heading">
                 <h2 className="aReviewRunModal__title">{formatEmployeeName(selectedBreakdownItem)} - Payslip Breakdown</h2>
                 <p className="aReviewRunModal__subtitle">
-                  Review the earnings, deductions, and totals for this payroll item before printing or cross-checking values.
+                  Review the current earnings, deductions, and totals before posting this in-progress payroll item.
                 </p>
               </div>
               <ModalCloseButton
