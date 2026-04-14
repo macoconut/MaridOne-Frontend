@@ -782,11 +782,11 @@ export function AttendanceReportsBoard({
   useAutoRefreshingPage(handlePageRefresh, { intervalMs: 15000 });
 
   useEffect(() => {
-    if (detailOpen || importDialogOpen) document.body.classList.add('modal-open');
+    if (detailOpen || importDialogOpen || exportDialogOpen) document.body.classList.add('modal-open');
     else document.body.classList.remove('modal-open');
 
     return () => document.body.classList.remove('modal-open');
-  }, [detailOpen, importDialogOpen]);
+  }, [detailOpen, exportDialogOpen, importDialogOpen]);
 
   useEffect(() => {
     if (!filterOpen) return undefined;
@@ -1685,6 +1685,7 @@ export function AttendanceReportsBoard({
   useEscapeDismiss(detailOpen, () => setDetailOpen(false), 10);
   useEscapeDismiss(importDialogOpen, closeImportDialog, 11);
   useEscapeDismiss(actionMenuOpen, () => setActionMenuOpen(false), 12);
+  useEscapeDismiss(exportDialogOpen, () => setExportDialogOpen(false), 13);
 
   return (
     <div className="hrAtt">
@@ -2337,8 +2338,14 @@ export function AttendanceReportsBoard({
       )}
 
       {exportDialogOpen && (
-        <div className="hrAttModalBackdrop" role="dialog" aria-modal="true" aria-label="Export attendance CSV">
-          <div className="hrAttModal hrAttModal--export">
+        <div
+          className="hrAttModalBackdrop"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Export attendance CSV"
+          onClick={() => setExportDialogOpen(false)}
+        >
+          <div className="hrAttModal hrAttModal--export" onClick={(event) => event.stopPropagation()}>
             <div className="hrAttModal__top">
               <div>
                 <div className="hrAttModal__title">Export Attendance</div>

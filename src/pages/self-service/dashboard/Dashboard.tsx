@@ -43,6 +43,9 @@ type UserDetails = {
     employmentDate?: string;
     dateHired?: string;
     position?: string;
+    department?: string;
+    managerName?: string;
+    managerHeadLabel?: string;
     employmentStatus?: string;
     sssNumber?: string;
     philhealthNumber?: string;
@@ -488,6 +491,7 @@ export default function Dashboard() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState('');
   const [editOpen, setEditOpen] = useState(false);
+  const [confirmEmailChangeOpen, setConfirmEmailChangeOpen] = useState(false);
   const [createAnnouncementOpen, setCreateAnnouncementOpen] = useState(false);
   const [creatingAnnouncement, setCreatingAnnouncement] = useState(false);
   const [createAnnouncementError, setCreateAnnouncementError] = useState('');
@@ -523,7 +527,7 @@ export default function Dashboard() {
   };
   useEscapeDismiss(Boolean(selectedAnnouncementDay), closeAnnouncementDay, 10);
   useEscapeDismiss(createAnnouncementOpen && !creatingAnnouncement, closeCreateAnnouncementModal, 10);
-  useEscapeDismiss(editOpen && !savingEdit, closeEditModal, 10);
+  useEscapeDismiss(editOpen && !savingEdit && !confirmEmailChangeOpen, closeEditModal, 10);
   useAutoRefreshingPage(handlePageRefresh, {
     intervalMs: 15000,
     enabled:
@@ -924,6 +928,7 @@ export default function Dashboard() {
   function closeEditModal() {
     if (savingEdit) return;
     setEditOpen(false);
+    setConfirmEmailChangeOpen(false);
     setEditError('');
     setEditDraft(createEditDraft(employee));
   }
@@ -932,17 +937,10 @@ export default function Dashboard() {
     setEditDraft((prev) => ({ ...prev, [key]: value }));
   }
 
-  async function submitEditInfo() {
+  async function runEditInfoSubmit() {
     if (!employeeId) {
       setEditError('Employee profile cannot be updated right now.');
       return;
-    }
-
-    if (emailVerificationWillReset) {
-      const shouldContinue = window.confirm(
-        'Changing your verified email will remove its verified status until you verify the new address. Continue?'
-      );
-      if (!shouldContinue) return;
     }
 
     setEditError('');
@@ -987,6 +985,14 @@ export default function Dashboard() {
     } finally {
       setSavingEdit(false);
     }
+  }
+
+  async function submitEditInfo() {
+    if (emailVerificationWillReset) {
+      setConfirmEmailChangeOpen(true);
+      return;
+    }
+    await runEditInfoSubmit();
   }
 
   return (
@@ -1323,6 +1329,20 @@ export default function Dashboard() {
         isBusy={deletingAnnouncementId === announcementPendingDelete?.calendarId}
         onConfirm={() => void handleDeleteAnnouncement()}
         onCancel={closeDeleteAnnouncementDialog}
+      />
+
+      <ConfirmDialog
+        open={confirmEmailChangeOpen}
+        title="Confirm Email Change"
+        message="Changing your verified email will remove its verified status until you verify the new address again. Do you want to continue saving this profile update?"
+        confirmLabel="Continue Saving"
+        cancelLabel="Go Back"
+        isBusy={savingEdit}
+        onConfirm={() => {
+          setConfirmEmailChangeOpen(false);
+          void runEditInfoSubmit();
+        }}
+        onCancel={() => setConfirmEmailChangeOpen(false)}
       />
 
       {createAnnouncementOpen && (

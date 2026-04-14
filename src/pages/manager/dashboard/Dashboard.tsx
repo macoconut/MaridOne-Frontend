@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AccountSecuritySection from '../../../components/account/AccountSecuritySection';
+import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import PageHeader from '../../../components/layout/PageHeader';
@@ -45,6 +46,9 @@ type UserDetails = {
     employmentDate?: string;
     dateHired?: string;
     position?: string;
+    department?: string;
+    managerName?: string;
+    managerHeadLabel?: string;
     employmentStatus?: string;
   };
 };
@@ -186,6 +190,7 @@ export default function ManagerDashboard() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState('');
   const [editOpen, setEditOpen] = useState(false);
+  const [confirmEmailChangeOpen, setConfirmEmailChangeOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
   const securityModalPresence = useAnimatedPresence(securityOpen, 220);
   const [securityMessage, setSecurityMessage] = useState('');
@@ -218,7 +223,7 @@ export default function ManagerDashboard() {
 
   useErrorDialogEffect(editError, 'Profile changes could not be saved');
   useErrorDialogEffect(securityError, 'Security action could not be completed');
-  useEscapeDismiss(editOpen && !savingEdit, closeEditModal, 10);
+  useEscapeDismiss(editOpen && !savingEdit && !confirmEmailChangeOpen, closeEditModal, 10);
   useEscapeDismiss(
     securityOpen &&
       !(sendingVerification || startingTwoFactor || confirmingTwoFactor || disablingTwoFactor || changingPassword),
@@ -451,6 +456,7 @@ export default function ManagerDashboard() {
   function closeEditModal() {
     if (savingEdit) return;
     setEditOpen(false);
+    setConfirmEmailChangeOpen(false);
     setEditError('');
     setEditDraft(createEditDraft(employee));
   }
@@ -474,17 +480,10 @@ export default function ManagerDashboard() {
     setSecurityMessage('');
   }
 
-  async function submitEditInfo() {
+  async function runEditInfoSubmit() {
     if (!employeeId) {
       setEditError('Employee profile cannot be updated right now.');
       return;
-    }
-
-    if (emailVerificationWillReset) {
-      const shouldContinue = window.confirm(
-        'Changing your verified email will remove its verified status until you verify the new address. Continue?'
-      );
-      if (!shouldContinue) return;
     }
 
     setEditError('');
@@ -525,6 +524,14 @@ export default function ManagerDashboard() {
     } finally {
       setSavingEdit(false);
     }
+  }
+
+  async function submitEditInfo() {
+    if (emailVerificationWillReset) {
+      setConfirmEmailChangeOpen(true);
+      return;
+    }
+    await runEditInfoSubmit();
   }
 
   async function handleSendEmailVerification() {
@@ -657,9 +664,7 @@ export default function ManagerDashboard() {
 
   return (
     <div className="dashPage">
-      <PageHeader
-        title="Manager Dashboard"
-      />
+      <PageHeader title="Manager Dashboard" />
 
       <section className="infoCardX">
         <div className="infoCardX__header">
@@ -932,6 +937,20 @@ export default function ManagerDashboard() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmEmailChangeOpen}
+        title="Confirm Email Change"
+        message="Changing your verified email will remove its verified status until you verify the new address again. Do you want to continue saving this profile update?"
+        confirmLabel="Continue Saving"
+        cancelLabel="Go Back"
+        isBusy={savingEdit}
+        onConfirm={() => {
+          setConfirmEmailChangeOpen(false);
+          void runEditInfoSubmit();
+        }}
+        onCancel={() => setConfirmEmailChangeOpen(false)}
+      />
 
       {securityModalPresence.isMounted && (
         <div

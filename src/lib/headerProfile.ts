@@ -11,6 +11,13 @@ function trimmedText(value: unknown) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function resolveDepartmentLabel(record: unknown) {
+  const source = asRecord(record);
+  if (!source) return '';
+
+  return trimmedText(source.department);
+}
+
 async function fetchJson(path: string) {
   const response = await apiFetchRaw(path, { method: 'GET' });
   if (!response.ok) return null;
@@ -59,7 +66,8 @@ export async function resolveHeaderTitle(
 
 export async function resolveHeaderBadge(
   username: string | null | undefined,
-  roleLabel: string
+  roleLabel: string,
+  options?: { includeDepartment?: boolean }
 ): Promise<string> {
   if (!username) return roleLabel;
 
@@ -71,5 +79,48 @@ export async function resolveHeaderBadge(
     extractFirstId(userRecord, ['employeeId', 'id', 'empId']) ??
     extractFirstId(nestedEmployee, ['employeeId', 'id', 'empId']);
 
-  return employeeId ? `${roleLabel} #${employeeId}` : roleLabel;
+  let departmentLabel =
+    resolveDepartmentLabel(userRecord) ||
+    resolveDepartmentLabel(nestedEmployee);
+
+  if (options?.includeDepartment && !departmentLabel && employeeId) {
+    const employeeDetails = await fetchJson(`/api/employees/${employeeId}`);
+    departmentLabel = resolveDepartmentLabel(employeeDetails);
+  }
+
+  const badgeLabel = employeeId ? `${roleLabel} #${employeeId}` : roleLabel;
+  return options?.includeDepartment && departmentLabel
+    ? `${badgeLabel} - ${departmentLabel}`
+    : badgeLabel;
+}
+
+export async function resolveHeaderBadgeParts(
+  username: string | null | undefined,
+  roleLabel: string
+): Promise<{ badgeLabel: string; departmentLabel: string }> {
+  if (!username) {
+    return { badgeLabel: roleLabel, departmentLabel: '' };
+  }
+
+  const userDetails = await fetchJson(`/api/user/details/${encodeURIComponent(username)}`);
+  const userRecord = asRecord(userDetails);
+  const nestedEmployee = asRecord(userRecord?.employee);
+
+  const employeeId =
+    extractFirstId(userRecord, ['employeeId', 'id', 'empId']) ??
+    extractFirstId(nestedEmployee, ['employeeId', 'id', 'empId']);
+
+  let departmentLabel =
+    resolveDepartmentLabel(userRecord) ||
+    resolveDepartmentLabel(nestedEmployee);
+
+  if (!departmentLabel && employeeId) {
+    const employeeDetails = await fetchJson(`/api/employees/${employeeId}`);
+    departmentLabel = resolveDepartmentLabel(employeeDetails);
+  }
+
+  return {
+    badgeLabel: employeeId ? `${roleLabel} #${employeeId}` : roleLabel,
+    departmentLabel,
+  };
 }

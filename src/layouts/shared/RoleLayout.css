@@ -561,6 +561,8 @@ body.modal-open .eMain{
 }
 
 .eTop__badge{
+  display:inline-flex;
+  align-items:center;
   background: var(--purple-1);
   color:#fff;
   padding:4px 10px;
@@ -569,6 +571,27 @@ body.modal-open .eMain{
   font-weight:600;
   letter-spacing:.06em;
   text-transform:uppercase;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.eTop__badgeWrap{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;
+  max-width:min(100%, 720px);
+}
+
+.eTop__badgeMeta{
+  color:var(--ink-2, rgba(43,32,54,.72));
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:.02em;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }
 
 .eTop__actions{

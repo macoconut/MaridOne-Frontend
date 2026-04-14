@@ -537,7 +537,7 @@ export default function HrManageEmp() {
     closeModal();
   }
 
-  useEscapeDismiss(Boolean(modal) && !isSaving && !confirmDiscardOpen, requestCloseModal, 10);
+  useEscapeDismiss(Boolean(modal) && !isSaving && !confirmDiscardOpen && !confirmAction, requestCloseModal, 10);
 
   useEffect(() => {
     if (!modal || !hasUnsavedModalChanges) return undefined;
@@ -2424,34 +2424,28 @@ export default function HrManageEmp() {
               </button>
             </div>
 
-            {confirmAction ? (
-              <div className="hrEmpConfirmLayer" role="dialog" aria-modal="true">
-                <div className="hrEmpConfirmCard">
-                  <h3>{confirmAction === 'edit' ? 'Confirm Employee Update' : 'Confirm Termination'}</h3>
-                  <p>
-                    {confirmAction === 'edit'
-                      ? `Are you sure you want to save the changes for ${
-                          [form.firstName, form.middleName, form.lastName]
-                            .map((value) => value.trim())
-                            .filter(Boolean)
-                            .join(' ') || `employee ID ${form.employeeId}`
-                        }?`
-                      : `Are you sure you want to mark employee ID ${form.employeeId}${selectedEmployee ? ` (${selectedEmployee.name})` : ''} as terminated?`}
-                  </p>
-                  <div className="hrEmpConfirmCard__actions">
-                    <button type="button" onClick={() => setConfirmAction(null)} disabled={isSaving}>
-                      Go Back
-                    </button>
-                    <button type="button" onClick={() => void confirmAndSubmit()} disabled={isSaving}>
-                      {confirmAction === 'edit' ? 'Confirm Edit' : 'Confirm Termination'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : null}
           </div>
         </div>
       ) : null}
+      <ConfirmDialog
+        open={Boolean(confirmAction)}
+        title={confirmAction === 'edit' ? 'Confirm Employee Update' : 'Confirm Termination'}
+        message={
+          confirmAction === 'edit'
+            ? `Are you sure you want to save the changes for ${
+                [form.firstName, form.middleName, form.lastName]
+                  .map((value) => value.trim())
+                  .filter(Boolean)
+                  .join(' ') || `employee ID ${form.employeeId}`
+              }?`
+            : `Are you sure you want to mark employee ID ${form.employeeId}${selectedEmployee ? ` (${selectedEmployee.name})` : ''} as terminated?`
+        }
+        confirmLabel={confirmAction === 'edit' ? 'Confirm Edit' : 'Confirm Termination'}
+        cancelLabel="Go Back"
+        isBusy={isSaving}
+        onConfirm={() => void confirmAndSubmit()}
+        onCancel={() => setConfirmAction(null)}
+      />
       <ConfirmDialog
         open={confirmDiscardOpen}
         title="Discard Unsaved Changes?"

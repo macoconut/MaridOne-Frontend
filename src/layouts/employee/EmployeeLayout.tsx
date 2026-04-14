@@ -23,7 +23,7 @@ import '../shared/RoleLayout.css';
 import { getUserEmail } from '../../lib/session';
 import { BACKEND_TEST_MODE } from '../../config/flags';
 import { apiFetchRaw, expireCurrentSession, getApiBaseUrl } from '../../lib/api';
-import { resolveHeaderBadge } from '../../lib/headerProfile';
+import { resolveHeaderBadgeParts } from '../../lib/headerProfile';
 import { type NotificationItem } from '../../lib/notificationRouting';
 import { routeWheelToScrollableChild } from '../../lib/scrollContain';
 import {
@@ -214,6 +214,7 @@ export default function EmployeeLayout() {
   const notificationPresence = useAnimatedPresence(notifOpen, 180);
   const { notifications, setNotifications } = useNotificationPolling('employee');
   const [headerBadge, setHeaderBadge] = useState('Employee');
+  const [headerDepartment, setHeaderDepartment] = useState('');
   const [backendAction, setBackendAction] = useState<string>('None');
   const [backendResult, setBackendResult] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -251,9 +252,12 @@ export default function EmployeeLayout() {
   useEffect(() => {
     void (async () => {
       try {
-        setHeaderBadge(await resolveHeaderBadge(getUserEmail(), 'Employee'));
+        const badgeParts = await resolveHeaderBadgeParts(getUserEmail(), 'Employee');
+        setHeaderBadge(badgeParts.badgeLabel);
+        setHeaderDepartment(badgeParts.departmentLabel);
       } catch {
         setHeaderBadge('Employee');
+        setHeaderDepartment('');
       }
     })();
   }, []);
@@ -475,7 +479,10 @@ export default function EmployeeLayout() {
             >
               <FiMenu />
             </button>
-            <span className="eTop__badge">{headerBadge}</span>
+            <div className="eTop__badgeWrap">
+              <span className="eTop__badge">{headerBadge}</span>
+              {headerDepartment ? <span className="eTop__badgeMeta">{headerDepartment}</span> : null}
+            </div>
           </div>
 
           <div className="eTop__actions">
