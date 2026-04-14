@@ -44,22 +44,21 @@ export default function FileUploadField({
             <FiUpload />
             <span>{file ? replaceLabel : uploadLabel}</span>
           </label>
-
-          {file ? (
-            <button
-              type="button"
-              className="fileUploadField__clear"
-              onClick={() => onChange(null)}
-            >
-              <FiX />
-              <span>Remove</span>
-            </button>
-          ) : null}
         </div>
 
         <div className={`fileUploadField__status${file ? ' is-selected' : ''}`}>
           <FiFileText className="fileUploadField__statusIcon" />
-          <span>{file ? file.name : emptyLabel}</span>
+          <span className="fileUploadField__statusText">{file ? file.name : emptyLabel}</span>
+          {file && (
+            <button
+              type="button"
+              className="fileUploadField__clearMini"
+              onClick={() => onChange(null)}
+              title="Remove file"
+            >
+              <FiX />
+            </button>
+          )}
         </div>
       </div>
 

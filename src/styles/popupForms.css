@@ -478,7 +478,7 @@
   .hrRunModal__grid label,
   .aReviewRunModal__grid label
 ) {
-  padding: 18px !important;
+  padding: 20px !important;
 }
 
 :where(
@@ -492,7 +492,7 @@
   display: flex !important;
   flex-direction: column !important;
   align-items: stretch !important;
-  gap: 8px !important;
+  gap: 12px !important;
 }
 
 .aReviewRunModal__grid label {
@@ -503,7 +503,7 @@
 }
 
 .payModal__row {
-  margin-bottom: 0 !important;
+  margin-bottom: 20px !important;
 }
 
 :where(
@@ -529,6 +529,7 @@
 :where(
   .dashModal__field input,
   .dashModal__field textarea,
+  .payModal input,
   .payModal select,
   .payModal textarea,
   .hrEmpField input,
@@ -568,6 +569,7 @@
 :where(
   .dashModal__field input:focus,
   .dashModal__field textarea:focus,
+  .payModal input:focus,
   .payModal select:focus,
   .payModal textarea:focus,
   .hrEmpField input:focus,
@@ -710,6 +712,7 @@
   .dashModal textarea[aria-invalid='true'],
   .dashTwoFactorSetup__field input[aria-invalid='true'],
   .dashPasswordForm__inputWrap input[aria-invalid='true'],
+  .payModal input[aria-invalid='true'],
   .payModal select[aria-invalid='true'],
   .payModal textarea[aria-invalid='true'],
   .hrEmpField input[aria-invalid='true'],

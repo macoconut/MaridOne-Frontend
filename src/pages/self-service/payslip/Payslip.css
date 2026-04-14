@@ -543,7 +543,7 @@
   grid-template-columns: 180px 1fr;
   gap: 10px;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 20px;
 }
 
 .payModal__row--col{
@@ -567,6 +567,15 @@
   cursor:pointer;
   color:#5a5a5a;
   font-weight:700;
+}
+
+.payModal__actions{
+  display: flex;
+  justify-content: flex-end;
+  gap: 14px;
+  padding-top: 4px;
+  margin-top: auto;
+  overflow: visible;
 }
 
 .payModal__actions .uiActionBtn{

@@ -60,8 +60,7 @@
   align-items: center;
 }
 
-.fileUploadField__button,
-.fileUploadField__clear {
+.fileUploadField__button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -81,18 +80,12 @@
   color: var(--app-ghost-text);
 }
 
-.fileUploadField__clear {
-  border: 1px solid rgba(123, 74, 143, 0.14);
-  background: var(--app-surface-elevated);
-  color: var(--app-text-soft);
-}
-
 .fileUploadField__status {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   min-height: 48px;
-  padding: 12px 14px;
+  padding: 10px 14px;
   border-radius: 14px;
   border: 1px solid rgba(123, 74, 143, 0.12);
   background: var(--app-surface-elevated);
@@ -107,11 +100,33 @@
   color: var(--app-text);
 }
 
-.fileUploadField__status span {
+.fileUploadField__statusText {
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.fileUploadField__clearMini {
+  appearance: none;
+  background: transparent;
+  border: none;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--app-text-soft);
+  border-radius: 8px;
+  transition: background 0.2s, color 0.2s;
+  flex-shrink: 0;
+}
+
+.fileUploadField__clearMini:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--app-text);
 }
 
 .fileUploadField__statusIcon {
@@ -129,8 +144,7 @@
     align-items: stretch;
   }
 
-  .fileUploadField__button,
-  .fileUploadField__clear {
+  .fileUploadField__button {
     width: 100%;
   }
 }

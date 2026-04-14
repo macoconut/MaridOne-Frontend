@@ -81,7 +81,7 @@ type ManualLineFormState = {
 
 type DisputeStatusCode = 'PENDING' | 'WAITING_ADJUSTMENT' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 type DisputeStatusFilter = 'all' | DisputeStatusCode;
-type DisputeTypeFilter = 'all' | 'Overtime' | 'Late Penalty' | 'Absent Deduction' | 'General' | 'Other';
+type DisputeTypeFilter = 'all' | 'Overtime' | 'Attendance Issue' | 'Absent Deduction' | 'General' | 'Other';
 
 type DisputeRow = {
   id: number;
@@ -155,7 +155,7 @@ function normalizeText(value?: string) {
 function mapDisputeType(subject?: string): Exclude<DisputeTypeFilter, 'all'> {
   const normalized = normalizeText(subject);
   if (normalized.includes('overtime')) return 'Overtime';
-  if (normalized.includes('late')) return 'Late Penalty';
+  if (normalized.includes('late') || normalized.includes('attendance')) return 'Attendance Issue';
   if (normalized.includes('absent')) return 'Absent Deduction';
   if (normalized.includes('general')) return 'General';
   return 'Other';
@@ -2009,7 +2009,7 @@ export default function HrPayslips() {
                   >
                     <option value="all">All Types</option>
                     <option value="Overtime">Overtime</option>
-                    <option value="Late Penalty">Late Penalty</option>
+                    <option value="Attendance Issue">Attendance Issue</option>
                     <option value="Absent Deduction">Absent Deduction</option>
                     <option value="General">General</option>
                     <option value="Other">Other</option>

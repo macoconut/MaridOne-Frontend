@@ -677,20 +677,11 @@
 
 .input,
 .textarea {
-  width: 100%;
-  border: 1px solid rgba(123, 74, 143, 0.18);
-  border-radius: 14px;
-  padding: 12px 14px;
-  background: #fff;
-  font-weight: 600;
-  color: #2b2036;
+  width: 100% !important;
 }
 
-.input:focus,
-.textarea:focus {
-  outline: none;
-  border-color: rgba(123, 74, 143, 0.55);
-  box-shadow: 0 0 0 4px rgba(123, 74, 143, 0.12);
+.input {
+  min-height: 44px !important;
 }
 
 input[type='date'],
@@ -699,10 +690,8 @@ input[type='time'] {
 }
 
 .textarea {
-  min-height: 148px;
-  resize: none;
-  font-weight: 500;
-  line-height: 1.5;
+  min-height: 132px !important;
+  resize: vertical !important;
 }
 
 .inputIcon {
@@ -710,7 +699,7 @@ input[type='time'] {
 }
 
 .inputIcon .input {
-  padding-right: 46px;
+  padding-right: 46px !important;
 }
 
 .inputIcon input[type='date']::-webkit-calendar-picker-indicator,
@@ -726,54 +715,77 @@ input[type='time'] {
 
 .inputIcon__icon {
   position: absolute;
-  right: 12px;
+  right: 14px;
   top: 50%;
   transform: translateY(-50%);
-  opacity: 0.6;
+  opacity: 0.72;
   pointer-events: none;
+  font-size: 16px;
+  color: var(--popup-ink);
 }
 
 .requestForm {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 0;
   min-height: 0;
   overflow-y: auto;
-  padding-right: 6px;
-}
-
-.requestForm__grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.requestField {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 18px;
-  border: 1px solid rgba(123, 74, 143, 0.12);
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 10px 20px rgba(39, 25, 60, 0.05);
-}
-
-.requestField--span2 {
-  grid-column: span 2;
+  padding-right: 4px;
 }
 
 .requestField__group {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
 }
 
 .requestField__help {
-  margin: -2px 0 0;
-  color: rgba(59, 34, 87, 0.62);
+  margin: -4px 0 4px;
+  color: var(--popup-copy);
   font-size: 13px;
+  line-height: 1.5;
+}
+
+.requestField__balancePill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 16px;
+  border-radius: 14px;
+  background: var(--app-accent-soft);
+  border: 1px solid var(--popup-input-border);
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.requestField__balancePill--muted {
+  background: rgba(247, 243, 255, 0.78);
+  border-style: dashed;
+}
+
+.requestField__balanceLabel {
+  color: var(--popup-copy);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.requestField__balanceValue {
+  color: var(--popup-ink);
+  font-size: 15px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.requestField__balanceNote {
+  margin: 4px 0 0;
+  color: var(--popup-copy);
+  font-size: 12px;
   line-height: 1.4;
+  font-weight: 600;
 }
 
 .requestField__balanceHint {
@@ -789,27 +801,6 @@ input[type='time'] {
 .requestField__balanceHint--muted {
   background: rgba(247, 243, 255, 0.78);
   border-style: dashed;
-}
-
-.requestField__balanceLabel {
-  color: rgba(59, 34, 87, 0.74);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-
-.requestField__balanceValue {
-  color: #3b2257;
-  font-size: 15px;
-  font-weight: 900;
-}
-
-.requestField__balanceNote {
-  color: rgba(59, 34, 87, 0.68);
-  font-size: 12px;
-  line-height: 1.4;
-  font-weight: 600;
 }
 
 .requestField__callout {
@@ -830,6 +821,7 @@ input[type='time'] {
   gap: 14px;
   padding-top: 4px;
   margin-top: auto;
+  overflow: visible;
 }
 
 .requestActions .uiActionBtn {

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useRef, useId } from 'react';
+import { createPortal } from 'react-dom';
 import { FiAlertCircle, FiCheckCircle, FiChevronRight, FiDownload, FiPrinter, FiXCircle, FiCalendar } from 'react-icons/fi';
 import { apiFetchJson, apiFetchRaw, toArray } from '../../../lib/api';
 import { uploadDocument } from '../../../lib/documentUpload';
@@ -978,70 +979,72 @@ export default function Payslip() {
         </ActionButton>
       </div>
 
-      {disputeOpen && (
-        <div className="payModalBackdrop" role="dialog" aria-modal="true" aria-label="Payslip dispute form">
-          <div className="payModal">
-            <div className="payModal__top">
-              <div>
-                <div className="payModal__title">PAYSLIP DISPUTE FORM</div>
-                <p className="payModal__subtitle">Describe the payroll discrepancy clearly and attach supporting proof to validate the dispute.</p>
+      {disputeOpen &&
+        createPortal(
+          <div className="payModalBackdrop" role="dialog" aria-modal="true" aria-label="Payslip dispute form">
+            <div className="payModal">
+              <div className="payModal__top">
+                <div>
+                  <div className="payModal__title">PAYSLIP DISPUTE FORM</div>
+                  <p className="payModal__subtitle">Describe the payroll discrepancy clearly and attach supporting proof to validate the dispute.</p>
+                </div>
+                <ModalCloseButton className="payModal__close" onClick={disputeUnsavedPrompt.requestClose} />
               </div>
-              <ModalCloseButton className="payModal__close" onClick={disputeUnsavedPrompt.requestClose} />
-            </div>
 
-            <div className="payModal__rule" />
+              <div className="payModal__rule" />
 
-            <div className="payModal__row">
-              <label>Dispute Type:</label>
-              <select value={disputeSubject} onChange={(e) => setDisputeSubject(e.target.value)}>
-                <option>Overtime pay dispute</option>
-                <option>Late penalty dispute</option>
-                <option>Absent deduction dispute</option>
-                <option>General payroll dispute</option>
-              </select>
-            </div>
+              <div className="payModal__row">
+                <label>Dispute Type:</label>
+                <select value={disputeSubject} onChange={(e) => setDisputeSubject(e.target.value)}>
+                  <option>Overtime pay dispute</option>
+                  <option>Attendance issue dispute</option>
+                  <option>Absent deduction dispute</option>
+                  <option>General payroll dispute</option>
+                </select>
+              </div>
 
-            <div className="payModal__row payModal__row--col">
-              <label>Reason for Dispute:</label>
-              <textarea
-                placeholder="Describe your dispute..."
-                value={disputeReason}
-                aria-invalid={disputeSubmitAttempted && disputeReason.trim().length < 5 ? 'true' : undefined}
-                onChange={(e) => setDisputeReason(e.target.value)}
-              />
-            </div>
+              <div className="payModal__row payModal__row--col">
+                <label>Reason for Dispute:</label>
+                <textarea
+                  placeholder="Describe your dispute..."
+                  value={disputeReason}
+                  aria-invalid={disputeSubmitAttempted && disputeReason.trim().length < 5 ? 'true' : undefined}
+                  onChange={(e) => setDisputeReason(e.target.value)}
+                />
+              </div>
 
-            <div className="payModal__row">
-              <FileUploadField
-                label="Supporting Documents (Required)"
-                hint="Upload screenshots, payroll references, or other supporting files that directly explain the issue. Maximum file size: 10 MB."
-                file={disputeFile}
-                onChange={setDisputeFile}
-                invalid={disputeSubmitAttempted && !disputeFile}
-                uploadLabel="Upload Attachment"
-                replaceLabel="Replace Attachment"
-                emptyLabel="Attachment required"
-              />
-            </div>
+              <div className="payModal__row">
+                <FileUploadField
+                  label="Supporting Documents (Required)"
+                  hint="Upload screenshots, payroll references, or other supporting files that directly explain the issue."
+                  file={disputeFile}
+                  onChange={setDisputeFile}
+                  invalid={disputeSubmitAttempted && !disputeFile}
+                  uploadLabel="Upload Attachment"
+                  replaceLabel="Replace Attachment"
+                  emptyLabel="Attachment required"
+                />
+              </div>
 
-            <div className="payModal__actions">
-              <ActionButton
-                className="payModal__cancel"
-                variant="ghost"
-                type="button"
-                icon={<FiXCircle />}
-                onClick={disputeUnsavedPrompt.requestClose}
-                disabled={disputeSubmitting}
-              >
-                Cancel
-              </ActionButton>
-              <ActionButton type="button" icon={<FiCheckCircle />} onClick={requestDisputeConfirmation} disabled={disputeSubmitting}>
-                Submit
-              </ActionButton>
+              <div className="payModal__actions">
+                <ActionButton
+                  className="payModal__cancel"
+                  variant="ghost"
+                  type="button"
+                  icon={<FiXCircle />}
+                  onClick={disputeUnsavedPrompt.requestClose}
+                  disabled={disputeSubmitting}
+                >
+                  Cancel
+                </ActionButton>
+                <ActionButton type="button" icon={<FiCheckCircle />} onClick={requestDisputeConfirmation} disabled={disputeSubmitting}>
+                  Submit
+                </ActionButton>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
       <ConfirmDialog
         open={confirmDisputeSubmit}
         title="Confirm Payslip Dispute"

@@ -1,7 +1,8 @@
 import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import './Attendance.css';
-import { FiCalendar, FiCheckCircle, FiChevronLeft, FiChevronRight, FiPlusSquare, FiXCircle } from 'react-icons/fi';
+import { FiCalendar, FiCheckCircle, FiChevronLeft, FiChevronRight, FiPlusSquare, FiXCircle, FiClock } from 'react-icons/fi';
 import ActionButton from '../../../components/button/ActionButton';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import FileUploadField from '../../../components/form/FileUploadField';
@@ -835,7 +836,7 @@ export default function Attendance() {
       : leaveBalanceStatus === 'unavailable'
         ? 'Your leave balances could not be loaded right now.'
         : selectedLeaveBalance
-          ? 'Pending requests may not yet be deducted.'
+          ? ''
           : 'HR has not assigned this leave balance to your account yet.';
 
   const hasApprovedTodayLeave = useMemo(() => {
@@ -1330,7 +1331,6 @@ export default function Attendance() {
               Leave Balances
             </h2>
           </div>
-          <p className="attBalanceCard__note">Pending requests may not yet be deducted.</p>
         </div>
 
         {leaveBalanceStatus === 'loading' ? (
@@ -1516,51 +1516,52 @@ export default function Attendance() {
       </div>
 
       {/* Leave Modal */}
-      {leaveOpen && (
-        <div className="modalBackdrop" role="dialog" aria-modal="true" aria-label="Leave Application Form">
-          <div className="modal modal--request">
-            <div className="modal__top modal__top--request">
-              <div className="modal__meta">
-                <div className="modal__title">Leave Application Form</div>
-                <p className="modal__subtitle">
-                  Submit the coverage window, leave type, and any supporting details for approval.
-                </p>
+      {leaveOpen &&
+        createPortal(
+          <div className="payModalBackdrop" role="dialog" aria-modal="true" aria-label="Leave Application Form">
+            <div className="payModal">
+              <div className="payModal__top">
+                <div>
+                  <div className="payModal__title">Leave Application Form</div>
+                  <p className="payModal__subtitle">
+                    Submit the coverage window, leave type, and any supporting details for approval.
+                  </p>
+                </div>
+                <ModalCloseButton className="payModal__close" onClick={leaveUnsavedPrompt.requestClose} />
               </div>
-              <ModalCloseButton className="modal__close" onClick={leaveUnsavedPrompt.requestClose} />
-            </div>
 
-            <div className="modal__rule modal__rule--request" />
+              <div className="payModal__rule" />
 
-            <div className="requestForm">
-              <div className="requestForm__grid">
-                <div className="requestField requestField--span2">
-                  <label className="label">Type of Leave Requested</label>
+              <div className="requestForm">
+                <div className="payModal__row">
+                  <label>Type of Leave Requested</label>
                   <p className="requestField__help">
                     Choose the leave category that applies to this request. Sick leave can be filed right away, while
                     other leave types require at least 7 days of notice.
                   </p>
-                  <select
-                    className="input"
-                    value={leaveType}
-                    onChange={(e) => setLeaveType(e.target.value as LeaveType)}
-                  >
-                    {LEAVE_TYPE_OPTIONS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <div
-                    className={`requestField__balanceHint${
-                      leaveBalanceStatus === 'ready' && selectedLeaveBalance ? '' : ' requestField__balanceHint--muted'
-                    }`}
-                  >
-                    <span className="requestField__balanceLabel">
-                      {formatLeaveTypeLabel(leaveType)} balance
-                    </span>
-                    <strong className="requestField__balanceValue">{selectedLeaveBalanceLabel}</strong>
-                    <span className="requestField__balanceNote">{selectedLeaveBalanceNote}</span>
+                  <div className="requestField__group">
+                    <select
+                      value={leaveType}
+                      onChange={(e) => setLeaveType(e.target.value as LeaveType)}
+                    >
+                      {LEAVE_TYPE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <div
+                      className={`requestField__balancePill${
+                        leaveBalanceStatus === 'ready' && selectedLeaveBalance ? '' : ' requestField__balancePill--muted'
+                      }`}
+                    >
+                      <span className="requestField__balanceLabel">
+                        {formatLeaveTypeLabel(leaveType)} balance
+                      </span>
+                      <strong className="requestField__balanceValue">{selectedLeaveBalanceLabel}</strong>
+                    </div>
                   </div>
+                  <span className="requestField__balanceNote">{selectedLeaveBalanceNote}</span>
                   {requiresAdvanceLeaveNotice(leaveType) && (
                     <p className="requestField__callout">
                       This leave type needs at least 7 days of advance notice.
@@ -1568,12 +1569,11 @@ export default function Attendance() {
                   )}
                 </div>
 
-                <div className="requestField">
-                  <label className="label">Start Date and Time</label>
+                <div className="payModal__row">
+                  <label>Start Date and Time</label>
                   <div className="requestField__group">
                     <div className="inputIcon">
                       <input
-                        className="input"
                         type="date"
                         value={startDate}
                         min={minimumLeaveStartDate}
@@ -1582,22 +1582,23 @@ export default function Attendance() {
                       />
                       <FiCalendar className="inputIcon__icon" />
                     </div>
-                    <input
-                      className="input"
-                      type="time"
-                      value={startTime}
-                      aria-invalid={isLeaveStartTimeInvalid ? 'true' : undefined}
-                      onChange={(e) => setStartTime(e.target.value)}
-                    />
+                    <div className="inputIcon">
+                      <input
+                        type="time"
+                        value={startTime}
+                        aria-invalid={isLeaveStartTimeInvalid ? 'true' : undefined}
+                        onChange={(e) => setStartTime(e.target.value)}
+                      />
+                      <FiClock className="inputIcon__icon" />
+                    </div>
                   </div>
                 </div>
 
-                <div className="requestField">
-                  <label className="label">End Date and Time</label>
+                <div className="payModal__row">
+                  <label>End Date and Time</label>
                   <div className="requestField__group">
                     <div className="inputIcon">
                       <input
-                        className="input"
                         type="date"
                         value={endDate}
                         min={minimumLeaveEndDate}
@@ -1606,20 +1607,21 @@ export default function Attendance() {
                       />
                       <FiCalendar className="inputIcon__icon" />
                     </div>
-                    <input
-                      className="input"
-                      type="time"
-                      value={endTime}
-                      aria-invalid={isLeaveEndTimeInvalid ? 'true' : undefined}
-                      onChange={(e) => setEndTime(e.target.value)}
-                    />
+                    <div className="inputIcon">
+                      <input
+                        type="time"
+                        value={endTime}
+                        aria-invalid={isLeaveEndTimeInvalid ? 'true' : undefined}
+                        onChange={(e) => setEndTime(e.target.value)}
+                      />
+                      <FiClock className="inputIcon__icon" />
+                    </div>
                   </div>
                 </div>
 
-                <div className="requestField requestField--span2">
-                  <label className="label">Reason for Leave</label>
+                <div className="payModal__row">
+                  <label>Reason for Leave</label>
                   <textarea
-                    className="textarea"
                     placeholder="Describe why you need this leave request."
                     value={reason}
                     aria-invalid={isLeaveReasonInvalid ? 'true' : undefined}
@@ -1627,58 +1629,55 @@ export default function Attendance() {
                   />
                 </div>
 
-                <div className="requestField requestField--span2">
+                <div className="payModal__row">
                   <FileUploadField
                     label="Supporting Documents (Optional)"
-                    hint="Add medical certificates, screenshots, or other files only when they help validate this leave request. Maximum file size: 10 MB."
+                    hint="Add medical certificates, screenshots, or other files only when they help validate this leave request."
                     file={file}
                     onChange={setFile}
                     emptyLabel="Optional attachment"
                   />
                 </div>
-              </div>
 
-              <div className="requestActions">
-                <ActionButton
-                  variant="ghost"
-                  type="button"
-                  icon={<FiXCircle />}
-                  onClick={leaveUnsavedPrompt.requestClose}
-                >
-                  Cancel
-                </ActionButton>
-                <ActionButton type="button" icon={<FiCheckCircle />} onClick={requestLeaveConfirmation}>
-                  Submit
-                </ActionButton>
+                <div className="payModal__actions">
+                  <ActionButton
+                    className="payModal__cancel"
+                    variant="ghost"
+                    type="button"
+                    icon={<FiXCircle />}
+                    onClick={leaveUnsavedPrompt.requestClose}
+                  >
+                    Cancel
+                  </ActionButton>
+                  <ActionButton type="button" icon={<FiCheckCircle />} onClick={requestLeaveConfirmation}>
+                    Submit
+                  </ActionButton>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
 
-      {otOpen && (
-        <div className="modalBackdrop" role="dialog" aria-modal="true" aria-label="Overtime Application Form">
-          <div className="modal modal--request">
-            <div className="modal__top modal__top--request">
-              <div className="modal__meta">
-                <div className="modal__title">Overtime Application Form</div>
-                <p className="modal__subtitle">
-                  Request overtime coverage with the exact date, time window, and reason for the additional work.
-                </p>
-              </div>
-              <ModalCloseButton className="modal__close" onClick={overtimeUnsavedPrompt.requestClose} />
-            </div>
-
-            <div className="modal__rule modal__rule--request" />
-
-            <div className="requestForm">
-              <div className="requestForm__grid">
-                <div className="requestField requestField--span2">
-                  <label className="label">Type of Overtime Requested</label>
-                  <p className="requestField__help">
-                    Choose the overtime category that matches this request. The approved coverage window should only
-                    include the extra work that falls outside your normal scheduled hours.
+      {otOpen &&
+        createPortal(
+          <div className="payModalBackdrop" role="dialog" aria-modal="true" aria-label="Overtime Application Form">
+            <div className="payModal">
+              <div className="payModal__top">
+                <div>
+                  <div className="payModal__title">Overtime Application Form</div>
+                  <p className="payModal__subtitle">
+                    Request overtime coverage with the exact date, time window, and reason for the additional work.
                   </p>
+                </div>
+                <ModalCloseButton className="payModal__close" onClick={overtimeUnsavedPrompt.requestClose} />
+              </div>
+
+              <div className="payModal__rule" />
+
+              <div className="requestForm">
+                <div className="payModal__row">
+                  <label>Type of Overtime Requested</label>
                   <select
                     className="input"
                     value={otType}
@@ -1696,12 +1695,11 @@ export default function Attendance() {
                   )}
                 </div>
 
-                <div className="requestField">
-                  <label className="label">Start Date and Time</label>
+                <div className="payModal__row">
+                  <label>Start Date and Time</label>
                   <div className="requestField__group">
                     <div className="inputIcon">
                       <input
-                        className="input"
                         type="date"
                         value={otStartDate}
                         min={todayKey}
@@ -1710,48 +1708,48 @@ export default function Attendance() {
                       />
                       <FiCalendar className="inputIcon__icon" />
                     </div>
-                    <input
-                      className="input"
-                      type="time"
-                      value={otStartTime}
-                      aria-invalid={isOtStartTimeInvalid ? 'true' : undefined}
-                      onChange={(e) => setOtStartTime(e.target.value)}
-                    />
+                    <div className="inputIcon">
+                      <input
+                        type="time"
+                        value={otStartTime}
+                        aria-invalid={isOtStartTimeInvalid ? 'true' : undefined}
+                        onChange={(e) => setOtStartTime(e.target.value)}
+                      />
+                      <FiClock className="inputIcon__icon" />
+                    </div>
                   </div>
                 </div>
 
-                <div className="requestField">
-                  <label className="label">End Date</label>
-                  <div className="inputIcon">
-                    <input
-                      className="input"
-                      type="date"
-                      value={otEndDate}
-                      min={otStartDate || todayKey}
-                      max={maxOtEndDate || undefined}
-                      aria-invalid={isOtEndDateInvalid ? 'true' : undefined}
-                      onChange={(e) => setOtEndDate(e.target.value)}
-                    />
-                    <FiCalendar className="inputIcon__icon" />
+                <div className="payModal__row">
+                  <label>End Date and Time</label>
+                  <div className="requestField__group">
+                    <div className="inputIcon">
+                      <input
+                        type="date"
+                        value={otEndDate}
+                        min={otStartDate || todayKey}
+                        max={maxOtEndDate || undefined}
+                        aria-invalid={isOtEndDateInvalid ? 'true' : undefined}
+                        onChange={(e) => setOtEndDate(e.target.value)}
+                      />
+                      <FiCalendar className="inputIcon__icon" />
+                    </div>
+                    <div className="inputIcon">
+                      <input
+                        type="time"
+                        value={otEndTime}
+                        max={isOtNextDay ? '06:00' : undefined}
+                        aria-invalid={isOtEndTimeInvalid ? 'true' : undefined}
+                        onChange={(e) => setOtEndTime(e.target.value)}
+                      />
+                      <FiClock className="inputIcon__icon" />
+                    </div>
                   </div>
                 </div>
 
-                <div className="requestField">
-                  <label className="label">End Time</label>
-                  <input
-                    className="input"
-                    type="time"
-                    value={otEndTime}
-                    max={isOtNextDay ? '06:00' : undefined}
-                    aria-invalid={isOtEndTimeInvalid ? 'true' : undefined}
-                    onChange={(e) => setOtEndTime(e.target.value)}
-                  />
-                </div>
-
-                <div className="requestField requestField--span2">
-                  <label className="label">Reason for Overtime</label>
+                <div className="payModal__row">
+                  <label>Reason for Overtime</label>
                   <textarea
-                    className="textarea"
                     placeholder="Describe the work that requires overtime."
                     value={otReason}
                     aria-invalid={isOtReasonInvalid ? 'true' : undefined}
@@ -1759,137 +1757,142 @@ export default function Attendance() {
                   />
                 </div>
 
-                <div className="requestField requestField--span2">
+                <div className="payModal__row">
                   <FileUploadField
                     label="Supporting Documents (Optional)"
-                    hint="Attach schedules, work orders, or supporting proof only when they help explain this overtime request. Maximum file size: 10 MB."
+                    hint="Attach schedules, work orders, or supporting proof only when they help explain this overtime request."
                     file={otFile}
                     onChange={setOtFile}
                     emptyLabel="Optional attachment"
                   />
                 </div>
-              </div>
 
-              <div className="requestActions">
-                <ActionButton
-                  variant="ghost"
-                  type="button"
-                  icon={<FiXCircle />}
-                  onClick={overtimeUnsavedPrompt.requestClose}
-                >
-                  Cancel
-                </ActionButton>
-                <ActionButton type="button" icon={<FiCheckCircle />} onClick={requestOtConfirmation}>
-                  Submit
-                </ActionButton>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {requestViewOpen && (
-        <div className="modalBackdrop" role="dialog" aria-modal="true" aria-label="Request Details">
-          <div className="modal">
-            <div className="modal__top">
-              <div className="modal__title">REQUEST DETAILS</div>
-              <ModalCloseButton className="modal__close" onClick={closeRequestView} />
-            </div>
-            <div className="modal__rule" />
-            <div className="form">
-              <div className="formRow">
-                <label className="label">Date:</label>
-                <input className="input" value={formatDisplayDate(requestViewDate)} readOnly />
-              </div>
-              {(requestEntries.filter((entry) => entry.dateKey === requestViewDate)).map((entry) => (
-                <div key={entry.id} className="formRow">
-                  <label className="label">
-                    {entry.kind} ({entry.status}):
-                  </label>
-                  <div>
-                    <input
-                      className="input"
-                      value={
-                        entry.kind === 'OT'
-                          ? `${entry.overtimeType ?? 'OT'} ${entry.startTime ?? ''}-${entry.endTime ?? ''}`.trim()
-                          : `${formatLeaveTypeLabel(entry.leaveType)} - ${entry.paid === false ? 'Unpaid' : 'Paid'}`
-                      }
-                      readOnly
-                    />
-                    <textarea className="textarea" value={entry.reason || 'No reason provided.'} readOnly />
-                  </div>
-                </div>
-              ))}
-              <div className="modalActions">
-                <button className="btn btn--ghost" type="button" onClick={closeRequestView}>
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {scheduleOpen && (
-        <div className="modalBackdrop" role="dialog" aria-modal="true" aria-label="My Schedule">
-          <div className="modal modal--request modal--schedule">
-            <div className="modal__top modal__top--request">
-              <div className="modal__meta">
-                <div className="modal__title">My Schedule</div>
-                <p className="modal__subtitle">
-                  Review your assigned work hours for the selected week.
-                </p>
-              </div>
-              <ModalCloseButton className="modal__close" onClick={closeSchedule} />
-            </div>
-            <div className="modal__rule modal__rule--request" />
-
-            <div className="attScheduleModal">
-              <div className="attScheduleModal__toolbar">
-                <label className="attScheduleCard__selectWrap attScheduleCard__selectWrap--modal">
-                  <span className="attScheduleCard__selectLabel">Week</span>
-                  <select
-                    className="attScheduleCard__select"
-                    value={selectedScheduleWeekStart}
-                    onChange={(event) => setSelectedScheduleWeekStart(event.target.value)}
+                <div className="payModal__actions">
+                  <ActionButton
+                    className="payModal__cancel"
+                    variant="ghost"
+                    type="button"
+                    icon={<FiXCircle />}
+                    onClick={overtimeUnsavedPrompt.requestClose}
                   >
-                    {scheduleWeekOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-
-              <p className="attScheduleModal__notice">If this schedule looks wrong, please contact your manager.</p>
-
-              {scheduleWeekStatus === 'loading' ? (
-                <div className="attScheduleState" role="status">
-                  Loading your schedule...
+                    Cancel
+                  </ActionButton>
+                  <ActionButton type="button" icon={<FiCheckCircle />} onClick={requestOtConfirmation}>
+                    Submit
+                  </ActionButton>
                 </div>
-              ) : scheduleWeekStatus === 'unavailable' ? (
-                <div className="attScheduleState attScheduleState--muted">Your schedule is unavailable right now.</div>
-              ) : (
-                <div className="attScheduleGrid">
-                  {weekScheduleRows.map((row) => (
-                    <article key={row.dateKey} className={`attScheduleDay attScheduleDay--${row.variant}`}>
-                      <span className="attScheduleDay__label">{row.label}</span>
-                      <span className={`attScheduleDay__detail attScheduleDay__detail--${row.variant}`}>{row.detail}</span>
-                    </article>
-                  ))}
-                </div>
-              )}
-
-              <div className="requestActions">
-                <ActionButton variant="ghost" type="button" icon={<FiXCircle />} onClick={closeSchedule}>
-                  Close
-                </ActionButton>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
+
+      {requestViewOpen &&
+        createPortal(
+          <div className="modalBackdrop" role="dialog" aria-modal="true" aria-label="Request Details">
+            <div className="modal">
+              <div className="modal__top">
+                <div className="modal__title">REQUEST DETAILS</div>
+                <ModalCloseButton className="modal__close" onClick={closeRequestView} />
+              </div>
+              <div className="modal__rule" />
+              <div className="form">
+                <div className="formRow">
+                  <label className="label">Date:</label>
+                  <input className="input" value={formatDisplayDate(requestViewDate)} readOnly />
+                </div>
+                {(requestEntries.filter((entry) => entry.dateKey === requestViewDate)).map((entry) => (
+                  <div key={entry.id} className="formRow">
+                    <label className="label">
+                      {entry.kind} ({entry.status}):
+                    </label>
+                    <div>
+                      <input
+                        className="input"
+                        value={
+                          entry.kind === 'OT'
+                            ? `${entry.overtimeType ?? 'OT'} ${entry.startTime ?? ''}-${entry.endTime ?? ''}`.trim()
+                            : `${formatLeaveTypeLabel(entry.leaveType)} - ${entry.paid === false ? 'Unpaid' : 'Paid'}`
+                        }
+                        readOnly
+                      />
+                      <textarea className="textarea" value={entry.reason || 'No reason provided.'} readOnly />
+                    </div>
+                  </div>
+                ))}
+                <div className="modalActions">
+                  <button className="btn btn--ghost" type="button" onClick={closeRequestView}>
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+
+      {scheduleOpen &&
+        createPortal(
+          <div className="modalBackdrop" role="dialog" aria-modal="true" aria-label="My Schedule">
+            <div className="modal modal--request modal--schedule">
+              <div className="modal__top modal__top--request">
+                <div className="modal__meta">
+                  <div className="modal__title">My Schedule</div>
+                  <p className="modal__subtitle">
+                    Review your assigned work hours for the selected week.
+                  </p>
+                </div>
+                <ModalCloseButton className="modal__close" onClick={closeSchedule} />
+              </div>
+              <div className="modal__rule modal__rule--request" />
+
+              <div className="attScheduleModal">
+                <div className="attScheduleModal__toolbar">
+                  <label className="attScheduleCard__selectWrap attScheduleCard__selectWrap--modal">
+                    <span className="attScheduleCard__selectLabel">Week</span>
+                    <select
+                      className="attScheduleCard__select"
+                      value={selectedScheduleWeekStart}
+                      onChange={(event) => setSelectedScheduleWeekStart(event.target.value)}
+                    >
+                      {scheduleWeekOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <p className="attScheduleModal__notice">If this schedule looks wrong, please contact your manager.</p>
+
+                {scheduleWeekStatus === 'loading' ? (
+                  <div className="attScheduleState" role="status">
+                    Loading your schedule...
+                  </div>
+                ) : scheduleWeekStatus === 'unavailable' ? (
+                  <div className="attScheduleState attScheduleState--muted">Your schedule is unavailable right now.</div>
+                ) : (
+                  <div className="attScheduleGrid">
+                    {weekScheduleRows.map((row) => (
+                      <article key={row.dateKey} className={`attScheduleDay attScheduleDay--${row.variant}`}>
+                        <span className="attScheduleDay__label">{row.label}</span>
+                        <span className={`attScheduleDay__detail attScheduleDay__detail--${row.variant}`}>{row.detail}</span>
+                      </article>
+                    ))}
+                  </div>
+                )}
+
+                <div className="requestActions">
+                  <ActionButton variant="ghost" type="button" icon={<FiXCircle />} onClick={closeSchedule}>
+                    Close
+                  </ActionButton>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
 
       <ConfirmDialog
         open={confirmClockAction !== null}

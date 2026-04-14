@@ -30,7 +30,7 @@ body.modal-open .eSide{
 }
 
 body.modal-open .eMain{
-  z-index:4;
+  /* no-op to allow global stacking of modals */
 }
 
 @keyframes shellContentIn{
@@ -535,7 +535,6 @@ body.modal-open .eMain{
   overflow-y:auto;
   overflow-x:hidden;
   position:relative;
-  z-index:1;
 }
 
 /* top bar like figma (no white header block) */
