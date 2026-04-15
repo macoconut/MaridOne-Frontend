@@ -215,6 +215,16 @@ function requiresAdvanceLeaveNotice(leaveType: LeaveType | string) {
   return leaveType !== 'SICK_LEAVE' && leaveType !== 'EMERGENCY_LEAVE';
 }
 
+function isAdvanceBookingRestricted(leaveType: LeaveType | string) {
+  return (
+    leaveType === 'SICK_LEAVE' ||
+    leaveType === 'EMERGENCY_LEAVE' ||
+    leaveType === 'MAGNA_CARTA' ||
+    leaveType === 'SOLO_PARENT_LEAVE' ||
+    leaveType === 'RA9262'
+  );
+}
+
 function resolveDayOfWeek(dateValue: string) {
   const date = new Date(`${dateValue}T12:00:00`);
   if (Number.isNaN(date.getTime())) return '';
@@ -431,6 +441,8 @@ export default function Attendance() {
   const [reason, setReason] = useState<string>('');
   const [file, setFile] = useState<File | null>(null);
   const [submitError, setSubmitError] = useState('');
+  const [isLeaveSubmitting, setIsLeaveSubmitting] = useState(false);
+  const [isOtSubmitting, setIsOtSubmitting] = useState(false);
   const [leaveSubmitAttempted, setLeaveSubmitAttempted] = useState(false);
   const [employeeId, setEmployeeId] = useState<number | null>(null);
   const [requestEntries, setRequestEntries] = useState<RequestEntry[]>([]);
@@ -1144,6 +1156,7 @@ export default function Attendance() {
       return;
     }
     setConfirmOtSubmit(false);
+    setIsOtSubmitting(true);
 
     const startDateTime = `${otStartDate}T${otStartTime}:00`;
     const endDateTime = `${otEndDate}T${otEndTime}:00`;
@@ -1185,6 +1198,8 @@ export default function Attendance() {
       ]);
     } catch (error) {
       setOtSubmitError(getFriendlyErrorMessage(error, 'overtime-request'));
+    } finally {
+      setIsOtSubmitting(false);
     }
   }
 
@@ -1228,6 +1243,11 @@ export default function Attendance() {
       return false;
     }
 
+    if (isAdvanceBookingRestricted(leaveType) && startDate >= addDays(todayKey, 60)) {
+      setSubmitError('Leave requests cannot be filed 2 or more months in advance for this leave type.');
+      return false;
+    }
+
     if (endDate < startDate) {
       setSubmitError('End date cannot be earlier than the start date.');
       return false;
@@ -1259,6 +1279,7 @@ export default function Attendance() {
       return;
     }
     setConfirmLeaveSubmit(false);
+    setIsLeaveSubmitting(true);
 
     const startDateTime = `${startDate}T${startTime}:00`;
     const endDateTime = `${endDate}T${endTime}:00`;
@@ -1296,6 +1317,8 @@ export default function Attendance() {
       setRequestEntries((prev) => [...prev, ...mapLeaveRequestEntries(createdRequests)]);
     } catch (error) {
       setSubmitError(getFriendlyErrorMessage(error, 'leave-request'));
+    } finally {
+      setIsLeaveSubmitting(false);
     }
   }
 
@@ -1539,12 +1562,25 @@ export default function Attendance() {
               <div className="payModal__rule" />
 
               <div className="requestForm">
+                {submitError && <p className="field__error">{submitError}</p>}
                 <div className="payModal__row">
                   <label>Type of Leave Requested</label>
                   <p className="requestField__help">
-                    Choose the leave category that applies to this request. Sick leave can be filed right away, while
-                    other leave types require at least 7 days of notice.
+                    Choose the leave category that applies to this request.
                   </p>
+                  
+                  {/* Unified Restriction Hint */}
+                  {(isAdvanceBookingRestricted(leaveType) || requiresAdvanceLeaveNotice(leaveType)) && (
+                    <div className="requestField__callout requestField__callout--warning">
+                      {isAdvanceBookingRestricted(leaveType) && (
+                        <p>• This leave type cannot be filed 2 or more months in advance.</p>
+                      )}
+                      {requiresAdvanceLeaveNotice(leaveType) && (
+                        <p>• This leave type needs at least {NON_SICK_LEAVE_NOTICE_DAYS} days of advance notice.</p>
+                      )}
+                    </div>
+                  )}
+
                   <div className="requestField__group">
                     <select
                       value={leaveType}
@@ -1568,11 +1604,6 @@ export default function Attendance() {
                     </div>
                   </div>
                   <span className="requestField__balanceNote">{selectedLeaveBalanceNote}</span>
-                  {requiresAdvanceLeaveNotice(leaveType) && (
-                    <p className="requestField__callout">
-                      This leave type needs at least 7 days of advance notice.
-                    </p>
-                  )}
                 </div>
 
                 <div className="payModal__row">
@@ -1583,6 +1614,7 @@ export default function Attendance() {
                         type="date"
                         value={startDate}
                         min={minimumLeaveStartDate}
+                        max={isAdvanceBookingRestricted(leaveType) ? addDays(todayKey, 60) : undefined}
                         aria-invalid={isLeaveStartDateInvalid ? 'true' : undefined}
                         onChange={(e) => setStartDate(e.target.value)}
                       />
@@ -1655,8 +1687,8 @@ export default function Attendance() {
                   >
                     Cancel
                   </ActionButton>
-                  <ActionButton type="button" icon={<FiCheckCircle />} onClick={requestLeaveConfirmation}>
-                    Submit
+                  <ActionButton type="button" icon={<FiCheckCircle />} onClick={requestLeaveConfirmation} disabled={isLeaveSubmitting}>
+                    {isLeaveSubmitting ? 'Submitting...' : 'Submit'}
                   </ActionButton>
                 </div>
               </div>
@@ -1783,8 +1815,8 @@ export default function Attendance() {
                   >
                     Cancel
                   </ActionButton>
-                  <ActionButton type="button" icon={<FiCheckCircle />} onClick={requestOtConfirmation}>
-                    Submit
+                  <ActionButton type="button" icon={<FiCheckCircle />} onClick={requestOtConfirmation} disabled={isOtSubmitting}>
+                    {isOtSubmitting ? 'Submitting...' : 'Submit'}
                   </ActionButton>
                 </div>
               </div>
