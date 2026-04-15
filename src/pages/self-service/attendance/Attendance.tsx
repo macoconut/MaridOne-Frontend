@@ -25,7 +25,8 @@ type LeaveType =
   | 'PATERNITY_LEAVE'
   | 'SOLO_PARENT_LEAVE'
   | 'MAGNA_CARTA'
-  | 'RA9262';
+  | 'RA9262'
+  | 'EMERGENCY_LEAVE';
 type OvertimeType = 'OVERTIME' | 'DOUBLE_OVERTIME' | 'TRIPLE_OVERTIME' | 'HOLIDAY';
 
 type RequestEntry = {
@@ -117,6 +118,7 @@ const LEAVE_TYPE_OPTIONS: Array<{ label: string; value: LeaveType }> = [
   { label: 'Solo Parent Leave', value: 'SOLO_PARENT_LEAVE' },
   { label: 'Magna Carta', value: 'MAGNA_CARTA' },
   { label: 'RA 9262', value: 'RA9262' },
+  { label: 'Emergency Leave', value: 'EMERGENCY_LEAVE' },
 ];
 const HOURS_FORMATTER = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
 
@@ -210,7 +212,7 @@ function normalizeTimeValue(value?: string) {
 }
 
 function requiresAdvanceLeaveNotice(leaveType: LeaveType | string) {
-  return leaveType !== 'SICK_LEAVE';
+  return leaveType !== 'SICK_LEAVE' && leaveType !== 'EMERGENCY_LEAVE';
 }
 
 function resolveDayOfWeek(dateValue: string) {
@@ -827,17 +829,21 @@ export default function Attendance() {
       ? 'Loading...'
       : leaveBalanceStatus === 'unavailable'
         ? 'Unavailable'
-        : selectedLeaveBalance
-          ? formatBalanceHoursLabel(selectedLeaveBalance.balanceHours)
-          : 'Not assigned yet';
+        : leaveType === 'EMERGENCY_LEAVE'
+          ? 'No balance'
+          : selectedLeaveBalance
+            ? formatBalanceHoursLabel(selectedLeaveBalance.balanceHours)
+            : 'Not assigned yet';
   const selectedLeaveBalanceNote =
     leaveBalanceStatus === 'loading'
       ? 'Checking your available leave balance.'
       : leaveBalanceStatus === 'unavailable'
         ? 'Your leave balances could not be loaded right now.'
-        : selectedLeaveBalance
-          ? ''
-          : 'HR has not assigned this leave balance to your account yet.';
+        : leaveType === 'EMERGENCY_LEAVE'
+          ? 'This leave type does not require a balance. HR can override if this will be paid or unpaid.'
+          : selectedLeaveBalance
+            ? ''
+            : 'HR has not assigned this leave balance to your account yet.';
 
   const hasApprovedTodayLeave = useMemo(() => {
     return requestEntries.some(

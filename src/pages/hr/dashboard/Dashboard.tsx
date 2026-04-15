@@ -817,7 +817,13 @@ export function AttendanceOverviewDashboard({
             timestampBefore: feedEndDate.toISOString(),
           })
         ),
-        apiFetchJson<unknown>(withPaging(leavesUrl, 0, 200)),
+        apiFetchJson<unknown>(
+          withParams(leavesUrl, {
+            page: '0',
+            size: '500',
+            sort: 'requestId,desc',
+          })
+        ),
         rosterUrl ? apiFetchJson<unknown>(withPaging(rosterUrl, 0, 500)) : Promise.resolve([]),
         apiFetchJson<unknown>(
           withParams('/api/holidays', {

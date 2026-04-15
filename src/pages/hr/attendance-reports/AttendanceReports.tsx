@@ -869,6 +869,7 @@ export function AttendanceReportsBoard({
               page: '0',
               size: '2000',
               requestStatus: 'APPROVED',
+              sort: 'requestId,desc',
             })
           ),
           apiFetchJson<unknown>(

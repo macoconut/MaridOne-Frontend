@@ -349,11 +349,13 @@ export default function HrApprovals() {
       setLoadError('');
       const leavePath = buildApiPath('/api/leave/request', {
         page: '0',
-        size: '100',
+        size: '200',
+        sort: 'requestId,desc',
       });
       const overtimePath = buildApiPath('/api/overtime/all', {
         page: '0',
-        size: '100',
+        size: '200',
+        sort: 'requestAt,desc',
       });
       const [employeesRes, overtimeRes, leaveRes] = await Promise.allSettled([
         apiFetchJson<unknown>('/api/employees?page=0&size=200'),

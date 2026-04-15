@@ -347,6 +347,7 @@ function getLeaveTypeLabel(type?: string) {
     case 'SOLO_PARENT_LEAVE': return 'Solo Parent';
     case 'MAGNA_CARTA': return 'Magna Carta';
     case 'RA9262': return 'RA 9262';
+    case 'EMERGENCY_LEAVE': return 'Emergency Leave';
     default: return type?.replace(/_/g, ' ') || 'Leave';
   }
 }

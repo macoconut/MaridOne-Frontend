@@ -304,8 +304,8 @@ export default function ManagerDashboard() {
         apiFetchJson<unknown>(
           `/api/logs/attendance/team?page=0&size=500&timestampAfter=${encodeURIComponent(start.toISOString())}&timestampBefore=${encodeURIComponent(end.toISOString())}`
         ),
-        apiFetchJson<unknown>('/api/leave/request/team?page=0&size=100'),
-        apiFetchJson<unknown>('/api/overtime/team?page=0&size=100'),
+        apiFetchJson<unknown>('/api/leave/request/team?page=0&size=200&sort=requestId,desc'),
+        apiFetchJson<unknown>('/api/overtime/team?page=0&size=200&sort=requestAt,desc'),
       ]);
 
       if (eventsResponse.status === 'fulfilled') {

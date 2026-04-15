@@ -293,8 +293,8 @@ export default function ManagerPendingApprovals() {
       setLoadError('');
       const [employeesRes, leaveRes, overtimeRes] = await Promise.all([
         apiFetchJson<unknown>('/api/employees/team'),
-        apiFetchJson<unknown>('/api/leave/request/team?page=0&size=50'),
-        apiFetchJson<unknown>('/api/overtime/team?page=0&size=50'),
+        apiFetchJson<unknown>('/api/leave/request/team?page=0&size=200&sort=requestId,desc'),
+        apiFetchJson<unknown>('/api/overtime/team?page=0&size=200&sort=requestAt,desc'),
       ]);
 
       const employeeById = rosterMap(employeesRes);
