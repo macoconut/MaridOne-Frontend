@@ -659,6 +659,7 @@ function isEmployeeScheduledToHaveStartedByNow(
 }
 
 export default function HrDashboard() {
+
   return <AttendanceOverviewDashboard audience="HR" />;
 }
 

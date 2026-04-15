@@ -1,3 +1,4 @@
+import { useLoading } from '../../../context/LoadingContext';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FiCheckCircle, FiChevronDown, FiEdit2, FiFilter, FiPlus, FiSearch, FiX, FiXCircle } from 'react-icons/fi';
 import { ApiError, apiFetchJson, toArray } from '../../../lib/api';
@@ -606,6 +607,8 @@ function buildCorrectionIntent(row: DisputeRow): CorrectionIntent | null {
 }
 
 export default function HrPayslips() {
+  const { showLoading, hideLoading } = useLoading();
+
   const { showSuccess } = useUiDialog();
   const [disputes, setDisputes] = useState<DisputeRow[]>([]);
   const [selectedDispute, setSelectedDispute] = useState<DisputeRow | null>(null);
@@ -1182,6 +1185,7 @@ export default function HrPayslips() {
     setCorrectionError('');
     setCorrectionSubmitAttempted(false);
     setIsLoadingCorrection(false);
+    hideLoading();
     setIsSubmittingCorrection(false);
     setAdjustmentRunId(null);
   }
@@ -1194,6 +1198,7 @@ export default function HrPayslips() {
     setManualLineError('');
     setManualLineSubmitAttempted(false);
     setIsLoadingEmployeeOptions(false);
+    hideLoading();
     setIsSubmittingManualLine(false);
   }
 
@@ -1311,6 +1316,7 @@ export default function HrPayslips() {
     }
 
     setManualLineError('');
+    showLoading();
     setIsSubmittingManualLine(true);
 
     try {
@@ -1345,6 +1351,7 @@ export default function HrPayslips() {
     } catch (error) {
       setManualLineError(getFriendlyErrorMessage(error, 'payroll-run'));
     } finally {
+      hideLoading();
       setIsSubmittingManualLine(false);
     }
   }
@@ -1555,6 +1562,7 @@ export default function HrPayslips() {
     }
 
     setCorrectionError('');
+    showLoading();
     setIsSubmittingCorrection(true);
     try {
       await apiFetchJson(`/api/payroll/run/${adjustmentRunId}/adjustment/correction`, {
@@ -1579,6 +1587,7 @@ export default function HrPayslips() {
     } catch (error) {
       setCorrectionError(getFriendlyErrorMessage(error, 'payroll-dispute'));
     } finally {
+      hideLoading();
       setIsSubmittingCorrection(false);
     }
   }
@@ -1735,6 +1744,7 @@ export default function HrPayslips() {
     const isAdjustmentRun = runForm.runType === 'ADJUSTMENT';
     const endpoint = isAdjustmentRun ? '/api/payroll/run/create' : '/api/payroll/run/process';
 
+    showLoading();
     setIsSubmittingRun(true);
     try {
       const createdRun = await apiFetchJson<PayrollRunDto>(endpoint, {
@@ -1760,6 +1770,7 @@ export default function HrPayslips() {
     } catch (error) {
       setRunError(getFriendlyErrorMessage(error, 'payroll-run'));
     } finally {
+      hideLoading();
       setIsSubmittingRun(false);
     }
   }

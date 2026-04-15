@@ -1,3 +1,4 @@
+import { useLoading } from '../../../context/LoadingContext';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FiChevronDown, FiDownload, FiEdit2, FiFilter, FiMoreVertical, FiPlus, FiSearch, FiUserX, FiX, FiXCircle } from 'react-icons/fi';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
@@ -418,6 +419,7 @@ function mergeRowWithDetails(row: EmployeeRow, details: EmployeeDetails): Employ
 }
 
 export default function HrManageEmp() {
+  const { showLoading, hideLoading } = useLoading();
   const { showSuccess } = useUiDialog();
   const [modal, setModal] = useState<ModalType>(null);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
@@ -1312,6 +1314,7 @@ export default function HrManageEmp() {
     if (!targetModal) return;
 
     resetMessages();
+    showLoading();
     setIsSaving(true);
 
     try {
@@ -1413,6 +1416,7 @@ export default function HrManageEmp() {
         getFriendlyErrorMessage(error, targetModal === 'delete' ? 'employee-terminate' : 'employee-save')
       );
     } finally {
+      hideLoading();
       setIsSaving(false);
     }
   }

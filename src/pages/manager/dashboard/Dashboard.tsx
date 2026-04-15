@@ -1,3 +1,4 @@
+import { useLoading } from '../../../context/LoadingContext';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AccountSecuritySection from '../../../components/account/AccountSecuritySection';
@@ -175,6 +176,8 @@ function isTodayWithin(start?: string, end?: string, today = new Date()) {
 }
 
 export default function ManagerDashboard() {
+  const { showLoading, hideLoading } = useLoading();
+
   const navigate = useNavigate();
   const { showSuccess } = useUiDialog();
   const [profile, setProfile] = useState<UserDetails | null>(null);
@@ -487,6 +490,7 @@ export default function ManagerDashboard() {
     }
 
     setEditError('');
+    showLoading();
     setSavingEdit(true);
     try {
       await apiFetchJson(`/api/employees/${employeeId}`, {
@@ -522,6 +526,7 @@ export default function ManagerDashboard() {
     } catch (error) {
       setEditError(getFriendlyErrorMessage(error, 'profile-update'));
     } finally {
+      hideLoading();
       setSavingEdit(false);
     }
   }

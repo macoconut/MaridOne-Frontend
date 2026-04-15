@@ -1,3 +1,4 @@
+import { useLoading } from '../../../context/LoadingContext';
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
@@ -226,6 +227,8 @@ function displayRequestDate(item: ApprovalItem) {
 }
 
 export default function Approval() {
+  const { showLoading, hideLoading } = useLoading();
+
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
   const [selectedApprovalId, setSelectedApprovalId] = useState<string | null>(null);
   const [searchValue, setSearchValue] = useState('');
@@ -447,6 +450,7 @@ export default function Approval() {
     if (!selectedApproval || !canCancelSelected) return;
 
     setCancelError('');
+    showLoading();
     setIsCancelling(true);
     try {
       const path =
@@ -470,6 +474,7 @@ export default function Approval() {
             : 'payroll-dispute';
       setCancelError(getFriendlyErrorMessage(error, context));
     } finally {
+      hideLoading();
       setIsCancelling(false);
     }
   }

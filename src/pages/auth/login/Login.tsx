@@ -1,3 +1,4 @@
+import { useLoading } from '../../../context/LoadingContext';
 import { useEffect, useRef, useState } from 'react';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
@@ -172,6 +173,8 @@ function extractRequiresPasswordChange(payload: unknown): boolean {
 }
 
 export default function EmployeeLogin() {
+  const { showLoading, hideLoading } = useLoading();
+
   const navigate = useNavigate();
   const { showError } = useUiDialog();
   const twoFactorInputRefs = useRef<Array<HTMLInputElement | null>>([]);
@@ -252,9 +255,11 @@ export default function EmployeeLogin() {
   }
 
   async function handlePrimaryLogin(normalizedUsername: string) {
+    showLoading();
     setIsLoading(true);
     clearSession();
 
+    showLoading();
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
@@ -319,6 +324,8 @@ export default function EmployeeLogin() {
     } catch {
       showSignInError('Cannot reach backend. Make sure API is running.');
     } finally {
+      hideLoading();
+      hideLoading();
       setIsLoading(false);
     }
   }
@@ -337,8 +344,10 @@ export default function EmployeeLogin() {
       return;
     }
 
+    showLoading();
     setIsLoading(true);
 
+    showLoading();
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/verify-2fa`, {
         method: 'POST',
@@ -394,6 +403,8 @@ export default function EmployeeLogin() {
     } catch {
       showSignInError('Cannot reach backend. Make sure API is running.');
     } finally {
+      hideLoading();
+      hideLoading();
       setIsLoading(false);
     }
   }
@@ -401,8 +412,10 @@ export default function EmployeeLogin() {
   async function requestEmailOtp() {
     if (!twoFactorChallenge) return;
 
+    showLoading();
     setIsLoading(true);
 
+    showLoading();
     try {
       const response = await fetch(`${API_BASE_URL}/api/auth/2fa/send-login-code`, {
         method: 'POST',
@@ -421,6 +434,8 @@ export default function EmployeeLogin() {
     } catch {
       showSignInError('Cannot reach backend to send email. Make sure API is running.');
     } finally {
+      hideLoading();
+      hideLoading();
       setIsLoading(false);
     }
   }

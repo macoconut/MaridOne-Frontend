@@ -1,3 +1,4 @@
+import { useLoading } from '../../../context/LoadingContext';
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FiSearch, FiFilter, FiXCircle } from 'react-icons/fi';
@@ -155,36 +156,6 @@ function formatRequestType(value?: string) {
     .join(' ');
 }
 
-function formatLeaveDuration(start?: string, end?: string) {
-  if (!start || !end) return '-';
-  const startDate = new Date(start);
-  const endDate = new Date(end);
-  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return '-';
-
-  const startDay = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-  const endDay = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
-  const diffDays = Math.max(1, Math.round((endDay.getTime() - startDay.getTime()) / 86400000) + 1);
-  return `${diffDays} day${diffDays === 1 ? '' : 's'}`;
-}
-
-function formatClockWindow(start?: string, end?: string) {
-  const startDate = start ? new Date(start) : null;
-  const endDate = end ? new Date(end) : null;
-  if (!startDate || !endDate || Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
-    return '-';
-  }
-
-  const diffMs = Math.max(0, endDate.getTime() - startDate.getTime());
-  const totalMinutes = Math.round(diffMs / 60000);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-
-  if (hours > 0 && minutes > 0) return `${hours} hr ${minutes} min`;
-  if (hours > 0) return `${hours} hr${hours === 1 ? '' : 's'}`;
-  if (minutes > 0) return `${minutes} min`;
-  return '0 min';
-}
-
 function formatPeriodOnly(source: SourceType, start?: string, end?: string, workDate?: string) {
   const resolvedStart = source === 'overtime' ? start || workDate : start;
   const resolvedEnd = source === 'overtime' ? end || start || workDate : end;
@@ -280,6 +251,8 @@ function normalizeText(value?: string) {
 }
 
 export default function HrApprovals() {
+  const { showLoading, hideLoading } = useLoading();
+
   const [requests, setRequests] = useState<HrRequest[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -635,6 +608,7 @@ export default function HrApprovals() {
     }
 
     setSubmitError('');
+    showLoading();
     setIsSaving(true);
     try {
       if (selected.source === 'leave') {
@@ -674,6 +648,7 @@ export default function HrApprovals() {
     } catch (error) {
       setSubmitError(getFriendlyErrorMessage(error, 'approval-decision'));
     } finally {
+      hideLoading();
       setIsSaving(false);
     }
   }

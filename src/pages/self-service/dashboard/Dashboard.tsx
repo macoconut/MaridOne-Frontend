@@ -1,3 +1,4 @@
+import { useLoading } from '../../../context/LoadingContext';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { FiDownload, FiEdit2, FiFileText, FiPlus, FiTrash2 } from 'react-icons/fi';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -473,6 +474,8 @@ function getCalendarEventsByDay(events: CalendarEvent[], year: number, monthInde
 }
 
 export default function Dashboard() {
+  const { showLoading, hideLoading } = useLoading();
+
   const location = useLocation();
   const navigate = useNavigate();
   const { showError, showSuccess } = useUiDialog();
@@ -749,6 +752,7 @@ export default function Dashboard() {
     const next = new Date(calendarYear, calendarMonthIndex + offset, 1);
     setAnnouncementActionError('');
     setAnnouncementPendingDelete(null);
+    hideLoading();
     setDeletingAnnouncementId(null);
     setSelectedAnnouncementDay(null);
     setCalendarYear(next.getFullYear());
@@ -769,6 +773,7 @@ export default function Dashboard() {
   function closeAnnouncementDay() {
     setAnnouncementActionError('');
     setAnnouncementPendingDelete(null);
+    hideLoading();
     setDeletingAnnouncementId(null);
     setSelectedAnnouncementDay(null);
   }
@@ -883,6 +888,7 @@ export default function Dashboard() {
     if (!canManageAnnouncements || typeof event?.calendarId !== 'number') return;
 
     setAnnouncementActionError('');
+    showLoading();
     setDeletingAnnouncementId(event.calendarId);
 
     try {
@@ -900,6 +906,7 @@ export default function Dashboard() {
       setAnnouncementActionError(getFriendlyErrorMessage(error, 'generic'));
     } finally {
       setAnnouncementPendingDelete(null);
+      hideLoading();
       setDeletingAnnouncementId(null);
     }
   }
@@ -945,6 +952,7 @@ export default function Dashboard() {
     }
 
     setEditError('');
+    showLoading();
     setSavingEdit(true);
     try {
       await apiFetchJson(`/api/employees/${employeeId}`, {
@@ -984,6 +992,7 @@ export default function Dashboard() {
     } catch (error) {
       setEditError(getFriendlyErrorMessage(error, 'profile-update'));
     } finally {
+      hideLoading();
       setSavingEdit(false);
     }
   }

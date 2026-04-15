@@ -1,3 +1,4 @@
+import { useLoading } from '../../../context/LoadingContext';
 import { useState } from 'react';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
@@ -6,6 +7,8 @@ import { apiFetchText } from '../../../lib/api';
 import './ForgotPassword.css';
 
 export default function ForgotPassword() {
+  const { showLoading, hideLoading } = useLoading();
+
   const navigate = useNavigate();
   const { showError, showInfo, showSuccess } = useUiDialog();
   const [username, setUsername] = useState('');
@@ -26,6 +29,7 @@ export default function ForgotPassword() {
       return;
     }
 
+    showLoading();
     setIsSubmitting(true);
     try {
       await apiFetchText('/api/auth/forgot-password/request', {
@@ -41,6 +45,7 @@ export default function ForgotPassword() {
       const message = error instanceof Error ? error.message : 'Unable to send the reset code right now.';
       showError(message, 'Forgot password');
     } finally {
+      hideLoading();
       setIsSubmitting(false);
     }
   }
@@ -70,6 +75,7 @@ export default function ForgotPassword() {
       return;
     }
 
+    showLoading();
     setIsSubmitting(true);
     try {
       await apiFetchText('/api/auth/forgot-password/reset', {
@@ -87,6 +93,7 @@ export default function ForgotPassword() {
       const message = error instanceof Error ? error.message : 'Unable to reset the password right now.';
       showError(message, 'Forgot password');
     } finally {
+      hideLoading();
       setIsSubmitting(false);
     }
   }

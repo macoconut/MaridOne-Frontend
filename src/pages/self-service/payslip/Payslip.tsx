@@ -1,3 +1,4 @@
+import { useLoading } from '../../../context/LoadingContext';
 import { useEffect, useMemo, useState, useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { FiAlertCircle, FiCheckCircle, FiChevronRight, FiDownload, FiPrinter, FiXCircle, FiCalendar } from 'react-icons/fi';
@@ -216,6 +217,7 @@ function toManilaDateKey(value?: string) {
 }
 
 export default function Payslip() {
+  const { showLoading, hideLoading } = useLoading();
   const [employeeId, setEmployeeId] = useState<number | null>(null);
   const [payrollItems, setPayrollItems] = useState<PayrollItemRow[]>([]);
   const [selectedPeriodIndex, setSelectedPeriodIndex] = useState(0);
@@ -660,7 +662,9 @@ export default function Payslip() {
     }
 
     setConfirmDisputeSubmit(false);
+    showLoading();
     setDisputeSubmitting(true);
+    showLoading();
     try {
       const attachmentRef = await uploadDocument(disputeFile, DISPUTE_UPLOAD_SUBDIR);
 
@@ -693,6 +697,8 @@ export default function Payslip() {
     } catch (error) {
       setDisputeError(error instanceof Error ? error.message : 'Failed to file dispute.');
     } finally {
+      hideLoading();
+      hideLoading();
       setDisputeSubmitting(false);
     }
   }

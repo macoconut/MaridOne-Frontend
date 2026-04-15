@@ -1,3 +1,4 @@
+import { useLoading } from '../../../context/LoadingContext';
 import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -403,6 +404,7 @@ function buildAttendanceHistory(logs: unknown): AttendanceHistory {
 }
 
 export default function Attendance() {
+  const { showLoading, hideLoading } = useLoading();
   const todayKey = useMemo(() => getManilaNow().dateKey, []);
   const nonSickLeaveMinDate = useMemo(
     () => addDays(todayKey, NON_SICK_LEAVE_NOTICE_DAYS),
@@ -921,13 +923,37 @@ export default function Attendance() {
     return cells;
   }, [attendanceByDate, daysInMonth, requestEntries, sundayBasedStart, year]);
 
+  
+  const resolveShiftTimes = (dateKey: string) => {
+    const dailyShift = dailyShiftScheduleByDate.get(dateKey);
+    if (dailyShift && !dailyShift.dayOff && dailyShift.startDateTime && dailyShift.endDateTime) {
+      return {
+        start: dailyShift.startDateTime.slice(11, 16),
+        end: dailyShift.endDateTime.slice(11, 16),
+      };
+    }
+    const templateShift = shiftSchedule.find((s) => s.dayOfWeek === resolveDayOfWeek(dateKey));
+    if (templateShift) {
+      return {
+        start: normalizeTimeValue(templateShift.startTime),
+        end: normalizeTimeValue(templateShift.endTime),
+      };
+    }
+    return { start: '08:00', end: '17:00' };
+  };
+
   function openLeaveForToday() {
     const manila = getManilaNow();
     const iso = manila.dateKey;
+    const dailyShift = dailyShiftScheduleByDate.get(iso);
+    const times = (dailyShift && !dailyShift.dayOff && dailyShift.startDateTime && dailyShift.endDateTime)
+      ? { start: dailyShift.startDateTime.slice(11, 16), end: dailyShift.endDateTime.slice(11, 16) }
+      : { start: '08:00', end: '17:00' };
+
     setStartDate(iso);
-    setStartTime('08:00');
+    setStartTime(times.start);
     setEndDate(iso);
-    setEndTime('17:00');
+    setEndTime(times.end);
     setLeaveType('SICK_LEAVE');
     setReason('');
     setFile(null);
@@ -980,10 +1006,11 @@ export default function Attendance() {
     if (!canRequestOvertime) return;
     const manila = getManilaNow();
     const iso = manila.dateKey;
+    const times = resolveShiftTimes(iso);
     setOtStartDate(iso);
     setOtEndDate(iso);
-    setOtStartTime('17:00');
-    setOtEndTime('20:00');
+    setOtStartTime(times.start);
+    setOtEndTime(times.end);
     setOtType('OVERTIME');
     setOtReason('');
     setOtFile(null);
@@ -1024,6 +1051,7 @@ export default function Attendance() {
     if (!employeeId || !confirmClockAction) return;
 
     setIsClocking(true);
+    showLoading();
     try {
       const attemptedAction = confirmClockAction === 'TIME_OUT' ? 'Time out' : 'Time in';
       const response = await apiFetchRaw(`/api/logs/attendance/${employeeId}`, {
@@ -1066,6 +1094,7 @@ export default function Attendance() {
       setClockError(getFriendlyErrorMessage(error, 'attendance'));
     } finally {
       setIsClocking(false);
+      hideLoading();
     }
   }
 
@@ -1280,6 +1309,7 @@ export default function Attendance() {
     }
     setConfirmLeaveSubmit(false);
     setIsLeaveSubmitting(true);
+    showLoading();
 
     const startDateTime = `${startDate}T${startTime}:00`;
     const endDateTime = `${endDate}T${endTime}:00`;
@@ -1319,6 +1349,7 @@ export default function Attendance() {
       setSubmitError(getFriendlyErrorMessage(error, 'leave-request'));
     } finally {
       setIsLeaveSubmitting(false);
+      hideLoading();
     }
   }
 
@@ -1687,7 +1718,7 @@ export default function Attendance() {
                   >
                     Cancel
                   </ActionButton>
-                  <ActionButton type="button" icon={<FiCheckCircle />} onClick={requestLeaveConfirmation} disabled={isLeaveSubmitting}>
+                  <ActionButton type="button" icon={<FiCheckCircle />} onClick={requestLeaveConfirmation} >
                     {isLeaveSubmitting ? 'Submitting...' : 'Submit'}
                   </ActionButton>
                 </div>
@@ -1815,7 +1846,7 @@ export default function Attendance() {
                   >
                     Cancel
                   </ActionButton>
-                  <ActionButton type="button" icon={<FiCheckCircle />} onClick={requestOtConfirmation} disabled={isOtSubmitting}>
+                  <ActionButton type="button" icon={<FiCheckCircle />} onClick={requestOtConfirmation} >
                     {isOtSubmitting ? 'Submitting...' : 'Submit'}
                   </ActionButton>
                 </div>
