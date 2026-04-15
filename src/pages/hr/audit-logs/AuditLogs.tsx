@@ -1,7 +1,9 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
+import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
+import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
@@ -12,6 +14,7 @@ type ActivityLogRow = {
   username?: string;
   activityType?: string;
   message?: string;
+  detailPayload?: string;
   timestamp?: string;
 };
 
@@ -72,6 +75,15 @@ type AuditEntry = {
   recordedAt: string;
   timestampValue: number;
   searchIndex: string;
+  endpoint: string;
+  rawMessage: string;
+  detailPayload: string | null;
+};
+
+type AuditBreakdownItem = {
+  label: string;
+  value: string;
+  emphasis?: boolean;
 };
 
 const SERVER_PAGE_SIZE = 200;
@@ -296,6 +308,30 @@ function cleanDetailMessage(message: string) {
   return normalized || null;
 }
 
+function parseBreakdownItems(detailPayload?: string | null) {
+  const lines = String(detailPayload ?? '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  return lines
+    .map((line) => {
+      const separatorIndex = line.indexOf(':');
+      if (separatorIndex <= 0) return null;
+
+      const label = line.slice(0, separatorIndex).trim();
+      const value = line.slice(separatorIndex + 1).trim();
+      if (!label || !value) return null;
+
+      return {
+        label,
+        value,
+        emphasis: /^(Employee|Current Status|Change|Release Reason|Eligible For Rehire|Effective Date|Summary)$/i.test(label),
+      } satisfies AuditBreakdownItem;
+    })
+    .filter(Boolean) as AuditBreakdownItem[];
+}
+
 function buildPayrollRunMap(rows: PayrollRunRow[]) {
   const byId = new Map<string, PayrollRunRow>();
 
@@ -410,6 +446,7 @@ function buildFriendlyCopy(
   payrollRunsById: Map<string, PayrollRunRow>
 ) {
   const message = normalizeWhitespace(row.message);
+  const detailPayload = normalizeWhitespace(row.detailPayload);
   const endpoint = extractEndpoint(message);
   const endpointMeta = endpoint ? describeEndpoint(endpoint) : { subject: 'records', area: 'General' };
   const correctionMeta = parseCorrectionMessage(message);
@@ -591,9 +628,16 @@ function buildFriendlyCopy(
       const employeeName = resolveEmployeeName(targetEmployeeId, directory);
 
       if (/^\/api\/employees\/status\/\d+\b/i.test(endpoint)) {
+        const releaseSummary = extractLabeledValue(detailPayload, 'Summary');
+        const currentStatus = extractLabeledValue(detailPayload, 'Current Status');
+        const releaseReason = extractLabeledValue(detailPayload, 'Release Reason');
         return {
-          title: 'Updated employee status',
-          detail: `Updated employment status for ${employeeName}.`,
+          title: currentStatus === 'Employee Released' ? 'Recorded employee release' : 'Updated employee status',
+          detail:
+            releaseSummary ||
+            (releaseReason
+              ? `Recorded ${employeeName} as released under ${releaseReason}.`
+              : `Updated employment status for ${employeeName}.`),
           area: 'People',
         };
       }
@@ -672,6 +716,7 @@ function toAuditEntry(
   if (!isChangeType(normalizedType)) return null;
 
   const actor = actorPresentation(row.username, directory);
+  const endpoint = extractEndpoint(normalizeWhitespace(row.message));
   const copy = buildFriendlyCopy(row, normalizedType, directory, payrollRunsById);
   const timestampValue = row.timestamp ? Date.parse(row.timestamp) || 0 : 0;
 
@@ -688,6 +733,9 @@ function toAuditEntry(
     area: copy.area,
     recordedAt: formatDateTime(row.timestamp),
     timestampValue,
+    endpoint,
+    rawMessage: row.message ?? '',
+    detailPayload: row.detailPayload ?? null,
     searchIndex: toSearchIndex([
       row.activityId,
       actor.actorName,
@@ -696,6 +744,7 @@ function toAuditEntry(
       copy.detail,
       copy.area,
       normalizedType,
+      row.detailPayload,
     ]),
   };
 }
@@ -777,6 +826,7 @@ export default function HrAuditLogs() {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const [refreshTick, setRefreshTick] = useState(0);
+  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const silentRefreshRef = useRef(false);
 
   useErrorDialogEffect(loadError, 'Audit logs could not be loaded');
@@ -785,6 +835,14 @@ export default function HrAuditLogs() {
     setRefreshTick((tick) => tick + 1);
   };
   useAutoRefreshingPage(handlePageRefresh, { intervalMs: 15000 });
+  useEscapeDismiss(Boolean(selectedEntryId), () => setSelectedEntryId(null), 10);
+
+  useEffect(() => {
+    if (selectedEntryId) document.body.classList.add('modal-open');
+    else document.body.classList.remove('modal-open');
+
+    return () => document.body.classList.remove('modal-open');
+  }, [selectedEntryId]);
 
   const deferredSearch = useDeferredValue(normalizeSearch(searchValue));
 
@@ -857,6 +915,14 @@ export default function HrAuditLogs() {
   }, [deferredSearch, entries, timeFilter, typeFilter]);
 
   const activeFilterCount = [typeFilter, timeFilter].filter((value) => value !== 'all').length;
+  const selectedEntry = useMemo(
+    () => visibleEntries.find((entry) => entry.id === selectedEntryId) ?? null,
+    [selectedEntryId, visibleEntries]
+  );
+  const selectedBreakdownItems = useMemo(
+    () => parseBreakdownItems(selectedEntry?.detailPayload),
+    [selectedEntry?.detailPayload]
+  );
 
   function clearFilters() {
     setTypeFilter('all');
@@ -946,7 +1012,12 @@ export default function HrAuditLogs() {
             </div>
           ) : visibleEntries.length > 0 ? (
             visibleEntries.map((entry) => (
-              <div key={entry.id} className="hrAuditRow">
+              <button
+                key={entry.id}
+                type="button"
+                className="hrAuditRow"
+                onClick={() => setSelectedEntryId(entry.id)}
+              >
                 <span className="hrAuditRow__actor">
                   <span className="hrAuditRow__actorName">{entry.actorName}</span>
                   {entry.actorSubtitle && <span className="hrAuditRow__actorSub">{entry.actorSubtitle}</span>}
@@ -966,7 +1037,7 @@ export default function HrAuditLogs() {
                   </span>
                   <span className="hrAuditRow__time">{entry.recordedAt}</span>
                 </span>
-              </div>
+              </button>
             ))
           ) : (
             <div className="uEmptyState">
@@ -975,6 +1046,61 @@ export default function HrAuditLogs() {
           )}
         </div>
       </section>
+
+      {selectedEntry ? (
+        <div className="hrAuditModalBackdrop" role="dialog" aria-modal="true" onClick={() => setSelectedEntryId(null)}>
+          <div className="hrAuditModal" onClick={(event) => event.stopPropagation()}>
+            <div className="hrAuditModal__header">
+              <div className="hrAuditModal__intro">
+                <h2>{selectedEntry.title}</h2>
+                <p>{selectedEntry.detail}</p>
+              </div>
+              <ModalCloseButton onClick={() => setSelectedEntryId(null)} aria-label="Close audit log details" />
+            </div>
+
+            <div className="hrAuditModal__meta">
+              <span className={`hrAuditRow__badge hrAuditRow__badge--${selectedEntry.tone}`}>
+                {selectedEntry.activityLabel}
+              </span>
+              <span className="hrAuditRow__area">{selectedEntry.area}</span>
+              <span className="hrAuditModal__time">{selectedEntry.recordedAt}</span>
+            </div>
+
+            <div className="hrAuditModal__rule" />
+
+            {selectedBreakdownItems.length > 0 ? (
+              <div className="hrAuditModal__grid">
+                {selectedBreakdownItems.map((item) => (
+                  <article
+                    key={`${selectedEntry.id}-${item.label}`}
+                    className={`hrAuditModal__card ${item.emphasis ? 'is-emphasis' : ''}`}
+                  >
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="hrAuditModal__empty">No detailed audit breakdown is available for this entry yet.</div>
+            )}
+
+            <div className="hrAuditModal__rule is-subtle" />
+
+            <div className="hrAuditModal__footer">
+              {selectedEntry.endpoint ? (
+                <div className="hrAuditModal__footerItem">
+                  <span>Endpoint</span>
+                  <strong>{selectedEntry.endpoint}</strong>
+                </div>
+              ) : null}
+              <div className="hrAuditModal__footerItem">
+                <span>Stored Audit Message</span>
+                <strong>{selectedEntry.rawMessage || 'No raw message available.'}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

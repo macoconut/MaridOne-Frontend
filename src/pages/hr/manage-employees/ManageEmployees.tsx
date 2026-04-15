@@ -25,6 +25,12 @@ type LeaveType =
   | 'MAGNA_CARTA'
   | 'RA9262'
   | 'EMERGENCY_LEAVE';
+type SeparationReason =
+  | 'TERMINATED'
+  | 'VOLUNTARY_RESIGNATION'
+  | 'INVOLUNTARY_SEPARATION'
+  | 'END_OF_CONTRACT'
+  | 'DECEASED';
 
 type EmployeeRow = {
   id: string;
@@ -63,6 +69,11 @@ type EmployeeDetails = {
   emergencyContactName?: string;
   emergencyContactRelationship?: string;
   emergencyContactNumber?: string;
+  separationReason?: SeparationReason;
+  eligibleForRehire?: boolean;
+  separationNotes?: string;
+  separationEffectiveDate?: string;
+  separationProcessedBy?: string;
   address?: {
     permanentAddress?: string;
     temporaryAddress?: string;
@@ -133,12 +144,21 @@ type FormState = {
   emergencyContactName: string;
   emergencyContactRelationship: string;
   emergencyContactNumber: string;
-  reason: string;
+  separationReason: SeparationReason | '';
+  eligibleForRehire: '' | 'YES' | 'NO';
+  separationNotes: string;
 };
 
 const employmentStatusOptions = ['REGULAR', 'NEW_HIRE', 'PART_TIME', 'SUSPENDED', 'TERMINATED'] as const;
 const exemptionStatusOptions = ['EXEMPT', 'NON_EXEMPT'] as const;
 const positionOptions = ['EMPLOYEE', 'MANAGER', 'HR', 'MANAGEMENT', 'ACCOUNTING', 'UNKNOWN'] as const;
+const separationReasonOptions: Array<{ label: string; value: SeparationReason }> = [
+  { label: 'Terminated', value: 'TERMINATED' },
+  { label: 'Voluntary Resignation', value: 'VOLUNTARY_RESIGNATION' },
+  { label: 'Involuntary Separation', value: 'INVOLUNTARY_SEPARATION' },
+  { label: 'End of Contract', value: 'END_OF_CONTRACT' },
+  { label: 'Deceased', value: 'DECEASED' },
+];
 const managerDepartmentOptions = [
   'People Operations Department',
   'Procurements Department',
@@ -188,7 +208,9 @@ const emptyForm: FormState = {
   emergencyContactName: '',
   emergencyContactRelationship: '',
   emergencyContactNumber: '',
-  reason: '',
+  separationReason: '',
+  eligibleForRehire: '',
+  separationNotes: '',
 };
 
 const emptyLeaveBalanceCreateForm: LeaveBalanceCreateForm = {
@@ -224,6 +246,43 @@ function isTerminatedStatus(value?: string | null) {
   return String(value ?? '')
     .trim()
     .toUpperCase() === 'TERMINATED';
+}
+
+function toRehireSelectValue(value?: boolean) {
+  if (value === true) return 'YES';
+  if (value === false) return 'NO';
+  return '';
+}
+
+function fromRehireSelectValue(value: FormState['eligibleForRehire']) {
+  if (value === 'YES') return true;
+  if (value === 'NO') return false;
+  return undefined;
+}
+
+function normalizeSeparationReason(value?: string | null): FormState['separationReason'] {
+  const normalized = String(value ?? '').trim().toUpperCase();
+  return separationReasonOptions.some((option) => option.value === normalized)
+    ? (normalized as SeparationReason)
+    : '';
+}
+
+function formatEmploymentStatusLabel(value?: string | null) {
+  const normalized = String(value ?? '').trim().toUpperCase();
+  if (!normalized) return '-';
+  if (normalized === 'TERMINATED') return 'RELEASED';
+  return normalized.replace(/_/g, ' ');
+}
+
+function formatSeparationReasonLabel(value?: SeparationReason | string | null) {
+  const normalized = String(value ?? '').trim().toUpperCase();
+  const match = separationReasonOptions.find((option) => option.value === normalized);
+  return match?.label ?? displayValue(value);
+}
+
+function isLongSeparationNote(value?: string | null) {
+  const text = String(value ?? '').trim();
+  return text.length > 120 || text.includes('\n');
 }
 
 function buildEmployeeSearchIndex(row: Omit<EmployeeRow, 'searchIndex'>) {
@@ -367,6 +426,7 @@ export default function HrManageEmp() {
   const [detailLoadingIds, setDetailLoadingIds] = useState<Record<string, boolean>>({});
   const [detailErrors, setDetailErrors] = useState<Record<string, string>>({});
   const [detailsDialogEmployeeId, setDetailsDialogEmployeeId] = useState<string | null>(null);
+  const [expandedSeparationNotes, setExpandedSeparationNotes] = useState<Record<string, boolean>>({});
   const [leaveBalances, setLeaveBalances] = useState<LeaveBalanceRow[]>([]);
   const [leaveBalanceStatus, setLeaveBalanceStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [leaveBalanceError, setLeaveBalanceError] = useState('');
@@ -936,6 +996,13 @@ export default function HrManageEmp() {
     setDetailsDialogEmployeeId(null);
   }
 
+  function toggleSeparationNote(employeeId: string) {
+    setExpandedSeparationNotes((current) => ({
+      ...current,
+      [employeeId]: !current[employeeId],
+    }));
+  }
+
   function setLeaveBalanceCreateField<K extends keyof LeaveBalanceCreateForm>(key: K, value: LeaveBalanceCreateForm[K]) {
     setLeaveBalanceCreateForm((current) => ({ ...current, [key]: value }));
   }
@@ -1026,7 +1093,7 @@ export default function HrManageEmp() {
 
     try {
       const payload = await apiFetchJson<EmployeeDetails>(`/api/employees/${row.id}`);
-      const nextForm = {
+      const nextForm: FormState = {
         employeeId: String(payload.id ?? row.id),
         firstName: payload.firstName ?? '',
         middleName: payload.middleName ?? '',
@@ -1058,7 +1125,9 @@ export default function HrManageEmp() {
         emergencyContactName: payload.emergencyContactName ?? '',
         emergencyContactRelationship: payload.emergencyContactRelationship ?? '',
         emergencyContactNumber: payload.emergencyContactNumber ?? '',
-        reason: '',
+        separationReason: normalizeSeparationReason(payload.separationReason),
+        eligibleForRehire: toRehireSelectValue(payload.eligibleForRehire),
+        separationNotes: payload.separationNotes ?? '',
       };
       const nextManagerSearch =
         payload.managerId !== undefined && payload.managerId !== null
@@ -1089,13 +1158,28 @@ export default function HrManageEmp() {
     setFormSubmitAttempted(false);
     setHasExistingUserAccount(Boolean(row.username !== '-' && row.username.trim()));
     if (isTerminatedStatus(row.status)) {
-      setSubmitError('This employee is already terminated.');
+      setSubmitError('This employee is already marked inactive.');
       return;
     }
     setForm(nextForm);
     setInitialForm(nextForm);
     setInitialManagerSearch('');
     setModal('delete');
+  }
+
+  function validateTerminationFields() {
+    if (!form.separationReason) {
+      setSubmitError('Separation reason is required.');
+      return false;
+    }
+
+    if (!form.eligibleForRehire) {
+      setSubmitError('Eligible for rehire must be specified.');
+      return false;
+    }
+
+    setSubmitError('');
+    return true;
   }
 
   function validateRequiredEmployeeFields(mode: 'add' | 'edit') {
@@ -1299,19 +1383,30 @@ export default function HrManageEmp() {
           throw new Error('Employee ID is required for termination.');
         }
         if (isTerminatedStatus(selectedEmployee?.status)) {
-          throw new Error('This employee is already terminated.');
+          throw new Error('This employee is already marked inactive.');
+        }
+        if (!form.separationReason) {
+          throw new Error('Separation reason is required.');
+        }
+        const eligibleForRehire = fromRehireSelectValue(form.eligibleForRehire);
+        if (eligibleForRehire === undefined) {
+          throw new Error('Eligible for rehire must be specified.');
         }
 
         await apiFetchJson(`/api/employees/status/${employeeId}`, {
           method: 'PATCH',
           body: JSON.stringify({
             employmentStatus: 'TERMINATED',
+            employmentDateEnd: todayDateValue(),
+            separationReason: form.separationReason,
+            eligibleForRehire,
+            separationNotes: form.separationNotes.trim() || undefined,
           }),
         });
 
         await Promise.all([loadEmployees(), loadEmployeeOptions()]);
         closeModal();
-        showSuccess('Employee terminated successfully.', 'Employee Terminated');
+        showSuccess('Employee separation recorded successfully.', 'Employee Updated');
       }
     } catch (error) {
       setSubmitError(
@@ -1340,6 +1435,10 @@ export default function HrManageEmp() {
       return;
     }
 
+    if (modal === 'delete' && !validateTerminationFields()) {
+      return;
+    }
+
     setConfirmAction(modal);
   }
 
@@ -1348,6 +1447,9 @@ export default function HrManageEmp() {
     const nextAction = confirmAction;
     setConfirmAction(null);
     if (nextAction !== 'delete' && !validateRequiredEmployeeFields(nextAction)) {
+      return;
+    }
+    if (nextAction === 'delete' && !validateTerminationFields()) {
       return;
     }
     await executeSubmit(nextAction);
@@ -1531,6 +1633,9 @@ export default function HrManageEmp() {
     const isLoading = Boolean(detailLoadingIds[row.id]);
     const detailError = detailErrors[row.id];
     const username = details?.userAccountName ?? (row.username === '-' ? '' : row.username);
+    const noteExpanded = Boolean(expandedSeparationNotes[row.id]);
+    const separationNote = String(details?.separationNotes ?? '').trim();
+    const canExpandSeparationNote = isLongSeparationNote(separationNote);
 
     if (isLoading && !details) {
       return <div className="hrEmpDetails__feedback">Loading employee details...</div>;
@@ -1554,7 +1659,7 @@ export default function HrManageEmp() {
           </div>
           <div className="hrEmpDetails__badges">
             <span>{displayValue(details.position ?? row.position)}</span>
-            <span>{displayValue(details.employmentStatus ?? row.status)}</span>
+            <span>{formatEmploymentStatusLabel(details.employmentStatus ?? row.status)}</span>
             <span>{displayValue(details.exemptionStatus)}</span>
           </div>
         </div>
@@ -1627,7 +1732,7 @@ export default function HrManageEmp() {
             <div className="hrEmpDetails__items">
               <div className="hrEmpDetails__item">
                 <span>Status</span>
-                <strong>{displayValue(details.employmentStatus)}</strong>
+                <strong>{formatEmploymentStatusLabel(details.employmentStatus)}</strong>
               </div>
               <div className="hrEmpDetails__item">
                 <span>Position</span>
@@ -1659,6 +1764,45 @@ export default function HrManageEmp() {
               </div>
             </div>
           </section>
+
+          {(details.separationReason || details.separationNotes || details.separationEffectiveDate || details.separationProcessedBy) ? (
+            <section className="hrEmpDetails__card hrEmpDetails__card--full">
+              <h3>Separation Record</h3>
+              <div className="hrEmpDetails__items">
+                <div className="hrEmpDetails__item">
+                  <span>Release Reason</span>
+                  <strong>{formatSeparationReasonLabel(details.separationReason)}</strong>
+                </div>
+                <div className="hrEmpDetails__item">
+                  <span>Eligible for Rehire</span>
+                  <strong>{details.eligibleForRehire === undefined ? '-' : details.eligibleForRehire ? 'Yes' : 'No'}</strong>
+                </div>
+                <div className="hrEmpDetails__item">
+                  <span>Effective Date</span>
+                  <strong>{formatDateValue(details.separationEffectiveDate)}</strong>
+                </div>
+                <div className="hrEmpDetails__item">
+                  <span>Recorded By</span>
+                  <strong>{displayValue(details.separationProcessedBy)}</strong>
+                </div>
+                <div className="hrEmpDetails__item hrEmpDetails__item--full">
+                  <span>Notes</span>
+                  <strong className={`hrEmpDetails__noteValue ${noteExpanded ? 'is-expanded' : ''}`}>
+                    {displayValue(details.separationNotes)}
+                  </strong>
+                  {canExpandSeparationNote ? (
+                    <button
+                      type="button"
+                      className="hrEmpDetails__toggle"
+                      onClick={() => toggleSeparationNote(row.id)}
+                    >
+                      {noteExpanded ? 'Show less' : 'Show more'}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            </section>
+          ) : null}
 
           <section className="hrEmpDetails__card hrEmpDetails__card--full">
             <div className="hrEmpLeaveBalance__header">
@@ -1875,7 +2019,7 @@ export default function HrManageEmp() {
                   </div>
                   <div>{row.username}</div>
                   <div className="hrEmpRow__statusCell">
-                    {isTerminated ? 'TERMINATED' : row.status}
+                    {isTerminated ? 'RELEASED' : formatEmploymentStatusLabel(row.status)}
                   </div>
                   <div className="hrEmpRow__positionCell">
                     {row.position}
@@ -1893,7 +2037,7 @@ export default function HrManageEmp() {
                           type="button"
                           className="hrEmpRow__action hrEmpRow__action--danger"
                           onClick={() => openDeleteModal(row)}
-                          title="Terminate employee"
+                          title="Record employee separation"
                         >
                           <FiUserX aria-hidden="true" />
                         </button>
@@ -1940,13 +2084,13 @@ export default function HrManageEmp() {
           <div className={`hrEmpModal ${modal === 'delete' ? 'is-delete' : ''}`}>
             <div className="hrEmpModal__header">
               <div>
-                <h2>{modal === 'add' ? 'ADD EMPLOYEE' : modal === 'edit' ? 'EDIT EMPLOYEE' : 'TERMINATE EMPLOYEE'}</h2>
+                <h2>{modal === 'add' ? 'ADD EMPLOYEE' : modal === 'edit' ? 'EDIT EMPLOYEE' : 'RECORD EMPLOYEE SEPARATION'}</h2>
                 <p className="hrEmpModal__subtitle">
                   {modal === 'add'
                     ? 'Create the employee record and its login account together so HR does not need to manage them separately.'
                     : modal === 'edit'
                       ? 'Review the employee profile, employment details, and account access before saving the update.'
-                      : 'Confirm the selected employee and document the reason before updating the employment status.'}
+                      : 'Confirm the selected employee and document the release details before updating the employment status.'}
                 </p>
               </div>
               <ModalCloseButton
@@ -1960,15 +2104,15 @@ export default function HrManageEmp() {
             <div className="hrEmpForm">
               {modal === 'delete' ? (
                 <div className="hrEmpForm__section hrEmpForm__section--danger">
-                  <div className="hrEmpForm__sectionTitle">Termination Details</div>
+                  <div className="hrEmpForm__sectionTitle">Separation Details</div>
                   <div className="hrEmpDelete">
                     <div className="hrEmpDelete__summary">
                       <span className="hrEmpDelete__summaryLabel">Employee on record</span>
                       <strong>{selectedEmployee ? selectedEmployee.name : 'No employee selected yet'}</strong>
                       <span>
                         {selectedEmployee
-                          ? `Employee ID ${selectedEmployee.id} | ${selectedEmployee.username === '-' ? 'No username yet' : selectedEmployee.username} | ${selectedEmployee.position} | ${selectedEmployee.status}`
-                          : 'Select a valid employee record before terminating the employee.'}
+                          ? `Employee ID ${selectedEmployee.id} | ${selectedEmployee.username === '-' ? 'No username yet' : selectedEmployee.username} | ${selectedEmployee.position} | ${formatEmploymentStatusLabel(selectedEmployee.status)}`
+                          : 'Select a valid employee record before recording the separation.'}
                       </span>
                     </div>
 
@@ -1978,12 +2122,39 @@ export default function HrManageEmp() {
                         <input value={form.employeeId} readOnly placeholder="Employee ID" />
                       </div>
 
+                      <div className="hrEmpField">
+                        <label>Separation Reason</label>
+                        <select
+                          value={form.separationReason}
+                          onChange={(event) => setField('separationReason', event.target.value as FormState['separationReason'])}
+                        >
+                          <option value="">Select a reason</option>
+                          {separationReasonOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="hrEmpField">
+                        <label>Eligible for Rehire</label>
+                        <select
+                          value={form.eligibleForRehire}
+                          onChange={(event) => setField('eligibleForRehire', event.target.value as FormState['eligibleForRehire'])}
+                        >
+                          <option value="">Select</option>
+                          <option value="YES">Yes</option>
+                          <option value="NO">No</option>
+                        </select>
+                      </div>
+
                       <div className="hrEmpField hrEmpField--full">
-                        <label>Reason for Termination</label>
+                        <label>Notes</label>
                         <textarea
-                          value={form.reason}
-                          onChange={(event) => setField('reason', event.target.value)}
-                          placeholder="Optional internal HR notes for the termination record"
+                          value={form.separationNotes}
+                          onChange={(event) => setField('separationNotes', event.target.value)}
+                          placeholder="Optional HR notes for the separation record"
                         />
                       </div>
                     </div>
@@ -2422,7 +2593,7 @@ export default function HrManageEmp() {
                 Cancel
               </button>
               <button type="button" onClick={() => void submit()} disabled={isSaving}>
-                {modal === 'add' ? 'Add Employee' : modal === 'edit' ? 'Save Changes' : 'Terminate Employee'}
+                {modal === 'add' ? 'Add Employee' : modal === 'edit' ? 'Save Changes' : 'Record Separation'}
               </button>
             </div>
 
@@ -2431,7 +2602,7 @@ export default function HrManageEmp() {
       ) : null}
       <ConfirmDialog
         open={Boolean(confirmAction)}
-        title={confirmAction === 'edit' ? 'Confirm Employee Update' : 'Confirm Termination'}
+        title={confirmAction === 'edit' ? 'Confirm Employee Update' : 'Confirm Separation Record'}
         message={
           confirmAction === 'edit'
             ? `Are you sure you want to save the changes for ${
@@ -2440,9 +2611,9 @@ export default function HrManageEmp() {
                   .filter(Boolean)
                   .join(' ') || `employee ID ${form.employeeId}`
               }?`
-            : `Are you sure you want to mark employee ID ${form.employeeId}${selectedEmployee ? ` (${selectedEmployee.name})` : ''} as terminated?`
+            : `Are you sure you want to mark employee ID ${form.employeeId}${selectedEmployee ? ` (${selectedEmployee.name})` : ''} as inactive and save the separation record?`
         }
-        confirmLabel={confirmAction === 'edit' ? 'Confirm Edit' : 'Confirm Termination'}
+        confirmLabel={confirmAction === 'edit' ? 'Confirm Edit' : 'Confirm Separation'}
         cancelLabel="Go Back"
         isBusy={isSaving}
         onConfirm={() => void confirmAndSubmit()}

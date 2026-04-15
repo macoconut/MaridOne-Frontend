@@ -261,7 +261,23 @@
   background: transparent;
   box-shadow: none;
   overflow: visible;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(10px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.hrEmpRow:hover .hrEmpRow__actions,
+.hrEmpRow:focus-within .hrEmpRow__actions {
   opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+.hrEmpRow.is-terminated .hrEmpRow__actions {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(10px);
 }
 
 .hrEmpTable__headCell--actions {
@@ -525,6 +541,10 @@
   background: #fcfbfe;
 }
 
+.hrEmpDetails__item--full {
+  grid-column: 1 / -1;
+}
+
 .hrEmpDetails__item span {
   color: #7b708e;
   font-size: 12px;
@@ -539,6 +559,34 @@
   font-weight: 500;
   line-height: 1.45;
   overflow-wrap: anywhere;
+}
+
+.hrEmpDetails__noteValue {
+  white-space: pre-wrap;
+  max-width: 78ch;
+}
+
+.hrEmpDetails__noteValue:not(.is-expanded) {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.hrEmpDetails__toggle {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--hr-primary, #7b4f98);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.hrEmpDetails__toggle:hover {
+  text-decoration: underline;
 }
 
 .hrEmpModal--details {

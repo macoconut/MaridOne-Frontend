@@ -83,6 +83,7 @@
   .payModalBackdrop,
   .apprModalBackdrop,
   .hrEmpModalBackdrop,
+  .hrAuditModalBackdrop,
   .hrAttModalBackdrop,
   .hrPayModalBackdrop,
   .hrApprModalBackdrop,
@@ -112,6 +113,7 @@
   .payModalBackdrop,
   .apprModalBackdrop,
   .hrEmpModalBackdrop,
+  .hrAuditModalBackdrop,
   .hrAttModalBackdrop,
   .hrPayModalBackdrop,
   .hrApprModalBackdrop,
@@ -128,6 +130,7 @@
   .payModal,
   .apprModal,
   .hrEmpModal,
+  .hrAuditModal,
   .hrAttModal,
   .hrPayModal,
   .hrApprModal,
@@ -156,6 +159,7 @@
   .payModal,
   .apprModal,
   .hrEmpModal,
+  .hrAuditModal,
   .hrAttModal,
   .hrPayModal,
   .hrApprModal,
@@ -170,6 +174,7 @@
 .payModal,
 .apprModal,
 .hrEmpModal,
+.hrAuditModal,
 .hrApprModal {
   width: min(860px, 96vw) !important;
 }
