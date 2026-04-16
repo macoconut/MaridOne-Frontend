@@ -2103,15 +2103,15 @@ export default function HrManageEmp() {
       {detailsDialogEmployee ? (
         <div className="hrEmpModalBackdrop" role="dialog" aria-modal="true" onClick={closeDetailsDialog}>
           <div className="hrEmpModal hrEmpModal--details" onClick={(event) => event.stopPropagation()}>
-            <div className="hrEmpDetailsDialog__header">
-              <div>
+            <div className="hrEmpModal__top">
+              <div className="hrEmpModal__heading">
                 <h2>EMPLOYEE DETAILS</h2>
                 <p className="hrEmpModal__subtitle">
                   Review the full employee profile, account information, and employment details in one view.
                 </p>
               </div>
               <ModalCloseButton
-                className="hrEmpDetailsDialog__close"
+                className="hrEmpModal__close"
                 onClick={closeDetailsDialog}
                 aria-label="Close employee details"
               />
@@ -2127,8 +2127,8 @@ export default function HrManageEmp() {
       {modal ? (
         <div className="hrEmpModalBackdrop" role="dialog" aria-modal="true">
           <div className={`hrEmpModal ${modal === 'delete' ? 'is-delete' : ''}`}>
-            <div className="hrEmpModal__header">
-              <div>
+            <div className="hrEmpModal__top">
+              <div className="hrEmpModal__heading">
                 <h2>{modal === 'add' ? 'ADD EMPLOYEE' : modal === 'edit' ? 'EDIT EMPLOYEE' : 'RECORD EMPLOYEE SEPARATION'}</h2>
                 <p className="hrEmpModal__subtitle">
                   {modal === 'add'
@@ -2139,6 +2139,7 @@ export default function HrManageEmp() {
                 </p>
               </div>
               <ModalCloseButton
+                className="hrEmpModal__close"
                 onClick={requestCloseModal}
                 disabled={isSaving}
                 aria-label="Close modal"

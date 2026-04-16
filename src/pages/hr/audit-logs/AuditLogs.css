@@ -194,6 +194,11 @@
 
 .hrAuditModal {
   width: min(860px, 96vw) !important;
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at top right, rgba(205, 184, 230, 0.18), transparent 28%),
+    linear-gradient(180deg, #f8f4fc 0%, #ffffff 38%, #ffffff 100%) !important;
 }
 
 @media (min-width: 1100px) {
@@ -298,6 +303,7 @@
   display: grid;
   gap: 12px;
   margin-top: 18px;
+  padding-bottom: 4px;
 }
 
 .hrAuditModal__footerItem {
@@ -307,7 +313,8 @@
   padding: 14px 16px;
   border-radius: 16px;
   border: 1px solid rgba(68, 42, 102, 0.1);
-  background: #fcfbfe;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(41, 24, 67, 0.05);
 }
 
 .hrAuditModal__empty {

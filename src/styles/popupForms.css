@@ -197,6 +197,11 @@
   width: min(700px, 94vw) !important;
 }
 
+.hrEmpModal--details {
+  width: min(980px, 96vw) !important;
+  max-height: min(88vh, 900px) !important;
+}
+
 .dashModal--announcement,
 .payModal,
 .apprModal,
@@ -227,6 +232,7 @@
   .dashModal__top,
   .payModal__top,
   .apprModal__top,
+  .hrEmpModal__top,
   .hrAttModal__top,
   .hrPayModal__top,
   .settingsModal__top,
@@ -241,6 +247,7 @@
 
 :where(
   .modal__meta,
+  .hrEmpModal__heading,
   .settingsModal__copy,
   .hrRunModal__heading,
   .aReviewRunModal__heading,
@@ -314,6 +321,7 @@
   .dashModal__close,
   .payModal__close,
   .apprModal__close,
+  .hrEmpModal__close,
   .hrAttModal__close,
   .hrPayModal__close,
   .hrApprModal__close,
@@ -353,6 +361,7 @@
   .dashModal__close,
   .payModal__close,
   .apprModal__close,
+  .hrEmpModal__close,
   .hrAttModal__close,
   .hrPayModal__close,
   .hrApprModal__close,
@@ -374,6 +383,7 @@
   .dashModal__close,
   .payModal__close,
   .apprModal__close,
+  .hrEmpModal__close,
   .hrAttModal__close,
   .hrPayModal__close,
   .hrApprModal__close,
@@ -392,6 +402,7 @@
   .dashModal__close,
   .payModal__close,
   .apprModal__close,
+  .hrEmpModal__close,
   .hrAttModal__close,
   .hrPayModal__close,
   .hrApprModal__close,
@@ -410,6 +421,7 @@
   .dashModal__close,
   .payModal__close,
   .apprModal__close,
+  .hrEmpModal__close,
   .hrAttModal__close,
   .hrPayModal__close,
   .hrApprModal__close,
@@ -434,6 +446,7 @@
   .dashModal__rule,
   .payModal__rule,
   .apprModal__rule,
+  .hrEmpModal__rule,
   .hrAttModal__rule,
   .hrPayModal__rule,
   .hrApprModal__rule,

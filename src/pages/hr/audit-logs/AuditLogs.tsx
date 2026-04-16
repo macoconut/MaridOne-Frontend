@@ -1087,12 +1087,6 @@ export default function HrAuditLogs() {
             <div className="hrAuditModal__rule is-subtle" />
 
             <div className="hrAuditModal__footer">
-              {selectedEntry.endpoint ? (
-                <div className="hrAuditModal__footerItem">
-                  <span>Endpoint</span>
-                  <strong>{selectedEntry.endpoint}</strong>
-                </div>
-              ) : null}
               <div className="hrAuditModal__footerItem">
                 <span>Stored Audit Message</span>
                 <strong>{selectedEntry.rawMessage || 'No raw message available.'}</strong>

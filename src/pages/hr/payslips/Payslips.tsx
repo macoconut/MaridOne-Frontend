@@ -1827,6 +1827,7 @@ export default function HrPayslips() {
     }
 
     setRunError('');
+    showLoading();
     setIsPostingRun(true);
     try {
       const postedRun = await apiFetchJson<PayrollRunDto>(`/api/payroll/run/${currentRun.payId}/post`, {
@@ -1838,6 +1839,7 @@ export default function HrPayslips() {
     } catch (error) {
       setRunError(getFriendlyErrorMessage(error, 'payroll-run'));
     } finally {
+      hideLoading();
       setIsPostingRun(false);
     }
   }
@@ -1901,7 +1903,7 @@ export default function HrPayslips() {
       {emptyRunHint && <p className="hrPay__message">{emptyRunHint}</p>}
 
       {isCurrentRunInProgress && currentRun && (
-        <section className="hrPayPanel">
+        <section className="hrPayPanel hrPayPanel--runProgress">
           <div className="hrPayPanel__headRow hrPayPanel__headRow--centered">
             <header className="hrPayPanel__head">Payroll Run in Progress</header>
             <div className="hrPayPanel__tools">
@@ -1969,6 +1971,25 @@ export default function HrPayslips() {
             </div>
           </div>
 
+          <div className="hrPayRunSummary">
+            <article className="hrPayRunSummary__card">
+              <span>Run ID</span>
+              <strong>#{currentRun.payId ?? '-'}</strong>
+            </article>
+            <article className="hrPayRunSummary__card">
+              <span>Coverage</span>
+              <strong>{formatDate(currentRun.periodStart)} - {formatDate(currentRun.periodEnd)}</strong>
+            </article>
+            <article className="hrPayRunSummary__card">
+              <span>Run Type</span>
+              <strong>{formatRunType(currentRun.runType)}</strong>
+            </article>
+            <article className="hrPayRunSummary__card">
+              <span>Payroll Items</span>
+              <strong>{currentRun.itemCount ?? 0}</strong>
+            </article>
+          </div>
+
           <div className="hrPayTableShell mgrPendTable">
             {isLoadingRunItems ? (
               <div className="mgrPendTable__empty">
@@ -1977,7 +1998,7 @@ export default function HrPayslips() {
               </div>
             ) : visibleRunItems.length > 0 ? (
               <>
-                <div className="hrPayRunTable__head" role="row">
+                <div className="hrPayRunTable__head hrPayRunTable__head--reporting" role="row">
                   <span>EMP ID</span>
                   <span>NAME</span>
                   <span>Gross Pay</span>
@@ -1991,7 +2012,7 @@ export default function HrPayslips() {
                     <button
                       key={row.itemId}
                       type="button"
-                      className="hrPayRunTable__row"
+                      className="hrPayRunTable__row hrPayRunTable__row--reporting"
                       onClick={() => void openPayrollItemDetail(row)}
                     >
                       <span className="mgrPendTable__cell">{row.empId ?? '-'}</span>

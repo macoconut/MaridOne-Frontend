@@ -589,18 +589,6 @@
   text-decoration: underline;
 }
 
-.hrEmpModal--details {
-  width: min(980px, 94vw);
-  max-height: calc(100vh - 40px);
-}
-
-.hrEmpDetailsDialog__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-}
-
 .hrEmpRow__action {
   border: 1px solid rgba(62, 35, 94, 0.12);
   background: rgba(255, 255, 255, 0.96);
@@ -756,24 +744,20 @@
 }
 
 .hrEmpForm__section {
-  border: 1px solid rgba(61, 38, 90, 0.10);
-  border-radius: 16px;
-  background: #fff;
-  padding: 14px 14px 12px;
+  padding: 16px 16px 14px;
 }
 
 .hrEmpForm__section--danger {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(251, 245, 247, 0.98) 100%);
   border-color: rgba(178, 70, 81, 0.16);
 }
 
 .hrEmpForm__sectionTitle {
   color: var(--hr-primary-dark);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .hrEmpForm__grid {
@@ -892,9 +876,10 @@
   flex-direction: column;
   gap: 6px;
   padding: 14px 16px;
-  border: 1px solid rgba(178, 70, 81, 0.14);
-  border-radius: 14px;
+  border: 1px solid rgba(178, 70, 81, 0.12);
+  border-radius: 16px;
   background: linear-gradient(180deg, rgba(255, 248, 249, 0.98) 0%, rgba(253, 242, 245, 0.98) 100%);
+  box-shadow: 0 10px 24px rgba(49, 34, 74, 0.05);
 }
 
 .hrEmpDelete__summaryLabel {
@@ -964,13 +949,6 @@
   width: min(820px, 94vw);
 }
 
-.hrEmpModal__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 20px;
-}
-
 @media (max-width: 1360px) {
   .hrEmp__head {
     align-items: stretch;
@@ -997,10 +975,6 @@
   .hrEmpTable__head > div:nth-child(5),
   .hrEmpRow > div:nth-child(5) {
     display: none;
-  }
-
-  .hrEmpModal h2 {
-    font-size: 22px;
   }
 
   .hrEmpForm__grid {
@@ -1071,11 +1045,11 @@
     justify-content: flex-end;
   }
 
-  .hrEmpDetailsDialog__header {
+  .hrEmpModal__top {
     flex-direction: column;
   }
 
-  .hrEmpDetailsDialog__close {
+  .hrEmpModal__close {
     align-self: flex-end;
   }
 }
