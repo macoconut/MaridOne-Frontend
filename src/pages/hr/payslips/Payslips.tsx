@@ -1250,7 +1250,6 @@ export default function HrPayslips() {
   }
 
   async function openPayrollItemDetail(row: PayrollItemSummaryRow) {
-    setSelectedPayrollItem(row);
     setSelectedPayrollItemEarnings([]);
     setSelectedPayrollItemDeductions([]);
     setPayrollItemError('');
@@ -1266,6 +1265,7 @@ export default function HrPayslips() {
 
       setSelectedPayrollItemEarnings(mapCorrectionLines(earningsResponse, 'EARNING'));
       setSelectedPayrollItemDeductions(mapCorrectionLines(deductionsResponse, 'DEDUCTION'));
+      setSelectedPayrollItem(row);
     } catch (error) {
       if (
         sensitiveAccess.handleProtectedError(
