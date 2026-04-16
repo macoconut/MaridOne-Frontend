@@ -3,12 +3,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { FiChevronDown, FiDownload, FiEdit2, FiFilter, FiMoreVertical, FiPlus, FiSearch, FiUserX, FiX, FiXCircle } from 'react-icons/fi';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
+import SensitiveAccessIndicator from '../../../components/security/SensitiveAccessIndicator';
+import SensitiveAccessModal from '../../../components/security/SensitiveAccessModal';
 import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
 import EmployeeSortMenu from '../../../components/layout/EmployeeSortMenu';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
+import { useSensitiveAccessPrompt } from '../../../hooks/useSensitiveAccessPrompt';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { compareEmployees, type EmployeeSortKey } from '../../../lib/employeeSort';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
@@ -421,6 +424,7 @@ function mergeRowWithDetails(row: EmployeeRow, details: EmployeeDetails): Employ
 export default function HrManageEmp() {
   const { showLoading, hideLoading } = useLoading();
   const { showSuccess } = useUiDialog();
+  const sensitiveAccess = useSensitiveAccessPrompt();
   const [modal, setModal] = useState<ModalType>(null);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [employeeRows, setEmployeeRows] = useState<EmployeeRow[]>([]);
@@ -719,10 +723,6 @@ export default function HrManageEmp() {
       setDetailsDialogEmployeeId((current) => (current && mapped.some((row) => row.id === current) ? current : null));
       setLoadMessage(mapped.length === 0 ? 'No employees found.' : '');
 
-      const missingUsernames = mapped.filter((row) => row.username === '-');
-      if (missingUsernames.length > 0) {
-        void Promise.allSettled(missingUsernames.map((row) => fetchEmployeeDetails(row.id)));
-      }
     } catch (error) {
       setEmployeeRows([]);
       setEmployeeDetailsById({});
@@ -979,6 +979,17 @@ export default function HrManageEmp() {
       );
       return payload;
     } catch (error) {
+      if (
+        sensitiveAccess.handleProtectedError(
+          error,
+          async () => {
+            await fetchEmployeeDetails(employeeId);
+          },
+          'Verify access before opening protected employee records, identifiers, and separation history.'
+        )
+      ) {
+        return undefined;
+      }
       const message = getFriendlyErrorMessage(error, 'employee-load');
       setDetailErrors((current) => ({ ...current, [employeeId]: message }));
       throw error;
@@ -987,10 +998,19 @@ export default function HrManageEmp() {
     }
   }
 
-  function openDetailsDialog(rowId: string) {
-    setDetailsDialogEmployeeId(rowId);
-    if (!employeeDetailsById[rowId] && !detailLoadingIds[rowId]) {
-      void fetchEmployeeDetails(rowId);
+  async function openDetailsDialog(rowId: string) {
+    if (detailLoadingIds[rowId]) {
+      return;
+    }
+
+    if (employeeDetailsById[rowId]) {
+      setDetailsDialogEmployeeId(rowId);
+      return;
+    }
+
+    const payload = await fetchEmployeeDetails(rowId);
+    if (payload) {
+      setDetailsDialogEmployeeId(rowId);
     }
   }
 
@@ -1144,6 +1164,15 @@ export default function HrManageEmp() {
       setManagerPickerOpen(false);
       setModal('edit');
     } catch (error) {
+      if (
+        sensitiveAccess.handleProtectedError(
+          error,
+          () => openEditModal(row),
+          'Verify access before editing protected employee information.'
+        )
+      ) {
+        return;
+      }
       setSubmitError(getFriendlyErrorMessage(error, 'employee-load'));
     }
   }
@@ -1412,6 +1441,17 @@ export default function HrManageEmp() {
         showSuccess('Employee separation recorded successfully.', 'Employee Updated');
       }
     } catch (error) {
+      if (
+        sensitiveAccess.handleProtectedError(
+          error,
+          () => executeSubmit(targetModal),
+          targetModal === 'delete'
+            ? 'Verify access before recording an employee separation.'
+            : 'Verify access before saving protected employee information.'
+        )
+      ) {
+        return;
+      }
       setSubmitError(
         getFriendlyErrorMessage(error, targetModal === 'delete' ? 'employee-terminate' : 'employee-save')
       );
@@ -1865,6 +1905,7 @@ export default function HrManageEmp() {
         <PageHeader
           title="Employee Management"
           description="Maintain employee records, accounts, and employment details from one directory."
+          meta={<SensitiveAccessIndicator />}
         />
         <div className="hrEmp__headActions">
           <button type="button" className="hrEmpTable__actionBtn" onClick={openAddModal}>
@@ -2631,6 +2672,12 @@ export default function HrManageEmp() {
         cancelLabel="Keep Editing"
         onConfirm={discardAndCloseModal}
         onCancel={() => setConfirmDiscardOpen(false)}
+      />
+      <SensitiveAccessModal
+        open={sensitiveAccess.open}
+        onClose={sensitiveAccess.close}
+        onVerified={sensitiveAccess.handleVerified}
+        notice={sensitiveAccess.notice}
       />
     </div>
   );

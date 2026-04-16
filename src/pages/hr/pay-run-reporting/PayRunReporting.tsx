@@ -5,12 +5,15 @@ type AggregatedEmployeeRow = EmployeeReportRow & {
   itemIds: number[];
 };
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
+import SensitiveAccessIndicator from '../../../components/security/SensitiveAccessIndicator';
+import SensitiveAccessModal from '../../../components/security/SensitiveAccessModal';
 import EmployeeSortMenu from '../../../components/layout/EmployeeSortMenu';
 import SortMenu, { type SortOption } from '../../../components/layout/SortMenu';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
+import { useSensitiveAccessPrompt } from '../../../hooks/useSensitiveAccessPrompt';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { compareEmployees, type EmployeeSortKey } from '../../../lib/employeeSort';
 import { formatPayrollRunTypeLabel, hasBonusEarning } from '../../../lib/payrollRunLabels';
@@ -416,6 +419,7 @@ function getEmptyRunMessage(run: PayrollRunRow | null, view: ReportView, availab
 }
 
 export default function HrPayRunReporting() {
+  const sensitiveAccess = useSensitiveAccessPrompt();
   const [view, setView] = useState<ReportView>('employee');
   const [filterValue, setFilterValue] = useState('');
   const [employeeSort, setEmployeeSort] = useState<EmployeeSortKey>('id');
@@ -526,6 +530,15 @@ export default function HrPayRunReporting() {
         setLoadError('');
       } catch (error) {
         if (cancelled) return;
+        if (
+          sensitiveAccess.handleProtectedError(
+            error,
+            loadReportDetails,
+            'Verify access before opening payroll report details and employee totals.'
+          )
+        ) {
+          return;
+        }
         if (!isSilentRefresh) {
           setEmployeeRows([]);
           setPayTypeRows([]);
@@ -792,6 +805,15 @@ export default function HrPayRunReporting() {
       setSelectedBreakdownEarnings(sumLines(allEarnings));
       setSelectedBreakdownDeductions(sumLines(allDeductions));
     } catch (error) {
+      if (
+        sensitiveAccess.handleProtectedError(
+          error,
+          () => openBreakdownModal(row),
+          'Verify access before viewing a payroll breakdown with earnings and deductions.'
+        )
+      ) {
+        return;
+      }
       setBreakdownError(getFriendlyErrorMessage(error, 'payroll-run'));
     } finally {
       setIsLoadingBreakdown(false);
@@ -873,6 +895,15 @@ export default function HrPayRunReporting() {
       link.remove();
       URL.revokeObjectURL(url);
     } catch (error) {
+      if (
+        sensitiveAccess.handleProtectedError(
+          error,
+          downloadCurrentReport,
+          'Verify access before exporting payroll breakdowns and employee report details.'
+        )
+      ) {
+        return;
+      }
       setActionError(getFriendlyErrorMessage(error, 'payroll-run'));
     } finally {
       setIsDownloading(false);
@@ -890,6 +921,7 @@ export default function HrPayRunReporting() {
         <PageHeader
           title="Pay Run Reporting"
           description="Analyze payroll totals by employee or pay type before exporting reports."
+          meta={<SensitiveAccessIndicator />}
         />
         <div className="hrRun__topActions">
           <label className="hrRunSelect hrRunSelect--view" aria-label="Report view">
@@ -1288,6 +1320,12 @@ export default function HrPayRunReporting() {
           </article>
         </div>
       )}
+      <SensitiveAccessModal
+        open={sensitiveAccess.open}
+        onClose={sensitiveAccess.close}
+        onVerified={sensitiveAccess.handleVerified}
+        notice={sensitiveAccess.notice}
+      />
     </div>
   );
 }

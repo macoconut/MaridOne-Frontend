@@ -4,6 +4,8 @@ const AUTH_KEYS = [
   'maridone.role',
   'maridone.userEmail',
   'maridone.passwordChangeRequired',
+  'maridone.sensitiveAccessToken',
+  'maridone.sensitiveAccessExpiresAt',
 ] as const;
 
 export type UserRole = 'employee' | 'hr' | 'manager' | 'management' | 'accounting';
@@ -57,6 +59,13 @@ export function getRequiresPasswordChange() {
   return getSessionValue('maridone.passwordChangeRequired') === 'true';
 }
 
+function clearSensitiveAccessState() {
+  localStorage.removeItem('maridone.sensitiveAccessToken');
+  localStorage.removeItem('maridone.sensitiveAccessExpiresAt');
+  sessionStorage.removeItem('maridone.sensitiveAccessToken');
+  sessionStorage.removeItem('maridone.sensitiveAccessExpiresAt');
+}
+
 function setValueOnActiveStorage(key: (typeof AUTH_KEYS)[number], value: string) {
   if (sessionStorage.getItem('maridone.role')) {
     sessionStorage.setItem(key, value);
@@ -81,4 +90,34 @@ export function setRefreshToken(refreshToken: string) {
 
 export function setRequiresPasswordChange(requiresPasswordChange: boolean) {
   setValueOnActiveStorage('maridone.passwordChangeRequired', String(requiresPasswordChange));
+}
+
+export function setSensitiveAccessToken(token: string, expiresAt?: string) {
+  setValueOnActiveStorage('maridone.sensitiveAccessToken', token);
+  if (expiresAt) {
+    setValueOnActiveStorage('maridone.sensitiveAccessExpiresAt', expiresAt);
+  }
+}
+
+export function clearSensitiveAccessToken() {
+  clearSensitiveAccessState();
+}
+
+export function getSensitiveAccessToken() {
+  const token = getSessionValue('maridone.sensitiveAccessToken');
+  const expiresAt = getSessionValue('maridone.sensitiveAccessExpiresAt');
+
+  if (expiresAt) {
+    const parsed = Date.parse(expiresAt);
+    if (Number.isFinite(parsed) && parsed <= Date.now()) {
+      clearSensitiveAccessState();
+      return null;
+    }
+  }
+
+  return token;
+}
+
+export function getSensitiveAccessExpiry() {
+  return getSessionValue('maridone.sensitiveAccessExpiresAt');
 }

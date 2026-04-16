@@ -83,6 +83,7 @@
   .payModalBackdrop,
   .apprModalBackdrop,
   .hrEmpModalBackdrop,
+  .sensitiveAccessModalBackdrop,
   .hrAuditModalBackdrop,
   .hrAttModalBackdrop,
   .hrPayModalBackdrop,
@@ -113,6 +114,7 @@
   .payModalBackdrop,
   .apprModalBackdrop,
   .hrEmpModalBackdrop,
+  .sensitiveAccessModalBackdrop,
   .hrAuditModalBackdrop,
   .hrAttModalBackdrop,
   .hrPayModalBackdrop,
@@ -130,6 +132,7 @@
   .payModal,
   .apprModal,
   .hrEmpModal,
+  .sensitiveAccessModal,
   .hrAuditModal,
   .hrAttModal,
   .hrPayModal,
@@ -159,6 +162,7 @@
   .payModal,
   .apprModal,
   .hrEmpModal,
+  .sensitiveAccessModal,
   .hrAuditModal,
   .hrAttModal,
   .hrPayModal,
@@ -174,6 +178,7 @@
 .payModal,
 .apprModal,
 .hrEmpModal,
+.sensitiveAccessModal,
 .hrAuditModal,
 .hrApprModal {
   width: min(860px, 96vw) !important;
@@ -187,7 +192,8 @@
 }
 
 .hrPayModal--run,
-.hrEmpModal--picker {
+.hrEmpModal--picker,
+.sensitiveAccessModal {
   width: min(700px, 94vw) !important;
 }
 
@@ -1144,6 +1150,7 @@
     .payModal,
     .apprModal,
     .hrEmpModal,
+    .sensitiveAccessModal,
     .hrAttModal,
     .hrPayModal,
     .hrApprModal,
@@ -1214,6 +1221,7 @@
     .payModalBackdrop,
     .apprModalBackdrop,
     .hrEmpModalBackdrop,
+    .sensitiveAccessModalBackdrop,
     .hrAttModalBackdrop,
     .hrPayModalBackdrop,
     .hrApprModalBackdrop,
@@ -1228,6 +1236,7 @@
     .payModal,
     .apprModal,
     .hrEmpModal,
+    .sensitiveAccessModal,
     .hrAttModal,
     .hrPayModal,
     .hrApprModal,

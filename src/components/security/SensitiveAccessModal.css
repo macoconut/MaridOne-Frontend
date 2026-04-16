@@ -1,0 +1,156 @@
+.sensitiveAccessModal__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.sensitiveAccessModal__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sensitiveAccessModal__eyebrow {
+  color: var(--app-label-color);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.sensitiveAccessModal__title,
+.sensitiveAccessModal__subtitle {
+  margin: 0;
+}
+
+.sensitiveAccessModal__rule {
+  height: 1px;
+  border: 0;
+  background: linear-gradient(90deg, var(--popup-border), transparent);
+  margin: 18px 0 22px;
+}
+
+.sensitiveAccessModal__modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.sensitiveAccessModal__mode {
+  min-height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--popup-border);
+  background: var(--popup-soft-fill);
+  color: var(--popup-accent-dark);
+  font-size: 14px;
+  font-weight: 800;
+  padding: 0 16px;
+  cursor: pointer;
+}
+
+.sensitiveAccessModal__mode.is-selected {
+  background: var(--popup-accent);
+  color: #fff;
+  box-shadow: 0 12px 22px rgba(32, 21, 49, 0.18);
+}
+
+.sensitiveAccessModal__field,
+.sensitiveAccessModal__otpPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid var(--popup-border);
+  border-radius: 20px;
+  background: var(--popup-field-surface);
+  box-shadow: var(--popup-field-shadow);
+  padding: 20px;
+}
+
+.sensitiveAccessModal__field span {
+  color: var(--app-label-color);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sensitiveAccessModal__field input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--popup-input-border);
+  border-radius: 14px;
+  background: var(--popup-input-surface);
+  color: var(--popup-ink);
+  font-size: 15px;
+  padding: 12px 14px;
+}
+
+.sensitiveAccessModal__otpIntro,
+.sensitiveAccessModal__status {
+  color: var(--popup-copy);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.sensitiveAccessModal__sendCode {
+  align-self: flex-start;
+  min-height: 42px;
+  min-width: 0;
+}
+
+.sensitiveAccessModal__otpGroup {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.sensitiveAccessModal__otpInput {
+  width: 100%;
+  min-height: 52px;
+  border: 1px solid var(--popup-input-border);
+  border-radius: 16px;
+  background: #fff;
+  color: var(--popup-ink);
+  font-size: 22px;
+  font-weight: 900;
+  text-align: center;
+}
+
+.sensitiveAccessModal__otpInput:focus,
+.sensitiveAccessModal__field input:focus {
+  outline: none;
+  border-color: var(--popup-accent);
+  box-shadow: var(--popup-focus-ring);
+}
+
+.sensitiveAccessModal__error {
+  margin-top: 14px;
+  color: #b24651;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.sensitiveAccessModal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+
+.sensitiveAccessModal__actions .btn {
+  min-width: 132px;
+}
+
+@media (max-width: 720px) {
+  .sensitiveAccessModal__otpGroup {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .sensitiveAccessModal__actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+}

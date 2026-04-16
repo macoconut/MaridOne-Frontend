@@ -4,12 +4,15 @@ import { FiCheckCircle, FiChevronDown, FiEdit2, FiFilter, FiPlus, FiSearch, FiX,
 import { ApiError, apiFetchJson, toArray } from '../../../lib/api';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
+import SensitiveAccessIndicator from '../../../components/security/SensitiveAccessIndicator';
+import SensitiveAccessModal from '../../../components/security/SensitiveAccessModal';
 import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
 import EmployeeSortMenu from '../../../components/layout/EmployeeSortMenu';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
+import { useSensitiveAccessPrompt } from '../../../hooks/useSensitiveAccessPrompt';
 import { useUnsavedChangesPrompt } from '../../../hooks/useUnsavedChangesPrompt';
 import { compareEmployees, type EmployeeSortKey } from '../../../lib/employeeSort';
 import { formatPayrollRunTypeLabel, formatPayrollStatusLabel, hasBonusEarning } from '../../../lib/payrollRunLabels';
@@ -610,6 +613,7 @@ export default function HrPayslips() {
   const { showLoading, hideLoading } = useLoading();
 
   const { showSuccess } = useUiDialog();
+  const sensitiveAccess = useSensitiveAccessPrompt();
   const [disputes, setDisputes] = useState<DisputeRow[]>([]);
   const [selectedDispute, setSelectedDispute] = useState<DisputeRow | null>(null);
   const [runItems, setRunItems] = useState<PayrollItemSummaryRow[]>([]);
@@ -1263,6 +1267,15 @@ export default function HrPayslips() {
       setSelectedPayrollItemEarnings(mapCorrectionLines(earningsResponse, 'EARNING'));
       setSelectedPayrollItemDeductions(mapCorrectionLines(deductionsResponse, 'DEDUCTION'));
     } catch (error) {
+      if (
+        sensitiveAccess.handleProtectedError(
+          error,
+          () => openPayrollItemDetail(row),
+          'Verify access before opening payroll item earnings and deductions.'
+        )
+      ) {
+        return;
+      }
       setPayrollItemError(getFriendlyErrorMessage(error, 'payroll-run'));
     } finally {
       setIsLoadingPayrollItem(false);
@@ -1349,6 +1362,15 @@ export default function HrPayslips() {
         'Adjustment Line Added'
       );
     } catch (error) {
+      if (
+        sensitiveAccess.handleProtectedError(
+          error,
+          submitManualLine,
+          'Verify access before adding a manual payroll earning or deduction.'
+        )
+      ) {
+        return;
+      }
       setManualLineError(getFriendlyErrorMessage(error, 'payroll-run'));
     } finally {
       hideLoading();
@@ -1443,6 +1465,15 @@ export default function HrPayslips() {
       setEditingPayrollLineKey('');
       setPayrollLineDraftAmount('');
     } catch (error) {
+      if (
+        sensitiveAccess.handleProtectedError(
+          error,
+          () => savePayrollLineAmount(line),
+          'Verify access before updating protected payroll line amounts.'
+        )
+      ) {
+        return;
+      }
       setPayrollItemError(getFriendlyErrorMessage(error, 'payroll-run'));
     } finally {
       setIsSavingPayrollLine(false);
@@ -1528,6 +1559,15 @@ export default function HrPayslips() {
       setSelectedCorrectionKey('');
       await ensureAdjustmentRun(sourceResponse);
     } catch (error) {
+      if (
+        sensitiveAccess.handleProtectedError(
+          error,
+          () => startApprovedDisputeCorrection(intent),
+          'Verify access before opening the correction workspace for a protected payslip item.'
+        )
+      ) {
+        return;
+      }
       setCorrectionError(getFriendlyErrorMessage(error, 'payroll-dispute'));
       if (!currentRun) {
         await loadCurrentRun();
@@ -1808,6 +1848,7 @@ export default function HrPayslips() {
         <PageHeader
           title="Manage Payslips"
           description="Manage payroll runs, review disputes, and publish finalized payslips."
+          meta={<SensitiveAccessIndicator />}
         />
       </div>
 
@@ -2980,6 +3021,12 @@ export default function HrPayslips() {
         cancelLabel="Keep Editing"
         onConfirm={disputeReviewUnsavedPrompt.discardAndClose}
         onCancel={disputeReviewUnsavedPrompt.keepEditing}
+      />
+      <SensitiveAccessModal
+        open={sensitiveAccess.open}
+        onClose={sensitiveAccess.close}
+        onVerified={sensitiveAccess.handleVerified}
+        notice={sensitiveAccess.notice}
       />
     </div>
   );

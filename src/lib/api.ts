@@ -3,6 +3,7 @@ import {
   getAuthToken,
   getRequiresPasswordChange,
   getRefreshToken,
+  getSensitiveAccessToken,
   setAuthToken,
   setRequiresPasswordChange,
   setRefreshToken,
@@ -193,6 +194,11 @@ export async function apiFetchRaw(path: string, init: RequestInit = {}, allowRet
 
   if (!headers.has('Authorization') && token && token !== 'authenticated-session') {
     headers.set('Authorization', `Bearer ${token}`);
+  }
+
+  const sensitiveAccessToken = getSensitiveAccessToken();
+  if (!headers.has('X-Sensitive-Access-Token') && sensitiveAccessToken) {
+    headers.set('X-Sensitive-Access-Token', sensitiveAccessToken);
   }
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
