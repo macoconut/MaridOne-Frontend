@@ -327,6 +327,10 @@
   background: #98a4d6;
 }
 
+.hrAttCalendarShell__legendSwatch--outside {
+  background: #3a68b3;
+}
+
 .hrAttCalendarShell__legendSwatch--leave {
   background: #8c55ff;
 }
@@ -492,6 +496,11 @@
   background: linear-gradient(180deg, #f6eef9 0%, #ffffff 100%);
 }
 
+.hrCal__cell--outside {
+  border-color: rgba(58, 104, 179, 0.22);
+  background: linear-gradient(180deg, #eef5ff 0%, #ffffff 100%);
+}
+
 .hrCal__day {
   font-size: 13px;
   font-weight: 900;
@@ -542,6 +551,11 @@
 .hrCal__note--incomplete {
   color: #8d5a67;
   background: rgba(239, 200, 208, 0.36);
+}
+
+.hrCal__note--outside {
+  color: #3a68b3;
+  background: rgba(58, 104, 179, 0.14);
 }
 
 .hrCal__note--absent {
@@ -627,6 +641,11 @@
 .hrCal__stat--incomplete {
   background: rgba(239, 200, 208, 0.36);
   color: #8d5a67;
+}
+
+.hrCal__stat--outside {
+  background: rgba(58, 104, 179, 0.14);
+  color: #3a68b3;
 }
 
 .hrCal__stat--absent {
@@ -1068,6 +1087,18 @@
   background: #ffedf1;
   border-color: rgba(179, 58, 58, 0.18);
   color: #b33a3a;
+}
+
+.hrAttPerson__badge.is-absent {
+  background: #fff0f0;
+  border-color: rgba(162, 52, 52, 0.18);
+  color: #a23434;
+}
+
+.hrAttPerson__badge.is-outside {
+  background: #eef5ff;
+  border-color: rgba(58, 104, 179, 0.18);
+  color: #3a68b3;
 }
 
 .hrAttPerson__badge.is-muted {

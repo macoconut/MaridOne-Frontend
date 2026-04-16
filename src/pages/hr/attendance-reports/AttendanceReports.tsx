@@ -21,6 +21,7 @@ import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import { getManilaNow } from '../../../lib/manilaTime';
+import { evaluateDailyAttendanceCoverage } from '../../../lib/attendance/dailyAttendanceEvaluator';
 import './AttendanceReports.css';
 
 type AttendanceLog = {
@@ -84,12 +85,22 @@ type DayCell = {
   presentCount: number;
   lateCount: number;
   incompleteCount: number;
+  outsideScheduleCount: number;
   holidayCount: number;
   absentCount: number | null;
   dayOffCount: number;
 };
 
-type EmployeeCalendarTone = 'present' | 'late' | 'incomplete' | 'absent' | 'dayOff' | 'holiday' | 'leave' | 'ot';
+type EmployeeCalendarTone =
+  | 'present'
+  | 'late'
+  | 'incomplete'
+  | 'outside'
+  | 'absent'
+  | 'dayOff'
+  | 'holiday'
+  | 'leave'
+  | 'ot';
 
 type EmployeeCalendarNote = {
   label: string;
@@ -107,11 +118,14 @@ type DailyEmployeeRecord = {
   employeeId: number;
   name: string;
   position: string;
-  status: string;
+  status: AttendanceExportStatus;
   inTime?: string;
   outTime?: string;
   logCount: number;
   isLate: boolean;
+  isEarlyOut: boolean;
+  lateMinutes: number;
+  earlyOutMinutes: number;
   isIncomplete: boolean;
 };
 
@@ -121,6 +135,33 @@ type AttendanceExportRow = {
   date: string;
   timeIn: string;
   timeOut: string;
+  department: string;
+  position: string;
+  scheduledStart: string;
+  scheduledEnd: string;
+  status: AttendanceExportStatus;
+  late: string;
+  earlyOut: string;
+  lateMinutes: string;
+  earlyOutMinutes: string;
+};
+
+type AttendanceExportStatus = 'PRESENT' | 'INCOMPLETE' | 'ABSENT' | 'OUTSIDE_SCHEDULE';
+
+type AttendanceExportSummaryRow = {
+  employeeId: string;
+  employeeName: string;
+  department: string;
+  position: string;
+  evaluatedDays: number;
+  presentDays: number;
+  lateDays: number;
+  earlyOutDays: number;
+  incompleteDays: number;
+  absentDays: number;
+  outsideScheduleDays: number;
+  totalLateMinutes: number;
+  totalEarlyOutMinutes: number;
 };
 
 type AttendanceImportIssue = {
@@ -150,6 +191,7 @@ type AttendanceReportsBoardProps = {
   logsUrl?: string;
   rosterUrl?: string;
   leavesUrl?: string;
+  overtimeUrl?: string;
   descriptionOverride?: string;
 };
 
@@ -158,11 +200,24 @@ type OvernightShiftWindow = {
   cutoffTime: number;
 };
 
+type DailyShiftExportIndexes = {
+  dailyShiftDateKeysByEmployee: Map<number, Set<string>>;
+  explicitDayOffDateKeysByEmployee: Map<number, Set<string>>;
+  dailyShiftCoverageByEmployee: Map<number, { startDateKey: string; endDateKey: string }>;
+  dailyShiftsByEmployeeAndDate: Map<string, DailyShift[]>;
+};
+
+type TimeWindow = {
+  startMs: number;
+  endMs: number;
+};
+
 const DAYS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
 const BASE_LEGEND_ITEMS: Array<{ label: string; tone: EmployeeCalendarTone }> = [
   { label: 'Present', tone: 'present' },
   { label: 'Late', tone: 'late' },
   { label: 'Incomplete', tone: 'incomplete' },
+  { label: 'Outside Schedule', tone: 'outside' },
   { label: 'Absent', tone: 'absent' },
   { label: 'Day Off', tone: 'dayOff' },
   { label: 'Holiday', tone: 'holiday' },
@@ -175,6 +230,7 @@ const FOCUS_LEGEND_ITEMS: Array<{ label: string; tone: EmployeeCalendarTone }> =
 const DEFAULT_WORKING_DAYS = new Set([1, 2, 3, 4, 5, 6]);
 const DAY_NAMES = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
 const NIGHT_SHIFT_REPORT_CUTOFF_HOUR = 6;
+const ATTENDANCE_SUMMARY_MARKER = 'Attendance Summary Report';
 
 function pad2(value: number) {
   return String(value).padStart(2, '0');
@@ -220,9 +276,20 @@ function localTimeLabel(value?: string) {
 
 function parseTimeToMinutes(value?: string) {
   if (!value) return null;
-  const match = value.match(/^(\d{1,2}):(\d{2})/);
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})(?:\s*([AaPp][Mm]))?$/);
   if (!match) return null;
-  return Number(match[1]) * 60 + Number(match[2]);
+
+  let hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  const meridiem = match[3]?.toUpperCase();
+
+  if (meridiem === 'AM') {
+    hours = hours === 12 ? 0 : hours;
+  } else if (meridiem === 'PM') {
+    hours = hours === 12 ? 12 : hours + 12;
+  }
+
+  return hours * 60 + minutes;
 }
 
 function parseDateTimeToMinutes(value?: string) {
@@ -277,11 +344,11 @@ function leaveWindowForDate(request: LeaveRequest, dateKey: string) {
   };
 }
 
-function groupLeavesByEmployee(leaves: LeaveRequest[]) {
-  const grouped = new Map<number, LeaveRequest[]>();
+function groupOvertimeByEmployee(requests: OvertimeRequest[]) {
+  const grouped = new Map<number, OvertimeRequest[]>();
 
-  for (const request of leaves) {
-    const employeeId = Number(request.empId);
+  for (const request of requests) {
+    const employeeId = Number(request.employeeId);
     if (!Number.isFinite(employeeId)) continue;
     const current = grouped.get(employeeId) ?? [];
     current.push(request);
@@ -289,6 +356,23 @@ function groupLeavesByEmployee(leaves: LeaveRequest[]) {
   }
 
   return grouped;
+}
+
+function resolveOutsideScheduleStatus(
+  logs: AttendanceLog[],
+  scheduledShifts: DailyShift[],
+  overtimeRequests: OvertimeRequest[],
+  evaluation: ReturnType<typeof evaluateDailyAttendanceCoverage>
+) {
+  if (!evaluation.hasCompleteSession || overtimeRequests.length > 0) return null;
+
+  const sessions = buildAttendanceSessions(logs);
+  if (sessions.length === 0) return null;
+
+  const scheduleWindows = buildDailyShiftWindows(scheduledShifts);
+  if (scheduleWindows.length === 0 || hasWindowOverlap(sessions, scheduleWindows)) return null;
+
+  return 'OUTSIDE_SCHEDULE' as const;
 }
 
 function resolveEffectiveScheduledStartMinutes(
@@ -389,10 +473,71 @@ function formatOvertimeDetail(request: OvertimeRequest) {
   return overtimeType;
 }
 
+function parseTimestampMs(value?: string) {
+  if (!value) return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function normalizeTimeWindow(startValue?: string, endValue?: string) {
+  const startMs = parseTimestampMs(startValue);
+  const rawEndMs = parseTimestampMs(endValue);
+  if (startMs == null || rawEndMs == null) return null;
+  const endMs = rawEndMs <= startMs ? rawEndMs + 24 * 60 * 60 * 1000 : rawEndMs;
+  return endMs > startMs ? ({ startMs, endMs } satisfies TimeWindow) : null;
+}
+
+function buildAttendanceSessions(logs: AttendanceLog[]) {
+  const sorted = [...logs].sort((a, b) => (parseTimestampMs(a.timestamp) ?? 0) - (parseTimestampMs(b.timestamp) ?? 0));
+  const sessions: TimeWindow[] = [];
+  let openInMs: number | null = null;
+
+  for (const log of sorted) {
+    if (isInDirection(log.direction)) {
+      openInMs = parseTimestampMs(log.timestamp);
+      continue;
+    }
+
+    if (isOutDirection(log.direction) && openInMs !== null) {
+      const outMs = parseTimestampMs(log.timestamp);
+      if (outMs != null && outMs > openInMs) {
+        sessions.push({ startMs: openInMs, endMs: outMs });
+      }
+      openInMs = null;
+    }
+  }
+
+  return sessions;
+}
+
+function buildDailyShiftWindows(shifts: DailyShift[]) {
+  return shifts
+    .filter((shift) => shift.dayOff !== true)
+    .map((shift) => normalizeTimeWindow(shift.startDateTime, shift.endDateTime))
+    .filter((window): window is TimeWindow => window !== null);
+}
+
+function overlapsWindow(left: TimeWindow, right: TimeWindow) {
+  return left.startMs < right.endMs && right.startMs < left.endMs;
+}
+
+function hasWindowOverlap(sessions: TimeWindow[], windows: TimeWindow[]) {
+  return sessions.some((session) => windows.some((window) => overlapsWindow(session, window)));
+}
+
 function attendanceBadgeForRecord(record: DailyEmployeeRecord) {
-  if (record.isIncomplete) return { label: 'Incomplete Logs', toneClass: 'is-incomplete' };
-  if (record.isLate) return { label: 'Late Arrival', toneClass: 'is-late' };
-  return { label: 'On Time', toneClass: 'is-on-time' };
+  if (record.status === 'INCOMPLETE') return { label: 'Incomplete Logs', toneClass: 'is-incomplete' };
+  if (record.status === 'ABSENT') return { label: 'Absent', toneClass: 'is-absent' };
+  if (record.status === 'OUTSIDE_SCHEDULE') return { label: 'Outside Schedule', toneClass: 'is-outside' };
+  
+  const labels: string[] = ['Present'];
+  if (record.isLate) labels.push('Late');
+  if (record.isEarlyOut) labels.push('Early Out');
+  
+  return { 
+    label: labels.join(' + '), 
+    toneClass: record.isLate || record.isEarlyOut ? 'is-late' : 'is-on-time' 
+  };
 }
 
 function isInDirection(direction?: string) {
@@ -402,64 +547,6 @@ function isInDirection(direction?: string) {
 
 function isOutDirection(direction?: string) {
   return (direction ?? '').toUpperCase().includes('OUT');
-}
-
-function hasIncompleteAttendanceSequence(logs: AttendanceLog[]) {
-  let hasOpenInLog = false;
-  let hasRecognizedDirection = false;
-
-  for (const log of logs) {
-    if (isInDirection(log.direction)) {
-      hasRecognizedDirection = true;
-      if (hasOpenInLog) {
-        return true;
-      }
-      hasOpenInLog = true;
-      continue;
-    }
-
-    if (isOutDirection(log.direction)) {
-      hasRecognizedDirection = true;
-      if (!hasOpenInLog) {
-        return true;
-      }
-      hasOpenInLog = false;
-    }
-  }
-
-  if (!hasRecognizedDirection) {
-    return logs.length > 0;
-  }
-
-  return hasOpenInLog;
-}
-
-function isLateDirection(direction?: string) {
-  return (direction ?? '').toUpperCase().includes('LATE');
-}
-
-function isLateForSchedule(
-  timestamp?: string,
-  employee?: EmployeeRow,
-  dateKey?: string,
-  direction?: string,
-  leaveRequests: LeaveRequest[] = [],
-  isHoliday = false
-) {
-  if (isHoliday) return false;
-  if (!timestamp || !employee || !dateKey) return isLateDirection(direction);
-  if (!isEmployeeScheduledOnDate(employee, dateKey)) return false;
-
-  const scheduledStartMinutes = resolveEffectiveScheduledStartMinutes(employee, dateKey, leaveRequests);
-  if (scheduledStartMinutes === null) {
-    return isLateDirection(direction);
-  }
-
-  const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) return isLateDirection(direction);
-
-  const minutes = date.getHours() * 60 + date.getMinutes();
-  return minutes > scheduledStartMinutes;
 }
 
 function parseHolidayLookup(payload: unknown) {
@@ -490,6 +577,7 @@ function monthCells(year: number, monthIndex: number) {
       presentCount: 0,
       lateCount: 0,
       incompleteCount: 0,
+      outsideScheduleCount: 0,
       holidayCount: 0,
       absentCount: null,
       dayOffCount: 0,
@@ -502,6 +590,7 @@ function monthCells(year: number, monthIndex: number) {
       presentCount: 0,
       lateCount: 0,
       incompleteCount: 0,
+      outsideScheduleCount: 0,
       holidayCount: 0,
       absentCount: null,
       dayOffCount: 0,
@@ -514,6 +603,7 @@ function monthCells(year: number, monthIndex: number) {
       presentCount: 0,
       lateCount: 0,
       incompleteCount: 0,
+      outsideScheduleCount: 0,
       holidayCount: 0,
       absentCount: null,
       dayOffCount: 0,
@@ -535,6 +625,186 @@ function buildCsvContent(rows: string[][]) {
   return rows.map((row) => row.map(toCsvValue).join(',')).join('\r\n');
 }
 
+function buildDailyShiftExportIndexes(
+  dailyShifts: DailyShift[],
+  eligibleEmployeeIds: Set<number>
+) {
+  const dailyShiftDateKeysByEmployee = new Map<number, Set<string>>();
+  const explicitDayOffDateKeysByEmployee = new Map<number, Set<string>>();
+  const dailyShiftCoverageByEmployee = new Map<number, { startDateKey: string; endDateKey: string }>();
+  const dailyShiftsByEmployeeAndDate = new Map<string, DailyShift[]>();
+
+  for (const shift of dailyShifts) {
+    const employeeId = Number(shift.employeeId);
+    const workDateKey = localDateKey(shift.workDate ?? shift.startDateTime);
+    if (!Number.isFinite(employeeId) || !eligibleEmployeeIds.has(employeeId) || !workDateKey) continue;
+
+    if (shift.dayOff === true) {
+      const current = explicitDayOffDateKeysByEmployee.get(employeeId) ?? new Set<string>();
+      current.add(workDateKey);
+      explicitDayOffDateKeysByEmployee.set(employeeId, current);
+      continue;
+    }
+
+    const dateKeys = dailyShiftDateKeysByEmployee.get(employeeId) ?? new Set<string>();
+    dateKeys.add(workDateKey);
+    dailyShiftDateKeysByEmployee.set(employeeId, dateKeys);
+
+    const key = `${employeeId}:${workDateKey}`;
+    const currentShifts = dailyShiftsByEmployeeAndDate.get(key) ?? [];
+    currentShifts.push(shift);
+    dailyShiftsByEmployeeAndDate.set(key, currentShifts);
+  }
+
+  for (const [employeeId, dateKeys] of dailyShiftDateKeysByEmployee.entries()) {
+    const sorted = [...dateKeys].sort((a, b) => a.localeCompare(b));
+    if (sorted.length === 0) continue;
+    dailyShiftCoverageByEmployee.set(employeeId, {
+      startDateKey: sorted[0],
+      endDateKey: sorted[sorted.length - 1],
+    });
+  }
+
+  return {
+    dailyShiftDateKeysByEmployee,
+    explicitDayOffDateKeysByEmployee,
+    dailyShiftCoverageByEmployee,
+    dailyShiftsByEmployeeAndDate,
+  } satisfies DailyShiftExportIndexes;
+}
+
+function buildOvertimeExportIndex(requests: OvertimeRequest[], eligibleEmployeeIds: Set<number>) {
+  const approvedOvertimeByEmployeeAndDate = new Map<string, OvertimeRequest[]>();
+
+  for (const request of requests) {
+    const employeeId = Number(request.employeeId);
+    const dateKey = localDateKey(request.workDate);
+    if (!Number.isFinite(employeeId) || !eligibleEmployeeIds.has(employeeId) || !dateKey) continue;
+
+    const key = `${employeeId}:${dateKey}`;
+    const current = approvedOvertimeByEmployeeAndDate.get(key) ?? [];
+    current.push(request);
+    approvedOvertimeByEmployeeAndDate.set(key, current);
+  }
+
+  return { approvedOvertimeByEmployeeAndDate };
+}
+
+function hasApprovedOvertimeOnDateForExport(
+  overtimeIndex: ReturnType<typeof buildOvertimeExportIndex>,
+  employeeId: number,
+  dateKey: string
+) {
+  return (overtimeIndex.approvedOvertimeByEmployeeAndDate.get(`${employeeId}:${dateKey}`)?.length ?? 0) > 0;
+}
+
+function hasDailyShiftOnDateForExport(
+  indexes: DailyShiftExportIndexes,
+  employee: EmployeeRow | undefined,
+  dateKey?: string
+) {
+  if (!employee || !dateKey || !isEmployeeActiveOnDate(employee, dateKey)) return false;
+  return indexes.dailyShiftDateKeysByEmployee.get(employee.id)?.has(dateKey) ?? false;
+}
+
+function isKnownDayOffOnDateForExport(
+  indexes: DailyShiftExportIndexes,
+  employee: EmployeeRow | undefined,
+  dateKey?: string
+) {
+  if (!employee || !dateKey || !isEmployeeActiveOnDate(employee, dateKey)) return false;
+  if (indexes.explicitDayOffDateKeysByEmployee.get(employee.id)?.has(dateKey)) return true;
+  if (hasDailyShiftOnDateForExport(indexes, employee, dateKey)) return false;
+
+  const coverage = indexes.dailyShiftCoverageByEmployee.get(employee.id);
+  if (!coverage) return false;
+  if (dateKey < coverage.startDateKey || dateKey > coverage.endDateKey) return false;
+
+  return !isEmployeeScheduledOnDate(employee, dateKey);
+}
+
+function resolveScheduledWindowForExport(
+  indexes: DailyShiftExportIndexes,
+  employeeId: number,
+  dateKey: string
+) {
+  const shifts = indexes.dailyShiftsByEmployeeAndDate.get(`${employeeId}:${dateKey}`) ?? [];
+  if (shifts.length === 0) {
+    return { start: '', end: '' };
+  }
+
+  const sorted = [...shifts].sort((left, right) => {
+    const leftTime = left.startDateTime ? Date.parse(left.startDateTime) : Number.POSITIVE_INFINITY;
+    const rightTime = right.startDateTime ? Date.parse(right.startDateTime) : Number.POSITIVE_INFINITY;
+    return leftTime - rightTime;
+  });
+  const first = sorted[0];
+  const last = [...sorted].sort((left, right) => {
+    const leftTime = left.endDateTime ? Date.parse(left.endDateTime) : Number.NEGATIVE_INFINITY;
+    const rightTime = right.endDateTime ? Date.parse(right.endDateTime) : Number.NEGATIVE_INFINITY;
+    return rightTime - leftTime;
+  })[0];
+
+  return {
+    start: localTimeLabel(first?.startDateTime) ?? '',
+    end: localTimeLabel(last?.endDateTime) ?? '',
+  };
+}
+
+function resolveOvertimeWindowForExport(
+  overtimeIndex: ReturnType<typeof buildOvertimeExportIndex>,
+  employeeId: number,
+  dateKey: string
+) {
+  const requests = overtimeIndex.approvedOvertimeByEmployeeAndDate.get(`${employeeId}:${dateKey}`) ?? [];
+  if (requests.length === 0) {
+    return { start: '', end: '' };
+  }
+
+  const first = [...requests].sort((left, right) => {
+    const leftTime = left.startTime ? Date.parse(left.startTime) : Number.POSITIVE_INFINITY;
+    const rightTime = right.startTime ? Date.parse(right.startTime) : Number.POSITIVE_INFINITY;
+    return leftTime - rightTime;
+  })[0];
+  const last = [...requests].sort((left, right) => {
+    const leftTime = left.endTime ? Date.parse(left.endTime) : Number.NEGATIVE_INFINITY;
+    const rightTime = right.endTime ? Date.parse(right.endTime) : Number.NEGATIVE_INFINITY;
+    return rightTime - leftTime;
+  })[0];
+
+  return {
+    start: localTimeLabel(first?.startTime) ?? '',
+    end: localTimeLabel(last?.endTime) ?? '',
+  };
+}
+
+function hasScheduledShiftStartedForExport(
+  indexes: DailyShiftExportIndexes,
+  employeeId: number,
+  dateKey: string,
+  todayDateKey: string
+) {
+  if (dateKey < todayDateKey) return true;
+  if (dateKey > todayDateKey) return false;
+
+  const shifts = indexes.dailyShiftsByEmployeeAndDate.get(`${employeeId}:${dateKey}`) ?? [];
+  const startMinutes = shifts
+    .map((shift) => parseDateTimeToMinutes(shift.startDateTime))
+    .filter((value): value is number => value !== null)
+    .sort((a, b) => a - b)[0];
+
+  if (startMinutes == null) return false;
+  return getManilaNow().totalMinutes >= startMinutes;
+}
+
+function classifyAttendanceExportStatus(record?: DailyEmployeeRecord): AttendanceExportStatus {
+  if (!record) return 'ABSENT';
+  if (record.status === 'OUTSIDE_SCHEDULE') return 'OUTSIDE_SCHEDULE';
+  if (record.status === 'PRESENT') return 'PRESENT';
+  if (record.status === 'INCOMPLETE') return 'INCOMPLETE';
+  return 'ABSENT';
+}
+
 function employeeName(employee: EmployeeRow | undefined, employeeId: number) {
   return employee?.name || `Employee #${employeeId}`;
 }
@@ -543,7 +813,8 @@ function buildDailyRecords(
   logs: AttendanceLog[],
   employeeById: Map<number, EmployeeRow>,
   dateKey?: string,
-  leaveRequestsByEmployeeId: Map<number, LeaveRequest[]> = new Map<number, LeaveRequest[]>(),
+  scheduledShiftsByEmployeeAndDate: Map<string, DailyShift[]> = new Map<string, DailyShift[]>(),
+  overtimeRequestsByEmployeeId: Map<number, OvertimeRequest[]> = new Map<number, OvertimeRequest[]>(),
   holidayDateKeys: Set<string> = new Set<string>()
 ) {
   const grouped = new Map<number, AttendanceLog[]>();
@@ -565,28 +836,32 @@ function buildDailyRecords(
       const firstIn = sorted.find((row) => isInDirection(row.direction));
       const lastOut = [...sorted].reverse().find((row) => isOutDirection(row.direction));
       const employee = employeeById.get(employeeId);
-      const leaveRequests = leaveRequestsByEmployeeId.get(employeeId) ?? [];
-      const isLate = firstIn
-        ? isLateForSchedule(
-            firstIn.timestamp,
-            employee,
-            dateKey,
-            firstIn.direction,
-            leaveRequests,
-            dateKey ? holidayDateKeys.has(dateKey) : false
-          )
-        : false;
+      const isHoliday = dateKey ? holidayDateKeys.has(dateKey) : false;
+      const scheduledShifts = dateKey
+        ? (scheduledShiftsByEmployeeAndDate.get(`${employeeId}:${dateKey}`) ?? [])
+        : [];
+      const overtimeRequests = overtimeRequestsByEmployeeId.get(employeeId) ?? [];
+      const evaluation = evaluateDailyAttendanceCoverage({ logs: sorted, scheduledShifts });
+      const status = resolveOutsideScheduleStatus(sorted, scheduledShifts, overtimeRequests, evaluation) ?? evaluation.status;
+      const isLate = !isHoliday && evaluation.isLate;
+      const isEarlyOut = !isHoliday && evaluation.isEarlyOut;
+      const lateMinutes = isLate ? evaluation.lateMinutes : 0;
+      const earlyOutMinutes = isEarlyOut ? evaluation.earlyOutMinutes : 0;
+      const isIncomplete = status === 'INCOMPLETE';
 
       return {
         employeeId,
         name: employeeName(employee, employeeId),
         position: employee?.position || '-',
-        status: employee?.status || '-',
+        status,
         inTime: localTimeLabel(firstIn?.timestamp),
         outTime: localTimeLabel(lastOut?.timestamp),
         logCount: sorted.length,
         isLate,
-        isIncomplete: hasIncompleteAttendanceSequence(sorted),
+        isEarlyOut,
+        lateMinutes,
+        earlyOutMinutes,
+        isIncomplete,
       } satisfies DailyEmployeeRecord;
     })
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -713,6 +988,7 @@ export function AttendanceReportsBoard({
   logsUrl = '/api/logs/attendance',
   rosterUrl = '/api/employees',
   leavesUrl = '/api/leave/request',
+  overtimeUrl,
   descriptionOverride,
 }: AttendanceReportsBoardProps) {
   const todayDateKey = useMemo(() => getManilaNow().dateKey, []);
@@ -738,6 +1014,7 @@ export function AttendanceReportsBoard({
   const [logs, setLogs] = useState<AttendanceLog[]>([]);
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);
   const [approvedLeaves, setApprovedLeaves] = useState<LeaveRequest[]>([]);
+  const [approvedOvertime, setApprovedOvertime] = useState<OvertimeRequest[]>([]);
   const [dailyShifts, setDailyShifts] = useState<DailyShift[]>([]);
   const [holidayDateKeys, setHolidayDateKeys] = useState<string[]>([]);
   const [regularHolidayDateKeys, setRegularHolidayDateKeys] = useState<string[]>([]);
@@ -768,11 +1045,10 @@ export function AttendanceReportsBoard({
   const [filterOpen, setFilterOpen] = useState(false);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [departmentFilter, setDepartmentFilter] = useState('all');
-  const [focusOvertime, setFocusOvertime] = useState<OvertimeRequest[]>([]);
-  const [isFocusDataLoading, setIsFocusDataLoading] = useState(false);
   const filterRef = useRef<HTMLDivElement | null>(null);
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
   const silentRefreshRef = useRef(false);
+  const overtimeEndpoint = overtimeUrl ?? (audienceLabel === 'Manager' ? '/api/overtime/team' : '/api/overtime/all');
 
   const handlePageRefresh = useCallback(() => {
     silentRefreshRef.current = true;
@@ -862,7 +1138,7 @@ export function AttendanceReportsBoard({
 
         const nextLogs = toArray<AttendanceLog>(logResponse);
 
-        const [employeeResult, leaveResult, holidayResult, dailyShiftResult] = await Promise.allSettled([
+        const [employeeResult, leaveResult, holidayResult, dailyShiftResult, overtimeResult] = await Promise.allSettled([
           apiFetchJson<unknown>(withParams(rosterUrl, { page: '0', size: '500' })),
           apiFetchJson<unknown>(
             withParams(leavesUrl, {
@@ -882,6 +1158,13 @@ export function AttendanceReportsBoard({
             withParams('/api/employee/schedule/daily', {
               startDate: dailyShiftStartKey,
               endDate: monthEndKey,
+            })
+          ),
+          apiFetchJson<unknown>(
+            withParams(overtimeEndpoint, {
+              page: '0',
+              size: '4000',
+              requestStatus: 'APPROVED',
             })
           ),
         ]);
@@ -937,6 +1220,23 @@ export function AttendanceReportsBoard({
           setDailyShifts([]);
         }
 
+        if (overtimeResult.status === 'fulfilled') {
+          const nextApprovedOvertime = toArray<OvertimeRequest>(overtimeResult.value).filter((request) => {
+            const employeeId = Number(request.employeeId);
+            const workDateKey = localDateKey(request.workDate);
+            return (
+              Number.isFinite(employeeId) &&
+              Boolean(workDateKey) &&
+              workDateKey >= monthStartKey &&
+              workDateKey <= monthEndKey &&
+              String(request.requestStatus ?? '').toUpperCase() === 'APPROVED'
+            );
+          });
+          setApprovedOvertime(nextApprovedOvertime);
+        } else if (!isSilentRefresh) {
+          setApprovedOvertime([]);
+        }
+
         setLogs(nextLogs);
 
         if (holidayResult.status === 'fulfilled') {
@@ -954,6 +1254,7 @@ export function AttendanceReportsBoard({
           setLogs([]);
           setEmployees([]);
           setApprovedLeaves([]);
+          setApprovedOvertime([]);
           setDailyShifts([]);
           setHolidayDateKeys([]);
           setRegularHolidayDateKeys([]);
@@ -973,7 +1274,7 @@ export function AttendanceReportsBoard({
     return () => {
       cancelled = true;
     };
-  }, [audienceLabel, leavesUrl, logsUrl, monthEndKey, monthIndex, monthStartKey, refreshTick, rosterUrl, year]);
+  }, [audienceLabel, leavesUrl, logsUrl, monthEndKey, monthIndex, monthStartKey, overtimeEndpoint, refreshTick, rosterUrl, year]);
 
   const reportableEmployees = useMemo(() => {
     return employees.filter((employee) => employee.status.toUpperCase() !== 'TERMINATED');
@@ -1054,6 +1355,24 @@ export function AttendanceReportsBoard({
       const current = grouped.get(employeeId) ?? new Set<string>();
       current.add(workDateKey);
       grouped.set(employeeId, current);
+    }
+
+    return grouped;
+  }, [dailyShifts, filteredEmployeeIdSet]);
+
+  const scheduledShiftsByEmployeeAndDate = useMemo(() => {
+    const grouped = new Map<string, DailyShift[]>();
+
+    for (const shift of dailyShifts) {
+      const employeeId = Number(shift.employeeId);
+      const workDateKey = localDateKey(shift.workDate ?? shift.startDateTime);
+      if (!Number.isFinite(employeeId) || !filteredEmployeeIdSet.has(employeeId) || !workDateKey) continue;
+      if (shift.dayOff === true) continue;
+
+      const key = `${employeeId}:${workDateKey}`;
+      const current = grouped.get(key) ?? [];
+      current.push(shift);
+      grouped.set(key, current);
     }
 
     return grouped;
@@ -1150,6 +1469,22 @@ export function AttendanceReportsBoard({
     return grouped;
   }, [approvedLeavesByDate]);
 
+  const approvedOvertimeByDate = useMemo(() => {
+    const grouped = new Map<string, OvertimeRequest[]>();
+
+    for (const request of approvedOvertime) {
+      const employeeId = Number(request.employeeId);
+      const dateKey = localDateKey(request.workDate);
+      if (!Number.isFinite(employeeId) || !filteredEmployeeIdSet.has(employeeId) || !dateKey) continue;
+
+      const current = grouped.get(dateKey) ?? [];
+      current.push(request);
+      grouped.set(dateKey, current);
+    }
+
+    return grouped;
+  }, [approvedOvertime, filteredEmployeeIdSet]);
+
   const focusedEmployee = filteredEmployees.length === 1 ? filteredEmployees[0] : null;
   const focusedDepartment = focusedEmployee ? resolveDepartmentLabel(focusedEmployee) : '';
   const activeFilterCount = departmentFilter === 'all' ? 0 : 1;
@@ -1160,56 +1495,10 @@ export function AttendanceReportsBoard({
     return approvedLeaves.filter((request) => Number(request.empId) === focusedEmployee.id);
   }, [approvedLeaves, focusedEmployee]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadFocusedEmployeeData() {
-      if (!focusedEmployee || audienceLabel !== 'HR') {
-        setFocusOvertime([]);
-        setIsFocusDataLoading(false);
-        return;
-      }
-
-      setIsFocusDataLoading(true);
-      const overtimeResult = await apiFetchJson<unknown>(
-        withParams('/api/overtime/all', {
-          page: '0',
-          size: '400',
-          employeeId: String(focusedEmployee.id),
-          requestStatus: 'APPROVED',
-        })
-      ).then(
-        (value) => ({ status: 'fulfilled' as const, value }),
-        (reason) => ({ status: 'rejected' as const, reason })
-      );
-
-      if (cancelled) return;
-
-      const approvedOvertime =
-        overtimeResult.status === 'fulfilled'
-          ? toArray<OvertimeRequest>(overtimeResult.value).filter((request) => {
-              const employeeId = Number(request.employeeId);
-              const workDateKey = localDateKey(request.workDate);
-              return (
-                Number.isFinite(employeeId) &&
-                employeeId === focusedEmployee.id &&
-                Boolean(workDateKey) &&
-                workDateKey >= monthStartKey &&
-                workDateKey <= monthEndKey &&
-                String(request.requestStatus ?? '').toUpperCase() === 'APPROVED'
-              );
-            })
-          : [];
-
-      setFocusOvertime(approvedOvertime);
-      setIsFocusDataLoading(false);
-    }
-
-    void loadFocusedEmployeeData();
-    return () => {
-      cancelled = true;
-    };
-  }, [audienceLabel, focusedEmployee, monthEndKey, monthStartKey]);
+  const focusOvertime = useMemo(() => {
+    if (!focusedEmployee) return [] as OvertimeRequest[];
+    return approvedOvertime.filter((request) => Number(request.employeeId) === focusedEmployee.id);
+  }, [approvedOvertime, focusedEmployee]);
 
   const focusLeavesByDate = useMemo(() => {
     const grouped = new Map<string, LeaveRequest[]>();
@@ -1253,7 +1542,8 @@ export function AttendanceReportsBoard({
         dayLogs,
         filteredEmployeeById,
         dateKey,
-        groupLeavesByEmployee(approvedLeavesByDate.get(dateKey) ?? []),
+        scheduledShiftsByEmployeeAndDate,
+        groupOvertimeByEmployee(approvedOvertimeByDate.get(dateKey) ?? []),
         holidayDateSet
       );
       const record = records.find((item) => item.employeeId === focusedEmployee.id);
@@ -1261,7 +1551,7 @@ export function AttendanceReportsBoard({
     }
 
     return grouped;
-  }, [approvedLeavesByDate, filteredEmployeeById, focusedEmployee, holidayDateSet, logsByDate]);
+  }, [approvedLeavesByDate, approvedOvertimeByDate, filteredEmployeeById, focusedEmployee, holidayDateSet, logsByDate, scheduledShiftsByEmployeeAndDate]);
 
   const aggregateCalendarCells = useMemo(() => {
     const cells = monthCells(year, monthIndex);
@@ -1269,32 +1559,44 @@ export function AttendanceReportsBoard({
       if (cell.day === null) return cell;
       const dateKey = toISODate(year, monthIndex, cell.day);
       const isFutureDate = dateKey > todayDateKey;
-      const dateLeaveRequests = approvedLeavesByDate.get(dateKey) ?? [];
       const records = buildDailyRecords(
         logsByDate.get(dateKey) ?? [],
         filteredEmployeeById,
         dateKey,
-        groupLeavesByEmployee(dateLeaveRequests),
+        scheduledShiftsByEmployeeAndDate,
+        groupOvertimeByEmployee(approvedOvertimeByDate.get(dateKey) ?? []),
         holidayDateSet
       );
       const isHoliday = holidayDateSet.has(dateKey);
-      const incompleteCount = records.filter((record) => record.isIncomplete).length;
-      const lateCount = records.filter((record) => record.isLate && !record.isIncomplete).length;
-      const presentCount = records.filter((record) => !record.isLate && !record.isIncomplete).length;
+      const incompleteCount = records.filter((record) => record.status === 'INCOMPLETE').length;
+      const lateCount = records.filter((record) => record.status === 'PRESENT' && record.isLate).length;
+      const presentCount = records.filter((record) => record.status === 'PRESENT' && !record.isLate).length;
+      const outsideScheduleCount = records.filter((record) => record.status === 'OUTSIDE_SCHEDULE').length;
       const leaveEmployeeIds = approvedLeaveEmployeeIdsByDate.get(dateKey) ?? new Set<number>();
       const loggedEmployeeIds = new Set(records.map((record) => record.employeeId));
+      const absentLoggedEmployeeIds = new Set(
+        records.filter((record) => record.status === 'ABSENT').map((record) => record.employeeId)
+      );
       const holidayCount =
         hasFullRoster && !isFutureDate && isHoliday
           ? activeEmployees.filter((employee) => !loggedEmployeeIds.has(employee.id))
               .filter((employee) => !leaveEmployeeIds.has(employee.id)).length
           : 0;
-      const absentCount =
+      const missingLogsAbsentCount =
         hasFullRoster && !isFutureDate && !isHoliday
           ? activeEmployees.filter((employee) => hasDailyShiftOnDate(employee, dateKey))
               .filter((employee) => isEmployeeScheduledToHaveStartedByNow(employee, dateKey, todayDateKey, approvedLeavesByDate.get(dateKey) || []))
               .filter((employee) => !loggedEmployeeIds.has(employee.id))
               .filter((employee) => !leaveEmployeeIds.has(employee.id)).length
           : 0;
+      const absentFromLogsCount =
+        hasFullRoster && !isFutureDate && !isHoliday
+          ? activeEmployees.filter((employee) => hasDailyShiftOnDate(employee, dateKey))
+              .filter((employee) => isEmployeeScheduledToHaveStartedByNow(employee, dateKey, todayDateKey, approvedLeavesByDate.get(dateKey) || []))
+              .filter((employee) => absentLoggedEmployeeIds.has(employee.id))
+              .filter((employee) => !leaveEmployeeIds.has(employee.id)).length
+          : 0;
+      const absentCount = missingLogsAbsentCount + absentFromLogsCount;
       const dayOffCount =
         hasFullRoster && !isFutureDate && !isHoliday
           ? activeEmployees.filter((employee) => isKnownDayOffOnDate(employee, dateKey) || (hasDailyShiftOnDate(employee, dateKey) && !isEmployeeScheduledToHaveStartedByNow(employee, dateKey, todayDateKey, approvedLeavesByDate.get(dateKey) || [])))
@@ -1306,6 +1608,7 @@ export function AttendanceReportsBoard({
         presentCount,
         lateCount,
         incompleteCount,
+        outsideScheduleCount,
         holidayCount,
         absentCount,
         dayOffCount,
@@ -1315,6 +1618,7 @@ export function AttendanceReportsBoard({
     activeEmployees,
     approvedLeavesByDate,
     approvedLeaveEmployeeIdsByDate,
+    approvedOvertimeByDate,
     filteredEmployeeById,
     hasDailyShiftOnDate,
     hasFullRoster,
@@ -1363,9 +1667,15 @@ export function AttendanceReportsBoard({
       }
 
       if (record) {
-        if (record.isIncomplete) {
+        if (record.status === 'INCOMPLETE') {
           notes.push({ label: 'Incomplete', tone: 'incomplete' });
           tone ??= 'incomplete';
+        } else if (record.status === 'ABSENT') {
+          notes.push({ label: 'Absent', tone: 'absent' });
+          tone ??= 'absent';
+        } else if (record.status === 'OUTSIDE_SCHEDULE') {
+          notes.push({ label: 'Outside Schedule', tone: 'outside' });
+          tone ??= 'outside';
         } else if (record.isLate) {
           notes.push({ label: 'Late', tone: 'late' });
           tone ??= 'late';
@@ -1419,10 +1729,11 @@ export function AttendanceReportsBoard({
       logsByDate.get(selectedDateKey) ?? [],
       filteredEmployeeById,
       selectedDateKey,
-      groupLeavesByEmployee(approvedLeavesByDate.get(selectedDateKey) ?? []),
+      scheduledShiftsByEmployeeAndDate,
+      groupOvertimeByEmployee(approvedOvertimeByDate.get(selectedDateKey) ?? []),
       holidayDateSet
     );
-  }, [approvedLeavesByDate, filteredEmployeeById, holidayDateSet, logsByDate, selectedDateKey]);
+  }, [approvedLeavesByDate, approvedOvertimeByDate, filteredEmployeeById, holidayDateSet, logsByDate, scheduledShiftsByEmployeeAndDate, selectedDateKey]);
 
   const selectedIsFuture = useMemo(() => {
     return Boolean(selectedDateKey) && selectedDateKey > todayDateKey;
@@ -1447,12 +1758,16 @@ export function AttendanceReportsBoard({
 
   const selectedAbsent = useMemo(() => {
     if (!hasFullRoster || selectedIsFuture || !selectedIsWorkingDay || selectedIsHoliday) return [];
-    const loggedEmployeeIds = new Set(selectedRecords.map((record) => record.employeeId));
+    const recordByEmployeeId = new Map(selectedRecords.map((record) => [record.employeeId, record] as const));
     const leaveEmployeeIds = selectedDateKey ? approvedLeaveEmployeeIdsByDate.get(selectedDateKey) ?? new Set<number>() : new Set<number>();
     return activeEmployees
       .filter((employee) => hasDailyShiftOnDate(employee, selectedDateKey))
       .filter((employee) => isEmployeeScheduledToHaveStartedByNow(employee, selectedDateKey, todayDateKey, focusLeavesByDate.get(selectedDateKey) || []))
-      .filter((employee) => !loggedEmployeeIds.has(employee.id))
+      .filter((employee) => {
+        const record = recordByEmployeeId.get(employee.id);
+        if (!record) return true;
+        return record.status === 'ABSENT';
+      })
       .filter((employee) => !leaveEmployeeIds.has(employee.id))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [
@@ -1470,9 +1785,10 @@ export function AttendanceReportsBoard({
   ]);
 
   const selectedSummary = useMemo(() => {
-    const incomplete = selectedRecords.filter((record) => record.isIncomplete).length;
-    const late = selectedRecords.filter((record) => record.isLate && !record.isIncomplete).length;
-    const present = selectedRecords.filter((record) => !record.isLate && !record.isIncomplete).length;
+    const incomplete = selectedRecords.filter((record) => record.status === 'INCOMPLETE').length;
+    const late = selectedRecords.filter((record) => record.status === 'PRESENT' && record.isLate).length;
+    const present = selectedRecords.filter((record) => record.status === 'PRESENT' && !record.isLate).length;
+    const outsideSchedule = selectedRecords.filter((record) => record.status === 'OUTSIDE_SCHEDULE').length;
     const leaveEmployeeIds = selectedDateKey ? approvedLeaveEmployeeIdsByDate.get(selectedDateKey) ?? new Set<number>() : new Set<number>();
     const loggedEmployeeIds = new Set(selectedRecords.map((record) => record.employeeId));
     const holidayCount =
@@ -1489,6 +1805,7 @@ export function AttendanceReportsBoard({
       present,
       late,
       incomplete,
+      outsideSchedule,
       holiday: holidayCount,
       absent: hasFullRoster && !selectedIsFuture && selectedIsWorkingDay && !selectedIsHoliday ? selectedAbsent.length : 0,
       dayOff: !selectedIsWorkingDay ? dayOffCount : 0,
@@ -1597,46 +1914,197 @@ export function AttendanceReportsBoard({
         throw new Error('From date cannot be after To date.');
       }
 
-      // We fetch all logs for the range. 
-      // Note: backend might have size limits, but the existing code uses size: 5000.
-      const logResponse = await apiFetchJson<unknown>(
-        withParams(logsUrl, {
-          page: '0',
-          size: '10000', 
-          timestampAfter: fromDate.toISOString(),
-          timestampBefore: toDate.toISOString(),
-        })
+      const exportStart = new Date(exportFromDate);
+      exportStart.setDate(exportStart.getDate() - 1);
+      const exportDailyShiftStartKey = toISODate(
+        exportStart.getFullYear(),
+        exportStart.getMonth(),
+        exportStart.getDate()
       );
+      const exportLogEnd = new Date(`${exportToDate}T00:00:00`);
+      exportLogEnd.setDate(exportLogEnd.getDate() + 1);
+      exportLogEnd.setHours(NIGHT_SHIFT_REPORT_CUTOFF_HOUR, 0, 0, 0);
+
+      const [logResponse, leaveResponse, holidayResponse, dailyShiftResponse, overtimeResponse] = await Promise.all([
+        apiFetchJson<unknown>(
+          withParams(logsUrl, {
+            page: '0',
+            size: '10000',
+            timestampAfter: fromDate.toISOString(),
+            timestampBefore: exportLogEnd.toISOString(),
+          })
+        ),
+        apiFetchJson<unknown>(
+          withParams(leavesUrl, {
+            page: '0',
+            size: '4000',
+            requestStatus: 'APPROVED',
+            sort: 'requestId,desc',
+          })
+        ),
+        apiFetchJson<unknown>(
+          withParams('/api/holidays', {
+            startDate: exportFromDate,
+            endDate: exportToDate,
+          })
+        ),
+        apiFetchJson<unknown>(
+          withParams('/api/employee/schedule/daily', {
+            startDate: exportDailyShiftStartKey,
+            endDate: exportToDate,
+          })
+        ),
+        apiFetchJson<unknown>(
+          withParams(overtimeEndpoint, {
+            page: '0',
+            size: '4000',
+            requestStatus: 'APPROVED',
+          })
+        ),
+      ]);
 
       const exportLogs = toArray<AttendanceLog>(logResponse);
-      const overnightWindows = buildOvernightShiftWindows(dailyShifts, filteredEmployeeIdSet);
-
-      const rows: AttendanceExportRow[] = [];
-      const logsByRangeDate = new Map<string, AttendanceLog[]>();
+      const exportApprovedLeaves = toArray<LeaveRequest>(leaveResponse).filter((request) => {
+        const employeeId = Number(request.empId);
+        const startKey = localDateKey(request.startDateTime);
+        const endKey = localDateKey(request.endDateTime);
+        return (
+          Number.isFinite(employeeId) &&
+          filteredEmployeeIdSet.has(employeeId) &&
+          Boolean(startKey) &&
+          Boolean(endKey) &&
+          startKey <= exportToDate &&
+          endKey >= exportFromDate &&
+          String(request.requestStatus ?? '').toUpperCase() === 'APPROVED'
+        );
+      });
+      const exportHolidays = parseHolidayLookup(holidayResponse);
+      const exportHolidayDateSet = new Set(exportHolidays.holidayDates);
+      const exportDailyShifts = toArray<DailyShift>(dailyShiftResponse);
+      const exportApprovedOvertime = toArray<OvertimeRequest>(overtimeResponse).filter((request) => {
+        const employeeId = Number(request.employeeId);
+        const workDateKey = localDateKey(request.workDate);
+        return (
+          Number.isFinite(employeeId) &&
+          filteredEmployeeIdSet.has(employeeId) &&
+          Boolean(workDateKey) &&
+          workDateKey >= exportFromDate &&
+          workDateKey <= exportToDate &&
+          String(request.requestStatus ?? '').toUpperCase() === 'APPROVED'
+        );
+      });
+      const overnightWindows = buildOvernightShiftWindows(exportDailyShifts, filteredEmployeeIdSet);
+      const exportShiftIndexes = buildDailyShiftExportIndexes(exportDailyShifts, filteredEmployeeIdSet);
+      const exportOvertimeIndex = buildOvertimeExportIndex(exportApprovedOvertime, filteredEmployeeIdSet);
+      const exportLogsByDate = new Map<string, AttendanceLog[]>();
+      const exportApprovedLeavesByDate = new Map<string, LeaveRequest[]>();
+      const exportApprovedOvertimeByDate = new Map<string, OvertimeRequest[]>();
+      const exportApprovedLeaveEmployeeIdsByDate = new Map<string, Set<number>>();
 
       for (const log of exportLogs) {
         if (typeof log.employeeId !== 'number' || !filteredEmployeeIdSet.has(log.employeeId)) continue;
         const key = resolveAttendanceReportDateKey(log, overnightWindows);
         if (!key || key < exportFromDate || key > exportToDate) continue;
-        const current = logsByRangeDate.get(key) ?? [];
+        const current = exportLogsByDate.get(key) ?? [];
         current.push(log);
-        logsByRangeDate.set(key, current);
+        exportLogsByDate.set(key, current);
       }
 
-      for (const [dateKey, dayLogs] of logsByRangeDate.entries()) {
-        const dailyRecords = buildDailyRecords(dayLogs, filteredEmployeeById, dateKey);
-        rows.push(
-          ...dailyRecords.map((record) => ({
-            employeeId: String(record.employeeId),
-            employeeName: record.name,
-            date: dateKey,
-            timeIn: record.inTime ?? '',
-            timeOut: record.outTime ?? '',
-          }))
+      for (const request of exportApprovedLeaves) {
+        const employeeId = Number(request.empId);
+        const startKey = localDateKey(request.startDateTime);
+        const endKey = localDateKey(request.endDateTime);
+        if (!Number.isFinite(employeeId) || !startKey || !endKey) continue;
+
+        const rangeStart = startKey > exportFromDate ? startKey : exportFromDate;
+        const rangeEnd = endKey < exportToDate ? endKey : exportToDate;
+        for (const dateKey of dateKeysBetween(rangeStart, rangeEnd)) {
+          const current = exportApprovedLeavesByDate.get(dateKey) ?? [];
+          current.push(request);
+          exportApprovedLeavesByDate.set(dateKey, current);
+        }
+      }
+
+      for (const [dateKey, requests] of exportApprovedLeavesByDate.entries()) {
+        exportApprovedLeaveEmployeeIdsByDate.set(
+          dateKey,
+          new Set(
+            requests
+              .map((request) => Number(request.empId))
+              .filter((employeeId) => Number.isFinite(employeeId))
+          )
         );
       }
 
-      rows.sort((a, b) => {
+      for (const request of exportApprovedOvertime) {
+        const dateKey = localDateKey(request.workDate);
+        if (!dateKey) continue;
+        const current = exportApprovedOvertimeByDate.get(dateKey) ?? [];
+        current.push(request);
+        exportApprovedOvertimeByDate.set(dateKey, current);
+      }
+
+      const exportRecordsByDate = new Map<string, Map<number, DailyEmployeeRecord>>();
+      for (const dateKey of dateKeysBetween(exportFromDate, exportToDate)) {
+        const records = buildDailyRecords(
+          exportLogsByDate.get(dateKey) ?? [],
+          filteredEmployeeById,
+          dateKey,
+          exportShiftIndexes.dailyShiftsByEmployeeAndDate,
+          groupOvertimeByEmployee(exportApprovedOvertimeByDate.get(dateKey) ?? []),
+          exportHolidayDateSet
+        );
+        exportRecordsByDate.set(
+          dateKey,
+          new Map(records.map((record) => [record.employeeId, record]))
+        );
+      }
+
+      const detailRows: AttendanceExportRow[] = [];
+
+      for (const employee of activeEmployees) {
+        for (const dateKey of dateKeysBetween(exportFromDate, exportToDate)) {
+          if (!isEmployeeActiveOnDate(employee, dateKey)) continue;
+          if (exportHolidayDateSet.has(dateKey)) continue;
+          if (exportApprovedLeaveEmployeeIdsByDate.get(dateKey)?.has(employee.id)) continue;
+          const hasScheduledShift = hasDailyShiftOnDateForExport(exportShiftIndexes, employee, dateKey);
+          const hasApprovedOvertime = hasApprovedOvertimeOnDateForExport(exportOvertimeIndex, employee.id, dateKey);
+          if (isKnownDayOffOnDateForExport(exportShiftIndexes, employee, dateKey) && !hasApprovedOvertime) continue;
+          if (!hasScheduledShift && !hasApprovedOvertime) continue;
+
+          const record = exportRecordsByDate.get(dateKey)?.get(employee.id);
+          if (
+            !record &&
+            hasScheduledShift &&
+            !hasScheduledShiftStartedForExport(exportShiftIndexes, employee.id, dateKey, todayDateKey)
+          ) {
+            continue;
+          }
+
+          const status = classifyAttendanceExportStatus(record);
+          const scheduledWindow = hasScheduledShift
+            ? resolveScheduledWindowForExport(exportShiftIndexes, employee.id, dateKey)
+            : resolveOvertimeWindowForExport(exportOvertimeIndex, employee.id, dateKey);
+          detailRows.push({
+            employeeId: String(employee.id),
+            employeeName: employee.name,
+            date: dateKey,
+            timeIn: record?.inTime ?? '',
+            timeOut: record?.outTime ?? '',
+            department: resolveDepartmentLabel(employee),
+            position: employee.position,
+            scheduledStart: scheduledWindow.start,
+            scheduledEnd: scheduledWindow.end,
+            status,
+            late: record?.isLate ? 'YES' : 'NO',
+            earlyOut: record?.isEarlyOut ? 'YES' : 'NO',
+            lateMinutes: String(record?.lateMinutes ?? 0),
+            earlyOutMinutes: String(record?.earlyOutMinutes ?? 0),
+          });
+        }
+      }
+
+      detailRows.sort((a, b) => {
         const aId = Number(a.employeeId);
         const bId = Number(b.employeeId);
         if (Number.isFinite(aId) && Number.isFinite(bId) && aId !== bId) return aId - bId;
@@ -1645,9 +2113,153 @@ export function AttendanceReportsBoard({
         return a.date.localeCompare(b.date);
       });
 
+      const summaryByEmployee = new Map<string, AttendanceExportSummaryRow>();
+      for (const row of detailRows) {
+        const current = summaryByEmployee.get(row.employeeId) ?? {
+          employeeId: row.employeeId,
+          employeeName: row.employeeName,
+          department: row.department,
+          position: row.position,
+          evaluatedDays: 0,
+          presentDays: 0,
+          lateDays: 0,
+          earlyOutDays: 0,
+          incompleteDays: 0,
+          absentDays: 0,
+          outsideScheduleDays: 0,
+          totalLateMinutes: 0,
+          totalEarlyOutMinutes: 0,
+        };
+
+        current.evaluatedDays += 1;
+        if (row.status === 'PRESENT') {
+          current.presentDays += 1;
+          if (row.late === 'YES') current.lateDays += 1;
+          if (row.earlyOut === 'YES') current.earlyOutDays += 1;
+          current.totalLateMinutes += Number(row.lateMinutes) || 0;
+          current.totalEarlyOutMinutes += Number(row.earlyOutMinutes) || 0;
+        } else if (row.status === 'INCOMPLETE') {
+          current.incompleteDays += 1;
+        } else if (row.status === 'ABSENT') {
+          current.absentDays += 1;
+        } else if (row.status === 'OUTSIDE_SCHEDULE') {
+          current.outsideScheduleDays += 1;
+        }
+        summaryByEmployee.set(row.employeeId, current);
+      }
+
+      const summaryRows = [...summaryByEmployee.values()].sort((a, b) => {
+        const aId = Number(a.employeeId);
+        const bId = Number(b.employeeId);
+        if (Number.isFinite(aId) && Number.isFinite(bId) && aId !== bId) return aId - bId;
+        return a.employeeName.localeCompare(b.employeeName);
+      });
+
+      const totals = summaryRows.reduce(
+        (current, row) => ({
+          evaluatedDays: current.evaluatedDays + row.evaluatedDays,
+          presentDays: current.presentDays + row.presentDays,
+          lateDays: current.lateDays + row.lateDays,
+          earlyOutDays: current.earlyOutDays + row.earlyOutDays,
+          incompleteDays: current.incompleteDays + row.incompleteDays,
+          absentDays: current.absentDays + row.absentDays,
+          outsideScheduleDays: current.outsideScheduleDays + row.outsideScheduleDays,
+          totalLateMinutes: current.totalLateMinutes + row.totalLateMinutes,
+          totalEarlyOutMinutes: current.totalEarlyOutMinutes + row.totalEarlyOutMinutes,
+        }),
+        {
+          evaluatedDays: 0,
+          presentDays: 0,
+          lateDays: 0,
+          earlyOutDays: 0,
+          incompleteDays: 0,
+          absentDays: 0,
+          outsideScheduleDays: 0,
+          totalLateMinutes: 0,
+          totalEarlyOutMinutes: 0,
+        }
+      );
+
       const csv = buildCsvContent([
-        ['Employee ID', 'Employee Name', 'Date', 'Time In', 'Time Out'],
-        ...rows.map((row) => [row.employeeId, row.employeeName, row.date, row.timeIn, row.timeOut]),
+        [ATTENDANCE_SUMMARY_MARKER],
+        [
+          'Employee ID',
+          'Employee Name',
+          'Department',
+          'Position',
+          'Evaluated Days',
+          'Present Days',
+          'Late Days',
+          'Early Out Days',
+          'Incomplete Days',
+          'Absent Days',
+          'Outside Schedule Days',
+          'Total Late Minutes',
+          'Total Early Out Minutes',
+        ],
+        ...summaryRows.map((row) => [
+          row.employeeId,
+          row.employeeName,
+          row.department,
+          row.position,
+          String(row.evaluatedDays),
+          String(row.presentDays),
+          String(row.lateDays),
+          String(row.earlyOutDays),
+          String(row.incompleteDays),
+          String(row.absentDays),
+          String(row.outsideScheduleDays),
+          String(row.totalLateMinutes),
+          String(row.totalEarlyOutMinutes),
+        ]),
+        [
+          'TOTAL',
+          '',
+          '',
+          '',
+          String(totals.evaluatedDays),
+          String(totals.presentDays),
+          String(totals.lateDays),
+          String(totals.earlyOutDays),
+          String(totals.incompleteDays),
+          String(totals.absentDays),
+          String(totals.outsideScheduleDays),
+          String(totals.totalLateMinutes),
+          String(totals.totalEarlyOutMinutes),
+        ],
+        [],
+        [
+          'Employee ID',
+          'Employee Name',
+          'Date',
+          'Time In',
+          'Time Out',
+          'Department',
+          'Position',
+          'Scheduled Start',
+          'Scheduled End',
+          'Status',
+          'Late',
+          'Early Out',
+          'Late Minutes',
+          'Early Out Minutes',
+        ],
+        ...detailRows.map((row) => [
+          row.employeeId,
+          row.employeeName,
+          row.date,
+          row.timeIn,
+          row.timeOut,
+          row.department,
+          row.position,
+          row.scheduledStart,
+          row.scheduledEnd,
+          row.status,
+          row.late,
+          row.earlyOut,
+          row.lateMinutes,
+          row.earlyOutMinutes,
+        ]),
       ]);
 
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -1713,9 +2325,7 @@ export function AttendanceReportsBoard({
           <div className="uFilter" ref={filterRef}>
             <button
               type="button"
-              className={`uFilter__toggle ${filterOpen ? 'is-open' : ''} ${
-                activeFilterCount > 0 ? 'is-active' : ''
-              }`}
+              className={`uFilter__toggle ${filterOpen ? 'is-open' : ''} ${activeFilterCount > 0 ? 'is-active' : ''}`}
               onClick={() => {
                 setFilterOpen((open) => !open);
                 setActionMenuOpen(false);
@@ -1853,7 +2463,6 @@ export function AttendanceReportsBoard({
               <div className="hrAttCalendarShell__focusMeta">
                 <span>{focusedEmployee.position}</span>
                 <span>{focusedDepartment}</span>
-                {isFocusDataLoading && audienceLabel === 'HR' ? <span>Loading leave and OT markers...</span> : null}
               </div>
             </div>
           )}
@@ -1963,7 +2572,12 @@ export function AttendanceReportsBoard({
                     const showIndicators = showAttendanceIndicators || showHolidayIndicator;
                     const hasAttention =
                       showAttendanceIndicators &&
-                      (cell.lateCount > 0 || cell.incompleteCount > 0 || (cell.absentCount ?? 0) > 0);
+                      (
+                        cell.lateCount > 0 ||
+                        cell.incompleteCount > 0 ||
+                        cell.outsideScheduleCount > 0 ||
+                        (cell.absentCount ?? 0) > 0
+                      );
                     const cellClass = [
                       'hrCal__cell',
                       'hrCal__cell--click',
@@ -2008,6 +2622,12 @@ export function AttendanceReportsBoard({
                                 <strong>{cell.incompleteCount}</strong>
                               </div>
                             )}
+                            {showAttendanceIndicators && cell.outsideScheduleCount > 0 && (
+                              <div className="hrCal__stat hrCal__stat--outside">
+                                <span>Outside Schedule</span>
+                                <strong>{cell.outsideScheduleCount}</strong>
+                              </div>
+                            )}
                             {showHolidayIndicator && (
                               <div className="hrCal__stat hrCal__stat--holiday">
                                 <span>Holiday</span>
@@ -2046,7 +2666,8 @@ export function AttendanceReportsBoard({
                   {' '}
                   <strong>Employee ID, Employee Name, Date, Time In, Time Out</strong>
                   {' '}
-                  and treats a
+                  as the leading columns, allows extra export columns, and ignores the trailing summary section.
+                  It also treats a
                   {' '}
                   <strong>Time Out</strong>
                   {' '}
@@ -2187,6 +2808,10 @@ export function AttendanceReportsBoard({
                 <strong>{selectedSummary.incomplete}</strong>
               </article>
               <article className="hrAttSummary__card">
+                <span>Outside Schedule</span>
+                <strong>{selectedSummary.outsideSchedule}</strong>
+              </article>
+              <article className="hrAttSummary__card">
                 <span>
                   {hasFullRoster
                     ? selectedIsHoliday
@@ -2239,7 +2864,7 @@ export function AttendanceReportsBoard({
                                 <div className="hrAttPerson__chips">
                                   <span className="hrAttPerson__chip">Employee #{record.employeeId}</span>
                                   <span className="hrAttPerson__chip">{record.position}</span>
-                                  <span className="hrAttPerson__chip">{record.status}</span>
+                                  <span className="hrAttPerson__chip">{humanizeEnum(record.status) || record.status}</span>
                                 </div>
                               </div>
                               <div className="hrAttPerson__badgeWrap">
