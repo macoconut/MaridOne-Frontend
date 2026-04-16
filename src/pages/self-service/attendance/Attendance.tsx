@@ -107,6 +107,11 @@ type LeaveBalanceRow = {
   leaveType?: LeaveType | string;
 };
 
+type LeaveShiftWindow = {
+  start: Date;
+  end: Date;
+};
+
 const LEAVE_UPLOAD_SUBDIR = 'leave-request';
 const OVERTIME_UPLOAD_SUBDIR = 'overtime-request';
 const NON_SICK_LEAVE_NOTICE_DAYS = 7;
@@ -212,6 +217,89 @@ function normalizeTimeValue(value?: string) {
   if (!value) return '';
   const match = value.match(/^(\d{2}:\d{2})/);
   return match?.[1] ?? value;
+}
+
+function buildTemplateShiftWindow(dateKey: string, schedule: ShiftScheduleRow) {
+  const startTime = normalizeTimeValue(schedule.startTime);
+  const endTime = normalizeTimeValue(schedule.endTime);
+  if (!startTime || !endTime) return null;
+
+  const start = buildDateTime(dateKey, startTime);
+  const end = buildDateTime(endTime > startTime ? dateKey : addDays(dateKey, 1), endTime);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+    return null;
+  }
+
+  return { start, end } satisfies LeaveShiftWindow;
+}
+
+function buildDailyShiftWindow(shift: DailyShiftRow) {
+  if (!shift.startDateTime || !shift.endDateTime) return null;
+
+  const start = new Date(shift.startDateTime);
+  const end = new Date(shift.endDateTime);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+    return null;
+  }
+
+  return { start, end } satisfies LeaveShiftWindow;
+}
+
+function resolveEffectiveLeaveShiftWindows(
+  dateKey: string,
+  shiftSchedule: ShiftScheduleRow[],
+  dailyShiftScheduleByDate: Map<string, DailyShiftRow[]>
+) {
+  const dailyRows = dailyShiftScheduleByDate.get(dateKey) ?? [];
+  if (dailyRows.length > 0) {
+    if (dailyRows.some((shift) => shift.dayOff)) {
+      return [] as LeaveShiftWindow[];
+    }
+
+    return dailyRows
+      .map((shift) => buildDailyShiftWindow(shift))
+      .filter((window): window is LeaveShiftWindow => window !== null)
+      .sort((left, right) => left.start.getTime() - right.start.getTime());
+  }
+
+  const templateShift = shiftSchedule.find((schedule) => schedule.dayOfWeek === resolveDayOfWeek(dateKey));
+  if (!templateShift) return [] as LeaveShiftWindow[];
+
+  const templateWindow = buildTemplateShiftWindow(dateKey, templateShift);
+  return templateWindow ? [templateWindow] : [];
+}
+
+function calculateShiftAwareLeaveHours(
+  startDate: string,
+  startTime: string,
+  endDate: string,
+  endTime: string,
+  shiftSchedule: ShiftScheduleRow[],
+  dailyShiftScheduleByDate: Map<string, DailyShiftRow[]>
+) {
+  if (!startDate || !startTime || !endDate || !endTime) return 0;
+
+  const requestStart = buildDateTime(startDate, startTime);
+  const requestEnd = buildDateTime(endDate, endTime);
+  if (Number.isNaN(requestStart.getTime()) || Number.isNaN(requestEnd.getTime()) || requestEnd <= requestStart) {
+    return 0;
+  }
+
+  return dateKeysBetween(startDate, endDate).reduce((sum, dateKey) => {
+    const overlappedHours = resolveEffectiveLeaveShiftWindows(dateKey, shiftSchedule, dailyShiftScheduleByDate)
+      .reduce((daySum, window) => {
+        const overlapStart = new Date(Math.max(window.start.getTime(), requestStart.getTime()));
+        const overlapEnd = new Date(Math.min(window.end.getTime(), requestEnd.getTime()));
+        if (overlapEnd <= overlapStart) {
+          return daySum;
+        }
+
+        const rawHours = (overlapEnd.getTime() - overlapStart.getTime()) / (1000 * 60 * 60);
+        return daySum + (rawHours > 5 ? rawHours - 1 : rawHours);
+      }, 0);
+
+    return sum + overlappedHours;
+  }, 0);
 }
 
 function requiresAdvanceLeaveNotice(leaveType: LeaveType | string) {
@@ -454,6 +542,7 @@ export default function Attendance() {
   const [attendanceByDate, setAttendanceByDate] = useState<Record<string, AttendanceSession[]>>({});
   const [shiftSchedule, setShiftSchedule] = useState<ShiftScheduleRow[]>([]);
   const [dailyShiftSchedule, setDailyShiftSchedule] = useState<DailyShiftRow[]>([]);
+  const [leaveDailyShiftSchedule, setLeaveDailyShiftSchedule] = useState<DailyShiftRow[]>([]);
   const [scheduleWeekStatus, setScheduleWeekStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [leaveBalances, setLeaveBalances] = useState<LeaveBalanceRow[]>([]);
   const [leaveBalanceStatus, setLeaveBalanceStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
@@ -610,6 +699,7 @@ export default function Attendance() {
             setAttendanceByDate({});
             setShiftSchedule([]);
             setDailyShiftSchedule([]);
+            setLeaveDailyShiftSchedule([]);
             setLeaveBalances([]);
             setLatestAttendanceDirection(null);
             setLeaveBalanceStatus('unavailable');
@@ -658,6 +748,7 @@ export default function Attendance() {
           setLeaveBalanceStatus(leaveBalanceResponse.status);
         } else {
           setDailyShiftSchedule([]);
+          setLeaveDailyShiftSchedule([]);
           setLeaveBalances([]);
           setLeaveBalanceStatus('unavailable');
           setScheduleWeekStatus('unavailable');
@@ -669,6 +760,7 @@ export default function Attendance() {
         setAttendanceByDate({});
         setShiftSchedule([]);
         setDailyShiftSchedule([]);
+        setLeaveDailyShiftSchedule([]);
         setLeaveBalances([]);
         setLatestAttendanceDirection(null);
         setLeaveBalanceStatus('unavailable');
@@ -713,6 +805,33 @@ export default function Attendance() {
       cancelled = true;
     };
   }, [employeeId, refreshTick, selectedScheduleWeekStart]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      if (!leaveOpen || !employeeId || !startDate || !endDate || endDate < startDate) {
+        setLeaveDailyShiftSchedule([]);
+        return;
+      }
+
+      try {
+        const response = await apiFetchJson<unknown>(
+          `/api/employee/schedule/daily/${employeeId}?startDate=${startDate}&endDate=${endDate}`
+        );
+
+        if (cancelled) return;
+        setLeaveDailyShiftSchedule(toArray<DailyShiftRow>(response));
+      } catch {
+        if (cancelled) return;
+        setLeaveDailyShiftSchedule([]);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [employeeId, endDate, leaveOpen, startDate]);
 
   useEffect(() => {
     if (!otStartDate) return;
@@ -795,6 +914,21 @@ export default function Attendance() {
     }
     return next;
   }, [dailyShiftSchedule]);
+
+  const leaveDailyShiftScheduleByDate = useMemo(() => {
+    const next = new Map<string, DailyShiftRow[]>();
+    for (const shift of leaveDailyShiftSchedule) {
+      if (typeof shift.workDate !== 'string' || shift.workDate.length === 0) continue;
+      const dateKey = shift.workDate.slice(0, 10);
+      const current = next.get(dateKey);
+      if (current) {
+        current.push(shift);
+      } else {
+        next.set(dateKey, [shift]);
+      }
+    }
+    return next;
+  }, [leaveDailyShiftSchedule]);
 
   const weekScheduleRows = useMemo(() => {
     return buildWeekDateKeys(selectedScheduleWeekStart).map((dateKey) => {
@@ -1308,20 +1442,20 @@ export default function Attendance() {
     return true;
   }
 
-  function calculateRequestedHours(start: string, startTime: string, end: string, endTime: string) {
-    const startDateTime = new Date(`${start}T${startTime}:00`);
-    const endDateTime = new Date(`${end}T${endTime}:00`);
-    const diffMs = endDateTime.getTime() - startDateTime.getTime();
-    return Math.max(0, diffMs / (1000 * 60 * 60));
-  }
-
   useEffect(() => {
     if (!leaveOpen || !selectedLeaveBalance) {
       setLeaveBalanceWarning(null);
       return;
     }
 
-    const requestedHours = calculateRequestedHours(startDate, startTime, endDate, endTime);
+    const requestedHours = calculateShiftAwareLeaveHours(
+      startDate,
+      startTime,
+      endDate,
+      endTime,
+      shiftSchedule,
+      leaveDailyShiftScheduleByDate
+    );
     const availableHours = parseBalanceHours(selectedLeaveBalance.balanceHours) ?? 0;
 
     if (requestedHours > availableHours) {
@@ -1331,7 +1465,7 @@ export default function Attendance() {
     } else {
       setLeaveBalanceWarning(null);
     }
-  }, [startDate, startTime, endDate, endTime, leaveOpen, selectedLeaveBalance]);
+  }, [endDate, endTime, leaveDailyShiftScheduleByDate, leaveOpen, selectedLeaveBalance, shiftSchedule, startDate, startTime]);
 
   function requestLeaveConfirmation() {
     if (!validateLeaveForm()) return;
