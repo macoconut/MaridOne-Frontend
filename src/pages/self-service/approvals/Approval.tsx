@@ -11,6 +11,7 @@ import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
+import { getManilaNow } from '../../../lib/manilaTime';
 import { getUserEmail } from '../../../lib/session';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './Approval.css';
@@ -41,6 +42,8 @@ type ApprovalItem = {
   managerApprover?: string;
   managerDecisionReason?: string;
   managerDecisionDate?: string;
+  rawWorkDate?: string;
+  rawStartTime?: string;
 };
 
 type ApprovalTypeFilter = 'all' | 'Leave' | 'Overtime' | 'Payslip Dispute';
@@ -203,6 +206,55 @@ function buildPayrollPeriodLabel(start?: string, end?: string) {
   return startLabel === endLabel ? startLabel : `${startLabel} to ${endLabel}`;
 }
 
+function parseDateParts(value?: string) {
+  if (!value) return null;
+
+  const match = value.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    const [, yearText, monthText, dayText] = match;
+    const year = Number(yearText);
+    const month = Number(monthText);
+    const day = Number(dayText);
+    if ([year, month, day].every(Number.isFinite)) {
+      return { year, month, day };
+    }
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return {
+    year: parsed.getFullYear(),
+    month: parsed.getMonth() + 1,
+    day: parsed.getDate(),
+  };
+}
+
+function parseTimeParts(value?: string) {
+  if (!value) return null;
+  const match = value.match(/(\d{2}):(\d{2})/);
+  if (!match) return null;
+
+  const [, hourText, minuteText] = match;
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+  return { hour, minute };
+}
+
+function getOvertimeStartStamp(item: ApprovalItem) {
+  const dateParts = parseDateParts(item.rawWorkDate);
+  const timeParts = parseTimeParts(item.rawStartTime);
+  if (!dateParts || !timeParts) return null;
+
+  return Date.UTC(
+    dateParts.year,
+    dateParts.month - 1,
+    dateParts.day,
+    timeParts.hour,
+    timeParts.minute
+  );
+}
+
 function mapApprovalStatus(status?: string): ApprovalStatus {
   const normalized = String(status ?? '').toUpperCase();
   if (normalized === 'PENDING_HR') return 'Pending HR Review';
@@ -245,7 +297,35 @@ export default function Approval() {
     () => approvals.find((item) => item.id === selectedApprovalId) ?? null,
     [approvals, selectedApprovalId]
   );
-  const canCancelSelected = selectedApproval?.status.startsWith('Pending');
+  const canCancelSelected = useMemo(() => {
+    if (!selectedApproval) return false;
+    const isPending = selectedApproval.status.toLowerCase().startsWith('pending');
+    const isApproved = selectedApproval.status.toLowerCase() === 'approved';
+    if (!isPending && !isApproved) return false;
+
+    const now = new Date();
+    if (selectedApproval.source === 'leave') {
+      const startDate = new Date(selectedApproval.dateOfRequest);
+      const deadline = new Date(startDate);
+      deadline.setDate(deadline.getDate() - 2);
+      return now < deadline;
+    } else if (selectedApproval.source === 'overtime') {
+      const otStartStamp = getOvertimeStartStamp(selectedApproval);
+      if (otStartStamp == null) return false;
+
+      const manilaNow = getManilaNow();
+      const nowStamp = Date.UTC(
+        manilaNow.year,
+        manilaNow.month - 1,
+        manilaNow.day,
+        manilaNow.hour,
+        manilaNow.minute
+      );
+
+      return otStartStamp - nowStamp > 60 * 60 * 1000;
+    }
+    return true;
+  }, [selectedApproval]);
 
   useEffect(() => {
     if (selectedApproval) document.body.classList.add('modal-open');
@@ -380,6 +460,8 @@ export default function Approval() {
           requestType: 'Overtime',
           requestDetail: buildOvertimeDetail(row.overtimeType, row.paid),
           requestTarget: workDateStr,
+          rawWorkDate: row.workDate,
+          rawStartTime: row.startTime,
           durationLabel: formatClockWindow(row.startTime, row.endTime),
           status,
           approvedBy: status.startsWith('Pending') ? '-' : status === 'Cancelled' ? '-' : row.approver ?? '-',
@@ -778,8 +860,8 @@ export default function Approval() {
         title="Cancel Request"
         message={
           selectedApproval
-            ? `Cancel your pending ${selectedApproval.requestType.toLowerCase()} request for ${selectedApproval.requestTarget}?`
-            : 'Cancel this pending request?'
+            ? `Cancel your ${selectedApproval.status.toLowerCase()} ${selectedApproval.requestType.toLowerCase()} request for ${selectedApproval.requestTarget}?`
+            : 'Cancel this request?'
         }
         confirmLabel="Cancel Request"
         cancelLabel="Go Back"

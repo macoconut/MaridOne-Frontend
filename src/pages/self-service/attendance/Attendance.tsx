@@ -203,7 +203,9 @@ function buildWeekDateKeys(weekStart: string) {
 }
 
 function buildDateTime(dateValue: string, timeValue: string) {
-  return new Date(`${dateValue}T${timeValue}:00`);
+  const [year, month, day] = dateValue.split('-').map(Number);
+  const [hour, minute] = timeValue.split(':').map(Number);
+  return new Date(year, month - 1, day, hour, minute);
 }
 
 function normalizeTimeValue(value?: string) {
@@ -446,6 +448,7 @@ export default function Attendance() {
   const [isLeaveSubmitting, setIsLeaveSubmitting] = useState(false);
   const [isOtSubmitting, setIsOtSubmitting] = useState(false);
   const [leaveSubmitAttempted, setLeaveSubmitAttempted] = useState(false);
+  const [leaveBalanceWarning, setLeaveBalanceWarning] = useState<string | null>(null);
   const [employeeId, setEmployeeId] = useState<number | null>(null);
   const [requestEntries, setRequestEntries] = useState<RequestEntry[]>([]);
   const [attendanceByDate, setAttendanceByDate] = useState<Record<string, AttendanceSession[]>>({});
@@ -583,7 +586,7 @@ export default function Attendance() {
 
   useEffect(() => {
     setMonthValue(monthLabel);
-  }, [monthLabel]);
+  }, [monthLabel, monthIndex]);
 
   useEffect(() => {
     const manila = getManilaNow();
@@ -926,20 +929,19 @@ export default function Attendance() {
   
   const resolveShiftTimes = (dateKey: string) => {
     const dailyShift = dailyShiftScheduleByDate.get(dateKey);
-    if (dailyShift && !dailyShift.dayOff && dailyShift.startDateTime && dailyShift.endDateTime) {
-      return {
-        start: dailyShift.startDateTime.slice(11, 16),
-        end: dailyShift.endDateTime.slice(11, 16),
-      };
-    }
-    const templateShift = shiftSchedule.find((s) => s.dayOfWeek === resolveDayOfWeek(dateKey));
-    if (templateShift) {
-      return {
-        start: normalizeTimeValue(templateShift.startTime),
-        end: normalizeTimeValue(templateShift.endTime),
-      };
-    }
-    return { start: '08:00', end: '17:00' };
+    const shiftEnd = (dailyShift && !dailyShift.dayOff && dailyShift.endDateTime)
+      ? dailyShift.endDateTime.slice(11, 16)
+      : (shiftSchedule.find((s) => s.dayOfWeek === resolveDayOfWeek(dateKey))?.endTime ?? '17:00');
+
+    const [h, m] = shiftEnd.split(':').map(Number);
+    const date = new Date();
+    date.setHours(h, m);
+    const end = new Date(date.getTime() + 3 * 60 * 60 * 1000);
+    
+    return {
+      start: shiftEnd,
+      end: `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`
+    };
   };
 
   function openLeaveForToday() {
@@ -1148,7 +1150,13 @@ export default function Attendance() {
 
     const requestStart = buildDateTime(otStartDate, otStartTime);
     const requestEnd = buildDateTime(otEndDate, otEndTime);
-    if (Number.isNaN(requestStart.getTime()) || Number.isNaN(requestEnd.getTime()) || requestEnd <= requestStart) {
+    console.log('OT Validation Debug:', { 
+      otStartDate, otStartTime, otEndDate, otEndTime, 
+      requestStart: requestStart.toISOString(), 
+      requestEnd: requestEnd.toISOString(),
+      isBefore: requestEnd < requestStart 
+    });
+    if (Number.isNaN(requestStart.getTime()) || Number.isNaN(requestEnd.getTime()) || requestEnd < requestStart) {
       setOtSubmitError('End date and time must be later than the start date and time.');
       return false;
     }
@@ -1186,9 +1194,10 @@ export default function Attendance() {
     }
     setConfirmOtSubmit(false);
     setIsOtSubmitting(true);
+    showLoading();
 
-    const startDateTime = `${otStartDate}T${otStartTime}:00`;
-    const endDateTime = `${otEndDate}T${otEndTime}:00`;
+    const startDateTime = `${otStartDate}T${otStartTime}`;
+    const endDateTime = `${otEndDate}T${otEndTime}`;
 
     try {
       let attachmentRef: number | null = null;
@@ -1229,6 +1238,7 @@ export default function Attendance() {
       setOtSubmitError(getFriendlyErrorMessage(error, 'overtime-request'));
     } finally {
       setIsOtSubmitting(false);
+      hideLoading();
     }
   }
 
@@ -1297,6 +1307,31 @@ export default function Attendance() {
 
     return true;
   }
+
+  function calculateRequestedHours(start: string, startTime: string, end: string, endTime: string) {
+    const startDateTime = new Date(`${start}T${startTime}:00`);
+    const endDateTime = new Date(`${end}T${endTime}:00`);
+    const diffMs = endDateTime.getTime() - startDateTime.getTime();
+    return Math.max(0, diffMs / (1000 * 60 * 60));
+  }
+
+  useEffect(() => {
+    if (!leaveOpen || !selectedLeaveBalance) {
+      setLeaveBalanceWarning(null);
+      return;
+    }
+
+    const requestedHours = calculateRequestedHours(startDate, startTime, endDate, endTime);
+    const availableHours = parseBalanceHours(selectedLeaveBalance.balanceHours) ?? 0;
+
+    if (requestedHours > availableHours) {
+      setLeaveBalanceWarning(
+        `Warning: The requested duration of ${requestedHours.toFixed(1)} hours exceeds your available balance of ${availableHours.toFixed(1)} hours.`
+      );
+    } else {
+      setLeaveBalanceWarning(null);
+    }
+  }, [startDate, startTime, endDate, endTime, leaveOpen, selectedLeaveBalance]);
 
   function requestLeaveConfirmation() {
     if (!validateLeaveForm()) return;
@@ -1750,6 +1785,7 @@ export default function Attendance() {
                   <select
                     className="input"
                     value={otType}
+                    disabled={isOtSubmitting}
                     onChange={(e) => setOtType(e.target.value as OvertimeType)}
                   >
                     <option value="OVERTIME">Overtime</option>
@@ -1772,18 +1808,29 @@ export default function Attendance() {
                         type="date"
                         value={otStartDate}
                         min={todayKey}
+                        disabled={isOtSubmitting}
                         aria-invalid={isOtStartDateInvalid ? 'true' : undefined}
-                        onChange={(e) => setOtStartDate(e.target.value)}
-                      />
+                        onChange={(e) => {
+                          setOtStartDate(e.target.value);
+                          const times = resolveShiftTimes(e.target.value);
+                          setOtStartTime(times.start);
+                          setOtEndTime(times.end);
+                        }}                      />
                       <FiCalendar className="inputIcon__icon" />
                     </div>
                     <div className="inputIcon">
                       <input
                         type="time"
                         value={otStartTime}
+                        disabled={isOtSubmitting}
                         aria-invalid={isOtStartTimeInvalid ? 'true' : undefined}
-                        onChange={(e) => setOtStartTime(e.target.value)}
-                      />
+                        onChange={(e) => {
+                          setOtStartTime(e.target.value);
+                          const [h, m] = e.target.value.split(':').map(Number);
+                          const date = new Date();
+                          date.setHours(h + 3, m);
+                          setOtEndTime(`${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`);
+                        }}                      />
                       <FiClock className="inputIcon__icon" />
                     </div>
                   </div>
@@ -1798,6 +1845,7 @@ export default function Attendance() {
                         value={otEndDate}
                         min={otStartDate || todayKey}
                         max={maxOtEndDate || undefined}
+                        disabled={isOtSubmitting}
                         aria-invalid={isOtEndDateInvalid ? 'true' : undefined}
                         onChange={(e) => setOtEndDate(e.target.value)}
                       />
@@ -1808,6 +1856,7 @@ export default function Attendance() {
                         type="time"
                         value={otEndTime}
                         max={isOtNextDay ? '06:00' : undefined}
+                        disabled={isOtSubmitting}
                         aria-invalid={isOtEndTimeInvalid ? 'true' : undefined}
                         onChange={(e) => setOtEndTime(e.target.value)}
                       />
@@ -1821,6 +1870,7 @@ export default function Attendance() {
                   <textarea
                     placeholder="Describe the work that requires overtime."
                     value={otReason}
+                    disabled={isOtSubmitting}
                     aria-invalid={isOtReasonInvalid ? 'true' : undefined}
                     onChange={(e) => setOtReason(e.target.value)}
                   />
@@ -1831,6 +1881,7 @@ export default function Attendance() {
                     label="Supporting Documents (Optional)"
                     hint="Attach schedules, work orders, or supporting proof only when they help explain this overtime request."
                     file={otFile}
+                    disabled={isOtSubmitting}
                     onChange={setOtFile}
                     emptyLabel="Optional attachment"
                   />
@@ -1842,11 +1893,12 @@ export default function Attendance() {
                     variant="ghost"
                     type="button"
                     icon={<FiXCircle />}
+                    disabled={isOtSubmitting}
                     onClick={overtimeUnsavedPrompt.requestClose}
                   >
                     Cancel
                   </ActionButton>
-                  <ActionButton type="button" icon={<FiCheckCircle />} onClick={requestOtConfirmation} >
+                  <ActionButton type="button" icon={<FiCheckCircle />} disabled={isOtSubmitting} onClick={requestOtConfirmation} >
                     {isOtSubmitting ? 'Submitting...' : 'Submit'}
                   </ActionButton>
                 </div>
@@ -1975,10 +2027,12 @@ export default function Attendance() {
       />
       <ConfirmDialog
         open={confirmLeaveSubmit}
-        title="Confirm Leave Request"
-        message={`Submit this ${leaveType.replaceAll('_', ' ').toLowerCase()} request from ${formatDisplayDate(
+        title={leaveBalanceWarning ? "Insufficient Balance" : "Confirm Leave Request"}
+        message={`${
+          leaveBalanceWarning ? `${leaveBalanceWarning} Are you sure you want to proceed? ` : `Submit this ${leaveType.replaceAll('_', ' ').toLowerCase()} request from ${formatDisplayDate(
           startDate
-        )} ${formatDisplayTime(startTime)} to ${formatDisplayDate(endDate)} ${formatDisplayTime(endTime)}?`}
+        )} ${formatDisplayTime(startTime)} to ${formatDisplayDate(endDate)} ${formatDisplayTime(endTime)}?`
+        }`}
         confirmLabel="Submit Leave Request"
         cancelLabel="Go Back"
         onConfirm={() => void submitLeave()}
