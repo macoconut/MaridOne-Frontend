@@ -212,6 +212,8 @@ type TimeWindow = {
   endMs: number;
 };
 
+type AttendanceScheduleWindow = Pick<DailyShift, 'startDateTime' | 'endDateTime' | 'dayOff'>;
+
 const DAYS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
 const BASE_LEGEND_ITEMS: Array<{ label: string; tone: EmployeeCalendarTone }> = [
   { label: 'Present', tone: 'present' },
@@ -276,7 +278,7 @@ function localTimeLabel(value?: string) {
 
 function parseTimeToMinutes(value?: string) {
   if (!value) return null;
-  const match = value.trim().match(/^(\d{1,2}):(\d{2})(?:\s*([AaPp][Mm]))?$/);
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?(?:\s*([AaPp][Mm]))?$/);
   if (!match) return null;
 
   let hours = Number(match[1]);
@@ -297,6 +299,12 @@ function parseDateTimeToMinutes(value?: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
   return date.getHours() * 60 + date.getMinutes();
+}
+
+function formatLocalDateTime(dateKey: string, totalMinutes: number) {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${dateKey}T${pad2(hours)}:${pad2(minutes)}:00`;
 }
 
 function isEmployeeScheduledOnDate(employee: EmployeeRow | undefined, dateKey?: string) {
@@ -360,7 +368,7 @@ function groupOvertimeByEmployee(requests: OvertimeRequest[]) {
 
 function resolveOutsideScheduleStatus(
   logs: AttendanceLog[],
-  scheduledShifts: DailyShift[],
+  scheduledShifts: AttendanceScheduleWindow[],
   overtimeRequests: OvertimeRequest[],
   evaluation: ReturnType<typeof evaluateDailyAttendanceCoverage>
 ) {
@@ -510,7 +518,7 @@ function buildAttendanceSessions(logs: AttendanceLog[]) {
   return sessions;
 }
 
-function buildDailyShiftWindows(shifts: DailyShift[]) {
+function buildDailyShiftWindows(shifts: AttendanceScheduleWindow[]) {
   return shifts
     .filter((shift) => shift.dayOff !== true)
     .map((shift) => normalizeTimeWindow(shift.startDateTime, shift.endDateTime))
@@ -809,6 +817,44 @@ function employeeName(employee: EmployeeRow | undefined, employeeId: number) {
   return employee?.name || `Employee #${employeeId}`;
 }
 
+function resolveTemplateScheduleWindows(employee: EmployeeRow | undefined, dateKey?: string): AttendanceScheduleWindow[] {
+  if (!employee || !dateKey) return [];
+
+  const date = dateFromKey(dateKey);
+  if (Number.isNaN(date.getTime())) return [];
+
+  const targetDay = DAY_NAMES[date.getDay()];
+  return employee.shiftSchedules
+    .filter((schedule) => String(schedule.dayOfWeek ?? '').toUpperCase() === targetDay)
+    .map((schedule) => {
+      const startMinutes = parseTimeToMinutes(schedule.startTime);
+      const endMinutes = parseTimeToMinutes(schedule.endTime);
+      if (startMinutes == null || endMinutes == null) return null;
+
+      return {
+        startDateTime: formatLocalDateTime(dateKey, startMinutes),
+        endDateTime: formatLocalDateTime(dateKey, endMinutes),
+        dayOff: false,
+      } satisfies AttendanceScheduleWindow;
+    })
+    .filter((schedule): schedule is AttendanceScheduleWindow => schedule !== null);
+}
+
+function resolveAttendanceScheduleWindows(
+  employee: EmployeeRow | undefined,
+  dateKey: string | undefined,
+  scheduledShiftsByEmployeeAndDate: Map<string, DailyShift[]>
+): AttendanceScheduleWindow[] {
+  if (!dateKey) return [];
+
+  const dailyShifts = employee ? (scheduledShiftsByEmployeeAndDate.get(`${employee.id}:${dateKey}`) ?? []) : [];
+  if (dailyShifts.length > 0) {
+    return dailyShifts;
+  }
+
+  return resolveTemplateScheduleWindows(employee, dateKey);
+}
+
 function buildDailyRecords(
   logs: AttendanceLog[],
   employeeById: Map<number, EmployeeRow>,
@@ -837,9 +883,7 @@ function buildDailyRecords(
       const lastOut = [...sorted].reverse().find((row) => isOutDirection(row.direction));
       const employee = employeeById.get(employeeId);
       const isHoliday = dateKey ? holidayDateKeys.has(dateKey) : false;
-      const scheduledShifts = dateKey
-        ? (scheduledShiftsByEmployeeAndDate.get(`${employeeId}:${dateKey}`) ?? [])
-        : [];
+      const scheduledShifts = resolveAttendanceScheduleWindows(employee, dateKey, scheduledShiftsByEmployeeAndDate);
       const overtimeRequests = overtimeRequestsByEmployeeId.get(employeeId) ?? [];
       const evaluation = evaluateDailyAttendanceCoverage({ logs: sorted, scheduledShifts });
       const status = resolveOutsideScheduleStatus(sorted, scheduledShifts, overtimeRequests, evaluation) ?? evaluation.status;
@@ -1378,21 +1422,6 @@ export function AttendanceReportsBoard({
     return grouped;
   }, [dailyShifts, filteredEmployeeIdSet]);
 
-  const dailyShiftCoverageByEmployee = useMemo(() => {
-    const coverage = new Map<number, { startDateKey: string; endDateKey: string }>();
-
-    for (const [employeeId, dateKeys] of dailyShiftDateKeysByEmployee.entries()) {
-      const sorted = [...dateKeys].sort((a, b) => a.localeCompare(b));
-      if (sorted.length === 0) continue;
-      coverage.set(employeeId, {
-        startDateKey: sorted[0],
-        endDateKey: sorted[sorted.length - 1],
-      });
-    }
-
-    return coverage;
-  }, [dailyShiftDateKeysByEmployee]);
-
   const hasDailyShiftOnDate = useCallback(
     (employee: EmployeeRow | undefined, dateKey?: string) => {
       if (!employee || !dateKey || !isEmployeeActiveOnDate(employee, dateKey)) return false;
@@ -1401,19 +1430,24 @@ export function AttendanceReportsBoard({
     [dailyShiftDateKeysByEmployee]
   );
 
+  const hasScheduledWorkOnDate = useCallback(
+    (employee: EmployeeRow | undefined, dateKey?: string) => {
+      if (!employee || !dateKey || !isEmployeeActiveOnDate(employee, dateKey)) return false;
+      if (explicitDayOffDateKeysByEmployee.get(employee.id)?.has(dateKey)) return false;
+      if (hasDailyShiftOnDate(employee, dateKey)) return true;
+      return isEmployeeScheduledOnDate(employee, dateKey);
+    },
+    [explicitDayOffDateKeysByEmployee, hasDailyShiftOnDate]
+  );
+
   const isKnownDayOffOnDate = useCallback(
     (employee: EmployeeRow | undefined, dateKey?: string) => {
       if (!employee || !dateKey || !isEmployeeActiveOnDate(employee, dateKey)) return false;
       if (explicitDayOffDateKeysByEmployee.get(employee.id)?.has(dateKey)) return true;
       if (hasDailyShiftOnDate(employee, dateKey)) return false;
-
-      const coverage = dailyShiftCoverageByEmployee.get(employee.id);
-      if (!coverage) return false;
-      if (dateKey < coverage.startDateKey || dateKey > coverage.endDateKey) return false;
-
       return !isEmployeeScheduledOnDate(employee, dateKey);
     },
-    [dailyShiftCoverageByEmployee, explicitDayOffDateKeysByEmployee, hasDailyShiftOnDate]
+    [explicitDayOffDateKeysByEmployee, hasDailyShiftOnDate]
   );
 
   const logsByDate = useMemo(() => {
@@ -1584,14 +1618,14 @@ export function AttendanceReportsBoard({
           : 0;
       const missingLogsAbsentCount =
         hasFullRoster && !isFutureDate && !isHoliday
-          ? activeEmployees.filter((employee) => hasDailyShiftOnDate(employee, dateKey))
+          ? activeEmployees.filter((employee) => hasScheduledWorkOnDate(employee, dateKey))
               .filter((employee) => isEmployeeScheduledToHaveStartedByNow(employee, dateKey, todayDateKey, approvedLeavesByDate.get(dateKey) || []))
               .filter((employee) => !loggedEmployeeIds.has(employee.id))
               .filter((employee) => !leaveEmployeeIds.has(employee.id)).length
           : 0;
       const absentFromLogsCount =
         hasFullRoster && !isFutureDate && !isHoliday
-          ? activeEmployees.filter((employee) => hasDailyShiftOnDate(employee, dateKey))
+          ? activeEmployees.filter((employee) => hasScheduledWorkOnDate(employee, dateKey))
               .filter((employee) => isEmployeeScheduledToHaveStartedByNow(employee, dateKey, todayDateKey, approvedLeavesByDate.get(dateKey) || []))
               .filter((employee) => absentLoggedEmployeeIds.has(employee.id))
               .filter((employee) => !leaveEmployeeIds.has(employee.id)).length
@@ -1599,7 +1633,7 @@ export function AttendanceReportsBoard({
       const absentCount = missingLogsAbsentCount + absentFromLogsCount;
       const dayOffCount =
         hasFullRoster && !isFutureDate && !isHoliday
-          ? activeEmployees.filter((employee) => isKnownDayOffOnDate(employee, dateKey) || (hasDailyShiftOnDate(employee, dateKey) && !isEmployeeScheduledToHaveStartedByNow(employee, dateKey, todayDateKey, approvedLeavesByDate.get(dateKey) || [])))
+          ? activeEmployees.filter((employee) => isKnownDayOffOnDate(employee, dateKey) || (hasScheduledWorkOnDate(employee, dateKey) && !isEmployeeScheduledToHaveStartedByNow(employee, dateKey, todayDateKey, approvedLeavesByDate.get(dateKey) || [])))
               .filter((employee) => !leaveEmployeeIds.has(employee.id)).length
           : 0;
 
@@ -1638,7 +1672,7 @@ export function AttendanceReportsBoard({
 
       const dateKey = toISODate(year, monthIndex, cell.day);
       const isFutureDate = dateKey > todayDateKey;
-      const hasDailyShift = hasDailyShiftOnDate(focusedEmployee, dateKey);
+      const hasScheduledWork = hasScheduledWorkOnDate(focusedEmployee, dateKey);
       const isKnownDayOff = isKnownDayOffOnDate(focusedEmployee, dateKey);
       const isHoliday = holidayDateSet.has(dateKey);
       const isRegularHoliday = regularHolidayDateSet.has(dateKey);
@@ -1687,7 +1721,7 @@ export function AttendanceReportsBoard({
         const attendanceWindow = formatAttendanceWindow(record);
         if (attendanceWindow) details.push(attendanceWindow);
       } else if (!isFutureDate && leaveRequests.length === 0 && !isHoliday) {
-        if (hasDailyShift) {
+        if (hasScheduledWork) {
           notes.push({ label: 'Absent', tone: 'absent' });
           tone ??= 'absent';
         } else if (isKnownDayOff) {
@@ -1714,8 +1748,8 @@ export function AttendanceReportsBoard({
     focusOvertimeByDate,
     focusRecordByDate,
     focusedEmployee,
-    hasDailyShiftOnDate,
     holidayDateSet,
+    hasScheduledWorkOnDate,
     isKnownDayOffOnDate,
     monthIndex,
     regularHolidayDateSet,
@@ -1744,8 +1778,8 @@ export function AttendanceReportsBoard({
   }, [holidayDateSet, selectedDateKey]);
 
   const selectedIsWorkingDay = useMemo(() => {
-    return selectedDateKey ? activeEmployees.some((employee) => hasDailyShiftOnDate(employee, selectedDateKey)) : true;
-  }, [activeEmployees, hasDailyShiftOnDate, selectedDateKey]);
+    return selectedDateKey ? activeEmployees.some((employee) => hasScheduledWorkOnDate(employee, selectedDateKey)) : true;
+  }, [activeEmployees, hasScheduledWorkOnDate, selectedDateKey]);
 
   const selectedHasKnownDayOffs = useMemo(() => {
     return selectedDateKey ? activeEmployees.some((employee) => isKnownDayOffOnDate(employee, selectedDateKey)) : false;
@@ -1761,7 +1795,7 @@ export function AttendanceReportsBoard({
     const recordByEmployeeId = new Map(selectedRecords.map((record) => [record.employeeId, record] as const));
     const leaveEmployeeIds = selectedDateKey ? approvedLeaveEmployeeIdsByDate.get(selectedDateKey) ?? new Set<number>() : new Set<number>();
     return activeEmployees
-      .filter((employee) => hasDailyShiftOnDate(employee, selectedDateKey))
+      .filter((employee) => hasScheduledWorkOnDate(employee, selectedDateKey))
       .filter((employee) => isEmployeeScheduledToHaveStartedByNow(employee, selectedDateKey, todayDateKey, focusLeavesByDate.get(selectedDateKey) || []))
       .filter((employee) => {
         const record = recordByEmployeeId.get(employee.id);
@@ -1772,7 +1806,7 @@ export function AttendanceReportsBoard({
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [
     activeEmployees,
-    hasDailyShiftOnDate,
+    hasScheduledWorkOnDate,
     todayDateKey,
     focusLeavesByDate,
     approvedLeaveEmployeeIdsByDate,
@@ -2290,7 +2324,7 @@ export function AttendanceReportsBoard({
   const selectedDetailSubtitle = selectedIsHoliday
     ? 'This date is a holiday, so employees without logs are not counted as absent or day off.'
     : !selectedIsWorkingDay && !selectedHasKnownDayOffs
-      ? 'This date has no generated daily shifts, so absences are not evaluated.'
+      ? 'This date has no scheduled work, so absences are not evaluated.'
       : 'Inspect the daily attendance summary, logged employees, and missing logs for the selected date.';
 
   useErrorDialogEffect(loadError, 'Attendance report could not be loaded');
@@ -2944,7 +2978,7 @@ export function AttendanceReportsBoard({
                       <div className="hrAttBreakdown__empty">This date is treated as a scheduled day off.</div>
                     ) : !selectedIsWorkingDay ? (
                       <div className="hrAttBreakdown__empty">
-                        No daily shifts were generated for this date, so absences are not evaluated.
+                        No scheduled work applies to this date, so absences are not evaluated.
                       </div>
                     ) : (
                       <div className="hrAttBreakdown__empty">All active employees recorded attendance for this day.</div>
