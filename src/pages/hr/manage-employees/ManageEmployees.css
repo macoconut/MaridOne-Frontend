@@ -589,6 +589,159 @@
   text-decoration: underline;
 }
 
+.hrEmpCompliance {
+  display: grid;
+  gap: 16px;
+}
+
+.hrEmpCompliance__summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.hrEmpCompliance__summaryCard,
+.hrEmpCompliance__performanceItem {
+  border: 1px solid rgba(61, 38, 90, 0.08);
+  border-radius: 14px;
+  background: #fcfbfe;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hrEmpCompliance__summaryCard span,
+.hrEmpCompliance__performanceItem span,
+.hrEmpCompliance__sectionHead span,
+.hrEmpCompliance__entryBody span,
+.hrEmpCompliance__timelineMeta span {
+  color: #7b708e;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hrEmpCompliance__summaryCard strong,
+.hrEmpCompliance__performanceItem strong {
+  color: var(--hr-primary-dark);
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.hrEmpCompliance__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.hrEmpCompliance__section {
+  border: 1px solid rgba(61, 38, 90, 0.08);
+  border-radius: 16px;
+  background: #fff;
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+}
+
+.hrEmpCompliance__sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hrEmpCompliance__sectionHead strong {
+  color: var(--hr-primary-dark);
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.hrEmpCompliance__list {
+  display: grid;
+  gap: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.hrEmpCompliance__entry,
+.hrEmpCompliance__timelineItem {
+  border: 1px solid rgba(61, 38, 90, 0.07);
+  border-radius: 14px;
+  background: #fcfbfe;
+  padding: 12px;
+}
+
+.hrEmpCompliance__entry {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hrEmpCompliance__entryBody,
+.hrEmpCompliance__timelineItem {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.hrEmpCompliance__entryBody strong,
+.hrEmpCompliance__timelineItem h4 {
+  margin: 0;
+  color: var(--hr-text);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.hrEmpCompliance__entryBody p,
+.hrEmpCompliance__timelineItem p,
+.hrEmpCompliance__timelineMeta strong {
+  margin: 0;
+  color: #5e5671;
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.hrEmpCompliance__timelineMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hrEmpCompliance__action {
+  border: 0;
+  background: var(--hr-primary);
+  color: #fff;
+  min-height: 36px;
+  border-radius: 10px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: var(--hr-button-shadow);
+}
+
+.hrEmpCompliance__performance {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.hrEmpCompliance__empty {
+  color: #64587a;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 8px 2px 2px;
+}
+
 .hrEmpRow__action {
   border: 1px solid rgba(62, 35, 94, 0.12);
   background: rgba(255, 255, 255, 0.96);
@@ -992,6 +1145,9 @@
 
   .hrEmpDetails__grid,
   .hrEmpDetails__items,
+  .hrEmpCompliance__summary,
+  .hrEmpCompliance__grid,
+  .hrEmpCompliance__performance,
   .hrEmpLeaveBalance__meta,
   .hrEmpLeaveBalance__controls {
     grid-template-columns: 1fr;

@@ -14,6 +14,7 @@ import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { useSensitiveAccessPrompt } from '../../../hooks/useSensitiveAccessPrompt';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { compareEmployees, type EmployeeSortKey } from '../../../lib/employeeSort';
+import { openDocumentAttachment } from '../../../lib/documentAttachments';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './ManageEmployees.css';
 
@@ -86,6 +87,82 @@ type EmployeeDetails = {
     country?: string;
     zipCode?: string;
   };
+};
+
+type ComplianceDocument = {
+  pathId?: number;
+  fileName?: string;
+  fileType?: string;
+  category?: string;
+  filePath?: string;
+};
+
+type ComplianceLeaveRecord = {
+  requestId?: number;
+  leaveType?: string;
+  status?: string;
+  paid?: boolean;
+  startDateTime?: string;
+  endDateTime?: string;
+  reason?: string;
+  approver?: string;
+  approverReason?: string;
+  approvedAt?: string;
+};
+
+type ComplianceDisputeRecord = {
+  disputeId?: number;
+  payrollItemId?: number;
+  subject?: string;
+  reason?: string;
+  status?: string;
+  statusReason?: string;
+  approver?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+type ComplianceDisciplinaryAction = {
+  action?: string;
+  status?: string;
+  summary?: string;
+  notes?: string;
+  recordedBy?: string;
+  recordedAt?: string;
+};
+
+type CompliancePerformanceSummary = {
+  windowDays?: number;
+  attendanceDays?: number;
+  completeLogPairs?: number;
+  incompleteLogDays?: number;
+  totalHours?: number;
+  averageHoursPerAttendanceDay?: number;
+  averageHoursPerWindowDay?: number;
+};
+
+type ComplianceTimelineEntry = {
+  type?: string;
+  title?: string;
+  detail?: string;
+  timestamp?: string;
+};
+
+type ComplianceRecord = {
+  employeeId?: number;
+  employeeName?: string;
+  username?: string;
+  employmentStatus?: string;
+  position?: string;
+  department?: string;
+  employmentDateStart?: string;
+  employmentDateEnd?: string;
+  documents?: ComplianceDocument[];
+  leaveRequests?: ComplianceLeaveRecord[];
+  disputes?: ComplianceDisputeRecord[];
+  disciplinaryActions?: ComplianceDisciplinaryAction[];
+  performanceSummary?: CompliancePerformanceSummary;
+  timeline?: ComplianceTimelineEntry[];
 };
 
 type EmployeeMutationResponse = {
@@ -348,6 +425,19 @@ function formatDateValue(value?: string | null) {
   }).format(parsed);
 }
 
+function formatDateTimeValue(value?: string | null) {
+  if (!value) return '-';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(parsed);
+}
+
 function formatCurrencyValue(value?: number | string | null) {
   if (value === null || value === undefined || value === '') return '-';
   const numeric = typeof value === 'number' ? value : Number(value);
@@ -396,6 +486,11 @@ function formatBalanceHoursLabel(value?: number | string | null) {
   return '0 hours';
 }
 
+function formatHoursValue(value?: number | null) {
+  if (value === null || value === undefined || Number.isNaN(value)) return '-';
+  return `${HOURS_FORMATTER.format(value)} hrs`;
+}
+
 function displayValue(value?: string | number | null) {
   if (value === null || value === undefined) return '-';
   const text = String(value).trim();
@@ -431,6 +526,9 @@ export default function HrManageEmp() {
   const [employeeDetailsById, setEmployeeDetailsById] = useState<Record<string, EmployeeDetails>>({});
   const [detailLoadingIds, setDetailLoadingIds] = useState<Record<string, boolean>>({});
   const [detailErrors, setDetailErrors] = useState<Record<string, string>>({});
+  const [employeeComplianceById, setEmployeeComplianceById] = useState<Record<string, ComplianceRecord>>({});
+  const [complianceLoadingIds, setComplianceLoadingIds] = useState<Record<string, boolean>>({});
+  const [complianceErrors, setComplianceErrors] = useState<Record<string, string>>({});
   const [detailsDialogEmployeeId, setDetailsDialogEmployeeId] = useState<string | null>(null);
   const [expandedSeparationNotes, setExpandedSeparationNotes] = useState<Record<string, boolean>>({});
   const [leaveBalances, setLeaveBalances] = useState<LeaveBalanceRow[]>([]);
@@ -720,6 +818,9 @@ export default function HrManageEmp() {
       setEmployeeDetailsById({});
       setDetailLoadingIds({});
       setDetailErrors({});
+      setEmployeeComplianceById({});
+      setComplianceLoadingIds({});
+      setComplianceErrors({});
       setDetailsDialogEmployeeId((current) => (current && mapped.some((row) => row.id === current) ? current : null));
       setLoadMessage(mapped.length === 0 ? 'No employees found.' : '');
 
@@ -728,6 +829,9 @@ export default function HrManageEmp() {
       setEmployeeDetailsById({});
       setDetailLoadingIds({});
       setDetailErrors({});
+      setEmployeeComplianceById({});
+      setComplianceLoadingIds({});
+      setComplianceErrors({});
       setDetailsDialogEmployeeId(null);
       setLoadMessage(
         `Unable to load the employee roster right now. (${getFriendlyErrorMessage(error, 'employee-load')})`
@@ -998,6 +1102,42 @@ export default function HrManageEmp() {
     }
   }
 
+  async function fetchEmployeeCompliance(employeeId: string) {
+    if (employeeComplianceById[employeeId]) {
+      return employeeComplianceById[employeeId];
+    }
+
+    setComplianceLoadingIds((current) => ({ ...current, [employeeId]: true }));
+    setComplianceErrors((current) => {
+      const next = { ...current };
+      delete next[employeeId];
+      return next;
+    });
+
+    try {
+      const payload = await apiFetchJson<ComplianceRecord>(`/api/compliance/${employeeId}`);
+      setEmployeeComplianceById((current) => ({ ...current, [employeeId]: payload }));
+      return payload;
+    } catch (error) {
+      if (
+        sensitiveAccess.handleProtectedError(
+          error,
+          async () => {
+            await fetchEmployeeCompliance(employeeId);
+          },
+          'Verify access before opening confidential compliance records, files, and performance history.'
+        )
+      ) {
+        return undefined;
+      }
+      const message = getFriendlyErrorMessage(error, 'employee-load');
+      setComplianceErrors((current) => ({ ...current, [employeeId]: message }));
+      throw error;
+    } finally {
+      setComplianceLoadingIds((current) => ({ ...current, [employeeId]: false }));
+    }
+  }
+
   async function openDetailsDialog(rowId: string) {
     if (detailLoadingIds[rowId]) {
       return;
@@ -1005,12 +1145,14 @@ export default function HrManageEmp() {
 
     if (employeeDetailsById[rowId]) {
       setDetailsDialogEmployeeId(rowId);
+      void fetchEmployeeCompliance(rowId);
       return;
     }
 
     const payload = await fetchEmployeeDetails(rowId);
     if (payload) {
       setDetailsDialogEmployeeId(rowId);
+      void fetchEmployeeCompliance(rowId);
     }
   }
 
@@ -1676,6 +1818,9 @@ export default function HrManageEmp() {
     const details = employeeDetailsById[row.id];
     const isLoading = Boolean(detailLoadingIds[row.id]);
     const detailError = detailErrors[row.id];
+    const compliance = employeeComplianceById[row.id];
+    const isComplianceLoading = Boolean(complianceLoadingIds[row.id]);
+    const complianceError = complianceErrors[row.id];
     const username = details?.userAccountName ?? (row.username === '-' ? '' : row.username);
     const noteExpanded = Boolean(expandedSeparationNotes[row.id]);
     const separationNote = String(details?.separationNotes ?? '').trim();
@@ -1856,6 +2001,218 @@ export default function HrManageEmp() {
               </div>
             </div>
             {renderLeaveBalanceSummary()}
+          </section>
+
+          <section className="hrEmpDetails__card hrEmpDetails__card--full">
+            <div className="hrEmpLeaveBalance__header">
+              <div>
+                <h3>Compliance Record</h3>
+                <p>Confidential HR dossier for legal compliance, employee files, requests, disputes, and performance tracking.</p>
+              </div>
+            </div>
+
+            {isComplianceLoading && !compliance ? (
+              <div className="hrEmpDetails__feedback">Loading compliance record...</div>
+            ) : null}
+
+            {complianceError && !compliance ? (
+              <div className="hrEmpDetails__feedback is-error">{complianceError}</div>
+            ) : null}
+
+            {compliance ? (
+              <div className="hrEmpCompliance">
+                <div className="hrEmpCompliance__summary">
+                  <div className="hrEmpCompliance__summaryCard">
+                    <span>Files</span>
+                    <strong>{compliance.documents?.length ?? 0}</strong>
+                  </div>
+                  <div className="hrEmpCompliance__summaryCard">
+                    <span>Leave Requests</span>
+                    <strong>{compliance.leaveRequests?.length ?? 0}</strong>
+                  </div>
+                  <div className="hrEmpCompliance__summaryCard">
+                    <span>Disputes</span>
+                    <strong>{compliance.disputes?.length ?? 0}</strong>
+                  </div>
+                  <div className="hrEmpCompliance__summaryCard">
+                    <span>Disciplinary Actions</span>
+                    <strong>{compliance.disciplinaryActions?.length ?? 0}</strong>
+                  </div>
+                  <div className="hrEmpCompliance__summaryCard">
+                    <span>Avg Hours / Window Day</span>
+                    <strong>{formatHoursValue(compliance.performanceSummary?.averageHoursPerWindowDay)}</strong>
+                  </div>
+                </div>
+
+                <div className="hrEmpCompliance__grid">
+                  <section className="hrEmpCompliance__section">
+                    <div className="hrEmpCompliance__sectionHead">
+                      <strong>Employment Journey</strong>
+                      <span>{compliance.timeline?.length ?? 0} entries</span>
+                    </div>
+                    {compliance.timeline && compliance.timeline.length > 0 ? (
+                      <div className="hrEmpCompliance__list hrEmpCompliance__list--timeline">
+                        {compliance.timeline.map((entry, index) => (
+                          <article key={`${entry.type ?? 'timeline'}-${entry.timestamp ?? index}`} className="hrEmpCompliance__timelineItem">
+                            <div className="hrEmpCompliance__timelineMeta">
+                              <span>{displayValue(entry.type)}</span>
+                              <strong>{formatDateTimeValue(entry.timestamp)}</strong>
+                            </div>
+                            <h4>{displayValue(entry.title)}</h4>
+                            <p>{displayValue(entry.detail)}</p>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="hrEmpCompliance__empty">No employment journey entries yet.</div>
+                    )}
+                  </section>
+
+                  <section className="hrEmpCompliance__section">
+                    <div className="hrEmpCompliance__sectionHead">
+                      <strong>Files and Contracts</strong>
+                      <span>{compliance.documents?.length ?? 0} files</span>
+                    </div>
+                    {compliance.documents && compliance.documents.length > 0 ? (
+                      <div className="hrEmpCompliance__list">
+                        {compliance.documents.map((document, index) => (
+                          <article key={document.pathId ?? index} className="hrEmpCompliance__entry">
+                            <div className="hrEmpCompliance__entryBody">
+                              <span>{displayValue(document.category)}</span>
+                              <strong>{displayValue(document.fileName)}</strong>
+                              <p>{displayValue(document.fileType)}</p>
+                            </div>
+                            {typeof document.pathId === 'number' ? (
+                              <button
+                                type="button"
+                                className="hrEmpCompliance__action"
+                                onClick={() => void openDocumentAttachment(document.pathId!)}
+                              >
+                                View File
+                              </button>
+                            ) : null}
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="hrEmpCompliance__empty">No uploaded compliance files yet.</div>
+                    )}
+                  </section>
+
+                  <section className="hrEmpCompliance__section">
+                    <div className="hrEmpCompliance__sectionHead">
+                      <strong>Leave Request History</strong>
+                      <span>{compliance.leaveRequests?.length ?? 0} requests</span>
+                    </div>
+                    {compliance.leaveRequests && compliance.leaveRequests.length > 0 ? (
+                      <div className="hrEmpCompliance__list">
+                        {compliance.leaveRequests.map((request, index) => (
+                          <article key={request.requestId ?? index} className="hrEmpCompliance__entry">
+                            <div className="hrEmpCompliance__entryBody">
+                              <span>{displayValue(request.status)}</span>
+                              <strong>{displayValue(request.leaveType)}</strong>
+                              <p>
+                                {formatDateValue(request.startDateTime)} to {formatDateValue(request.endDateTime)}
+                                {request.paid !== undefined ? ` • ${request.paid ? 'Paid' : 'Unpaid'}` : ''}
+                              </p>
+                              {request.reason ? <p>{request.reason}</p> : null}
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="hrEmpCompliance__empty">No leave request history yet.</div>
+                    )}
+                  </section>
+
+                  <section className="hrEmpCompliance__section">
+                    <div className="hrEmpCompliance__sectionHead">
+                      <strong>Disputes</strong>
+                      <span>{compliance.disputes?.length ?? 0} cases</span>
+                    </div>
+                    {compliance.disputes && compliance.disputes.length > 0 ? (
+                      <div className="hrEmpCompliance__list">
+                        {compliance.disputes.map((dispute, index) => (
+                          <article key={dispute.disputeId ?? index} className="hrEmpCompliance__entry">
+                            <div className="hrEmpCompliance__entryBody">
+                              <span>{displayValue(dispute.status)}</span>
+                              <strong>{displayValue(dispute.subject)}</strong>
+                              <p>{displayValue(dispute.reason)}</p>
+                              <p>
+                                Updated {formatDateTimeValue(dispute.updatedAt ?? dispute.createdAt)}
+                                {dispute.approver ? ` • ${dispute.approver}` : ''}
+                              </p>
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="hrEmpCompliance__empty">No dispute records yet.</div>
+                    )}
+                  </section>
+
+                  <section className="hrEmpCompliance__section">
+                    <div className="hrEmpCompliance__sectionHead">
+                      <strong>Disciplinary Actions</strong>
+                      <span>{compliance.disciplinaryActions?.length ?? 0} records</span>
+                    </div>
+                    {compliance.disciplinaryActions && compliance.disciplinaryActions.length > 0 ? (
+                      <div className="hrEmpCompliance__list">
+                        {compliance.disciplinaryActions.map((action, index) => (
+                          <article key={`${action.action ?? 'disciplinary'}-${action.recordedAt ?? index}`} className="hrEmpCompliance__entry">
+                            <div className="hrEmpCompliance__entryBody">
+                              <span>{displayValue(action.status)}</span>
+                              <strong>{displayValue(action.action)}</strong>
+                              <p>{displayValue(action.summary)}</p>
+                              <p>
+                                {formatDateTimeValue(action.recordedAt)}
+                                {action.recordedBy ? ` • ${action.recordedBy}` : ''}
+                              </p>
+                              {action.notes ? <p>{action.notes}</p> : null}
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="hrEmpCompliance__empty">No disciplinary actions recorded.</div>
+                    )}
+                  </section>
+
+                  <section className="hrEmpCompliance__section">
+                    <div className="hrEmpCompliance__sectionHead">
+                      <strong>Performance Tracking</strong>
+                      <span>Past {compliance.performanceSummary?.windowDays ?? 30} days</span>
+                    </div>
+                    <div className="hrEmpCompliance__performance">
+                      <div className="hrEmpCompliance__performanceItem">
+                        <span>Total Hours</span>
+                        <strong>{formatHoursValue(compliance.performanceSummary?.totalHours)}</strong>
+                      </div>
+                      <div className="hrEmpCompliance__performanceItem">
+                        <span>Average / Attendance Day</span>
+                        <strong>{formatHoursValue(compliance.performanceSummary?.averageHoursPerAttendanceDay)}</strong>
+                      </div>
+                      <div className="hrEmpCompliance__performanceItem">
+                        <span>Average / Window Day</span>
+                        <strong>{formatHoursValue(compliance.performanceSummary?.averageHoursPerWindowDay)}</strong>
+                      </div>
+                      <div className="hrEmpCompliance__performanceItem">
+                        <span>Attendance Days</span>
+                        <strong>{displayValue(compliance.performanceSummary?.attendanceDays)}</strong>
+                      </div>
+                      <div className="hrEmpCompliance__performanceItem">
+                        <span>Complete Log Pairs</span>
+                        <strong>{displayValue(compliance.performanceSummary?.completeLogPairs)}</strong>
+                      </div>
+                      <div className="hrEmpCompliance__performanceItem">
+                        <span>Incomplete Log Days</span>
+                        <strong>{displayValue(compliance.performanceSummary?.incompleteLogDays)}</strong>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+              </div>
+            ) : null}
           </section>
 
           <section className="hrEmpDetails__card hrEmpDetails__card--full">

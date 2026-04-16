@@ -459,11 +459,11 @@ export default function HrPayRunReporting() {
   useAutoRefreshingPage(handlePageRefresh, { intervalMs: 15000 });
 
   useEffect(() => {
-    if (selectedBreakdownItem) document.body.classList.add('modal-open');
+    if (selectedBreakdownItem || sensitiveAccess.open) document.body.classList.add('modal-open');
     else document.body.classList.remove('modal-open');
 
     return () => document.body.classList.remove('modal-open');
-  }, [selectedBreakdownItem]);
+  }, [selectedBreakdownItem, sensitiveAccess.open]);
 
   useEffect(() => {
     if (!actionMenuOpen) return undefined;
@@ -768,7 +768,6 @@ export default function HrPayRunReporting() {
   async function openBreakdownModal(row: AggregatedEmployeeRow) {
     if (row.itemIds.length === 0) return;
 
-    setSelectedBreakdownItem(row);
     setSelectedBreakdownEarnings([]);
     setSelectedBreakdownDeductions([]);
     setBreakdownError('');
@@ -804,6 +803,7 @@ export default function HrPayRunReporting() {
 
       setSelectedBreakdownEarnings(sumLines(allEarnings));
       setSelectedBreakdownDeductions(sumLines(allDeductions));
+      setSelectedBreakdownItem(row);
     } catch (error) {
       if (
         sensitiveAccess.handleProtectedError(
