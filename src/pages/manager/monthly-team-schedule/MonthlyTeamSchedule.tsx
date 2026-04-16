@@ -868,22 +868,6 @@ export function MonthlyScheduleBoard({
           description="Set the default hours here, then click any calendar date when you need custom hours for a specific day."
         />
 
-        <div className="hrAtt__controls">
-          <div className="hrAtt__monthSelectWrap">
-            <select
-              className="hrAtt__monthSelect"
-              value={selectedMonthStart}
-              onChange={(event) => setSelectedMonthStart(event.target.value)}
-              aria-label="Select month"
-            >
-              {monthOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
       </div>
 
       <div className="hrAtt__toolbar mgrMonth__toolbar">

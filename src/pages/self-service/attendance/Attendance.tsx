@@ -3,13 +3,12 @@ import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import './Attendance.css';
-import { FiCalendar, FiCheckCircle, FiChevronLeft, FiChevronRight, FiPlusSquare, FiXCircle, FiClock } from 'react-icons/fi';
+import { FiCalendar, FiCheckCircle, FiChevronLeft, FiChevronRight, FiClock, FiDownload, FiPlusSquare, FiPrinter, FiXCircle } from 'react-icons/fi';
 import ActionButton from '../../../components/button/ActionButton';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import FileUploadField from '../../../components/form/FileUploadField';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import PageHeader from '../../../components/layout/PageHeader';
-import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { useUnsavedChangesPrompt } from '../../../hooks/useUnsavedChangesPrompt';
@@ -87,8 +86,41 @@ type DayCell = {
 };
 
 type AttendanceLog = {
+  attendanceId?: number;
   timestamp?: string;
   direction?: string;
+};
+
+type EmployeeDetails = {
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  position?: string;
+  department?: string;
+  managerName?: string;
+};
+
+type TimecardMode = 'calendar' | 'timecard';
+
+type TimecardSession = {
+  inAt: Date;
+  outAt: Date;
+};
+
+type TimecardRange = {
+  from: string;
+  to: string;
+};
+
+type TimecardRow = {
+  dateKey: string;
+  label: string;
+  timeIn: string;
+  timeOut: string;
+  breakHours: number;
+  regularHours: number;
+  overtimeHours: number;
+  totalHours: number;
 };
 
 type AttendanceSession = {
@@ -139,8 +171,8 @@ function toISODate(year: number, monthIndex: number, day: number) {
 
 function dateKeysBetween(start: string, end: string) {
   const out: string[] = [];
-  const startDate = new Date(start);
-  const endDate = new Date(end);
+  const startDate = new Date(`${start}T12:00:00`);
+  const endDate = new Date(`${end}T12:00:00`);
   if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return out;
 
   const min = startDate <= endDate ? startDate : endDate;
@@ -155,13 +187,29 @@ function dateKeysBetween(start: string, end: string) {
 
 function formatDisplayDate(value?: string) {
   if (!value) return '-';
-  const date = new Date(value);
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T12:00:00`) : new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString(undefined, {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   });
+}
+
+function formatTimecardRowDate(value?: string) {
+  if (!value) return '-';
+  const date = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+function formatTimecardPayPeriod(from?: string, to?: string) {
+  if (!from || !to) return '-';
+  return `${formatDisplayDate(from)} - ${formatDisplayDate(to)}`;
 }
 
 function formatDisplayTime(value?: string) {
@@ -191,6 +239,10 @@ function addDays(dateValue: string, days: number) {
   if (Number.isNaN(date.getTime())) return '';
   date.setDate(date.getDate() + days);
   return toISODate(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function subtractDays(dateValue: string, days: number) {
+  return addDays(dateValue, -days);
 }
 
 function startOfWeekMonday(dateValue: string) {
@@ -247,7 +299,7 @@ function buildDailyShiftWindow(shift: DailyShiftRow) {
 
 function resolveEffectiveLeaveShiftWindows(
   dateKey: string,
-  shiftSchedule: ShiftScheduleRow[],
+  shiftScheduleByDayOfWeek: Map<string, ShiftScheduleRow>,
   dailyShiftScheduleByDate: Map<string, DailyShiftRow[]>
 ) {
   const dailyRows = dailyShiftScheduleByDate.get(dateKey) ?? [];
@@ -262,7 +314,7 @@ function resolveEffectiveLeaveShiftWindows(
       .sort((left, right) => left.start.getTime() - right.start.getTime());
   }
 
-  const templateShift = shiftSchedule.find((schedule) => schedule.dayOfWeek === resolveDayOfWeek(dateKey));
+  const templateShift = shiftScheduleByDayOfWeek.get(resolveDayOfWeek(dateKey));
   if (!templateShift) return [] as LeaveShiftWindow[];
 
   const templateWindow = buildTemplateShiftWindow(dateKey, templateShift);
@@ -274,7 +326,7 @@ function calculateShiftAwareLeaveHours(
   startTime: string,
   endDate: string,
   endTime: string,
-  shiftSchedule: ShiftScheduleRow[],
+  shiftScheduleByDayOfWeek: Map<string, ShiftScheduleRow>,
   dailyShiftScheduleByDate: Map<string, DailyShiftRow[]>
 ) {
   if (!startDate || !startTime || !endDate || !endTime) return 0;
@@ -286,7 +338,7 @@ function calculateShiftAwareLeaveHours(
   }
 
   return dateKeysBetween(startDate, endDate).reduce((sum, dateKey) => {
-    const overlappedHours = resolveEffectiveLeaveShiftWindows(dateKey, shiftSchedule, dailyShiftScheduleByDate)
+    const overlappedHours = resolveEffectiveLeaveShiftWindows(dateKey, shiftScheduleByDayOfWeek, dailyShiftScheduleByDate)
       .reduce((daySum, window) => {
         const overlapStart = new Date(Math.max(window.start.getTime(), requestStart.getTime()));
         const overlapEnd = new Date(Math.min(window.end.getTime(), requestEnd.getTime()));
@@ -345,6 +397,182 @@ function formatWeekdayDateLabel(value: string) {
     month: 'short',
     day: 'numeric',
   });
+}
+
+function toManilaDateParts(value: Date | string) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+
+  const year = parts.find((part) => part.type === 'year')?.value;
+  const month = parts.find((part) => part.type === 'month')?.value;
+  const day = parts.find((part) => part.type === 'day')?.value;
+  const hour = parts.find((part) => part.type === 'hour')?.value;
+  const minute = parts.find((part) => part.type === 'minute')?.value;
+
+  if (!year || !month || !day || !hour || !minute) return null;
+
+  return {
+    year: Number(year),
+    month: Number(month),
+    day: Number(day),
+    hour: Number(hour),
+    minute: Number(minute),
+    dateKey: `${year}-${month}-${day}`,
+  };
+}
+
+function formatManilaTime(date: Date) {
+  return date.toLocaleTimeString([], {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'Asia/Manila',
+  });
+}
+
+function resolveDefaultTimecardRange(now = getManilaNow()): TimecardRange {
+  const currentMonthIndex = now.month - 1;
+  const currentDateKey = toISODate(now.year, currentMonthIndex, now.day);
+
+  if (now.day >= 11 && now.day <= 25) {
+    return {
+      from: toISODate(now.year, currentMonthIndex, 11),
+      to: toISODate(now.year, currentMonthIndex, 25),
+    };
+  }
+
+  if (now.day >= 26) {
+    const nextMonthDate = addDays(currentDateKey, 20);
+    const nextMonth = new Date(`${nextMonthDate}T12:00:00`);
+    return {
+      from: toISODate(now.year, currentMonthIndex, 26),
+      to: toISODate(nextMonth.getFullYear(), nextMonth.getMonth(), 10),
+    };
+  }
+
+  const previousMonthDate = subtractDays(currentDateKey, 20);
+  const previousMonth = new Date(`${previousMonthDate}T12:00:00`);
+  return {
+    from: toISODate(previousMonth.getFullYear(), previousMonth.getMonth(), 26),
+    to: toISODate(now.year, currentMonthIndex, 10),
+  };
+}
+
+function calculateSessionHours(session: TimecardSession) {
+  return (session.outAt.getTime() - session.inAt.getTime()) / (1000 * 60 * 60);
+}
+
+function deductUnpaidLunchHour(rawHours: number) {
+  if (!Number.isFinite(rawHours) || rawHours <= 0) return 0;
+  if (rawHours <= 5) return Number(rawHours.toFixed(2));
+  return Number(Math.max(0, rawHours - 1).toFixed(2));
+}
+
+function calculateWorkedHoursWithinWindow(
+  sessions: TimecardSession[],
+  windowStart: Date,
+  windowEnd: Date
+) {
+  if (Number.isNaN(windowStart.getTime()) || Number.isNaN(windowEnd.getTime()) || windowEnd <= windowStart) {
+    return 0;
+  }
+
+  return Number(
+    sessions.reduce((sum, session) => {
+      const overlapStart = Math.max(session.inAt.getTime(), windowStart.getTime());
+      const overlapEnd = Math.min(session.outAt.getTime(), windowEnd.getTime());
+      if (overlapEnd <= overlapStart) return sum;
+      return sum + (overlapEnd - overlapStart) / (1000 * 60 * 60);
+    }, 0).toFixed(2)
+  );
+}
+
+function resolveTimecardSessionsForDate(logs: AttendanceLog[], workDate: string) {
+  if (!workDate) return [] as TimecardSession[];
+
+  const nextDate = addDays(workDate, 1);
+  const relevantLogs = toArray<AttendanceLog>(logs)
+    .map((log) => {
+      if (typeof log.timestamp !== 'string') return null;
+      const date = new Date(log.timestamp);
+      if (Number.isNaN(date.getTime())) return null;
+      const manilaParts = toManilaDateParts(date);
+      if (!manilaParts) return null;
+
+      return {
+        date,
+        direction: String(log.direction ?? '').toUpperCase(),
+        manilaDateKey: manilaParts.dateKey,
+        manilaHour: manilaParts.hour,
+        manilaMinute: manilaParts.minute,
+      };
+    })
+    .filter(
+      (
+        item
+      ): item is { date: Date; direction: string; manilaDateKey: string; manilaHour: number; manilaMinute: number } =>
+        item !== null
+    )
+    .filter((item) => {
+      if (item.manilaDateKey === workDate) return true;
+      if (item.manilaDateKey !== nextDate) return false;
+      return item.manilaHour < 6 || (item.manilaHour === 6 && item.manilaMinute === 0);
+    })
+    .sort((left, right) => left.date.getTime() - right.date.getTime());
+
+  const sessions: TimecardSession[] = [];
+  let currentIn: Date | null = null;
+
+  for (const log of relevantLogs) {
+    if (log.direction === 'IN') {
+      if (currentIn === null && log.manilaDateKey === workDate) {
+        currentIn = log.date;
+      }
+      continue;
+    }
+
+    if (log.direction === 'OUT' && currentIn && log.date.getTime() > currentIn.getTime()) {
+      sessions.push({ inAt: currentIn, outAt: log.date });
+      currentIn = null;
+    }
+  }
+
+  return sessions;
+}
+
+function sanitizeFileNamePart(value?: string) {
+  if (!value) return '';
+  return value
+    .trim()
+    .replace(/[<>:"/\\|?*\x00-\x1F]+/g, '-')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function parseContentDispositionFileName(value?: string | null) {
+  if (!value) return null;
+
+  const utfMatch = value.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utfMatch?.[1]) {
+    try {
+      return decodeURIComponent(utfMatch[1].trim().replace(/^"|"$/g, ''));
+    } catch {
+      return utfMatch[1].trim().replace(/^"|"$/g, '');
+    }
+  }
+
+  const basicMatch = value.match(/filename="?([^";]+)"?/i);
+  return basicMatch?.[1]?.trim() || null;
 }
 
 function mapLeaveRequestEntries(rows: unknown): RequestEntry[] {
@@ -496,6 +724,7 @@ function buildAttendanceHistory(logs: unknown): AttendanceHistory {
 export default function Attendance() {
   const { showLoading, hideLoading } = useLoading();
   const todayKey = useMemo(() => getManilaNow().dateKey, []);
+  const initialTimecardRange = useMemo(() => resolveDefaultTimecardRange(), []);
   const nonSickLeaveMinDate = useMemo(
     () => addDays(todayKey, NON_SICK_LEAVE_NOTICE_DAYS),
     [todayKey]
@@ -535,17 +764,25 @@ export default function Attendance() {
   const [submitError, setSubmitError] = useState('');
   const [isLeaveSubmitting, setIsLeaveSubmitting] = useState(false);
   const [isOtSubmitting, setIsOtSubmitting] = useState(false);
+  const [isPreparingTimecard, setIsPreparingTimecard] = useState(false);
   const [leaveSubmitAttempted, setLeaveSubmitAttempted] = useState(false);
   const [leaveBalanceWarning, setLeaveBalanceWarning] = useState<string | null>(null);
   const [employeeId, setEmployeeId] = useState<number | null>(null);
+  const [employeeInfo, setEmployeeInfo] = useState<EmployeeDetails | null>(null);
   const [requestEntries, setRequestEntries] = useState<RequestEntry[]>([]);
+  const [attendanceLogs, setAttendanceLogs] = useState<AttendanceLog[]>([]);
   const [attendanceByDate, setAttendanceByDate] = useState<Record<string, AttendanceSession[]>>({});
   const [shiftSchedule, setShiftSchedule] = useState<ShiftScheduleRow[]>([]);
   const [dailyShiftSchedule, setDailyShiftSchedule] = useState<DailyShiftRow[]>([]);
   const [leaveDailyShiftSchedule, setLeaveDailyShiftSchedule] = useState<DailyShiftRow[]>([]);
+  const [timecardDailyShiftSchedule, setTimecardDailyShiftSchedule] = useState<DailyShiftRow[]>([]);
   const [scheduleWeekStatus, setScheduleWeekStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [leaveBalances, setLeaveBalances] = useState<LeaveBalanceRow[]>([]);
   const [leaveBalanceStatus, setLeaveBalanceStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
+  const [timecardMode, setTimecardMode] = useState<TimecardMode>('calendar');
+  const [timecardFromDate, setTimecardFromDate] = useState(initialTimecardRange.from);
+  const [timecardToDate, setTimecardToDate] = useState(initialTimecardRange.to);
+  const [timecardActionError, setTimecardActionError] = useState('');
   const [otOpen, setOtOpen] = useState(false);
   const [otStartDate, setOtStartDate] = useState<string>('');
   const [otEndDate, setOtEndDate] = useState<string>('');
@@ -567,28 +804,24 @@ export default function Attendance() {
   const [confirmLeaveSubmit, setConfirmLeaveSubmit] = useState(false);
   const [confirmOtSubmit, setConfirmOtSubmit] = useState(false);
   const [latestAttendanceDirection, setLatestAttendanceDirection] = useState<'IN' | 'OUT' | null>(null);
-  const [refreshTick, setRefreshTick] = useState(0);
   const currentScheduleWeekStart = useMemo(() => startOfWeekMonday(todayKey), [todayKey]);
   const [selectedScheduleWeekStart, setSelectedScheduleWeekStart] = useState(currentScheduleWeekStart);
+  const [overtimeRequests, setOvertimeRequests] = useState<OvertimeRequestRow[]>([]);
   useErrorDialogEffect(clockError, 'Attendance action failed');
   useErrorDialogEffect(otSubmitError, 'Overtime request could not be submitted');
   useErrorDialogEffect(submitError, 'Leave request could not be submitted');
-  const handlePageRefresh = () => {
-    setRefreshTick((tick) => tick + 1);
-  };
+  useErrorDialogEffect(timecardActionError, 'Timecard action failed');
   useEscapeDismiss(requestViewOpen, closeRequestView, 10);
   useEscapeDismiss(scheduleOpen, closeSchedule, 10);
-  useAutoRefreshingPage(handlePageRefresh, {
-    intervalMs: 15000,
-    enabled: !leaveOpen && !otOpen && !requestViewOpen && !scheduleOpen && !confirmClockAction && !isClocking,
-  });
   useEffect(() => {
     setSelectedScheduleWeekStart(currentScheduleWeekStart);
   }, [currentScheduleWeekStart]);
   const userRole = getUserRole();
   const canRequestOvertime = !['hr', 'management', 'manager'].includes(userRole ?? '');
+  const canRequestTimecardOvertime = userRole === 'employee';
   const maxOtEndDate = otStartDate ? addDays(otStartDate, 1) : '';
   const isOtNextDay = Boolean(otStartDate && otEndDate && otEndDate === maxOtEndDate);
+  const isTimecardRangeInvalid = !timecardFromDate || !timecardToDate || timecardToDate < timecardFromDate;
   const minimumLeaveStartDate = requiresAdvanceLeaveNotice(leaveType) ? nonSickLeaveMinDate : todayKey;
   const minimumLeaveEndDate =
     startDate && startDate >= minimumLeaveStartDate ? startDate : minimumLeaveStartDate;
@@ -633,6 +866,25 @@ export default function Attendance() {
   useEscapeDismiss(leaveOpen && !leaveUnsavedPrompt.confirmOpen, leaveUnsavedPrompt.requestClose, 10);
   useEscapeDismiss(otOpen && !overtimeUnsavedPrompt.confirmOpen, overtimeUnsavedPrompt.requestClose, 10);
 
+  function resetAttendanceData(includeEmployeeId = false) {
+    if (includeEmployeeId) {
+      setEmployeeId(null);
+    }
+    setEmployeeInfo(null);
+    setRequestEntries([]);
+    setAttendanceLogs([]);
+    setAttendanceByDate({});
+    setShiftSchedule([]);
+    setDailyShiftSchedule([]);
+    setLeaveDailyShiftSchedule([]);
+    setTimecardDailyShiftSchedule([]);
+    setLeaveBalances([]);
+    setLatestAttendanceDirection(null);
+    setLeaveBalanceStatus('unavailable');
+    setScheduleWeekStatus('unavailable');
+    setOvertimeRequests([]);
+  }
+
   useEffect(() => {
     if (!leaveOpen) {
       return;
@@ -651,8 +903,12 @@ export default function Attendance() {
 
   async function fetchAttendanceHistory(resolvedEmpId: number) {
     try {
-      const logs = await apiFetchJson<unknown>(`/api/logs/attendance/self/${resolvedEmpId}?page=0&size=500`);
-      return buildAttendanceHistory(logs);
+      const response = await apiFetchJson<unknown>(`/api/logs/attendance/self/${resolvedEmpId}?page=0&size=500`);
+      const logs = toArray<AttendanceLog>(response);
+      return {
+        logs,
+        history: buildAttendanceHistory(logs),
+      };
     } catch {
       return null;
     }
@@ -694,19 +950,11 @@ export default function Attendance() {
         const username = getUserEmail();
         if (!username) {
           if (!cancelled) {
-            setEmployeeId(null);
-            setRequestEntries([]);
-            setAttendanceByDate({});
-            setShiftSchedule([]);
-            setDailyShiftSchedule([]);
-            setLeaveDailyShiftSchedule([]);
-            setLeaveBalances([]);
-            setLatestAttendanceDirection(null);
-            setLeaveBalanceStatus('unavailable');
-            setScheduleWeekStatus('unavailable');
+            resetAttendanceData(true);
           }
           return;
         }
+
         const userDetails = await apiFetchJson<Record<string, unknown>>(
           `/api/user/details/${encodeURIComponent(username)}`
         );
@@ -725,61 +973,131 @@ export default function Attendance() {
                 : null;
 
         if (cancelled) return;
-        setEmployeeId(resolvedEmpId);
-
         if (resolvedEmpId) {
-          const [leaveResponse, overtimeResponse, attendanceHistory, scheduleResponse, leaveBalanceResponse] = await Promise.all([
-            apiFetchJson<unknown>(`/api/leave/request/${resolvedEmpId}?page=0&size=200`),
-            apiFetchJson<unknown>(`/api/overtime/all/${resolvedEmpId}?page=0&size=200`),
-            fetchAttendanceHistory(resolvedEmpId),
-            apiFetchJson<unknown>(`/api/employee/schedule/${resolvedEmpId}`).catch(() => []),
-            fetchLeaveBalances(resolvedEmpId),
-          ]);
-
-          if (cancelled) return;
-          setRequestEntries([
-            ...mapLeaveRequestEntries(leaveResponse),
-            ...mapOvertimeRequestEntries(overtimeResponse),
-          ]);
-          setShiftSchedule(toArray<ShiftScheduleRow>(scheduleResponse));
-          setAttendanceByDate(attendanceHistory?.sessionsByDate ?? {});
-          setLatestAttendanceDirection(attendanceHistory?.latestDirection ?? null);
-          setLeaveBalances(leaveBalanceResponse.rows);
-          setLeaveBalanceStatus(leaveBalanceResponse.status);
+          setEmployeeId(resolvedEmpId);
         } else {
-          setDailyShiftSchedule([]);
-          setLeaveDailyShiftSchedule([]);
-          setLeaveBalances([]);
-          setLeaveBalanceStatus('unavailable');
-          setScheduleWeekStatus('unavailable');
+          resetAttendanceData(true);
         }
       } catch {
         if (cancelled) return;
-        setEmployeeId(null);
-        setRequestEntries([]);
-        setAttendanceByDate({});
-        setShiftSchedule([]);
-        setDailyShiftSchedule([]);
-        setLeaveDailyShiftSchedule([]);
-        setLeaveBalances([]);
-        setLatestAttendanceDirection(null);
-        setLeaveBalanceStatus('unavailable');
-        setScheduleWeekStatus('unavailable');
+        resetAttendanceData(true);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [monthIndex, refreshTick, year]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
 
     void (async () => {
       if (!employeeId) {
+        resetAttendanceData();
+        return;
+      }
+
+      try {
+        const [employeeResponse, scheduleResponse] = await Promise.all([
+          apiFetchJson<EmployeeDetails>(`/api/employees/${employeeId}`).catch(() => null),
+          apiFetchJson<unknown>(`/api/employee/schedule/${employeeId}`).catch(() => []),
+        ]);
+
+        if (cancelled) return;
+        setEmployeeInfo(employeeResponse);
+        setShiftSchedule(toArray<ShiftScheduleRow>(scheduleResponse));
+      } catch {
+        if (cancelled) return;
+        setEmployeeInfo(null);
+        setShiftSchedule([]);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [employeeId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      if (!employeeId) {
+        setLeaveBalances([]);
+        setLeaveBalanceStatus('unavailable');
+        return;
+      }
+
+      try {
+        const leaveBalanceResponse = await fetchLeaveBalances(employeeId);
+        if (cancelled) return;
+        setLeaveBalances(leaveBalanceResponse.rows);
+        setLeaveBalanceStatus(leaveBalanceResponse.status);
+      } catch {
+        if (cancelled) return;
+        setLeaveBalances([]);
+        setLeaveBalanceStatus('unavailable');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [employeeId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      if (!employeeId) {
+        setRequestEntries([]);
+        setAttendanceLogs([]);
+        setAttendanceByDate({});
+        setLatestAttendanceDirection(null);
+        setOvertimeRequests([]);
+        return;
+      }
+
+      try {
+        const [leaveResponse, overtimeResponse, attendanceHistory] = await Promise.all([
+          apiFetchJson<unknown>(`/api/leave/request/${employeeId}?page=0&size=200`),
+          apiFetchJson<unknown>(`/api/overtime/all/${employeeId}?page=0&size=200`),
+          fetchAttendanceHistory(employeeId),
+        ]);
+
+        if (cancelled) return;
+        const overtimeRows = toArray<OvertimeRequestRow>(overtimeResponse);
+        setRequestEntries([
+          ...mapLeaveRequestEntries(leaveResponse),
+          ...mapOvertimeRequestEntries(overtimeRows),
+        ]);
+        setAttendanceLogs(attendanceHistory?.logs ?? []);
+        setAttendanceByDate(attendanceHistory?.history.sessionsByDate ?? {});
+        setLatestAttendanceDirection(attendanceHistory?.history.latestDirection ?? null);
+        setOvertimeRequests(overtimeRows);
+      } catch {
+        if (cancelled) return;
+        setRequestEntries([]);
+        setAttendanceLogs([]);
+        setAttendanceByDate({});
+        setLatestAttendanceDirection(null);
+        setOvertimeRequests([]);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [employeeId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      if (!scheduleOpen || !employeeId) {
         setDailyShiftSchedule([]);
-        setScheduleWeekStatus('unavailable');
+        setScheduleWeekStatus(scheduleOpen ? 'unavailable' : 'loading');
         return;
       }
 
@@ -804,7 +1122,7 @@ export default function Attendance() {
     return () => {
       cancelled = true;
     };
-  }, [employeeId, refreshTick, selectedScheduleWeekStart]);
+  }, [employeeId, scheduleOpen, selectedScheduleWeekStart]);
 
   useEffect(() => {
     let cancelled = false;
@@ -832,6 +1150,39 @@ export default function Attendance() {
       cancelled = true;
     };
   }, [employeeId, endDate, leaveOpen, startDate]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      if (
+        timecardMode !== 'timecard' ||
+        !employeeId ||
+        !timecardFromDate ||
+        !timecardToDate ||
+        timecardToDate < timecardFromDate
+      ) {
+        setTimecardDailyShiftSchedule([]);
+        return;
+      }
+
+      try {
+        const response = await apiFetchJson<unknown>(
+          `/api/employee/schedule/daily/${employeeId}?startDate=${timecardFromDate}&endDate=${timecardToDate}`
+        );
+
+        if (cancelled) return;
+        setTimecardDailyShiftSchedule(toArray<DailyShiftRow>(response));
+      } catch {
+        if (cancelled) return;
+        setTimecardDailyShiftSchedule([]);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [employeeId, timecardFromDate, timecardMode, timecardToDate]);
 
   useEffect(() => {
     if (!otStartDate) return;
@@ -893,6 +1244,45 @@ export default function Attendance() {
     return [...known, ...extras];
   }, [leaveBalances, leaveBalancesByType]);
 
+  const requestEntriesByDate = useMemo(() => {
+    const next = new Map<string, RequestEntry[]>();
+    for (const entry of requestEntries) {
+      const current = next.get(entry.dateKey);
+      if (current) {
+        current.push(entry);
+      } else {
+        next.set(entry.dateKey, [entry]);
+      }
+    }
+    return next;
+  }, [requestEntries]);
+
+  const shiftScheduleByDayOfWeek = useMemo(() => {
+    const next = new Map<string, ShiftScheduleRow>();
+    for (const schedule of shiftSchedule) {
+      if (typeof schedule.dayOfWeek !== 'string' || schedule.dayOfWeek.length === 0) continue;
+      if (!next.has(schedule.dayOfWeek)) {
+        next.set(schedule.dayOfWeek, schedule);
+      }
+    }
+    return next;
+  }, [shiftSchedule]);
+
+  const approvedOvertimeRequestsByDate = useMemo(() => {
+    const next = new Map<string, OvertimeRequestRow[]>();
+    for (const request of overtimeRequests) {
+      const workDate = typeof request.workDate === 'string' ? request.workDate.slice(0, 10) : '';
+      if (!workDate || String(request.requestStatus ?? '').toUpperCase() !== 'APPROVED') continue;
+      const current = next.get(workDate);
+      if (current) {
+        current.push(request);
+      } else {
+        next.set(workDate, [request]);
+      }
+    }
+    return next;
+  }, [overtimeRequests]);
+
   const scheduleWeekOptions = useMemo(
     () =>
       Array.from({ length: 6 }, (_, index) => {
@@ -930,11 +1320,25 @@ export default function Attendance() {
     return next;
   }, [leaveDailyShiftSchedule]);
 
+  const timecardDailyShiftScheduleByDate = useMemo(() => {
+    const next = new Map<string, DailyShiftRow[]>();
+    for (const shift of timecardDailyShiftSchedule) {
+      if (typeof shift.workDate !== 'string' || shift.workDate.length === 0) continue;
+      const dateKey = shift.workDate.slice(0, 10);
+      const current = next.get(dateKey);
+      if (current) {
+        current.push(shift);
+      } else {
+        next.set(dateKey, [shift]);
+      }
+    }
+    return next;
+  }, [timecardDailyShiftSchedule]);
+
   const weekScheduleRows = useMemo(() => {
     return buildWeekDateKeys(selectedScheduleWeekStart).map((dateKey) => {
       const dailyShift = dailyShiftScheduleByDate.get(dateKey) ?? null;
-      const templateShift =
-        shiftSchedule.find((schedule) => schedule.dayOfWeek === resolveDayOfWeek(dateKey)) ?? null;
+      const templateShift = shiftScheduleByDayOfWeek.get(resolveDayOfWeek(dateKey)) ?? null;
 
       if (dailyShift?.dayOff) {
         return {
@@ -972,7 +1376,7 @@ export default function Attendance() {
         variant: 'dayoff' as const,
       };
     });
-  }, [dailyShiftScheduleByDate, selectedScheduleWeekStart, shiftSchedule]);
+  }, [dailyShiftScheduleByDate, selectedScheduleWeekStart, shiftScheduleByDayOfWeek]);
 
   const selectedLeaveBalance = leaveBalancesByType.get(leaveType) ?? null;
   const selectedLeaveBalanceLabel =
@@ -996,6 +1400,84 @@ export default function Attendance() {
             ? ''
             : 'HR has not assigned this leave balance to your account yet.';
 
+  const timecardRows = useMemo(() => {
+    if (timecardMode !== 'timecard' || !timecardFromDate || !timecardToDate || timecardToDate < timecardFromDate) {
+      return [] as TimecardRow[];
+    }
+
+    return dateKeysBetween(timecardFromDate, timecardToDate).map((dateKey) => {
+      const sessions = resolveTimecardSessionsForDate(attendanceLogs, dateKey);
+      const rawHours = sessions.reduce((sum, session) => sum + calculateSessionHours(session), 0);
+      const adjustedRawHours = deductUnpaidLunchHour(rawHours);
+      const breakHours = Number(Math.max(0, rawHours - adjustedRawHours).toFixed(2));
+
+      const approvedOvertimeHours = (approvedOvertimeRequestsByDate.get(dateKey) ?? [])
+        .reduce((sum, request) => {
+          if (!request.startTime || !request.endTime) return sum;
+          const start = new Date(request.startTime);
+          const end = new Date(request.endTime);
+          if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return sum;
+          return sum + calculateWorkedHoursWithinWindow(sessions, start, end);
+        }, 0);
+      const overtimeHours = Number(approvedOvertimeHours.toFixed(2));
+
+      const effectiveWindows = resolveEffectiveLeaveShiftWindows(
+        dateKey,
+        shiftScheduleByDayOfWeek,
+        timecardDailyShiftScheduleByDate
+      );
+      const regularRawHours = effectiveWindows.reduce(
+        (sum, window) => sum + calculateWorkedHoursWithinWindow(sessions, window.start, window.end),
+        0
+      );
+      const regularHours = Number(
+        (
+          effectiveWindows.length > 0
+            ? deductUnpaidLunchHour(regularRawHours)
+            : Math.max(0, adjustedRawHours - overtimeHours)
+        ).toFixed(2)
+      );
+      const totalHours = Number((regularHours + overtimeHours).toFixed(2));
+      const timeIn = sessions[0] ? formatManilaTime(sessions[0].inAt) : '-';
+      const timeOut = sessions.length > 0 ? formatManilaTime(sessions[sessions.length - 1].outAt) : '-';
+
+      return {
+        dateKey,
+        label: formatTimecardRowDate(dateKey),
+        timeIn,
+        timeOut,
+        breakHours,
+        regularHours,
+        overtimeHours,
+        totalHours,
+      } satisfies TimecardRow;
+    });
+  }, [approvedOvertimeRequestsByDate, attendanceLogs, shiftScheduleByDayOfWeek, timecardDailyShiftScheduleByDate, timecardFromDate, timecardMode, timecardToDate]);
+
+  const timecardTotals = useMemo(() => {
+    return timecardRows.reduce(
+      (totals, row) => ({
+        breakHours: Number((totals.breakHours + row.breakHours).toFixed(2)),
+        regularHours: Number((totals.regularHours + row.regularHours).toFixed(2)),
+        overtimeHours: Number((totals.overtimeHours + row.overtimeHours).toFixed(2)),
+        totalHours: Number((totals.totalHours + row.totalHours).toFixed(2)),
+      }),
+      {
+        breakHours: 0,
+        regularHours: 0,
+        overtimeHours: 0,
+        totalHours: 0,
+      }
+    );
+  }, [timecardRows]);
+
+  const employeeName = useMemo(() => {
+    const parts = [employeeInfo?.firstName, employeeInfo?.middleName, employeeInfo?.lastName]
+      .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+      .join(' ');
+    return parts || '-';
+  }, [employeeInfo]);
+
   const hasApprovedTodayLeave = useMemo(() => {
     return requestEntries.some(
       (entry) =>
@@ -1013,6 +1495,10 @@ export default function Attendance() {
   const calendarGridStyle = { '--calendar-week-rows': calendarWeekRows } as CSSProperties;
 
   const calendarCells = useMemo(() => {
+    if (timecardMode !== 'calendar') {
+      return [] as DayCell[];
+    }
+
     // Build a Sunday-first calendar (SU..SA)
     const cells: DayCell[] = [];
     // leading blanks
@@ -1021,7 +1507,7 @@ export default function Attendance() {
     // actual days
     for (let d = 1; d <= daysInMonth; d++) {
       const dateKey = toISODate(year, monthIndex, d);
-      const dayRequests = requestEntries.filter((entry) => entry.dateKey === dateKey);
+      const dayRequests = requestEntriesByDate.get(dateKey) ?? [];
       const approvedDayRequests = dayRequests.filter((entry) => entry.status.toUpperCase() === 'APPROVED');
       const attendance = attendanceByDate[dateKey] ?? [];
       const statusNotes: string[] = [];
@@ -1058,14 +1544,14 @@ export default function Attendance() {
     while (cells.length % 7 !== 0) cells.push({ day: null });
 
     return cells;
-  }, [attendanceByDate, daysInMonth, requestEntries, sundayBasedStart, year]);
+  }, [attendanceByDate, daysInMonth, requestEntriesByDate, sundayBasedStart, timecardMode, year]);
 
   
   const resolveShiftTimes = (dateKey: string) => {
     const dailyShift = dailyShiftScheduleByDate.get(dateKey);
     const shiftEnd = (dailyShift && !dailyShift.dayOff && dailyShift.endDateTime)
       ? dailyShift.endDateTime.slice(11, 16)
-      : (shiftSchedule.find((s) => s.dayOfWeek === resolveDayOfWeek(dateKey))?.endTime ?? '17:00');
+      : (shiftScheduleByDayOfWeek.get(resolveDayOfWeek(dateKey))?.endTime ?? '17:00');
 
     const [h, m] = shiftEnd.split(':').map(Number);
     const date = new Date();
@@ -1200,8 +1686,9 @@ export default function Attendance() {
 
       const updatedHistory = await fetchAttendanceHistory(employeeId);
       if (updatedHistory) {
-        setAttendanceByDate(updatedHistory.sessionsByDate);
-        setLatestAttendanceDirection(updatedHistory.latestDirection);
+        setAttendanceLogs(updatedHistory.logs);
+        setAttendanceByDate(updatedHistory.history.sessionsByDate);
+        setLatestAttendanceDirection(updatedHistory.history.latestDirection);
       } else {
         const manila = getManilaNow();
         const dateKey = manila.dateKey;
@@ -1295,7 +1782,7 @@ export default function Attendance() {
       return false;
     }
 
-    const scheduleForDay = shiftSchedule.find((schedule) => schedule.dayOfWeek === resolveDayOfWeek(otStartDate));
+    const scheduleForDay = shiftScheduleByDayOfWeek.get(resolveDayOfWeek(otStartDate));
     if (!scheduleForDay) {
       setOtSubmitError('Your work schedule is not set up yet, so overtime cannot be filed.');
       return false;
@@ -1453,7 +1940,7 @@ export default function Attendance() {
       startTime,
       endDate,
       endTime,
-      shiftSchedule,
+      shiftScheduleByDayOfWeek,
       leaveDailyShiftScheduleByDate
     );
     const availableHours = parseBalanceHours(selectedLeaveBalance.balanceHours) ?? 0;
@@ -1465,7 +1952,7 @@ export default function Attendance() {
     } else {
       setLeaveBalanceWarning(null);
     }
-  }, [endDate, endTime, leaveDailyShiftScheduleByDate, leaveOpen, selectedLeaveBalance, shiftSchedule, startDate, startTime]);
+  }, [endDate, endTime, leaveDailyShiftScheduleByDate, leaveOpen, selectedLeaveBalance, shiftScheduleByDayOfWeek, startDate, startTime]);
 
   function requestLeaveConfirmation() {
     if (!validateLeaveForm()) return;
@@ -1522,15 +2009,111 @@ export default function Attendance() {
     }
   }
 
+  function buildTimecardPdfName() {
+    const employeeSegment = sanitizeFileNamePart(employeeName) || `employee-${employeeId ?? 'timecard'}`;
+    return `timecard_${employeeSegment}_${timecardFromDate || 'from'}_to_${timecardToDate || 'to'}.pdf`;
+  }
+
+  async function loadSelectedTimecardPdf() {
+    if (!employeeId) {
+      throw new Error('No employee selected.');
+    }
+    if (isTimecardRangeInvalid) {
+      throw new Error('Choose a valid timecard date range first.');
+    }
+
+    const response = await apiFetchRaw(
+      `/api/logs/attendance/self/${employeeId}/timecard/pdf?from=${encodeURIComponent(timecardFromDate)}&to=${encodeURIComponent(timecardToDate)}`,
+      { method: 'GET' }
+    );
+    if (!response.ok) {
+      const errorText = await response.text();
+      let errorMessage = `Failed to generate the timecard (${response.status}).`;
+
+      if (errorText) {
+        try {
+          const parsed = JSON.parse(errorText) as { error?: string; message?: string };
+          errorMessage = parsed.error?.trim() || parsed.message?.trim() || errorMessage;
+        } catch {
+          errorMessage = errorText.trim() || errorMessage;
+        }
+      }
+
+      throw new ApiError(response.status, errorMessage, errorMessage);
+    }
+
+    const pdfBlob = await response.blob();
+    const fileName =
+      parseContentDispositionFileName(response.headers.get('Content-Disposition')) || buildTimecardPdfName();
+    const pdfFile = new File([pdfBlob], fileName, {
+      type: pdfBlob.type || 'application/pdf',
+    });
+
+    return { file: pdfFile, fileName };
+  }
+
+  async function handleDownloadTimecard() {
+    setTimecardActionError('');
+    setIsPreparingTimecard(true);
+
+    try {
+      const { file, fileName } = await loadSelectedTimecardPdf();
+      const downloadUrl = URL.createObjectURL(file);
+      const anchor = document.createElement('a');
+      anchor.href = downloadUrl;
+      anchor.download = fileName;
+      anchor.click();
+      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 60_000);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setTimecardActionError(error.rawMessage || `Failed to download the timecard (${error.status}).`);
+      } else {
+        setTimecardActionError(error instanceof Error ? error.message : 'Failed to download the timecard.');
+      }
+    } finally {
+      setIsPreparingTimecard(false);
+    }
+  }
+
+  async function handlePrintTimecard() {
+    setTimecardActionError('');
+    setIsPreparingTimecard(true);
+
+    try {
+      const { file } = await loadSelectedTimecardPdf();
+      const documentUrl = URL.createObjectURL(file);
+      const anchor = document.createElement('a');
+      anchor.href = documentUrl;
+      anchor.target = '_blank';
+      anchor.rel = 'noopener noreferrer';
+      anchor.click();
+      window.setTimeout(() => URL.revokeObjectURL(documentUrl), 60_000);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        setTimecardActionError(error.rawMessage || `Failed to open the timecard (${error.status}).`);
+      } else {
+        setTimecardActionError(error instanceof Error ? error.message : 'Failed to open the timecard.');
+      }
+    } finally {
+      setIsPreparingTimecard(false);
+    }
+  }
+
   return (
     <div className="att">
       {/* Title row */}
       <div className="att__head">
         <PageHeader
           title="Attendance"
-          description="Review your work logs, requests, shifts, and events in one monthly calendar."
+          description="Review your work logs through the monthly calendar or a downloadable timecard."
         />
         <div className="att__controls">
+          <label className="attModeSelect attModeSelect--view" aria-label="Attendance view">
+            <select value={timecardMode} onChange={(event) => setTimecardMode(event.target.value as TimecardMode)}>
+              <option value="calendar">By Calendar</option>
+              <option value="timecard">By Timecard</option>
+            </select>
+          </label>
           <button className="attClockBtn attClockBtn--schedule" type="button" onClick={openSchedule} title="View My Schedule">
             <span>My Schedule</span>
             <span className="attClockBtn__icon">
@@ -1583,166 +2166,324 @@ export default function Attendance() {
         )}
       </section>
 
-      {/* Calendar card */}
-      <section className="attCard">
-        <div className="attCalendarShell" aria-label="Attendance calendar">
-          <div className="attCalendarShell__top">
-            <button
-              type="button"
-              className="attCalendarShell__navBtn"
-              onClick={() => shiftCalendarMonth(-1)}
-              aria-label="Previous month"
-            >
-              <FiChevronLeft aria-hidden="true" />
-            </button>
+      {timecardMode === 'calendar' ? (
+        <>
+          <section className="attCard">
+            <div className="attCalendarShell" aria-label="Attendance calendar">
+              <div className="attCalendarShell__top">
+                <button
+                  type="button"
+                  className="attCalendarShell__navBtn"
+                  onClick={() => shiftCalendarMonth(-1)}
+                  aria-label="Previous month"
+                >
+                  <FiChevronLeft aria-hidden="true" />
+                </button>
 
-            <div className="uCalendarMonthPicker uCalendarMonthPicker--minimal">
-              <span>{monthLabel}</span>
-              <FiChevronRight style={{ transform: 'rotate(90deg)' }} />
-              <select
-                value={monthValue}
-                onChange={(e) => {
-                  setMonthValue(e.target.value);
-                  parseMonthValue(e.target.value);
-                }}
-              >
-                {monthOptions.map((label) => {
+                <div className="uCalendarMonthPicker uCalendarMonthPicker--minimal">
+                  <span>{monthLabel}</span>
+                  <FiChevronRight style={{ transform: 'rotate(90deg)' }} />
+                  <select
+                    value={monthValue}
+                    onChange={(e) => {
+                      setMonthValue(e.target.value);
+                      parseMonthValue(e.target.value);
+                    }}
+                  >
+                    {monthOptions.map((label) => {
+                      return (
+                        <option key={label} value={label}>
+                          {label}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  className="attCalendarShell__navBtn"
+                  onClick={() => shiftCalendarMonth(1)}
+                  aria-label="Next month"
+                >
+                  <FiChevronRight aria-hidden="true" />
+                </button>
+              </div>
+
+              <div className="attCalendarShell__legend" aria-hidden="true">
+                <span className="attCalendarShell__legendItem">
+                  <span className="attCalendarShell__legendSwatch attCalendarShell__legendSwatch--leave" />
+                  Leave
+                </span>
+                <span className="attCalendarShell__legendItem">
+                  <span className="attCalendarShell__legendSwatch attCalendarShell__legendSwatch--ot" />
+                  Overtime
+                </span>
+              </div>
+
+              <div className="cal" style={calendarGridStyle}>
+                <div className="cal__dow">SU</div>
+                <div className="cal__dow">MO</div>
+                <div className="cal__dow">TU</div>
+                <div className="cal__dow">WE</div>
+                <div className="cal__dow">TH</div>
+                <div className="cal__dow">FR</div>
+                <div className="cal__dow">SA</div>
+
+                {calendarCells.map((c, idx) => {
+                  const dateKey = c.day ? toISODate(year, monthIndex, c.day) : '';
+                  const isToday = c.day !== null && dateKey === todayKey;
+                  const isSelected = c.day !== null && dateKey === selectedDateKey;
+                  const hasRequest = c.day !== null && approvedRequestDateKeys.has(dateKey);
+                  const clickable = c.day !== null;
+                  const hasContent = Boolean((c.statusNotes?.length ?? 0) || (c.detailNotes?.length ?? 0));
+                  const cellTitle = [...(c.statusNotes ?? []), ...(c.detailNotes ?? [])].join(' | ');
+                  const cls = [
+                    'cal__cell',
+                    clickable ? 'cal__cell--click' : 'cal__cell--disabled',
+                    hasContent ? 'cal__cell--active' : '',
+                    isToday ? 'cal__cell--today' : '',
+                    isSelected ? 'cal__cell--selected' : '',
+                    c.variant ? `cal__cell--${c.variant}` : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ');
+
                   return (
-                    <option key={label} value={label}>
-                      {label}
-                    </option>
+                    <button
+                      key={idx}
+                      type="button"
+                      className={cls}
+                      disabled={c.day === null}
+                      title={cellTitle || undefined}
+                      onClick={() => {
+                        if (!c.day) return;
+                        setSelectedDateKey(dateKey);
+                        if (hasRequest) openRequestForDay(c.day);
+                      }}
+                      aria-label={c.day ? `Date ${monthLabel} ${c.day}${isToday ? ', today' : ''}` : 'Empty'}
+                      aria-current={isToday ? 'date' : undefined}
+                    >
+                      {c.day ? (
+                        <div className="cal__cellTop">
+                          <div className="cal__day">{c.day}</div>
+                        </div>
+                      ) : null}
+                      {c.statusNotes && (
+                        <div className="cal__statusNotes">
+                          {c.statusNotes.slice(0, 2).map((line, lineIdx) => (
+                            <span
+                              key={`${line}-${lineIdx}`}
+                              className={`cal__note ${
+                                line.toLowerCase().includes('leave')
+                                  ? 'cal__note--leave'
+                                  : line.toLowerCase().includes('ot')
+                                    ? 'cal__note--ot'
+                                    : ''
+                              }`}
+                            >
+                              {line}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {c.detailNotes && (
+                        <div className="cal__detailNotes">
+                          {c.detailNotes.map((line, lineIdx) => (
+                            <span key={`${line}-${lineIdx}`} className="cal__detail">
+                              {line}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </button>
                   );
                 })}
-              </select>
+              </div>
+            </div>
+          </section>
+
+          <div className="attActions">
+            <button className="attBtn" type="button" onClick={openLeaveForToday} title="Request Leave">
+              <span>Request Leave</span>
+              <span className="attBtn__icon">
+                <FiPlusSquare />
+              </span>
+            </button>
+
+            {canRequestOvertime && (
+              <button
+                className="attBtn"
+                type="button"
+                onClick={openOtForToday}
+                title="Request Overtime"
+              >
+                <span>Request Overtime</span>
+                <span className="attBtn__icon">
+                  <FiPlusSquare />
+                </span>
+              </button>
+            )}
+          </div>
+        </>
+      ) : (
+        <>
+          <section className="attTimecardCard" aria-label="Employee timecard">
+            <div className="attTimecardToolbar">
+              <div className="attTimecardFilters__field attTimecardFilters__field--dates">
+                <label>DATE RANGE:</label>
+                <div className="attTimecardFilters__dateGroup">
+                  <div className="attTimecardDateInput">
+                    <FiCalendar />
+                    <span className="attTimecardDateInput__value">{formatDisplayDate(timecardFromDate)}</span>
+                    <input
+                      type="date"
+                      value={timecardFromDate}
+                      onChange={(event) => setTimecardFromDate(event.target.value)}
+                      aria-label="From date"
+                    />
+                  </div>
+                  <span className="attTimecardFilters__dateSeparator">to</span>
+                  <div className="attTimecardDateInput">
+                    <FiCalendar />
+                    <span className="attTimecardDateInput__value">{formatDisplayDate(timecardToDate)}</span>
+                    <input
+                      type="date"
+                      value={timecardToDate}
+                      min={timecardFromDate || undefined}
+                      onChange={(event) => setTimecardToDate(event.target.value)}
+                      aria-label="To date"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <button
+            {isTimecardRangeInvalid && (
+              <p className="field__error">Choose a valid date range where the end date is not earlier than the start date.</p>
+            )}
+
+            <section className="attTimecardSheet">
+              <div className="attTimecardSheet__header">
+                <div className="attTimecardSheet__brand">
+                  <img className="attTimecardSheet__logo" src="/images/marid-logo-transparent.png" alt="Marid Industries logo" />
+                  <div className="attTimecardSheet__companyCopy">
+                    <div className="attTimecardSheet__companyName">Marid Industries Corporation</div>
+                    <div className="attTimecardSheet__companyMeta">Address</div>
+                    <div className="attTimecardSheet__companyMeta">marid@marid.com</div>
+                  </div>
+                </div>
+                <div className="attTimecardSheet__title">EMPLOYEE TIMECARD</div>
+              </div>
+
+              <div className="attTimecardSheet__rule" />
+
+              <div className="attTimecardInfo">
+                <div className="attTimecardInfo__row">
+                  <span className="attTimecardInfo__label">Employee Name</span>
+                  <span className="attTimecardInfo__line">{employeeName}</span>
+                  <span className="attTimecardInfo__label">Manager</span>
+                  <span className="attTimecardInfo__line">{employeeInfo?.managerName ?? '-'}</span>
+                </div>
+                <div className="attTimecardInfo__row">
+                  <span className="attTimecardInfo__label">Department</span>
+                  <span className="attTimecardInfo__line">{employeeInfo?.department ?? '-'}</span>
+                  <span className="attTimecardInfo__label">Dates</span>
+                  <span className="attTimecardInfo__line">{formatTimecardPayPeriod(timecardFromDate, timecardToDate)}</span>
+                </div>
+                <div className="attTimecardInfo__row">
+                  <span className="attTimecardInfo__label">Designation</span>
+                  <span className="attTimecardInfo__line">{employeeInfo?.position ?? '-'}</span>
+                  <span className="attTimecardInfo__label attTimecardInfo__label--empty" aria-hidden="true"></span>
+                  <span className="attTimecardInfo__line attTimecardInfo__line--empty" aria-hidden="true"></span>
+                </div>
+              </div>
+
+              <div className="attTimecardTable">
+                <div className="attTimecardTable__head">
+                  <span className="attTimecardTable__cell">Date</span>
+                  <span className="attTimecardTable__cell">In</span>
+                  <span className="attTimecardTable__cell">Out</span>
+                  <span className="attTimecardTable__cell attTimecardTable__cell--numeric">Breaks</span>
+                  <span className="attTimecardTable__cell attTimecardTable__cell--numeric">Reg. Hours</span>
+                  <span className="attTimecardTable__cell attTimecardTable__cell--numeric">OT Hours</span>
+                  <span className="attTimecardTable__cell attTimecardTable__cell--numeric">Total Hours</span>
+                </div>
+
+                <div className="attTimecardTable__body">
+                  {timecardRows.length > 0 ? (
+                    timecardRows.map((row) => (
+                      <div key={row.dateKey} className="attTimecardTable__row">
+                        <span className="attTimecardTable__cell">{row.label}</span>
+                        <span className="attTimecardTable__cell">{row.timeIn}</span>
+                        <span className="attTimecardTable__cell">{row.timeOut}</span>
+                        <span className="attTimecardTable__cell attTimecardTable__cell--numeric">{row.breakHours.toFixed(2)}</span>
+                        <span className="attTimecardTable__cell attTimecardTable__cell--numeric">{row.regularHours.toFixed(2)}</span>
+                        <span className="attTimecardTable__cell attTimecardTable__cell--numeric">{row.overtimeHours.toFixed(2)}</span>
+                        <span className="attTimecardTable__cell attTimecardTable__cell--numeric">{row.totalHours.toFixed(2)}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="attTimecardTable__empty">No timecard rows are available for the selected range.</div>
+                  )}
+                </div>
+
+                <div className="attTimecardTable__total">
+                  <span className="attTimecardTable__cell">Total</span>
+                  <span className="attTimecardTable__cell" aria-hidden="true"></span>
+                  <span className="attTimecardTable__cell" aria-hidden="true"></span>
+                  <span className="attTimecardTable__cell attTimecardTable__cell--numeric">{timecardTotals.breakHours.toFixed(2)}</span>
+                  <span className="attTimecardTable__cell attTimecardTable__cell--numeric">{timecardTotals.regularHours.toFixed(2)}</span>
+                  <span className="attTimecardTable__cell attTimecardTable__cell--numeric">{timecardTotals.overtimeHours.toFixed(2)}</span>
+                  <span className="attTimecardTable__cell attTimecardTable__cell--numeric">{timecardTotals.totalHours.toFixed(2)}</span>
+                </div>
+              </div>
+
+              <div className="attTimecardSheet__rule attTimecardSheet__rule--thin" />
+
+              <div className="attTimecardSign">
+                <div className="attTimecardSign__line">
+                  <span>Employee Signature over Printed Name</span>
+                </div>
+                <div className="attTimecardSign__line">
+                  <span>Date</span>
+                </div>
+              </div>
+            </section>
+          </section>
+
+          <div className="attTimecardActions">
+            <ActionButton
+              className="attTimecardAction"
+              size="lg"
+              icon={<FiDownload />}
               type="button"
-              className="attCalendarShell__navBtn"
-              onClick={() => shiftCalendarMonth(1)}
-              aria-label="Next month"
+              onClick={() => void handleDownloadTimecard()}
+              disabled={isPreparingTimecard || isTimecardRangeInvalid || !employeeId}
             >
-              <FiChevronRight aria-hidden="true" />
-            </button>
+              {isPreparingTimecard ? 'Preparing Timecard...' : 'Download Timecard'}
+            </ActionButton>
+            <ActionButton
+              className="attTimecardAction"
+              size="lg"
+              icon={<FiPrinter />}
+              type="button"
+              onClick={() => void handlePrintTimecard()}
+              disabled={isPreparingTimecard || isTimecardRangeInvalid || !employeeId}
+            >
+              {isPreparingTimecard ? 'Opening Timecard...' : 'Print Timecard'}
+            </ActionButton>
+            <ActionButton className="attTimecardAction" size="lg" type="button" icon={<FiPlusSquare />} onClick={openLeaveForToday}>
+              Request Leave
+            </ActionButton>
+            {canRequestTimecardOvertime && (
+              <ActionButton className="attTimecardAction" size="lg" type="button" icon={<FiPlusSquare />} onClick={openOtForToday}>
+                Request Overtime
+              </ActionButton>
+            )}
           </div>
-
-          <div className="attCalendarShell__legend" aria-hidden="true">
-            <span className="attCalendarShell__legendItem">
-              <span className="attCalendarShell__legendSwatch attCalendarShell__legendSwatch--leave" />
-              Leave
-            </span>
-            <span className="attCalendarShell__legendItem">
-              <span className="attCalendarShell__legendSwatch attCalendarShell__legendSwatch--ot" />
-              Overtime
-            </span>
-          </div>
-
-          <div className="cal" style={calendarGridStyle}>
-            <div className="cal__dow">SU</div>
-            <div className="cal__dow">MO</div>
-            <div className="cal__dow">TU</div>
-            <div className="cal__dow">WE</div>
-            <div className="cal__dow">TH</div>
-            <div className="cal__dow">FR</div>
-            <div className="cal__dow">SA</div>
-
-            {calendarCells.map((c, idx) => {
-              const dateKey = c.day ? toISODate(year, monthIndex, c.day) : '';
-              const manila = getManilaNow();
-              const isToday = c.day !== null && dateKey === manila.dateKey;
-              const isSelected = c.day !== null && dateKey === selectedDateKey;
-              const hasRequest = c.day !== null && approvedRequestDateKeys.has(dateKey);
-              const clickable = c.day !== null;
-              const hasContent = Boolean((c.statusNotes?.length ?? 0) || (c.detailNotes?.length ?? 0));
-              const cellTitle = [...(c.statusNotes ?? []), ...(c.detailNotes ?? [])].join(' | ');
-              const cls = [
-                'cal__cell',
-                clickable ? 'cal__cell--click' : 'cal__cell--disabled',
-                hasContent ? 'cal__cell--active' : '',
-                isToday ? 'cal__cell--today' : '',
-                isSelected ? 'cal__cell--selected' : '',
-                c.variant ? `cal__cell--${c.variant}` : '',
-              ]
-                .filter(Boolean)
-                .join(' ');
-
-              return (
-                <button
-                  key={idx}
-                  type="button"
-                  className={cls}
-                  disabled={c.day === null}
-                  title={cellTitle || undefined}
-                  onClick={() => {
-                    if (!c.day) return;
-                    setSelectedDateKey(dateKey);
-                    if (hasRequest) openRequestForDay(c.day);
-                  }}
-                  aria-label={c.day ? `Date ${monthLabel} ${c.day}${isToday ? ', today' : ''}` : 'Empty'}
-                  aria-current={isToday ? 'date' : undefined}
-                >
-                  {c.day ? (
-                    <div className="cal__cellTop">
-                      <div className="cal__day">{c.day}</div>
-                    </div>
-                  ) : null}
-                  {c.statusNotes && (
-                    <div className="cal__statusNotes">
-                      {c.statusNotes.slice(0, 2).map((line, lineIdx) => (
-                        <span
-                          key={`${line}-${lineIdx}`}
-                          className={`cal__note ${
-                            line.toLowerCase().includes('leave')
-                              ? 'cal__note--leave'
-                              : line.toLowerCase().includes('ot')
-                                ? 'cal__note--ot'
-                                  : ''
-                          }`}
-                        >
-                          {line}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {c.detailNotes && (
-                    <div className="cal__detailNotes">
-                      {c.detailNotes.map((line, lineIdx) => (
-                        <span key={`${line}-${lineIdx}`} className="cal__detail">
-                          {line}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* Bottom buttons like figma */}
-      <div className="attActions">
-        <button className="attBtn" type="button" onClick={openLeaveForToday} title="Request Leave">
-          <span>Request Leave</span>
-          <span className="attBtn__icon">
-            <FiPlusSquare />
-          </span>
-        </button>
-
-        {canRequestOvertime && (
-          <button
-            className="attBtn"
-            type="button"
-            onClick={openOtForToday}
-            title="Request Overtime"
-          >
-            <span>Request Overtime</span>
-            <span className="attBtn__icon">
-              <FiPlusSquare />
-            </span>
-          </button>
-        )}
-      </div>
+        </>
+      )}
 
       {/* Leave Modal */}
       {leaveOpen &&

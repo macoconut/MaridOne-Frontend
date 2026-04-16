@@ -860,6 +860,362 @@ input[type='time'] {
   box-shadow: none;
 }
 
+.attModeSelect {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  border: 1px solid rgba(59, 34, 87, 0.16);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.attModeSelect::after {
+  content: '';
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid #645775;
+  border-bottom: 2px solid #645775;
+  transform: translateY(-65%) rotate(45deg);
+  pointer-events: none;
+}
+
+.attModeSelect select {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0 40px 0 12px;
+  color: #2f2050;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.attModeSelect select:focus {
+  outline: none;
+}
+
+.attModeSelect--view {
+  min-width: 224px;
+}
+
+.attTimecardCard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.attTimecardToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  align-items: end;
+  justify-content: flex-end;
+}
+
+.attTimecardFilters__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.attTimecardFilters__field--dates {
+  align-items: flex-end;
+  margin-left: auto;
+}
+
+.attTimecardToolbar .attTimecardFilters__field label {
+  margin-left: 2px;
+  color: var(--app-label-color, #5a337d) !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  font-style: normal;
+  font-family: var(--font-body) !important;
+  line-height: 1.5 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+}
+
+.attTimecardFilters__dateGroup {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.attTimecardToolbar .attTimecardDateInput {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 210px;
+  max-width: 100%;
+  min-height: 48px;
+  border-radius: var(--ui-radius-md);
+  border: 1px solid var(--ui-border-strong, rgba(82, 56, 116, 0.14));
+  background: #fff;
+  padding: 0 14px;
+  box-shadow: var(--ui-shadow-soft, 0 10px 20px rgba(28, 19, 42, 0.06));
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  font-family: var(--font-body) !important;
+  line-height: 1.5;
+}
+
+.attTimecardToolbar .attTimecardDateInput:hover {
+  border-color: rgba(59, 34, 87, 0.24);
+}
+
+.attTimecardToolbar .attTimecardDateInput:focus-within {
+  border-color: rgba(123, 74, 143, 0.4);
+  box-shadow: 0 4px 14px rgba(123, 74, 143, 0.12);
+}
+
+.attTimecardToolbar .attTimecardDateInput svg {
+  color: var(--app-label-color, #5a337d);
+  font-size: 15px;
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+
+.attTimecardToolbar .attTimecardDateInput__value {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ui-title-color, #2b2036) !important;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-style: normal;
+  font-family: var(--font-body) !important;
+  line-height: 1.5 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+}
+
+.attTimecardDateInput input[type="date"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 5;
+}
+
+.attTimecardDateInput input[type="date"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.attTimecardToolbar .attTimecardFilters__dateSeparator {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--hr-muted, #555066) !important;
+  font-style: normal;
+  font-family: var(--font-body) !important;
+  line-height: 1.5 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+}
+
+.attTimecardSheet {
+  background: #fff;
+  border: 2px solid #3b2257;
+  border-radius: 8px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.08);
+  padding: 18px;
+}
+
+.attTimecardSheet__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.attTimecardSheet__brand {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.attTimecardSheet__logo {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  flex: 0 0 auto;
+}
+
+.attTimecardSheet__companyCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.attTimecardSheet__companyName {
+  font-weight: 800;
+  font-size: 19px;
+  color: #2b2036;
+}
+
+.attTimecardSheet__companyMeta {
+  font-size: 16px;
+  color: #2b2036;
+}
+
+.attTimecardSheet__title {
+  font-size: 28px;
+  font-weight: 900;
+  color: #111;
+  letter-spacing: 0.02em;
+}
+
+.attTimecardSheet__rule {
+  height: 2px;
+  background: rgba(0, 0, 0, 0.6);
+  margin: 10px 0 14px;
+}
+
+.attTimecardSheet__rule--thin {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.45);
+  margin: 24px 0 0;
+}
+
+.attTimecardInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.attTimecardInfo__row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) 120px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px 18px;
+}
+
+.attTimecardInfo__label {
+  color: rgba(43, 32, 54, 0.65);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.attTimecardInfo__label--empty,
+.attTimecardInfo__line--empty {
+  visibility: hidden;
+}
+
+.attTimecardInfo__line {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  padding-bottom: 2px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+  color: #1a1a1a;
+  font-weight: 700;
+}
+
+.attTimecardTable {
+  border: 1px solid rgba(0, 0, 0, 0.35);
+}
+
+.attTimecardTable__head,
+.attTimecardTable__row,
+.attTimecardTable__total {
+  display: grid;
+  grid-template-columns: minmax(140px, 1.4fr) repeat(2, minmax(88px, 0.9fr)) repeat(4, minmax(92px, 0.9fr));
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+}
+
+.attTimecardTable__head {
+  background: #efefef;
+  font-size: 12px;
+  font-weight: 800;
+  color: #111;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.attTimecardTable__body {
+  display: flex;
+  flex-direction: column;
+}
+
+.attTimecardTable__row {
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+  font-size: 14px;
+  color: #2b2036;
+}
+
+.attTimecardTable__cell {
+  min-width: 0;
+}
+
+.attTimecardTable__cell--numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.attTimecardTable__total {
+  border-top: 1px solid rgba(0, 0, 0, 0.35);
+  background: rgba(245, 245, 245, 0.9);
+  font-weight: 900;
+  font-size: 14px;
+}
+
+.attTimecardTable__empty {
+  padding: 18px 12px;
+  font-size: 14px;
+  color: rgba(43, 32, 54, 0.66);
+  text-align: center;
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.attTimecardSign {
+  margin-top: 34px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 26px;
+}
+
+.attTimecardSign__line {
+  border-top: 1px solid rgba(0, 0, 0, 0.45);
+  padding-top: 10px;
+  text-align: center;
+  font-size: 15px;
+  color: #2b2036;
+}
+
+.attTimecardActions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.attTimecardAction {
+  min-width: 200px;
+}
+
 /* responsive */
 @media (max-width: 900px) {
   .attBalanceCard__header {
@@ -869,6 +1225,25 @@ input[type='time'] {
   .attActions {
     gap: 18px;
     flex-wrap: wrap;
+  }
+  .attTimecardSign {
+    grid-template-columns: 1fr;
+  }
+  .attTimecardInfo__row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .attTimecardInfo__label--empty,
+  .attTimecardInfo__line--empty {
+    display: none;
+  }
+  .attTimecardTable__head,
+  .attTimecardTable__row,
+  .attTimecardTable__total {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .attModeSelect {
+    width: 100%;
   }
   .requestForm__grid {
     grid-template-columns: 1fr;
@@ -893,6 +1268,37 @@ input[type='time'] {
   }
   .formRow {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .attTimecardSheet__header,
+  .attTimecardSheet__brand {
+    flex-direction: column;
+  }
+
+  .attTimecardSheet__logo {
+    width: 52px;
+    height: 52px;
+  }
+
+  .attTimecardInfo__row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .attTimecardTable__head {
+    display: none;
+  }
+
+  .attTimecardTable__row,
+  .attTimecardTable__total {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .attTimecardTable__cell--numeric {
+    text-align: left;
   }
 }
 
