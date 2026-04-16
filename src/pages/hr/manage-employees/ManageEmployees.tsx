@@ -2262,7 +2262,16 @@ export default function HrManageEmp() {
         <PageHeader
           title="Employee Management"
           description="Maintain employee records, accounts, and employment details from one directory."
-          meta={<SensitiveAccessIndicator />}
+          titleMeta={
+            <SensitiveAccessIndicator
+              onActivate={() =>
+                sensitiveAccess.requestVerification(
+                  async () => Promise.resolve(),
+                  'Verify sensitive access to unlock employee management.'
+                )
+              }
+            />
+          }
         />
         <div className="hrEmp__headActions">
           <button type="button" className="hrEmpTable__actionBtn" onClick={openAddModal}>

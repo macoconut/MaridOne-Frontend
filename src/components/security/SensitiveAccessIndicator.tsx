@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
+import { FiLock, FiUnlock } from 'react-icons/fi';
 import { clearSensitiveAccessSession } from '../../lib/sensitiveAccess';
 import { getSensitiveAccessExpiry, getSensitiveAccessToken } from '../../lib/session';
 import './SensitiveAccessIndicator.css';
+
+type SensitiveAccessIndicatorProps = {
+  onActivate?: () => void;
+};
 
 function readRemainingMs() {
   const token = getSensitiveAccessToken();
@@ -31,7 +36,9 @@ function formatRemainingTime(remainingMs: number) {
   return `${minutes}m ${String(seconds).padStart(2, '0')}s left`;
 }
 
-export default function SensitiveAccessIndicator() {
+export default function SensitiveAccessIndicator({
+  onActivate,
+}: SensitiveAccessIndicatorProps) {
   const [remainingMs, setRemainingMs] = useState(() => readRemainingMs());
 
   useEffect(() => {
@@ -53,30 +60,32 @@ export default function SensitiveAccessIndicator() {
   }, []);
 
   const isActive = remainingMs > 0;
-  const statusLabel = useMemo(() => {
-    if (!isActive) {
-      return 'Sensitive Access Inactive';
-    }
-
-    return `Sensitive Access Active • ${formatRemainingTime(remainingMs)}`;
-  }, [isActive, remainingMs]);
+  const timerLabel = useMemo(
+    () => (isActive ? formatRemainingTime(remainingMs) : ''),
+    [isActive, remainingMs]
+  );
+  const isInteractive = isActive || Boolean(onActivate);
 
   return (
-    <div className={`sensitiveAccessIndicator ${isActive ? 'is-active' : 'is-inactive'}`} aria-live="polite">
-      <span className="sensitiveAccessIndicator__dot" aria-hidden="true" />
-      <span className="sensitiveAccessIndicator__label">{statusLabel}</span>
-      {isActive ? (
-        <button
-          type="button"
-          className="sensitiveAccessIndicator__lock"
-          onClick={() => {
+    <div className="sensitiveAccessIndicator" aria-live="polite">
+      <button
+        type="button"
+        className={`sensitiveAccessIndicator__iconBtn ${isActive ? 'is-active' : 'is-inactive'}`}
+        onClick={() => {
+          if (isActive) {
             clearSensitiveAccessSession();
             setRemainingMs(0);
-          }}
-        >
-          Lock Now
-        </button>
-      ) : null}
+            return;
+          }
+          onActivate?.();
+        }}
+        disabled={!isInteractive}
+        aria-label={isActive ? 'Lock sensitive access now' : 'Unlock sensitive access'}
+        title={isActive ? 'Lock sensitive access now' : 'Unlock sensitive access'}
+      >
+        {isActive ? <FiUnlock aria-hidden="true" /> : <FiLock aria-hidden="true" />}
+      </button>
+      {isActive ? <span className="sensitiveAccessIndicator__timer">{timerLabel}</span> : null}
     </div>
   );
 }

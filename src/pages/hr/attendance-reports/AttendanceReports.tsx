@@ -824,20 +824,23 @@ function resolveTemplateScheduleWindows(employee: EmployeeRow | undefined, dateK
   if (Number.isNaN(date.getTime())) return [];
 
   const targetDay = DAY_NAMES[date.getDay()];
-  return employee.shiftSchedules
-    .filter((schedule) => String(schedule.dayOfWeek ?? '').toUpperCase() === targetDay)
-    .map((schedule) => {
+  const windows: AttendanceScheduleWindow[] = [];
+
+  for (const schedule of employee.shiftSchedules) {
+    if (String(schedule.dayOfWeek ?? '').toUpperCase() !== targetDay) continue;
+
       const startMinutes = parseTimeToMinutes(schedule.startTime);
       const endMinutes = parseTimeToMinutes(schedule.endTime);
-      if (startMinutes == null || endMinutes == null) return null;
+      if (startMinutes == null || endMinutes == null) continue;
 
-      return {
+      windows.push({
         startDateTime: formatLocalDateTime(dateKey, startMinutes),
         endDateTime: formatLocalDateTime(dateKey, endMinutes),
         dayOff: false,
-      } satisfies AttendanceScheduleWindow;
-    })
-    .filter((schedule): schedule is AttendanceScheduleWindow => schedule !== null);
+      });
+  }
+
+  return windows;
 }
 
 function resolveAttendanceScheduleWindows(

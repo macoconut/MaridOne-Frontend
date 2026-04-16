@@ -1,76 +1,66 @@
 .sensitiveAccessIndicator {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  min-height: 36px;
-  padding: 0 12px;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sensitiveAccessIndicator__iconBtn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
   border-radius: 999px;
-  border: 1px solid rgba(123, 74, 143, 0.14);
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: 0 10px 24px rgba(48, 31, 76, 0.08);
-  color: rgba(59, 34, 87, 0.8);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
-.sensitiveAccessIndicator.is-active {
-  background:
-    linear-gradient(180deg, rgba(247, 242, 251, 0.98), rgba(255, 255, 255, 0.94));
-  border-color: rgba(123, 74, 143, 0.2);
-  color: #4f2f73;
-}
-
-.sensitiveAccessIndicator__dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 999px;
-  background: #b0a5c0;
-  box-shadow: 0 0 0 4px rgba(176, 165, 192, 0.16);
-  flex: 0 0 auto;
-}
-
-.sensitiveAccessIndicator.is-active .sensitiveAccessIndicator__dot {
-  background: #31a56b;
-  box-shadow: 0 0 0 4px rgba(49, 165, 107, 0.14);
-}
-
-.sensitiveAccessIndicator__label {
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-}
-
-.sensitiveAccessIndicator__lock {
-  min-height: 28px;
-  padding: 0 10px;
-  border: 1px solid rgba(123, 74, 143, 0.14);
-  border-radius: 999px;
-  background: rgba(123, 74, 143, 0.09);
+  background: transparent;
   color: #5f3a82;
-  font-size: 12px;
-  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   transition: background 160ms ease, color 160ms ease, transform 160ms ease;
 }
 
-.sensitiveAccessIndicator__lock:hover:not(:disabled) {
-  background: rgba(123, 74, 143, 0.14);
+.sensitiveAccessIndicator__iconBtn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.sensitiveAccessIndicator__iconBtn:hover:not(:disabled) {
+  background: rgba(123, 74, 143, 0.1);
   transform: translateY(-1px);
 }
 
-.sensitiveAccessIndicator__lock:disabled {
-  cursor: not-allowed;
-  opacity: 0.7;
+.sensitiveAccessIndicator__iconBtn:focus-visible {
+  outline: 2px solid rgba(123, 74, 143, 0.28);
+  outline-offset: 2px;
+}
+
+.sensitiveAccessIndicator__iconBtn.is-active {
+  color: #2f7a4a;
+}
+
+.sensitiveAccessIndicator__iconBtn.is-active:hover:not(:disabled) {
+  background: rgba(49, 165, 107, 0.12);
+}
+
+.sensitiveAccessIndicator__iconBtn.is-inactive {
+  color: rgba(59, 34, 87, 0.76);
+}
+
+.sensitiveAccessIndicator__iconBtn:disabled {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.sensitiveAccessIndicator__timer {
+  color: rgba(43, 32, 54, 0.66);
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 @media (max-width: 768px) {
-  .sensitiveAccessIndicator {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .sensitiveAccessIndicator__label {
-    white-space: normal;
+  .sensitiveAccessIndicator__timer {
+    font-size: 12px;
   }
 }

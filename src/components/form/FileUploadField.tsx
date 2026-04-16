@@ -7,6 +7,7 @@ type FileUploadFieldProps = {
   hint: string;
   file: File | null;
   onChange: (file: File | null) => void;
+  disabled?: boolean;
   invalid?: boolean;
   uploadLabel?: string;
   replaceLabel?: string;
@@ -20,6 +21,7 @@ export default function FileUploadField({
   hint,
   file,
   onChange,
+  disabled = false,
   invalid = false,
   uploadLabel = 'Upload File',
   replaceLabel = 'Replace File',
@@ -40,7 +42,11 @@ export default function FileUploadField({
 
       <div className="fileUploadField__panel" aria-invalid={invalid ? 'true' : undefined}>
         <div className="fileUploadField__actions">
-          <label className="fileUploadField__button" htmlFor={inputId}>
+          <label
+            className={`fileUploadField__button${disabled ? ' is-disabled' : ''}`}
+            htmlFor={disabled ? undefined : inputId}
+            aria-disabled={disabled ? 'true' : undefined}
+          >
             <FiUpload />
             <span>{file ? replaceLabel : uploadLabel}</span>
           </label>
@@ -53,6 +59,7 @@ export default function FileUploadField({
             <button
               type="button"
               className="fileUploadField__clearMini"
+              disabled={disabled}
               onClick={() => onChange(null)}
               title="Remove file"
             >
@@ -67,6 +74,7 @@ export default function FileUploadField({
         className="fileUploadField__input"
         type="file"
         accept={accept}
+        disabled={disabled}
         onChange={(event) => onChange(event.target.files?.[0] ?? null)}
       />
     </div>

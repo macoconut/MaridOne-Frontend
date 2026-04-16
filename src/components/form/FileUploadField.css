@@ -80,6 +80,11 @@
   color: var(--app-ghost-text);
 }
 
+.fileUploadField__button.is-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .fileUploadField__status {
   display: flex;
   align-items: center;
@@ -127,6 +132,16 @@
 .fileUploadField__clearMini:hover {
   background: rgba(0, 0, 0, 0.05);
   color: var(--app-text);
+}
+
+.fileUploadField__clearMini:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.fileUploadField__clearMini:disabled:hover {
+  background: transparent;
+  color: var(--app-text-soft);
 }
 
 .fileUploadField__statusIcon {

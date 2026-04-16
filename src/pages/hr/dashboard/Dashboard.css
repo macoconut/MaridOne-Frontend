@@ -123,9 +123,15 @@
 
 .hrStatRow {
   display: grid;
-  /* Force 6 columns on desktop */
-  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 12px;
+}
+
+.hrStatRow--4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.hrStatRow--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .hrStatCard {
@@ -402,6 +408,10 @@
   background: #ef6b9c;
 }
 
+.hrDeptStatRow__dot--outsideSchedule {
+  background: #4b79c8;
+}
+
 .hrDeptStatRow__dot--incomplete {
   background: #efc8d0;
 }
@@ -505,6 +515,10 @@
 
 .hrLegend__item--late::before {
   background: #ef6b9c;
+}
+
+.hrLegend__item--outsideSchedule::before {
+  background: #4b79c8;
 }
 
 .hrLegend__item--incomplete::before {
@@ -752,10 +766,6 @@
 }
 
 @media (max-width: 1100px) {
-  .hrStatRow {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .hrDept {
     grid-template-columns: 1fr;
   }

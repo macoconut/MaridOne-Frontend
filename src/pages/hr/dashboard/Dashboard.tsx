@@ -26,6 +26,17 @@ type LeaveRequest = {
   isPaid?: boolean;
 };
 
+type OvertimeRequest = {
+  overtimeId?: number;
+  employeeId?: number;
+  requestStatus?: string;
+  workDate?: string;
+  overtimeType?: string;
+  startTime?: string;
+  endTime?: string;
+  reason?: string;
+};
+
 type ShiftSchedule = {
   shiftId?: number;
   employeeId?: number;
@@ -75,6 +86,7 @@ type DepartmentBreakdownItem = {
   headcount: number;
   present: number;
   late: number;
+  outsideSchedule: number;
   absent: number;
   onLeave: number;
   dayOff: number;
@@ -85,7 +97,7 @@ type DailyEmployeeRecord = {
   employeeId: number;
   name: string;
   position: string;
-  attendanceStatus: 'PRESENT' | 'INCOMPLETE' | 'ABSENT';
+  attendanceStatus: 'PRESENT' | 'INCOMPLETE' | 'ABSENT' | 'OUTSIDE_SCHEDULE';
   inTime?: string;
   outTime?: string;
   logCount: number;
@@ -111,6 +123,7 @@ type AttendanceOverviewDashboardProps = {
   logsUrl?: string;
   leavesUrl?: string;
   rosterUrl?: string;
+  overtimeUrl?: string;
   feedWindowDays?: number;
   primaryPanelMode?: 'department' | 'weekly';
   feedScope?: 'window' | 'selected-date';
@@ -121,9 +134,9 @@ type AttendanceOverviewDashboardProps = {
   weeklyWindowIncludesSelectedDate?: boolean;
 };
 
-type AttendanceStatusKey = 'present' | 'late' | 'absent' | 'onLeave' | 'dayOff' | 'upcoming';
+type AttendanceStatusKey = 'present' | 'late' | 'outsideSchedule' | 'absent' | 'onLeave' | 'dayOff' | 'upcoming';
 
-type AttendanceStatusTone = 't1' | 't2' | 't3' | 't4' | 't5' | 't6';
+type AttendanceStatusTone = 't1' | 't2' | 't3' | 't4' | 't5' | 't6' | 't7';
 
 type AttendanceStatusSummary = Record<AttendanceStatusKey, number> & {
   headcount: number;
@@ -137,22 +150,42 @@ type DonutPoint = {
   tone: AttendanceStatusTone;
 };
 
+type MetricCard = {
+  key: AttendanceStatusKey;
+  label: string;
+  value: number;
+  helper: string;
+  ringStyle?: CSSProperties;
+};
+
 const STATUS_CONFIG: Record<
   AttendanceStatusKey,
   { label: string; tone: AttendanceStatusTone; color: string }
 > = {
   present: { label: 'Present', tone: 't1', color: '#b83573' },
   late: { label: 'Late', tone: 't2', color: '#ef6b9c' },
-  absent: { label: 'Absent', tone: 't3', color: '#f2a6a8' },
-  onLeave: { label: 'On Leave', tone: 't4', color: '#deb0ba' },
-  dayOff: { label: 'Day Off', tone: 't5', color: '#e5d8de' },
-  upcoming: { label: 'Upcoming', tone: 't6', color: '#93a5d1' },
+  outsideSchedule: { label: 'Outside Schedule', tone: 't3', color: '#4b79c8' },
+  absent: { label: 'Absent', tone: 't4', color: '#f2a6a8' },
+  onLeave: { label: 'On Leave', tone: 't5', color: '#deb0ba' },
+  dayOff: { label: 'Day Off', tone: 't6', color: '#e5d8de' },
+  upcoming: { label: 'Upcoming', tone: 't7', color: '#93a5d1' },
 };
+
+const METRIC_CARD_ROWS: AttendanceStatusKey[][] = [
+  ['present', 'late', 'absent', 'dayOff'],
+  ['upcoming', 'onLeave', 'outsideSchedule'],
+];
 
 const DEFAULT_WORKING_DAYS = new Set([1, 2, 3, 4, 5, 6]);
 const DEPARTMENTS_PER_PAGE = 2;
 const DAY_NAMES = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
-const NIGHT_SHIFT_REPORT_CUTOFF_HOUR = 6;
+
+type TimeWindow = {
+  startMs: number;
+  endMs: number;
+};
+
+type AttendanceScheduleWindow = Pick<DailyShift, 'startDateTime' | 'endDateTime' | 'dayOff'>;
 
 function localDateKey(value?: string) {
   if (!value) return '';
@@ -184,9 +217,20 @@ function toDateKey(date: Date) {
 
 function parseTimeToMinutes(value?: string) {
   if (!value) return null;
-  const match = value.match(/^(\d{1,2}):(\d{2})/);
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?(?:\s*([AaPp][Mm]))?$/);
   if (!match) return null;
-  return Number(match[1]) * 60 + Number(match[2]);
+
+  let hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  const meridiem = match[3]?.toUpperCase();
+
+  if (meridiem === 'AM') {
+    hours = hours === 12 ? 0 : hours;
+  } else if (meridiem === 'PM') {
+    hours = hours === 12 ? 12 : hours + 12;
+  }
+
+  return hours * 60 + minutes;
 }
 
 function parseDateTimeToMinutes(value?: string) {
@@ -194,6 +238,12 @@ function parseDateTimeToMinutes(value?: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
   return date.getHours() * 60 + date.getMinutes();
+}
+
+function formatLocalDateTime(dateKey: string, totalMinutes: number) {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${dateKey}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
 }
 
 function formatLongDateLabel(date: Date) {
@@ -310,6 +360,20 @@ function groupLeavesByEmployee(leaves: LeaveRequest[]) {
   return grouped;
 }
 
+function groupOvertimeByEmployee(requests: OvertimeRequest[]) {
+  const grouped = new Map<number, OvertimeRequest[]>();
+
+  for (const request of requests) {
+    const employeeId = Number(request.employeeId);
+    if (!Number.isFinite(employeeId)) continue;
+    const current = grouped.get(employeeId) ?? [];
+    current.push(request);
+    grouped.set(employeeId, current);
+  }
+
+  return grouped;
+}
+
 function resolveEffectiveScheduledStartMinutes(
   employee: EmployeeRow | undefined,
   dateKey?: string,
@@ -371,36 +435,6 @@ function isOutDirection(direction?: string) {
   return String(direction ?? '').toUpperCase().includes('OUT');
 }
 
-function hasIncompleteAttendanceSequence(logs: AttendanceLog[]) {
-  let hasOpenInLog = false;
-  let hasRecognizedDirection = false;
-
-  for (const log of logs) {
-    if (isInDirection(log.direction)) {
-      hasRecognizedDirection = true;
-      if (hasOpenInLog) {
-        return true;
-      }
-      hasOpenInLog = true;
-      continue;
-    }
-
-    if (isOutDirection(log.direction)) {
-      hasRecognizedDirection = true;
-      if (!hasOpenInLog) {
-        return true;
-      }
-      hasOpenInLog = false;
-    }
-  }
-
-  if (!hasRecognizedDirection) {
-    return logs.length > 0;
-  }
-
-  return hasOpenInLog;
-}
-
 function localTimeLabel(value?: string) {
   if (!value) return undefined;
   const date = new Date(value);
@@ -408,13 +442,122 @@ function localTimeLabel(value?: string) {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+function resolveTemplateScheduleWindows(employee: EmployeeRow | undefined, dateKey?: string): AttendanceScheduleWindow[] {
+  if (!employee || !dateKey) return [];
+
+  const date = dateFromKey(dateKey);
+  if (Number.isNaN(date.getTime())) return [];
+
+  const targetDay = DAY_NAMES[date.getDay()];
+  const windows: AttendanceScheduleWindow[] = [];
+
+  for (const schedule of employee.shiftSchedules) {
+    if (String(schedule.dayOfWeek ?? '').toUpperCase() !== targetDay) continue;
+
+      const startMinutes = parseTimeToMinutes(schedule.startTime);
+      const endMinutes = parseTimeToMinutes(schedule.endTime);
+      if (startMinutes == null || endMinutes == null) continue;
+
+      windows.push({
+        startDateTime: formatLocalDateTime(dateKey, startMinutes),
+        endDateTime: formatLocalDateTime(dateKey, endMinutes),
+        dayOff: false,
+      });
+  }
+
+  return windows;
+}
+
+function resolveAttendanceScheduleWindows(
+  employee: EmployeeRow | undefined,
+  dateKey: string | undefined,
+  scheduledShiftsByEmployeeAndDate: Map<string, DailyShift[]>
+): AttendanceScheduleWindow[] {
+  if (!dateKey) return [];
+
+  const dailyShifts = employee ? (scheduledShiftsByEmployeeAndDate.get(`${employee.id}:${dateKey}`) ?? []) : [];
+  if (dailyShifts.length > 0) {
+    return dailyShifts;
+  }
+
+  return resolveTemplateScheduleWindows(employee, dateKey);
+}
+
+function parseTimestampMs(value?: string) {
+  if (!value) return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? ms : null;
+}
+
+function normalizeTimeWindow(startValue?: string, endValue?: string) {
+  const startMs = parseTimestampMs(startValue);
+  const rawEndMs = parseTimestampMs(endValue);
+  if (startMs == null || rawEndMs == null) return null;
+  const endMs = rawEndMs <= startMs ? rawEndMs + 24 * 60 * 60 * 1000 : rawEndMs;
+  return endMs > startMs ? ({ startMs, endMs } satisfies TimeWindow) : null;
+}
+
+function buildAttendanceSessions(logs: AttendanceLog[]) {
+  const sorted = [...logs].sort((a, b) => (parseTimestampMs(a.timestamp) ?? 0) - (parseTimestampMs(b.timestamp) ?? 0));
+  const sessions: TimeWindow[] = [];
+  let openInMs: number | null = null;
+
+  for (const log of sorted) {
+    if (isInDirection(log.direction)) {
+      openInMs = parseTimestampMs(log.timestamp);
+      continue;
+    }
+
+    if (isOutDirection(log.direction) && openInMs !== null) {
+      const outMs = parseTimestampMs(log.timestamp);
+      if (outMs != null && outMs > openInMs) {
+        sessions.push({ startMs: openInMs, endMs: outMs });
+      }
+      openInMs = null;
+    }
+  }
+
+  return sessions;
+}
+
+function buildDailyShiftWindows(shifts: AttendanceScheduleWindow[]) {
+  return shifts
+    .filter((shift) => shift.dayOff !== true)
+    .map((shift) => normalizeTimeWindow(shift.startDateTime, shift.endDateTime))
+    .filter((window): window is TimeWindow => window !== null);
+}
+
+function overlapsWindow(left: TimeWindow, right: TimeWindow) {
+  return left.startMs < right.endMs && right.startMs < left.endMs;
+}
+
+function hasWindowOverlap(sessions: TimeWindow[], windows: TimeWindow[]) {
+  return sessions.some((session) => windows.some((window) => overlapsWindow(session, window)));
+}
+
+function resolveOutsideScheduleStatus(
+  logs: AttendanceLog[],
+  scheduledShifts: AttendanceScheduleWindow[],
+  overtimeRequests: OvertimeRequest[],
+  evaluation: ReturnType<typeof evaluateDailyAttendanceCoverage>
+) {
+  if (!evaluation.hasCompleteSession || overtimeRequests.length > 0) return null;
+
+  const sessions = buildAttendanceSessions(logs);
+  if (sessions.length === 0) return null;
+
+  const scheduleWindows = buildDailyShiftWindows(scheduledShifts);
+  if (scheduleWindows.length === 0 || hasWindowOverlap(sessions, scheduleWindows)) return null;
+
+  return 'OUTSIDE_SCHEDULE' as const;
+}
+
 function buildDailyRecords(
   logs: AttendanceLog[],
   employeeById: Map<number, EmployeeRow>,
   dateKey?: string,
   scheduledShiftsByEmployeeAndDate: Map<string, DailyShift[]> = new Map<string, DailyShift[]>(),
-  leaveRequestsByEmployeeId: Map<number, LeaveRequest[]> = new Map<number, LeaveRequest[]>(),
-  holidayDateKeys: Set<string> = new Set<string>()
+  overtimeRequestsByEmployeeId: Map<number, OvertimeRequest[]> = new Map<number, OvertimeRequest[]>()
 ) {
   const grouped = new Map<number, AttendanceLog[]>();
 
@@ -435,26 +578,49 @@ function buildDailyRecords(
       const firstIn = sorted.find((row) => isInDirection(row.direction));
       const lastOut = [...sorted].reverse().find((row) => isOutDirection(row.direction));
       const employee = employeeById.get(employeeId);
-      const leaveRequests = leaveRequestsByEmployeeId.get(employeeId) ?? [];
-      const scheduledShifts = dateKey
-        ? (scheduledShiftsByEmployeeAndDate.get(`${employeeId}:${dateKey}`) ?? [])
-        : [];
+      const scheduledShifts = resolveAttendanceScheduleWindows(employee, dateKey, scheduledShiftsByEmployeeAndDate);
+      const overtimeRequests = overtimeRequestsByEmployeeId.get(employeeId) ?? [];
       const evaluation = evaluateDailyAttendanceCoverage({ logs: sorted, scheduledShifts });
+      const outsideScheduleStatus = resolveOutsideScheduleStatus(sorted, scheduledShifts, overtimeRequests, evaluation);
       const isLate = evaluation.isLate;
 
       return {
         employeeId,
         name: employeeName(employee),
         position: employee?.position || 'Position unavailable',
-        attendanceStatus: evaluation.status,
+        attendanceStatus: outsideScheduleStatus ?? evaluation.status,
         inTime: localTimeLabel(firstIn?.timestamp),
         outTime: localTimeLabel(lastOut?.timestamp),
         logCount: sorted.length,
         isLate,
-        isIncomplete: evaluation.status === 'INCOMPLETE',
+        isIncomplete: (outsideScheduleStatus ?? evaluation.status) === 'INCOMPLETE',
       } satisfies DailyEmployeeRecord;
     })
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function hasScheduledWorkOnDate(
+  employee: EmployeeRow | undefined,
+  dateKey: string,
+  dailyShiftDateKeysByEmployee: Map<number, Set<string>> = new Map<number, Set<string>>(),
+  explicitDayOffDateKeysByEmployee: Map<number, Set<string>> = new Map<number, Set<string>>()
+) {
+  if (!employee || !dateKey) return false;
+  if (explicitDayOffDateKeysByEmployee.get(employee.id)?.has(dateKey)) return false;
+  if (dailyShiftDateKeysByEmployee.get(employee.id)?.has(dateKey)) return true;
+  return isEmployeeScheduledOnDate(employee, dateKey);
+}
+
+function isKnownDayOffOnDate(
+  employee: EmployeeRow | undefined,
+  dateKey: string,
+  dailyShiftDateKeysByEmployee: Map<number, Set<string>> = new Map<number, Set<string>>(),
+  explicitDayOffDateKeysByEmployee: Map<number, Set<string>> = new Map<number, Set<string>>()
+) {
+  if (!employee || !dateKey) return false;
+  if (explicitDayOffDateKeysByEmployee.get(employee.id)?.has(dateKey)) return true;
+  if (dailyShiftDateKeysByEmployee.get(employee.id)?.has(dateKey)) return false;
+  return !isEmployeeScheduledOnDate(employee, dateKey);
 }
 
 function parseHolidayLookup(payload: unknown) {
@@ -541,6 +707,7 @@ function buildAttendanceSummary(
   employeeIds: number[],
   presentSet: Set<number>,
   lateSet: Set<number>,
+  outsideScheduleSet: Set<number>,
   onLeaveSet: Set<number>,
   employeeById: Map<number, EmployeeRow>,
   dateKey: string,
@@ -550,13 +717,13 @@ function buildAttendanceSummary(
   scheduleOverrides?: {
     dailyShiftDateKeysByEmployee?: Map<number, Set<string>>;
     explicitDayOffDateKeysByEmployee?: Map<number, Set<string>>;
-    dailyShiftsLoaded?: boolean;
   }
 ) {
   const summary: AttendanceStatusSummary = {
     headcount: employeeIds.length,
     present: 0,
     late: 0,
+    outsideSchedule: 0,
     absent: 0,
     onLeave: 0,
     dayOff: 0,
@@ -565,14 +732,12 @@ function buildAttendanceSummary(
 
   for (const employeeId of employeeIds) {
     const employee = employeeById.get(employeeId);
-    const usesGeneratedShifts =
-      scheduleOverrides?.dailyShiftsLoaded === true && Boolean(scheduleOverrides.dailyShiftDateKeysByEmployee);
-    const isExplicitDayOff = usesGeneratedShifts
-      ? (scheduleOverrides?.explicitDayOffDateKeysByEmployee?.get(employeeId)?.has(dateKey) ?? false)
-      : false;
-    const isScheduled = usesGeneratedShifts
-      ? !isExplicitDayOff && (scheduleOverrides?.dailyShiftDateKeysByEmployee?.get(employeeId)?.has(dateKey) ?? false)
-      : isEmployeeScheduledOnDate(employee, dateKey);
+    const isScheduled = hasScheduledWorkOnDate(
+      employee,
+      dateKey,
+      scheduleOverrides?.dailyShiftDateKeysByEmployee,
+      scheduleOverrides?.explicitDayOffDateKeysByEmployee
+    );
 
     if (lateSet.has(employeeId)) {
       summary.late += 1;
@@ -581,6 +746,11 @@ function buildAttendanceSummary(
 
     if (presentSet.has(employeeId)) {
       summary.present += 1;
+      continue;
+    }
+
+    if (outsideScheduleSet.has(employeeId)) {
+      summary.outsideSchedule += 1;
       continue;
     }
 
@@ -594,7 +764,12 @@ function buildAttendanceSummary(
       continue;
     }
 
-    if (isExplicitDayOff) {
+    if (isKnownDayOffOnDate(
+      employee,
+      dateKey,
+      scheduleOverrides?.dailyShiftDateKeysByEmployee,
+      scheduleOverrides?.explicitDayOffDateKeysByEmployee
+    )) {
       summary.dayOff += 1;
       continue;
     }
@@ -694,6 +869,7 @@ export function AttendanceOverviewDashboard({
   logsUrl = '/api/logs/attendance',
   leavesUrl = '/api/leave/request',
   rosterUrl = '/api/employees',
+  overtimeUrl,
   feedWindowDays = 1,
   primaryPanelMode = 'department',
   feedScope = 'window',
@@ -710,6 +886,7 @@ export function AttendanceOverviewDashboard({
   const [logs, setLogs] = useState<AttendanceLog[]>([]);
   const [feedLogs, setFeedLogs] = useState<AttendanceLog[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [approvedOvertime, setApprovedOvertime] = useState<OvertimeRequest[]>([]);
   const [holidayDateKeys, setHolidayDateKeys] = useState<string[]>([]);
   const [dailyShifts, setDailyShifts] = useState<DailyShift[]>([]);
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);
@@ -789,6 +966,10 @@ export function AttendanceOverviewDashboard({
     if (!includeWeeklyFeed) return formatLongDateLabel(selectedDate);
     return `${formatDateLabel(feedStartDate.toISOString())} to ${formatDateLabel(feedEndDate.toISOString())}`;
   }, [feedEndDate, feedStartDate, includeWeeklyFeed, selectedDate]);
+  const overtimeEndpoint = useMemo(
+    () => overtimeUrl ?? (audience.toLowerCase() === 'manager' ? '/api/overtime/team' : '/api/overtime/all'),
+    [audience, overtimeUrl]
+  );
   const handlePageRefresh = useCallback(() => {
     silentRefreshRef.current = true;
     setRefreshTick((tick) => tick + 1);
@@ -838,44 +1019,52 @@ export function AttendanceOverviewDashboard({
       const dayEnd = new Date(selectedDate);
       dayEnd.setHours(23, 59, 59, 999);
 
-      const [logsResult, feedLogsResult, leavesResult, rosterResult, holidayResult, dailyShiftResult] = await Promise.allSettled([
-        apiFetchJson<unknown>(
-          withParams(logsUrl, {
-            page: '0',
-            size: '5000',
-            timestampAfter: dayStart.toISOString(),
-            timestampBefore: dayEnd.toISOString(),
-          })
-        ),
-        apiFetchJson<unknown>(
-          withParams(logsUrl, {
-            page: '0',
-            size: '5000',
-            timestampAfter: feedStartDate.toISOString(),
-            timestampBefore: feedEndDate.toISOString(),
-          })
-        ),
-        apiFetchJson<unknown>(
-          withParams(leavesUrl, {
-            page: '0',
-            size: '500',
-            sort: 'requestId,desc',
-          })
-        ),
-        rosterUrl ? apiFetchJson<unknown>(withPaging(rosterUrl, 0, 500)) : Promise.resolve([]),
-        apiFetchJson<unknown>(
-          withParams('/api/holidays', {
-            startDate: holidayLookupStartKey,
-            endDate: holidayLookupEndKey,
-          })
-        ),
-        apiFetchJson<unknown>(
-          withParams('/api/employee/schedule/daily', {
-            startDate: dailyShiftLookupStartKey,
-            endDate: dailyShiftLookupEndKey,
-          })
-        ),
-      ]);
+      const [logsResult, feedLogsResult, leavesResult, rosterResult, holidayResult, dailyShiftResult, overtimeResult] =
+        await Promise.allSettled([
+          apiFetchJson<unknown>(
+            withParams(logsUrl, {
+              page: '0',
+              size: '5000',
+              timestampAfter: dayStart.toISOString(),
+              timestampBefore: dayEnd.toISOString(),
+            })
+          ),
+          apiFetchJson<unknown>(
+            withParams(logsUrl, {
+              page: '0',
+              size: '5000',
+              timestampAfter: feedStartDate.toISOString(),
+              timestampBefore: feedEndDate.toISOString(),
+            })
+          ),
+          apiFetchJson<unknown>(
+            withParams(leavesUrl, {
+              page: '0',
+              size: '500',
+              sort: 'requestId,desc',
+            })
+          ),
+          rosterUrl ? apiFetchJson<unknown>(withPaging(rosterUrl, 0, 500)) : Promise.resolve([]),
+          apiFetchJson<unknown>(
+            withParams('/api/holidays', {
+              startDate: holidayLookupStartKey,
+              endDate: holidayLookupEndKey,
+            })
+          ),
+          apiFetchJson<unknown>(
+            withParams('/api/employee/schedule/daily', {
+              startDate: dailyShiftLookupStartKey,
+              endDate: dailyShiftLookupEndKey,
+            })
+          ),
+          apiFetchJson<unknown>(
+            withParams(overtimeEndpoint, {
+              page: '0',
+              size: '4000',
+              requestStatus: 'APPROVED',
+            })
+          ),
+        ]);
 
       if (cancelled) return;
 
@@ -917,6 +1106,23 @@ export function AttendanceOverviewDashboard({
         setDailyShifts([]);
       }
 
+      if (overtimeResult.status === 'fulfilled') {
+        const nextApprovedOvertime = toArray<OvertimeRequest>(overtimeResult.value).filter((request) => {
+          const employeeId = Number(request.employeeId);
+          const workDateKey = localDateKey(request.workDate);
+          return (
+            Number.isFinite(employeeId) &&
+            Boolean(workDateKey) &&
+            workDateKey >= holidayLookupStartKey &&
+            workDateKey <= holidayLookupEndKey &&
+            String(request.requestStatus ?? '').toUpperCase() === 'APPROVED'
+          );
+        });
+        setApprovedOvertime(nextApprovedOvertime);
+      } else if (!isSilentRefresh) {
+        setApprovedOvertime([]);
+      }
+
       silentRefreshRef.current = false;
     }
 
@@ -936,6 +1142,7 @@ export function AttendanceOverviewDashboard({
     dailyShiftLookupStartKey,
     leavesUrl,
     logsUrl,
+    overtimeEndpoint,
     refreshTick,
     rosterUrl,
     selectedDate,
@@ -1002,14 +1209,6 @@ export function AttendanceOverviewDashboard({
     return grouped;
   }, [dailyShifts]);
 
-  const hasDailyShiftOnDate = useCallback(
-    (employee: EmployeeRow | undefined, dateKey: string) => {
-      if (!employee || !dateKey) return false;
-      return dailyShiftDateKeysByEmployee.get(employee.id)?.has(dateKey) ?? false;
-    },
-    [dailyShiftDateKeysByEmployee]
-  );
-
   const selectedDateLogs = useMemo(() => {
     return logs.filter((log) => {
       if (localDateKey(log.timestamp) !== effectiveSelectedDateKey) return false;
@@ -1030,6 +1229,25 @@ export function AttendanceOverviewDashboard({
     [selectedApprovedLeaves]
   );
 
+  const approvedOvertimeByDate = useMemo(() => {
+    const grouped = new Map<string, OvertimeRequest[]>();
+
+    for (const request of approvedOvertime) {
+      const dateKey = localDateKey(request.workDate);
+      if (!dateKey) continue;
+      const current = grouped.get(dateKey) ?? [];
+      current.push(request);
+      grouped.set(dateKey, current);
+    }
+
+    return grouped;
+  }, [approvedOvertime]);
+
+  const selectedApprovedOvertimeByEmployee = useMemo(
+    () => groupOvertimeByEmployee(approvedOvertimeByDate.get(effectiveSelectedDateKey) ?? []),
+    [approvedOvertimeByDate, effectiveSelectedDateKey]
+  );
+
   const dailyRecords = useMemo(
     () =>
       buildDailyRecords(
@@ -1037,16 +1255,15 @@ export function AttendanceOverviewDashboard({
         employeeById,
         effectiveSelectedDateKey,
         scheduledShiftsByEmployeeAndDate,
-        selectedLeaveRequestsByEmployee,
-        holidayDateSet
+        selectedApprovedOvertimeByEmployee
       ),
     [
       effectiveSelectedDateKey,
       employeeById,
-      holidayDateSet,
       scheduledShiftsByEmployeeAndDate,
       selectedDateLogs,
       selectedLeaveRequestsByEmployee,
+      selectedApprovedOvertimeByEmployee,
     ]
   );
 
@@ -1075,6 +1292,16 @@ export function AttendanceOverviewDashboard({
     [dailyRecords]
   );
 
+  const outsideScheduleSet = useMemo(
+    () =>
+      new Set(
+        dailyRecords
+          .filter((record) => record.attendanceStatus === 'OUTSIDE_SCHEDULE')
+          .map((record) => record.employeeId)
+      ),
+    [dailyRecords]
+  );
+
   const lateClockInByEmployee = useMemo(
     () =>
       new Map(
@@ -1095,11 +1322,20 @@ export function AttendanceOverviewDashboard({
       selectedIsHoliday
         ? 0
         : activeEmployees.filter((employee) =>
-            dailyShifts.length > 0
-              ? hasDailyShiftOnDate(employee, effectiveSelectedDateKey)
-              : isEmployeeScheduledOnDate(employee, effectiveSelectedDateKey)
+            hasScheduledWorkOnDate(
+              employee,
+              effectiveSelectedDateKey,
+              dailyShiftDateKeysByEmployee,
+              explicitDayOffDateKeysByEmployee
+            )
           ).length,
-    [activeEmployees, effectiveSelectedDateKey, hasDailyShiftOnDate, selectedIsHoliday, dailyShifts.length]
+    [
+      activeEmployees,
+      dailyShiftDateKeysByEmployee,
+      effectiveSelectedDateKey,
+      explicitDayOffDateKeysByEmployee,
+      selectedIsHoliday,
+    ]
   );
 
   const attendanceFeed: FeedItem[] = useMemo(() => {
@@ -1158,9 +1394,12 @@ export function AttendanceOverviewDashboard({
     if (selectedIsHoliday) return [];
     return activeEmployees
       .filter((employee) =>
-        dailyShifts.length > 0
-          ? hasDailyShiftOnDate(employee, effectiveSelectedDateKey)
-          : isEmployeeScheduledOnDate(employee, effectiveSelectedDateKey)
+        hasScheduledWorkOnDate(
+          employee,
+          effectiveSelectedDateKey,
+          dailyShiftDateKeysByEmployee,
+          explicitDayOffDateKeysByEmployee
+        )
       )
       .filter((employee) =>
         isEmployeeScheduledToHaveStartedByNow(
@@ -1173,7 +1412,7 @@ export function AttendanceOverviewDashboard({
       .filter((employee) => !employeesOnLeaveToday.has(employee.id))
       .filter((employee) => {
         const record = dailyRecordByEmployeeId.get(employee.id);
-        return !record || record.attendanceStatus !== 'PRESENT';
+        return !record || (record.attendanceStatus !== 'PRESENT' && record.attendanceStatus !== 'OUTSIDE_SCHEDULE');
       })
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((employee) => ({
@@ -1184,14 +1423,14 @@ export function AttendanceOverviewDashboard({
       }));
   }, [
     activeEmployees,
+    dailyShiftDateKeysByEmployee,
     effectiveSelectedDateKey,
-    todayKey,
-    selectedLeaveRequestsByEmployee,
-    employeesOnLeaveToday,
-    selectedIsHoliday,
     dailyRecordByEmployeeId,
-    dailyShifts.length,
-    hasDailyShiftOnDate,
+    employeesOnLeaveToday,
+    explicitDayOffDateKeysByEmployee,
+    selectedIsHoliday,
+    selectedLeaveRequestsByEmployee,
+    todayKey,
   ]);
 
   const lateToday = useMemo(() => {
@@ -1213,6 +1452,7 @@ export function AttendanceOverviewDashboard({
         activeEmployeeIds,
         presentSet,
         lateSet,
+        outsideScheduleSet,
         employeesOnLeaveToday,
         employeeById,
         effectiveSelectedDateKey,
@@ -1222,49 +1462,51 @@ export function AttendanceOverviewDashboard({
         {
           dailyShiftDateKeysByEmployee,
           explicitDayOffDateKeysByEmployee,
-          dailyShiftsLoaded: dailyShifts.length > 0,
         }
       ),
     [
       activeEmployeeIds,
+      dailyShiftDateKeysByEmployee,
       effectiveSelectedDateKey,
       employeeById,
       employeesOnLeaveToday,
+      explicitDayOffDateKeysByEmployee,
       lateSet,
+      outsideScheduleSet,
       presentSet,
       selectedIsHoliday,
-      todayKey,
       selectedLeaveRequestsByEmployee,
-      dailyShiftDateKeysByEmployee,
-      explicitDayOffDateKeysByEmployee,
-      dailyShifts.length,
+      todayKey,
     ]
   );
 
-  const metricCards = useMemo(
-    () =>
-      (Object.keys(STATUS_CONFIG) as AttendanceStatusKey[]).map((key) => {
-        const total = overallSummary.headcount;
-        const value = overallSummary[key];
-        const percent = total > 0 ? Math.round((value / total) * 100) : 0;
-        const ringStyle =
-          total > 0
-            ? ({
-                '--ring-fill': `${Math.max((value / total) * 360, value > 0 ? 18 : 0)}deg`,
-                '--ring-color': STATUS_CONFIG[key].color,
-              } as CSSProperties)
-            : undefined;
+  const metricCards = useMemo(() => {
+    const total = overallSummary.headcount;
+    const entries = (Object.keys(STATUS_CONFIG) as AttendanceStatusKey[]).map((key) => {
+      const value = overallSummary[key];
+      const percent = total > 0 ? Math.round((value / total) * 100) : 0;
+      const ringStyle =
+        total > 0
+          ? ({
+              '--ring-fill': `${Math.max((value / total) * 360, value > 0 ? 18 : 0)}deg`,
+              '--ring-color': STATUS_CONFIG[key].color,
+            } as CSSProperties)
+          : undefined;
 
-        return {
+      return [
+        key,
+        {
           key,
           label: STATUS_CONFIG[key].label,
           value,
           helper: `${percent}% of ${total} active`,
           ringStyle,
-        };
-      }),
-    [overallSummary]
-  );
+        },
+      ] as const;
+    });
+
+    return Object.fromEntries(entries) as Record<AttendanceStatusKey, MetricCard>;
+  }, [overallSummary]);
 
   const departmentBreakdown = useMemo(() => {
     const grouped = new Map<string, DepartmentBreakdownItem>();
@@ -1277,6 +1519,7 @@ export function AttendanceOverviewDashboard({
         headcount: 0,
         present: 0,
         late: 0,
+        outsideSchedule: 0,
         absent: 0,
         onLeave: 0,
         dayOff: 0,
@@ -1289,6 +1532,7 @@ export function AttendanceOverviewDashboard({
         [employee.id],
         presentSet,
         lateSet,
+        outsideScheduleSet,
         employeesOnLeaveToday,
         employeeById,
         effectiveSelectedDateKey,
@@ -1298,12 +1542,12 @@ export function AttendanceOverviewDashboard({
         {
           dailyShiftDateKeysByEmployee,
           explicitDayOffDateKeysByEmployee,
-          dailyShiftsLoaded: dailyShifts.length > 0,
         }
       );
 
       current.present += employeeSummary.present;
       current.late += employeeSummary.late;
+      current.outsideSchedule += employeeSummary.outsideSchedule;
       current.absent += employeeSummary.absent;
       current.onLeave += employeeSummary.onLeave;
       current.dayOff += employeeSummary.dayOff;
@@ -1319,17 +1563,17 @@ export function AttendanceOverviewDashboard({
     );
   }, [
     activeEmployees,
+    dailyShiftDateKeysByEmployee,
     effectiveSelectedDateKey,
     employeeById,
     employeesOnLeaveToday,
+    explicitDayOffDateKeysByEmployee,
     lateSet,
+    outsideScheduleSet,
     presentSet,
     selectedIsHoliday,
     selectedLeaveRequestsByEmployee,
     todayKey,
-    dailyShiftDateKeysByEmployee,
-    explicitDayOffDateKeysByEmployee,
-    dailyShifts.length,
   ]);
 
   const weeklyAttendance = useMemo(() => {
@@ -1362,13 +1606,13 @@ export function AttendanceOverviewDashboard({
       ).padStart(2, '0')}`;
       const dayLogs = logsByDate.get(dateKey) ?? [];
       const dayIsHoliday = holidayDateSet.has(dateKey);
+      const dayApprovedOvertimeByEmployee = groupOvertimeByEmployee(approvedOvertimeByDate.get(dateKey) ?? []);
       const dayDailyRecords = buildDailyRecords(
         dayLogs,
         employeeById,
         dateKey,
         scheduledShiftsByEmployeeAndDate,
-        approvedLeavesByEmployee,
-        holidayDateSet
+        dayApprovedOvertimeByEmployee
       );
       const dayLateSet = new Set(
         dayDailyRecords
@@ -1378,6 +1622,11 @@ export function AttendanceOverviewDashboard({
       const dayPresentSet = new Set(
         dayDailyRecords
           .filter((record) => record.attendanceStatus === 'PRESENT' && !record.isLate)
+          .map((record) => record.employeeId)
+      );
+      const dayOutsideScheduleSet = new Set(
+        dayDailyRecords
+          .filter((record) => record.attendanceStatus === 'OUTSIDE_SCHEDULE')
           .map((record) => record.employeeId)
       );
       const dayOnLeaveSet = buildOnLeaveSetForDate(approvedLeaveRequests, cursor);
@@ -1391,6 +1640,7 @@ export function AttendanceOverviewDashboard({
           activeEmployeeIds,
           dayPresentSet,
           dayLateSet,
+          dayOutsideScheduleSet,
           dayOnLeaveSet,
           employeeById,
           dateKey,
@@ -1400,7 +1650,6 @@ export function AttendanceOverviewDashboard({
           {
             dailyShiftDateKeysByEmployee,
             explicitDayOffDateKeysByEmployee,
-            dailyShiftsLoaded: dailyShifts.length > 0,
           }
         ),
       });
@@ -1411,6 +1660,8 @@ export function AttendanceOverviewDashboard({
     return items;
   }, [
     activeEmployeeIds,
+    approvedOvertimeByDate,
+    dailyShiftDateKeysByEmployee,
     employeeById,
     feedEndDate,
     feedLogs,
@@ -1419,9 +1670,8 @@ export function AttendanceOverviewDashboard({
     isWeeklyPrimaryPanel,
     leaveRequests,
     scheduledShiftsByEmployeeAndDate,
-    dailyShiftDateKeysByEmployee,
     explicitDayOffDateKeysByEmployee,
-    dailyShifts.length,
+    todayKey,
   ]);
 
   const totalDeptPages = Math.max(Math.ceil(departmentBreakdown.length / DEPARTMENTS_PER_PAGE), 1);
@@ -1507,19 +1757,24 @@ export function AttendanceOverviewDashboard({
       </div>
       <div className="hrDash__grid">
         <div className="hrDash__mainCol" ref={mainColRef}>
-          <section className="hrStatRow">
-            {metricCards.map((card) => (
-              <article key={card.key} className="hrStatCard">
-                <div className="hrStatCard__ring" style={card.ringStyle}>
-                  <span className="hrStatCard__valueInRing">{card.value}</span>
-                </div>
-                <div className="hrStatCard__body">
-                  <div className="hrStatCard__label">{card.label}</div>
-                  <div className="hrStatCard__helper">{card.helper}</div>
-                </div>
-              </article>
-            ))}
-          </section>
+          {METRIC_CARD_ROWS.map((row) => (
+            <section key={row.join('-')} className={`hrStatRow hrStatRow--${row.length}`}>
+              {row.map((key) => {
+                const card = metricCards[key];
+                return (
+                  <article key={card.key} className="hrStatCard">
+                    <div className="hrStatCard__ring" style={card.ringStyle}>
+                      <span className="hrStatCard__valueInRing">{card.value}</span>
+                    </div>
+                    <div className="hrStatCard__body">
+                      <div className="hrStatCard__label">{card.label}</div>
+                      <div className="hrStatCard__helper">{card.helper}</div>
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
+          ))}
 
           <section className="hrPanel">
             <div className="hrPanel__header">{centerPanelTitle}</div>
@@ -1633,6 +1888,7 @@ export function AttendanceOverviewDashboard({
                         headcount: department.headcount,
                         present: department.present,
                         late: department.late,
+                        outsideSchedule: department.outsideSchedule,
                         absent: department.absent,
                         onLeave: department.onLeave,
                         dayOff: department.dayOff,

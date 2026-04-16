@@ -5,6 +5,14 @@
   flex-direction: column;
 }
 
+.pageHeader .pageHeader__titleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
 .pageHeader .pageHeader__title {
   margin: 0;
   color: var(--page-header-title, #2b2036);
@@ -12,6 +20,13 @@
   line-height: 1.05;
   font-weight: 800;
   letter-spacing: -0.03em;
+}
+
+.pageHeader .pageHeader__titleMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
 .pageHeader .pageHeader__description {

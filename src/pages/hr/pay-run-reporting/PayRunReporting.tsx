@@ -921,7 +921,16 @@ export default function HrPayRunReporting() {
         <PageHeader
           title="Pay Run Reporting"
           description="Analyze payroll totals by employee or pay type before exporting reports."
-          meta={<SensitiveAccessIndicator />}
+          titleMeta={
+            <SensitiveAccessIndicator
+              onActivate={() =>
+                sensitiveAccess.requestVerification(
+                  async () => Promise.resolve(),
+                  'Verify sensitive access to unlock pay run reporting.'
+                )
+              }
+            />
+          }
         />
         <div className="hrRun__topActions">
           <label className="hrRunSelect hrRunSelect--view" aria-label="Report view">

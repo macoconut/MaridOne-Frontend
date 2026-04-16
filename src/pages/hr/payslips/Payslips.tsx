@@ -1850,7 +1850,16 @@ export default function HrPayslips() {
         <PageHeader
           title="Manage Payslips"
           description="Manage payroll runs, review disputes, and publish finalized payslips."
-          meta={<SensitiveAccessIndicator />}
+          titleMeta={
+            <SensitiveAccessIndicator
+              onActivate={() =>
+                sensitiveAccess.requestVerification(
+                  async () => Promise.resolve(),
+                  'Verify sensitive access to unlock payslip management.'
+                )
+              }
+            />
+          }
         />
       </div>
 
