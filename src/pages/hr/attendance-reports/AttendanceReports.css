@@ -837,37 +837,42 @@
 
 .hrAttSummary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
-  margin-bottom: 18px;
+  margin-bottom: 0;
 }
 
 .hrAttSummary__card {
   border: 1px solid rgba(123, 74, 143, 0.16);
   border-radius: 14px;
   background: linear-gradient(180deg, #fbf8ff 0%, #ffffff 100%);
-  padding: 14px 16px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  min-width: 0;
 }
 
 .hrAttSummary__card span {
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 800;
   color: #5d4b73;
+  line-height: 1.3;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .hrAttSummary__card strong {
-  font-size: 28px;
+  font-size: 24px;
   color: #2b2036;
 }
 
 .hrAttBreakdown {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 1fr);
   gap: 18px;
-  margin-top: 18px;
+  margin-top: 0;
+  align-items: stretch;
 }
 
 .hrAttBreakdown__section {
@@ -878,6 +883,7 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+  height: 100%;
 }
 
 .hrAttBreakdown__head {
@@ -914,6 +920,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  flex: 1;
 }
 
 .hrAttBreakdown__empty {
@@ -921,7 +928,9 @@
   border-radius: 12px;
   background: #f6f1fb;
   color: #5b4d6d;
-  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 500;
 }
 
 .hrAttPerson {
@@ -968,7 +977,7 @@
 .hrAttPerson__identity {
   min-width: 0;
   display: grid;
-  gap: 7px;
+  gap: 4px;
 }
 
 .hrAttPerson__name {
@@ -977,27 +986,11 @@
   color: #2b2036;
 }
 
-.hrAttPerson__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.hrAttPerson__chip {
-  display: inline-flex;
-  align-items: center;
-  max-width: 100%;
-  min-height: 26px;
-  padding: 0 9px;
-  border-radius: 999px;
-  background: rgba(91, 77, 109, 0.07);
-  color: #5b4d6d;
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.hrAttPerson__meta {
+  color: #6c5a83;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
 }
 
 .hrAttPerson__badgeWrap {
@@ -1046,25 +1039,18 @@
 
 .hrAttPerson__logs {
   display: grid;
-  gap: 8px;
-}
-
-.hrAttPerson__logsLabel {
-  color: #6c5a83;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  gap: 10px;
 }
 
 .hrAttPerson__logList {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+  width: 100%;
 }
 
 .hrAttPerson__logItem {
-  min-width: 116px;
+  min-width: 0;
   border: 1px solid rgba(123, 74, 143, 0.12);
   border-radius: 12px;
   background: linear-gradient(180deg, #f8f4fb 0%, #ffffff 100%);
@@ -1144,23 +1130,25 @@
   color: #3a68b3;
 }
 
-.hrAttPerson__badge.is-muted {
-  background: #f3edf9;
-  border-color: rgba(93, 75, 115, 0.16);
-  color: #5d4b73;
-}
-
 @media (max-width: 980px) {
-  .hrAttSummary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .hrAttImportSummary__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .hrAttBreakdown {
     grid-template-columns: 1fr;
+  }
+
+  .hrAttSummary__card {
+    padding: 12px;
+  }
+
+  .hrAttSummary__card span {
+    font-size: 12px;
+  }
+
+  .hrAttSummary__card strong {
+    font-size: 21px;
   }
 }
 
@@ -1222,7 +1210,7 @@
   }
 
   .hrAttSummary {
-    grid-template-columns: 1fr;
+    gap: 8px;
   }
 
   .hrAttImportSummary__grid {
@@ -1236,6 +1224,18 @@
   .hrAttModal--export {
     width: min(100vw - 24px, 560px);
     max-width: calc(100vw - 24px);
+  }
+
+  .hrAttSummary__card {
+    padding: 10px;
+  }
+
+  .hrAttSummary__card span {
+    font-size: 11px;
+  }
+
+  .hrAttSummary__card strong {
+    font-size: 18px;
   }
 
 }
@@ -1291,6 +1291,10 @@
 
   .hrAttPerson__metrics {
     grid-template-columns: 1fr;
+  }
+
+  .hrAttPerson__logList {
+    grid-template-columns: 1fr 1fr;
   }
 
   .hrAttMenu__panel {

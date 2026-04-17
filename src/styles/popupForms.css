@@ -235,6 +235,10 @@ body.modal-open :where(.largePopupBackdrop, .largePopup) {
   font-size: 15px;
   font-weight: 800;
   padding: 0 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   cursor: pointer;
   box-shadow: 0 12px 22px rgba(32, 21, 49, 0.18);
   transition:
@@ -263,6 +267,12 @@ body.modal-open :where(.largePopupBackdrop, .largePopup) {
 .largePopup__footer > .btn:disabled {
   opacity: 0.72;
   cursor: not-allowed;
+}
+
+.largePopup__footer > button svg,
+.largePopup__footer > .btn svg {
+  flex: 0 0 auto;
+  display: block;
 }
 
 .largePopup__footer > .btn--ghost,

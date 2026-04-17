@@ -8,6 +8,7 @@ export default function ManagerAttendanceReports() {
       rosterUrl="/api/employees/team"
       leavesUrl="/api/leave/request/team"
       descriptionOverride="Review your team's daily attendance, missing logs, and attendance gaps in one monthly calendar."
+      showDepartmentFilter={false}
     />
   );
 }

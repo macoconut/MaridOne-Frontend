@@ -199,6 +199,7 @@ type AttendanceReportsBoardProps = {
   leavesUrl?: string;
   overtimeUrl?: string;
   descriptionOverride?: string;
+  showDepartmentFilter?: boolean;
 };
 
 type OvernightShiftWindow = {
@@ -235,7 +236,6 @@ const FOCUS_LEGEND_ITEMS: Array<{ label: string; tone: EmployeeCalendarTone }> =
   { label: 'On Leave', tone: 'leave' },
   { label: 'OT', tone: 'ot' },
 ];
-const DEFAULT_WORKING_DAYS = new Set([1, 2, 3, 4, 5, 6]);
 const DAY_NAMES = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
 const NIGHT_SHIFT_REPORT_CUTOFF_HOUR = 6;
 const ATTENDANCE_SUMMARY_MARKER = 'Attendance Summary Report';
@@ -319,9 +319,7 @@ function isEmployeeScheduledOnDate(employee: EmployeeRow | undefined, dateKey?: 
   const date = dateFromKey(dateKey);
   if (Number.isNaN(date.getTime())) return true;
 
-  if (!employee.shiftSchedules.length) {
-    return DEFAULT_WORKING_DAYS.has(date.getDay());
-  }
+  if (!employee.shiftSchedules.length) return false;
 
   const targetDay = DAY_NAMES[date.getDay()];
   return employee.shiftSchedules.some((item) => String(item.dayOfWeek ?? '').toUpperCase() === targetDay);
@@ -433,7 +431,7 @@ function humanizeEnum(value?: string) {
 
 function resolveDepartmentLabel(employee: EmployeeRow) {
   const value = String(employee.department ?? '').trim();
-  if (value) return value;
+  if (value) return value.replace(/\s+Department$/i, '');
 
   switch (employee.position.toUpperCase()) {
     case 'HR':
@@ -446,6 +444,16 @@ function resolveDepartmentLabel(employee: EmployeeRow) {
     default:
       return 'Unassigned';
   }
+}
+
+function formatEmployeeMetaLine(position?: string, department?: string) {
+  const parts = [String(position ?? '').trim(), String(department ?? '').trim()].filter(
+    (part) => part.length > 0 && part !== '-' && part.toUpperCase() !== 'UNASSIGNED'
+  );
+  const uniqueParts = parts.filter(
+    (part, index) => parts.findIndex((candidate) => candidate.toUpperCase() === part.toUpperCase()) === index
+  );
+  return uniqueParts.join(' • ');
 }
 
 function dateKeysBetween(startKey: string, endKey: string) {
@@ -561,6 +569,12 @@ function isInDirection(direction?: string) {
 
 function isOutDirection(direction?: string) {
   return (direction ?? '').toUpperCase().includes('OUT');
+}
+
+function attendanceLogDirectionLabel(direction?: string) {
+  if (isOutDirection(direction)) return 'Out';
+  if (isInDirection(direction)) return 'In';
+  return humanizeEnum(direction) || 'Log';
 }
 
 function parseHolidayLookup(payload: unknown) {
@@ -919,7 +933,7 @@ function buildDailyRecords(
           attendanceId: row.attendanceId ?? `${employeeId}-${index}`,
           time: localTimeLabel(row.timestamp) || 'N/A',
           direction: String(row.direction ?? '').trim().toUpperCase(),
-          directionLabel: humanizeEnum(row.direction) || 'Log',
+          directionLabel: attendanceLogDirectionLabel(row.direction),
         })),
       } satisfies DailyEmployeeRecord;
     })
@@ -1049,6 +1063,7 @@ export function AttendanceReportsBoard({
   leavesUrl = '/api/leave/request',
   overtimeUrl,
   descriptionOverride,
+  showDepartmentFilter,
 }: AttendanceReportsBoardProps) {
   const todayDateKey = useMemo(() => getManilaNow().dateKey, []);
   const todayYear = useMemo(() => getManilaNow().year, []);
@@ -1108,6 +1123,7 @@ export function AttendanceReportsBoard({
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
   const silentRefreshRef = useRef(false);
   const overtimeEndpoint = overtimeUrl ?? (audienceLabel === 'Manager' ? '/api/overtime/team' : '/api/overtime/all');
+  const shouldShowDepartmentFilter = showDepartmentFilter ?? audienceLabel !== 'Manager';
 
   const handlePageRefresh = useCallback(() => {
     silentRefreshRef.current = true;
@@ -1648,7 +1664,7 @@ export function AttendanceReportsBoard({
       const absentCount = missingLogsAbsentCount + absentFromLogsCount;
       const dayOffCount =
         hasFullRoster && !isFutureDate && !isHoliday
-          ? activeEmployees.filter((employee) => isKnownDayOffOnDate(employee, dateKey) || (hasScheduledWorkOnDate(employee, dateKey) && !isEmployeeScheduledToHaveStartedByNow(employee, dateKey, todayDateKey, approvedLeavesByDate.get(dateKey) || [])))
+          ? activeEmployees.filter((employee) => isKnownDayOffOnDate(employee, dateKey))
               .filter((employee) => !leaveEmployeeIds.has(employee.id)).length
           : 0;
 
@@ -2372,41 +2388,43 @@ export function AttendanceReportsBoard({
         </label>
 
         <div className="hrAtt__toolbarActions">
-          <div className="uFilter" ref={filterRef}>
-            <button
-              type="button"
-              className={`uFilter__toggle ${filterOpen ? 'is-open' : ''} ${activeFilterCount > 0 ? 'is-active' : ''}`}
-              onClick={() => {
-                setFilterOpen((open) => !open);
-                setActionMenuOpen(false);
-              }}
-            >
-              <FiFilter />
-              <span>Filter</span>
-            </button>
+          {shouldShowDepartmentFilter && (
+            <div className="uFilter" ref={filterRef}>
+              <button
+                type="button"
+                className={`uFilter__toggle ${filterOpen ? 'is-open' : ''} ${activeFilterCount > 0 ? 'is-active' : ''}`}
+                onClick={() => {
+                  setFilterOpen((open) => !open);
+                  setActionMenuOpen(false);
+                }}
+              >
+                <FiFilter />
+                <span>Filter</span>
+              </button>
 
-            {filterOpen && (
-              <div className="uFilter__panel">
-                <label className="uFilter__field">
-                  <span>Department</span>
-                  <select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}>
-                    <option value="all">All Departments</option>
-                    {departmentOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+              {filterOpen && (
+                <div className="uFilter__panel">
+                  <label className="uFilter__field">
+                    <span>Department</span>
+                    <select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}>
+                      <option value="all">All Departments</option>
+                      {departmentOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-                <div className="uFilter__actions">
-                  <button type="button" onClick={clearFilters}>
-                    Clear Filters
-                  </button>
+                  <div className="uFilter__actions">
+                    <button type="button" onClick={clearFilters}>
+                      Clear Filters
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           <div className="hrAttMenu" ref={actionMenuRef}>
             <button
@@ -2809,7 +2827,7 @@ export function AttendanceReportsBoard({
           ariaLabel="Attendance breakdown"
           title={selectedDateLabel}
           subtitle={selectedDetailSubtitle}
-          size="xl"
+          size="lg"
           onClose={() => setDetailOpen(false)}
           footer={(
             <button type="button" className="btn btn--ghost" onClick={() => setDetailOpen(false)}>
@@ -2817,7 +2835,7 @@ export function AttendanceReportsBoard({
             </button>
           )}
         >
-          <div className="hrAttModal">
+          <>
             <div className="hrAttSummary">
               <article className="hrAttSummary__card">
                 <span>Present</span>
@@ -2875,6 +2893,11 @@ export function AttendanceReportsBoard({
                   {selectedRecords.length > 0 ? (
                     selectedRecords.map((record) => {
                       const badge = attendanceBadgeForRecord(record);
+                      const employee = filteredEmployeeById.get(record.employeeId);
+                      const metaLine = formatEmployeeMetaLine(
+                        record.position,
+                        employee ? resolveDepartmentLabel(employee) : ''
+                      );
 
                       return (
                         <article key={`${selectedDateKey}-${record.employeeId}`} className="hrAttPerson">
@@ -2885,35 +2908,15 @@ export function AttendanceReportsBoard({
                             <div className="hrAttPerson__topLine">
                               <div className="hrAttPerson__identity">
                                 <div className="hrAttPerson__name">{record.name}</div>
-                                <div className="hrAttPerson__chips">
-                                  <span className="hrAttPerson__chip">Employee #{record.employeeId}</span>
-                                  <span className="hrAttPerson__chip">{record.position}</span>
-                                  <span className="hrAttPerson__chip">{humanizeEnum(record.status) || record.status}</span>
-                                </div>
+                                {metaLine ? <div className="hrAttPerson__meta">{metaLine}</div> : null}
                               </div>
                               <div className="hrAttPerson__badgeWrap">
                                 <div className={`hrAttPerson__badge ${badge.toneClass}`}>{badge.label}</div>
                               </div>
                             </div>
 
-                            <div className="hrAttPerson__metrics">
-                              <div className="hrAttPerson__metric">
-                                <span>Time In</span>
-                                <strong>{record.inTime ?? 'N/A'}</strong>
-                              </div>
-                              <div className="hrAttPerson__metric">
-                                <span>Time Out</span>
-                                <strong>{record.outTime ?? 'N/A'}</strong>
-                              </div>
-                              <div className="hrAttPerson__metric">
-                                <span>Logs Recorded</span>
-                                <strong>{record.logCount}</strong>
-                              </div>
-                            </div>
-
                             {record.logs.length > 0 && (
                               <div className="hrAttPerson__logs">
-                                <span className="hrAttPerson__logsLabel">Recorded Logs</span>
                                 <div className="hrAttPerson__logList">
                                   {record.logs.map((log, index) => (
                                     <div
@@ -2957,17 +2960,10 @@ export function AttendanceReportsBoard({
                             {employee.name.charAt(0).toUpperCase()}
                           </div>
                           <div className="hrAttPerson__body">
-                            <div className="hrAttPerson__topLine">
-                              <div className="hrAttPerson__identity">
-                                <div className="hrAttPerson__name">{employee.name}</div>
-                                <div className="hrAttPerson__chips">
-                                  <span className="hrAttPerson__chip">Employee #{employee.id}</span>
-                                  <span className="hrAttPerson__chip">{employee.position}</span>
-                                  <span className="hrAttPerson__chip">{employee.status}</span>
-                                </div>
-                              </div>
-                              <div className="hrAttPerson__badgeWrap">
-                                <div className="hrAttPerson__badge is-muted">No Logs</div>
+                            <div className="hrAttPerson__identity">
+                              <div className="hrAttPerson__name">{employee.name}</div>
+                              <div className="hrAttPerson__meta">
+                                {formatEmployeeMetaLine(employee.position, resolveDepartmentLabel(employee))}
                               </div>
                             </div>
                           </div>
@@ -2994,7 +2990,7 @@ export function AttendanceReportsBoard({
                 </section>
               )}
             </div>
-          </div>
+          </>
         </LargePopup>
       )}
 

@@ -139,6 +139,7 @@ export function formatSpecificDateLabel(isoDate: string) {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
+    year: 'numeric',
   });
 }
 

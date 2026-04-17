@@ -105,6 +105,47 @@ function formatEmployeePickerMeta(employee: TeamEmployee) {
   return parts.join(' • ');
 }
 
+function getEmployeeMetaParts(employee: TeamEmployee, { includeDepartment = false }: { includeDepartment?: boolean } = {}) {
+  const parts = [formatUiLabel(employee.status)];
+
+  if (employee.position && employee.position !== '-') {
+    parts.push(formatUiLabel(employee.position));
+  }
+
+  if (includeDepartment && employee.department) {
+    parts.push(employee.department);
+  }
+
+  return parts.filter((value) => value && value !== '-');
+}
+
+function formatEmployeeMetaLabel(employee: TeamEmployee, { includeDepartment = false }: { includeDepartment?: boolean } = {}) {
+  return getEmployeeMetaParts(employee, { includeDepartment }).join(' / ');
+}
+
+function matchesEmployeeFilters(
+  employee: TeamEmployee,
+  {
+    showDepartmentFilter,
+    roleFilter,
+    departmentFilter,
+  }: {
+    showDepartmentFilter: boolean;
+    roleFilter: string;
+    departmentFilter: string;
+  }
+) {
+  if (showDepartmentFilter && roleFilter !== 'all' && employee.position !== roleFilter) {
+    return false;
+  }
+
+  if (showDepartmentFilter && departmentFilter !== 'all' && employee.department !== departmentFilter) {
+    return false;
+  }
+
+  return true;
+}
+
 function matchesEmployeeSearch(employee: TeamEmployee, query: string) {
   if (!query) return true;
 
@@ -214,6 +255,7 @@ export function MonthlyScheduleBoard({
   const [templateDayOff, setTemplateDayOff] = useState(false);
   const [lockedDayDrafts, setLockedDayDrafts] = useState<Record<string, EditorDraft>>({});
   const [filterOpen, setFilterOpen] = useState(false);
+  const [templateFilterOpen, setTemplateFilterOpen] = useState(false);
   const [roleFilter, setRoleFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [loadingTeam, setLoadingTeam] = useState(false);
@@ -227,12 +269,14 @@ export function MonthlyScheduleBoard({
   const employeePickerRef = useRef<HTMLDivElement | null>(null);
   const employeeSearchInputRef = useRef<HTMLInputElement | null>(null);
   const filterRef = useRef<HTMLDivElement | null>(null);
+  const templateFilterRef = useRef<HTMLDivElement | null>(null);
 
   useErrorDialogEffect(loadError, 'Schedule calendar could not be loaded');
   useErrorDialogEffect(saveError, 'Schedule calendar could not be saved');
   useEscapeDismiss(editorOpen, closeEditor, 10);
   useEscapeDismiss(templateEditorOpen, closeTemplateEditor, 11);
   useEscapeDismiss(filterOpen, () => setFilterOpen(false), 13);
+  useEscapeDismiss(templateFilterOpen, () => setTemplateFilterOpen(false), 14);
 
   const todayKey = useMemo(() => toIsoDate(new Date()), []);
   const monthOptions = useMemo(() => {
@@ -286,8 +330,22 @@ export function MonthlyScheduleBoard({
     if (!enableDefaultHoursBatchSelection || enableBatchSelection) return [];
 
     const query = normalizeSearchText(templateTargetSearch);
-    return sortedEmployees.filter((employee) => matchesEmployeeSearch(employee, query));
-  }, [enableBatchSelection, enableDefaultHoursBatchSelection, sortedEmployees, templateTargetSearch]);
+    return sortedEmployees.filter((employee) => {
+      if (!matchesEmployeeFilters(employee, { showDepartmentFilter, roleFilter, departmentFilter })) {
+        return false;
+      }
+
+      return matchesEmployeeSearch(employee, query);
+    });
+  }, [
+    departmentFilter,
+    enableBatchSelection,
+    enableDefaultHoursBatchSelection,
+    roleFilter,
+    showDepartmentFilter,
+    sortedEmployees,
+    templateTargetSearch,
+  ]);
   const departmentOptions = useMemo(
     () =>
       [...new Set(sortedEmployees.map((employee) => employee.department).filter(Boolean))]
@@ -297,11 +355,7 @@ export function MonthlyScheduleBoard({
   const filteredEmployees = useMemo(() => {
     const query = normalizeSearchText(employeeSearch);
     return sortedEmployees.filter((employee) => {
-      if (showDepartmentFilter && roleFilter !== 'all' && employee.position !== roleFilter) {
-        return false;
-      }
-
-      if (showDepartmentFilter && departmentFilter !== 'all' && employee.department !== departmentFilter) {
+      if (!matchesEmployeeFilters(employee, { showDepartmentFilter, roleFilter, departmentFilter })) {
         return false;
       }
 
@@ -391,6 +445,7 @@ export function MonthlyScheduleBoard({
 
   function closeTemplateEditor() {
     setTemplateEditorOpen(false);
+    setTemplateFilterOpen(false);
     setTemplateTargetSearch('');
     setSaveError('');
   }
@@ -587,6 +642,21 @@ export function MonthlyScheduleBoard({
     document.addEventListener('mousedown', handlePointerDown);
     return () => document.removeEventListener('mousedown', handlePointerDown);
   }, [filterOpen, showDepartmentFilter]);
+
+  useEffect(() => {
+    if (!showDepartmentFilter || !templateFilterOpen) return;
+
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (!templateFilterRef.current?.contains(target)) {
+        setTemplateFilterOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [showDepartmentFilter, templateFilterOpen]);
 
   useEffect(() => {
     if (!employeePickerOpen) return;
@@ -1005,7 +1075,7 @@ export function MonthlyScheduleBoard({
                           </span>
                           <span className="hrEmpCombo__optionMeta">
                             {isSelected && enableBatchSelection ? 'Selected for batch update • ' : ''}
-                            {formatEmployeePickerMeta(employee)}
+                            {formatEmployeeMetaLabel(employee, { includeDepartment: showDepartmentFilter })}
                           </span>
                         </button>
                       );
@@ -1046,9 +1116,9 @@ export function MonthlyScheduleBoard({
                   </label>
 
                   <label className="hrAttFilter__field">
-                    <span>Department</span>
+                    <span>Unit</span>
                     <select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}>
-                      <option value="all">All departments</option>
+                      <option value="all">All units</option>
                       {departmentOptions.map((department) => (
                         <option key={department} value={department}>
                           {department}
@@ -1222,12 +1292,30 @@ export function MonthlyScheduleBoard({
           open
           ariaLabel="Schedule editor"
           title={formatSpecificDateLabel(selectedDateKey)}
-          subtitle=""
+          subtitle={
+            selectedDateIsLocked
+              ? 'Review the saved schedule for this date for attendance monitoring.'
+              : 'Review the saved schedule for this date, then adjust the hours or mark it as a day off when needed.'
+          }
           size="lg"
           onClose={closeEditor}
           dismissOnBackdrop
+          footer={
+            !selectedDateIsLocked ? (
+              <>
+                <button type="button" className="btn btn--ghost" onClick={closeEditor} disabled={savingDate || loadingMonth}>
+                  Cancel
+                </button>
+                <button type="button" className="btn" onClick={() => void saveSelectedDate()} disabled={savingDate || loadingMonth}>
+                  <FiSave />
+                  <span>{savingDate ? 'Saving...' : 'Save This Date'}</span>
+                </button>
+              </>
+            ) : undefined
+          }
         >
-          <div className="hrAttSummary mgrMonth__editorSummary">
+          <div className="mgrMonth__editorContent">
+            <div className="hrAttSummary mgrMonth__editorSummary">
               <article className="hrAttSummary__card">
                 <span>Employee</span>
                 <strong>{selectedEmployee.name}</strong>
@@ -1280,18 +1368,7 @@ export function MonthlyScheduleBoard({
                 </label>
               </div>
             </section>
-
-            {!selectedDateIsLocked ? (
-              <div className="hrAttModal__actions mgrMonth__modalActions">
-                <button type="button" onClick={closeEditor} disabled={savingDate || loadingMonth}>
-                  Cancel
-                </button>
-                <button type="button" onClick={() => void saveSelectedDate()} disabled={savingDate || loadingMonth}>
-                  <FiSave />
-                  <span>{savingDate ? 'Saving...' : 'Save This Date'}</span>
-                </button>
-              </div>
-            ) : null}
+          </div>
         </LargePopup>
       ) : null}
 
@@ -1318,8 +1395,39 @@ export function MonthlyScheduleBoard({
           size="xl"
           onClose={closeTemplateEditor}
           dismissOnBackdrop
+          footer={
+            <div className="mgrMonth__templateFooter">
+              <div className="mgrMonth__templateFooterGroup mgrMonth__templateFooterGroup--left">
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  onClick={clearTemplateSelections}
+                  disabled={savingTemplate || !canClearTemplateSelections}
+                >
+                  Clear Selection
+                </button>
+              </div>
+              <div className="mgrMonth__templateFooterGroup mgrMonth__templateFooterGroup--right">
+                <button type="button" className="btn btn--ghost" onClick={closeTemplateEditor} disabled={savingTemplate}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn mgrMonth__templateApplyButton"
+                  onClick={() => void applyRecurringTemplate()}
+                  disabled={savingTemplate || batchTemplateEmployees.length === 0}
+                >
+                  <span className="mgrMonth__templateApplyButtonContent">
+                    <FiSave aria-hidden="true" />
+                    <span className="mgrMonth__templateApplyButtonLabel">{savingTemplate ? 'Saving...' : 'Apply'}</span>
+                  </span>
+                </button>
+              </div>
+            </div>
+          }
         >
-          {enableDefaultHoursBatchSelection && !enableBatchSelection ? (
+          <div className="mgrMonth__templateContent">
+            {enableDefaultHoursBatchSelection && !enableBatchSelection ? (
               <section className="mgrMonth__templateTargetsCard">
                 <div className="mgrMonth__sectionIntro">
                   <div className="mgrMonth__sectionHeader">
@@ -1337,37 +1445,84 @@ export function MonthlyScheduleBoard({
                       <span>Select all</span>
                     </label>
                   </div>
-                  <p className="mgrMonth__sectionDescription">
-                    Search and select the {employeePluralLabel} who should share the same weekly hours. Existing custom day
-                    changes stay exactly as they are.
-                  </p>
                 </div>
 
-                <label className="mgrMonth__field mgrMonth__templateTargetsField">
-                  <span>Search {employeePluralLabel}</span>
-                  <div className="mgrMonth__templateSearchWrap">
-                    <input
-                      type="text"
-                      className="mgrMonth__templateSearchInput"
-                      value={templateTargetSearch}
-                      onChange={(event) => setTemplateTargetSearch(event.target.value)}
-                      placeholder={`Search ${employeePluralLabel}`}
-                      disabled={savingTemplate || sortedEmployees.length === 0}
-                    />
-                    {canClearTemplateTargetSearch ? (
-                      <button
-                        type="button"
-                        className="mgrMonth__templateSearchClear"
-                        onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => setTemplateTargetSearch('')}
-                        disabled={savingTemplate}
-                        aria-label={`Clear ${employeePluralLabel} search`}
-                      >
-                        <FiX />
-                      </button>
+                <div className="mgrMonth__field mgrMonth__templateTargetsField">
+                  <div className="mgrMonth__templateSearchRow">
+                    <div className="mgrMonth__templateSearchWrap">
+                      <input
+                        type="text"
+                        className="mgrMonth__templateSearchInput"
+                        value={templateTargetSearch}
+                        onChange={(event) => setTemplateTargetSearch(event.target.value)}
+                        placeholder={`Search ${employeePluralLabel}`}
+                        aria-label={`Search ${employeePluralLabel}`}
+                        disabled={savingTemplate || sortedEmployees.length === 0}
+                      />
+                      {canClearTemplateTargetSearch ? (
+                        <button
+                          type="button"
+                          className="mgrMonth__templateSearchClear"
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => setTemplateTargetSearch('')}
+                          disabled={savingTemplate}
+                          aria-label={`Clear ${employeePluralLabel} search`}
+                        >
+                          <FiX />
+                        </button>
+                      ) : null}
+                    </div>
+
+                    {showDepartmentFilter ? (
+                      <div className="hrAttFilter mgrMonth__employeeFilter mgrMonth__templateFilter" ref={templateFilterRef}>
+                        <button
+                          type="button"
+                          className={`hrAttFilter__toggle ${templateFilterOpen ? 'is-open' : ''} ${activeFilterCount > 0 ? 'is-active' : ''}`}
+                          onClick={() => setTemplateFilterOpen((open) => !open)}
+                          disabled={savingTemplate || sortedEmployees.length === 0}
+                        >
+                          <FiFilter />
+                          <span>Filter</span>
+                          {activeFilterCount > 0 ? <span className="hrAttFilter__count">{activeFilterCount}</span> : null}
+                        </button>
+
+                        {templateFilterOpen ? (
+                          <div className="hrAttFilter__panel">
+                            <label className="hrAttFilter__field">
+                              <span>Role</span>
+                              <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
+                                <option value="all">All roles</option>
+                                {HR_SCHEDULE_ROLE_FILTERS.map((option) => (
+                                  <option key={option.value} value={option.value.replace('role:', '')}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+
+                            <label className="hrAttFilter__field">
+                              <span>Unit</span>
+                              <select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}>
+                                <option value="all">All units</option>
+                                {departmentOptions.map((department) => (
+                                  <option key={department} value={department}>
+                                    {department}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+
+                            <div className="hrAttFilter__actions">
+                              <button type="button" onClick={clearEmployeeFilters}>
+                                Clear Filters
+                              </button>
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
                     ) : null}
                   </div>
-                </label>
+                </div>
 
                 <div className="mgrMonth__templateTargetList" aria-label={`Choose ${employeePluralLabel} for default hours`}>
                   {templateTargetSearchResults.length > 0 ? (
@@ -1385,7 +1540,11 @@ export function MonthlyScheduleBoard({
                           <div className="mgrMonth__templateTargetOptionTop">
                             <strong>{employee.name}</strong>
                           </div>
-                          <div className="mgrMonth__templateTargetOptionMeta">{formatEmployeePickerMeta(employee)}</div>
+                          <div className="mgrMonth__templateTargetOptionMeta">
+                            {getEmployeeMetaParts(employee, { includeDepartment: showDepartmentFilter }).map((part, index) => (
+                              <span key={`${employee.id}-${index}`}>{part}</span>
+                            ))}
+                          </div>
                         </button>
                       );
                     })
@@ -1424,9 +1583,6 @@ export function MonthlyScheduleBoard({
                       <span>Select all</span>
                     </label>
                   </div>
-                  <p className="mgrMonth__sectionDescription">
-                    Apply one default time range or a recurring day off to the days you choose. Saved date-specific schedules stay untouched.
-                  </p>
                 </div>
 
                 <div className="mgrMonth__templateGrid">
@@ -1459,11 +1615,6 @@ export function MonthlyScheduleBoard({
                       <span>Select all</span>
                     </span>
                   </div>
-                  <p className="mgrMonth__sectionDescription">
-                    {templateDayOff
-                      ? 'Selected days will have no recurring working hours in the weekly template.'
-                      : 'This becomes the weekly base schedule for the days you select.'}
-                  </p>
                 </div>
 
                 <label className={`mgrMonth__dayOffToggle ${savingTemplate ? 'is-disabled' : ''}`}>
@@ -1507,26 +1658,7 @@ export function MonthlyScheduleBoard({
                 </p>
               </section>
             </section>
-
-            <div className="hrAttModal__actions mgrMonth__modalActions">
-              <button
-                type="button"
-                className="btn btn--ghost"
-                onClick={clearTemplateSelections}
-                disabled={savingTemplate || !canClearTemplateSelections}
-              >
-                Clear Selection
-              </button>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => void applyRecurringTemplate()}
-                disabled={savingTemplate || batchTemplateEmployees.length === 0}
-              >
-                <FiSave />
-                <span>{savingTemplate ? 'Saving...' : templateDayOff ? 'Apply Day Off to Selected Days' : 'Apply to Selected Days'}</span>
-              </button>
-            </div>
+          </div>
         </LargePopup>
       ) : null}
     </div>
