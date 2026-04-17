@@ -555,6 +555,12 @@
   text-overflow: ellipsis;
 }
 
+.cal__detail--more {
+  background: rgba(43, 32, 54, 0.08);
+  color: rgba(43, 32, 54, 0.68);
+  font-weight: 800;
+}
+
 .cal__cell--leave {
   background: linear-gradient(180deg, #f3ebff 0%, #e8dbff 100%);
   border-color: #d6bfff;

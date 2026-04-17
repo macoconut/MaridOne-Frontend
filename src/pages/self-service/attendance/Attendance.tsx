@@ -134,6 +134,8 @@ type AttendanceHistory = {
   latestDirection: 'IN' | 'OUT' | null;
 };
 
+const MAX_VISIBLE_CALENDAR_LOGS = 3;
+
 type LeaveBalanceRow = {
   leaveId?: number;
   balanceHours?: number | string | null;
@@ -621,6 +623,10 @@ function formatAttendanceSession(session: AttendanceSession) {
   if (session.in) return `In ${session.in}`;
   if (session.out) return `Out ${session.out}`;
   return 'Attendance logged';
+}
+
+function formatHiddenAttendanceCount(count: number) {
+  return `+${count} more log${count === 1 ? '' : 's'}`;
 }
 
 function formatLeaveTypeLabel(value?: string) {
@@ -2230,6 +2236,12 @@ export default function Attendance() {
                   const hasRequest = c.day !== null && approvedRequestDateKeys.has(dateKey);
                   const clickable = c.day !== null;
                   const hasContent = Boolean((c.statusNotes?.length ?? 0) || (c.detailNotes?.length ?? 0));
+                  const detailNotes = c.detailNotes ?? [];
+                  const visibleDetailNotes =
+                    detailNotes.length > MAX_VISIBLE_CALENDAR_LOGS
+                      ? detailNotes.slice(-MAX_VISIBLE_CALENDAR_LOGS)
+                      : detailNotes;
+                  const hiddenDetailCount = Math.max(0, detailNotes.length - visibleDetailNotes.length);
                   const cellTitle = [...(c.statusNotes ?? []), ...(c.detailNotes ?? [])].join(' | ');
                   const cls = [
                     'cal__cell',
@@ -2282,11 +2294,16 @@ export default function Attendance() {
                       )}
                       {c.detailNotes && (
                         <div className="cal__detailNotes">
-                          {c.detailNotes.map((line, lineIdx) => (
+                          {visibleDetailNotes.map((line, lineIdx) => (
                             <span key={`${line}-${lineIdx}`} className="cal__detail">
                               {line}
                             </span>
                           ))}
+                          {hiddenDetailCount > 0 && (
+                            <span className="cal__detail cal__detail--more">
+                              {formatHiddenAttendanceCount(hiddenDetailCount)}
+                            </span>
+                          )}
                         </div>
                       )}
                     </button>
