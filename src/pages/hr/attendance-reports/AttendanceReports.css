@@ -1044,6 +1044,49 @@
   line-height: 1.25;
 }
 
+.hrAttPerson__logs {
+  display: grid;
+  gap: 8px;
+}
+
+.hrAttPerson__logsLabel {
+  color: #6c5a83;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.hrAttPerson__logList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hrAttPerson__logItem {
+  min-width: 116px;
+  border: 1px solid rgba(123, 74, 143, 0.12);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f8f4fb 0%, #ffffff 100%);
+  padding: 9px 11px;
+  display: grid;
+  gap: 4px;
+}
+
+.hrAttPerson__logItem span {
+  color: #6c5a83;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.hrAttPerson__logItem strong {
+  color: #2b2036;
+  font-size: 14px;
+  font-weight: 900;
+}
+
 .hrAttPerson__badge {
   display: inline-flex;
   align-items: center;

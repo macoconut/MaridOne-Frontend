@@ -351,7 +351,7 @@ function normalizeSeparationReason(value?: string | null): FormState['separation
 function formatEmploymentStatusLabel(value?: string | null) {
   const normalized = String(value ?? '').trim().toUpperCase();
   if (!normalized) return '-';
-  if (normalized === 'TERMINATED') return 'RELEASED';
+  if (normalized === 'TERMINATED') return 'INACTIVE';
   return normalized.replace(/_/g, ' ');
 }
 

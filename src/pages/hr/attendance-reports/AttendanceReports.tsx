@@ -127,6 +127,12 @@ type DailyEmployeeRecord = {
   lateMinutes: number;
   earlyOutMinutes: number;
   isIncomplete: boolean;
+  logs: Array<{
+    attendanceId: number | string;
+    time: string;
+    direction: string;
+    directionLabel: string;
+  }>;
 };
 
 type AttendanceExportRow = {
@@ -909,6 +915,12 @@ function buildDailyRecords(
         lateMinutes,
         earlyOutMinutes,
         isIncomplete,
+        logs: sorted.map((row, index) => ({
+          attendanceId: row.attendanceId ?? `${employeeId}-${index}`,
+          time: localTimeLabel(row.timestamp) || 'N/A',
+          direction: String(row.direction ?? '').trim().toUpperCase(),
+          directionLabel: humanizeEnum(row.direction) || 'Log',
+        })),
       } satisfies DailyEmployeeRecord;
     })
     .sort((a, b) => a.name.localeCompare(b.name));
@@ -2924,6 +2936,23 @@ export function AttendanceReportsBoard({
                                 <strong>{record.logCount}</strong>
                               </div>
                             </div>
+
+                            {record.logs.length > 0 && (
+                              <div className="hrAttPerson__logs">
+                                <span className="hrAttPerson__logsLabel">Recorded Logs</span>
+                                <div className="hrAttPerson__logList">
+                                  {record.logs.map((log, index) => (
+                                    <div
+                                      key={`${selectedDateKey}-${record.employeeId}-${String(log.attendanceId)}-${index}`}
+                                      className="hrAttPerson__logItem"
+                                    >
+                                      <span>{log.directionLabel}</span>
+                                      <strong>{log.time}</strong>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </article>
                       );

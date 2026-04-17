@@ -1702,7 +1702,7 @@ export default function Attendance() {
         setLatestAttendanceDirection((prev) => (prev === 'IN' ? 'OUT' : 'IN'));
       }
 
-      setClockMessage(`${attemptedAction} submitted.`);
+      setClockMessage('Success');
       setConfirmClockAction(null);
     } catch (error) {
       setClockError(getFriendlyErrorMessage(error, 'attendance'));

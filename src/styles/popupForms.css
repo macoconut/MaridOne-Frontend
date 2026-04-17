@@ -197,9 +197,14 @@
   width: min(700px, 94vw) !important;
 }
 
+.sensitiveAccessModal {
+  background: #ffffff !important;
+}
+
 .hrEmpModal--details {
   width: min(980px, 96vw) !important;
   max-height: min(88vh, 900px) !important;
+  background: #ffffff !important;
 }
 
 .dashModal--announcement,

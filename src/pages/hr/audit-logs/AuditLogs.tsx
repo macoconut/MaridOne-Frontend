@@ -78,6 +78,7 @@ type AuditEntry = {
   endpoint: string;
   rawMessage: string;
   detailPayload: string | null;
+  rawMessageDisplay: string;
 };
 
 type AuditBreakdownItem = {
@@ -322,14 +323,42 @@ function parseBreakdownItems(detailPayload?: string | null) {
       const label = line.slice(0, separatorIndex).trim();
       const value = line.slice(separatorIndex + 1).trim();
       if (!label || !value) return null;
+      if (/^endpoint$/i.test(label)) return null;
 
       return {
         label,
         value,
-        emphasis: /^(Employee|Current Status|Change|Release Reason|Eligible For Rehire|Effective Date|Summary)$/i.test(label),
+        emphasis:
+          /^(Actor|Employee|Submitted By|Current Status|Change|Release Reason|Eligible For Rehire|Effective Date|Summary)$/i.test(
+            label
+          ),
       } satisfies AuditBreakdownItem;
     })
     .filter(Boolean) as AuditBreakdownItem[];
+}
+
+function sanitizeRawAuditMessage(message?: string | null) {
+  const normalized = normalizeWhitespace(message);
+  if (!normalized) return 'No raw message available.';
+
+  return normalized
+    .replace(/\s*Endpoint:\s*\/api\/[^\s.]+\.?/gi, '.')
+    .replace(/\.\.+/g, '.')
+    .replace(/\s+\./g, '.')
+    .trim();
+}
+
+function isDuplicateAuditSummary(title: string, detail: string) {
+  const normalize = (value: string) =>
+    value
+      .replace(/[^\w\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+
+  const normalizedTitle = normalize(title);
+  const normalizedDetail = normalize(detail);
+  return Boolean(normalizedTitle) && normalizedTitle === normalizedDetail;
 }
 
 function buildPayrollRunMap(rows: PayrollRunRow[]) {
@@ -437,6 +466,13 @@ function buildLeaveBalanceDetail(
       : `Updated leave balances for ${employeeName}`;
 
   return leaveType ? `${baseDetail} under ${leaveType}.` : `${baseDetail}.`;
+}
+
+function normalizeAuditStatusLabel(value?: string | null) {
+  const normalized = String(value ?? '').trim();
+  if (!normalized) return '';
+  if (/^employee released$/i.test(normalized)) return 'INACTIVE';
+  return normalized.toUpperCase().replace(/_/g, ' ');
 }
 
 function buildFriendlyCopy(
@@ -623,6 +659,14 @@ function buildFriendlyCopy(
       };
     }
 
+    if (/^\/api\/security\/sensitive-access\/verify\b/i.test(endpoint)) {
+      return {
+        title: 'Verified sensitive access',
+        detail: 'Verified access before opening protected HR records.',
+        area: 'Security',
+      };
+    }
+
     const targetEmployeeId = extractEmployeeIdFromEndpoint(endpoint);
     if (targetEmployeeId) {
       const employeeName = resolveEmployeeName(targetEmployeeId, directory);
@@ -631,13 +675,20 @@ function buildFriendlyCopy(
         const releaseSummary = extractLabeledValue(detailPayload, 'Summary');
         const currentStatus = extractLabeledValue(detailPayload, 'Current Status');
         const releaseReason = extractLabeledValue(detailPayload, 'Release Reason');
+        const change = extractLabeledValue(detailPayload, 'Change');
+        const normalizedStatus = normalizeAuditStatusLabel(currentStatus);
+        const normalizedReason = releaseReason ? humanizeEnum(releaseReason) || releaseReason : '';
         return {
-          title: currentStatus === 'Employee Released' ? 'Recorded employee release' : 'Updated employee status',
+          title: normalizedStatus
+            ? `Updated ${employeeName} status to ${normalizedStatus}`
+            : `Updated ${employeeName} status`,
           detail:
             releaseSummary ||
-            (releaseReason
-              ? `Recorded ${employeeName} as released under ${releaseReason}.`
-              : `Updated employment status for ${employeeName}.`),
+            (change
+              ? `${change}.`
+              : normalizedReason
+                ? `Updated ${employeeName} status under ${normalizedReason}.`
+                : `Updated employment status for ${employeeName}.`),
           area: 'People',
         };
       }
@@ -735,6 +786,7 @@ function toAuditEntry(
     timestampValue,
     endpoint,
     rawMessage: row.message ?? '',
+    rawMessageDisplay: sanitizeRawAuditMessage(row.message),
     detailPayload: row.detailPayload ?? null,
     searchIndex: toSearchIndex([
       row.activityId,
@@ -923,6 +975,10 @@ export default function HrAuditLogs() {
     () => parseBreakdownItems(selectedEntry?.detailPayload),
     [selectedEntry?.detailPayload]
   );
+  const showSelectedEntrySummary = useMemo(
+    () => Boolean(selectedEntry?.detail) && !isDuplicateAuditSummary(selectedEntry?.title ?? '', selectedEntry?.detail ?? ''),
+    [selectedEntry?.detail, selectedEntry?.title]
+  );
 
   function clearFilters() {
     setTypeFilter('all');
@@ -1023,10 +1079,9 @@ export default function HrAuditLogs() {
                   {entry.actorSubtitle && <span className="hrAuditRow__actorSub">{entry.actorSubtitle}</span>}
                 </span>
 
-                <span className="hrAuditRow__message">
-                  <span className="hrAuditRow__title">{entry.title}</span>
-                  <span className="hrAuditRow__detail">{entry.detail}</span>
-                </span>
+              <span className="hrAuditRow__message">
+                <span className="hrAuditRow__title">{entry.title}</span>
+              </span>
 
                 <span className="hrAuditRow__meta">
                   <span className="hrAuditRow__tagGroup">
@@ -1053,7 +1108,7 @@ export default function HrAuditLogs() {
             <div className="hrAuditModal__header">
               <div className="hrAuditModal__intro">
                 <h2>{selectedEntry.title}</h2>
-                <p>{selectedEntry.detail}</p>
+                {showSelectedEntrySummary ? <p>{selectedEntry.detail}</p> : null}
               </div>
               <ModalCloseButton onClick={() => setSelectedEntryId(null)} aria-label="Close audit log details" />
             </div>
@@ -1089,7 +1144,7 @@ export default function HrAuditLogs() {
             <div className="hrAuditModal__footer">
               <div className="hrAuditModal__footerItem">
                 <span>Stored Audit Message</span>
-                <strong>{selectedEntry.rawMessage || 'No raw message available.'}</strong>
+                <strong>{selectedEntry.rawMessageDisplay}</strong>
               </div>
             </div>
           </div>

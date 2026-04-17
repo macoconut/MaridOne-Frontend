@@ -27,10 +27,54 @@ body.modal-open{
 body.modal-open .eSide{
   z-index:0;
   pointer-events:none;
+  user-select:none;
 }
 
 body.modal-open .eMain{
-  /* no-op to allow global stacking of modals */
+  user-select:none;
+}
+
+body.modal-open .eMain > *{
+  pointer-events:none;
+  user-select:none;
+}
+
+body.modal-open :where(
+  .modalBackdrop,
+  .dashModalBackdrop,
+  .payModalBackdrop,
+  .apprModalBackdrop,
+  .hrEmpModalBackdrop,
+  .sensitiveAccessModalBackdrop,
+  .hrAuditModalBackdrop,
+  .hrAttModalBackdrop,
+  .hrPayModalBackdrop,
+  .hrApprModalBackdrop,
+  .aReviewPayModalBackdrop,
+  .settingsModalBackdrop,
+  .hrRunModalBackdrop,
+  .aReviewRunModalBackdrop,
+  .confirmDialog__backdrop,
+  .alertDialog__backdrop,
+  .modal,
+  .dashModal,
+  .payModal,
+  .apprModal,
+  .hrEmpModal,
+  .sensitiveAccessModal,
+  .hrAuditModal,
+  .hrAttModal,
+  .hrPayModal,
+  .hrApprModal,
+  .aReviewPayModal,
+  .settingsModal,
+  .hrRunModal,
+  .aReviewRunModal,
+  .confirmDialog__card,
+  .alertDialog__card
+){
+  pointer-events:auto;
+  user-select:auto;
 }
 
 @keyframes shellContentIn{

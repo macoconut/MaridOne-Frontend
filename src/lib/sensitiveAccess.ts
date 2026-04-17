@@ -1,14 +1,6 @@
 import { ApiError, apiFetchJson } from './api';
 import { clearSensitiveAccessToken, setSensitiveAccessToken } from './session';
 
-export type SensitiveAccessMode = 'PASSWORD' | 'AUTHENTICATOR' | 'EMAIL_OTP';
-
-export type SensitiveAccessState = {
-  twoFactorEnabled?: boolean;
-  sensitiveAccessActive?: boolean;
-  sensitiveAccessExpiresAt?: string;
-};
-
 type SensitiveAccessVerifyResponse = {
   sensitiveAccessToken?: string;
   expiresAt?: string;
@@ -23,18 +15,13 @@ export function clearSensitiveAccessSession() {
   clearSensitiveAccessToken();
 }
 
-export function fetchSensitiveAccessState() {
-  return apiFetchJson<SensitiveAccessState>('/api/security/sensitive-access/state');
-}
-
-export async function verifySensitiveAccess(payload: {
-  mode: SensitiveAccessMode;
-  password?: string;
-  code?: string;
-}) {
+export async function verifySensitiveAccess(payload: { password: string }) {
   const response = await apiFetchJson<SensitiveAccessVerifyResponse>('/api/security/sensitive-access/verify', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      mode: 'PASSWORD',
+      password: payload.password,
+    }),
   });
 
   if (response.sensitiveAccessToken) {
@@ -42,10 +29,4 @@ export async function verifySensitiveAccess(payload: {
   }
 
   return response;
-}
-
-export function sendSensitiveAccessEmailCode() {
-  return apiFetchJson<void>('/api/security/sensitive-access/send-email-code', {
-    method: 'POST',
-  });
 }

@@ -382,7 +382,7 @@
 .hrEmpDetails__badges span {
   border: 1px solid rgba(123, 74, 143, 0.14);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.9);
+  background: #ffffff;
   padding: 6px 10px;
   color: #5d4372;
   font-size: 12px;
@@ -400,7 +400,7 @@
 .hrEmpDetails__card {
   border: 1px solid rgba(61, 38, 90, 0.10);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.92);
+  background: #ffffff;
   padding: 14px;
   box-shadow: 0 10px 24px rgba(36, 24, 52, 0.06);
 }
