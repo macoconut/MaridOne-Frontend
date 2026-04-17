@@ -6,7 +6,7 @@ import ActionButton from '../../../components/button/ActionButton';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import { useUiDialog } from '../../../components/dialog/useUiDialog';
 import MaterialArt from '../../../components/document/MaterialArt';
-import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
+import LargePopup from '../../../components/dialog/LargePopup';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
@@ -1297,51 +1297,51 @@ export default function Dashboard() {
         </div>
       </section>
       {selectedAnnouncementDay && (
-        <div className="dashModalBackdrop" role="dialog" aria-modal="true" aria-label="Company announcements">
-          <div className="dashModal dashModal--announcement">
-            <div className="dashModal__top">
-              <div>
-                <div className="dashModal__title">{announcementHeaderEvent?.employeeName || 'MaridOne Staff'}</div>
-                <div className="dashModal__subtitle">{formatAnnouncementCreatedAt(announcementHeaderEvent?.createdAt)}</div>
-              </div>
-              <ModalCloseButton className="dashModal__close" onClick={closeAnnouncementDay} />
-            </div>
+        <LargePopup
+          open
+          ariaLabel="Company announcements"
+          title={announcementHeaderEvent?.employeeName || 'MaridOne Staff'}
+          subtitle={formatAnnouncementCreatedAt(announcementHeaderEvent?.createdAt)}
+          size="lg"
+          onClose={closeAnnouncementDay}
+          footer={(
+            <button type="button" className="btn btn--ghost" onClick={closeAnnouncementDay}>
+              Close
+            </button>
+          )}
+        >
+          <div className="announcementModal__list">
+            {selectedAnnouncementDay.events.map((event) => {
+              const isDeleting = deletingAnnouncementId === event.calendarId;
 
-            <div className="dashModal__rule" />
-
-            <div className="announcementModal__list">
-              {selectedAnnouncementDay.events.map((event) => {
-                const isDeleting = deletingAnnouncementId === event.calendarId;
-
-                return (
-                  <article key={event.key} className="announcementModal__card">
-                    <div className="announcementModal__titleRow">
-                      <h3 className="announcementModal__title">{event.title}</h3>
-                      <div className="announcementModal__dates">
-                        {formatCalendarEventDateRange(event.startDate, event.endDate)}
-                      </div>
+              return (
+                <article key={event.key} className="announcementModal__card">
+                  <div className="announcementModal__titleRow">
+                    <h3 className="announcementModal__title">{event.title}</h3>
+                    <div className="announcementModal__dates">
+                      {formatCalendarEventDateRange(event.startDate, event.endDate)}
                     </div>
-                    <p>{event.description || 'No description provided for this announcement yet.'}</p>
-                    {canManageAnnouncements && typeof event.calendarId === 'number' ? (
-                      <div className="announcementModal__deleteRow">
-                        <button
-                          type="button"
-                          className="announcementModal__delete"
-                          onClick={() => requestDeleteAnnouncement(event)}
-                          disabled={isDeleting}
-                          aria-label={`Delete announcement ${event.title}`}
-                          title="Delete announcement"
-                        >
-                          <FiTrash2 aria-hidden="true" />
-                        </button>
-                      </div>
-                    ) : null}
-                  </article>
-                );
-              })}
-            </div>
+                  </div>
+                  <p>{event.description || 'No description provided for this announcement yet.'}</p>
+                  {canManageAnnouncements && typeof event.calendarId === 'number' ? (
+                    <div className="announcementModal__deleteRow">
+                      <button
+                        type="button"
+                        className="announcementModal__delete"
+                        onClick={() => requestDeleteAnnouncement(event)}
+                        disabled={isDeleting}
+                        aria-label={`Delete announcement ${event.title}`}
+                        title="Delete announcement"
+                      >
+                        <FiTrash2 aria-hidden="true" />
+                      </button>
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
           </div>
-        </div>
+        </LargePopup>
       )}
 
       <ConfirmDialog
@@ -1374,81 +1374,19 @@ export default function Dashboard() {
       />
 
       {createAnnouncementOpen && (
-        <div className="dashModalBackdrop" role="dialog" aria-modal="true" aria-label="Create announcement">
-          <div className="dashModal">
-            <div className="dashModal__top">
-              <div>
-                <div className="dashModal__title">CREATE ANNOUNCEMENT</div>
-                <div className="dashModal__subtitle">Share a company-wide announcement on the calendar.</div>
-              </div>
-              <ModalCloseButton
-                className="dashModal__close"
-                onClick={closeCreateAnnouncementModal}
-                disabled={creatingAnnouncement}
-              />
-            </div>
-
-            <div className="dashModal__rule" />
-
-            <div className="dashModal__grid">
-              <label className="dashModal__field dashModal__field--full">
-                <span>Announcement Title</span>
-                <input
-                  value={announcementDraft.title}
-                  maxLength={120}
-                  aria-invalid={
-                    createAnnouncementSubmitAttempted && announcementDraft.title.trim().length === 0
-                      ? 'true'
-                      : undefined
-                  }
-                  onChange={(event) => setAnnouncementDraftField('title', event.target.value)}
-                />
-              </label>
-              <label className="dashModal__field">
-                <span>Start Date and Time</span>
-                <input
-                  type="datetime-local"
-                  value={announcementDraft.startDateTime}
-                  aria-invalid={
-                    createAnnouncementSubmitAttempted && !announcementDraft.startDateTime ? 'true' : undefined
-                  }
-                  onChange={(event) => setAnnouncementStartDateTime(event.target.value)}
-                />
-              </label>
-              <label className="dashModal__field">
-                <span>End Date and Time</span>
-                <input
-                  type="datetime-local"
-                  value={announcementDraft.endDateTime}
-                  min={announcementDraft.startDateTime || undefined}
-                  aria-invalid={
-                    createAnnouncementSubmitAttempted && !announcementDraft.endDateTime ? 'true' : undefined
-                  }
-                  onChange={(event) => setAnnouncementDraftField('endDateTime', event.target.value)}
-                />
-              </label>
-              <label className="dashModal__field dashModal__field--full">
-                <span>Description</span>
-                <textarea
-                  value={announcementDraft.description}
-                  maxLength={500}
-                  rows={6}
-                  placeholder="Optional announcement details"
-                  onChange={(event) => setAnnouncementDraftField('description', event.target.value)}
-                />
-              </label>
-            </div>
-
-            <div className="dashModal__helper">
-              {announcementDraft.title.trim().length}/120 title characters
-              {' · '}
-              {announcementDraft.description.trim().length}/500 description characters
-            </div>
-
-            <div className="dashModal__actions">
+        <LargePopup
+          open
+          ariaLabel="Create announcement"
+          title="Create Announcement"
+          subtitle="Share a company-wide announcement on the calendar."
+          size="lg"
+          onClose={closeCreateAnnouncementModal}
+          closeDisabled={creatingAnnouncement}
+          footer={(
+            <>
               <button
                 type="button"
-                className="dashModal__btn dashModal__btn--ghost"
+                className="btn btn--ghost"
                 onClick={closeCreateAnnouncementModal}
                 disabled={creatingAnnouncement}
               >
@@ -1456,167 +1394,86 @@ export default function Dashboard() {
               </button>
               <button
                 type="button"
-                className="dashModal__btn"
+                className="btn"
                 onClick={() => void submitAnnouncement()}
                 disabled={creatingAnnouncement}
               >
                 {creatingAnnouncement ? 'Creating...' : 'Publish Announcement'}
               </button>
-            </div>
+            </>
+          )}
+        >
+          <div className="dashModal__grid">
+            <label className="dashModal__field dashModal__field--full">
+              <span>Announcement Title</span>
+              <input
+                value={announcementDraft.title}
+                maxLength={120}
+                aria-invalid={
+                  createAnnouncementSubmitAttempted && announcementDraft.title.trim().length === 0
+                    ? 'true'
+                    : undefined
+                }
+                onChange={(event) => setAnnouncementDraftField('title', event.target.value)}
+              />
+            </label>
+            <label className="dashModal__field">
+              <span>Start Date and Time</span>
+              <input
+                type="datetime-local"
+                value={announcementDraft.startDateTime}
+                aria-invalid={
+                  createAnnouncementSubmitAttempted && !announcementDraft.startDateTime ? 'true' : undefined
+                }
+                onChange={(event) => setAnnouncementStartDateTime(event.target.value)}
+              />
+            </label>
+            <label className="dashModal__field">
+              <span>End Date and Time</span>
+              <input
+                type="datetime-local"
+                value={announcementDraft.endDateTime}
+                min={announcementDraft.startDateTime || undefined}
+                aria-invalid={
+                  createAnnouncementSubmitAttempted && !announcementDraft.endDateTime ? 'true' : undefined
+                }
+                onChange={(event) => setAnnouncementDraftField('endDateTime', event.target.value)}
+              />
+            </label>
+            <label className="dashModal__field dashModal__field--full">
+              <span>Description</span>
+              <textarea
+                value={announcementDraft.description}
+                maxLength={500}
+                rows={6}
+                placeholder="Optional announcement details"
+                onChange={(event) => setAnnouncementDraftField('description', event.target.value)}
+              />
+            </label>
           </div>
-        </div>
+
+          <div className="dashModal__helper">
+            {announcementDraft.title.trim().length}/120 title characters
+            {' · '}
+            {announcementDraft.description.trim().length}/500 description characters
+          </div>
+        </LargePopup>
       )}
 
       {editOpen && (
-        <div className="dashModalBackdrop" role="dialog" aria-modal="true" aria-label="Edit employee info">
-          <div className="dashModal">
-            <div className="dashModal__top">
-              <div>
-                <div className="dashModal__title">EDIT INFO</div>
-                <div className="dashModal__subtitle">Update your contact details and address information before saving the changes.</div>
-              </div>
-              <ModalCloseButton className="dashModal__close" onClick={closeEditModal} disabled={savingEdit} />
-            </div>
-
-            <div className="dashModal__rule" />
-
-            <div className="dashModal__grid">
-              <label className="dashModal__field">
-                <span>Email</span>
-                <input
-                  value={editDraft.email}
-                  placeholder="Optional email address"
-                  onChange={(e) => setEditField('email', e.target.value)}
-                />
-              </label>
-              <label className="dashModal__field">
-                <span>Phone Number</span>
-                <input
-                  value={editDraft.phoneNumber}
-                  placeholder="Optional phone number"
-                  onChange={(e) => setEditField('phoneNumber', e.target.value)}
-                />
-              </label>
-              <label className="dashModal__field dashModal__field--full">
-                <span>Permanent Address</span>
-                <input
-                  value={editDraft.permanentAddress}
-                  placeholder="Optional permanent address"
-                  onChange={(e) => setEditField('permanentAddress', e.target.value)}
-                />
-              </label>
-              <label className="dashModal__field dashModal__field--full">
-                <span>Temporary Address</span>
-                <input
-                  value={editDraft.temporaryAddress}
-                  placeholder="Optional temporary address"
-                  onChange={(e) => setEditField('temporaryAddress', e.target.value)}
-                />
-              </label>
-              <label className="dashModal__field">
-                <span>City</span>
-                <input
-                  value={editDraft.city}
-                  placeholder="Optional city"
-                  onChange={(e) => setEditField('city', e.target.value)}
-                />
-              </label>
-              <label className="dashModal__field">
-                <span>State</span>
-                <input
-                  value={editDraft.state}
-                  placeholder="Optional state"
-                  onChange={(e) => setEditField('state', e.target.value)}
-                />
-              </label>
-              <label className="dashModal__field">
-                <span>Country</span>
-                <input
-                  value={editDraft.country}
-                  placeholder="Optional country"
-                  onChange={(e) => setEditField('country', e.target.value)}
-                />
-              </label>
-              <label className="dashModal__field">
-                <span>Zip Code</span>
-                <input
-                  value={editDraft.zipCode}
-                  placeholder="Optional ZIP code"
-                  onChange={(e) => setEditField('zipCode', e.target.value)}
-                />
-              </label>
-
-              <div className="dashModal__sectionHeader">Government Identifiers</div>
-              <label className="dashModal__field">
-                <span>SSS Number</span>
-                <input
-                  value={editDraft.sssNumber}
-                  placeholder="00-0000000-0"
-                  onChange={(e) => setEditField('sssNumber', e.target.value)}
-                />
-              </label>
-              <label className="dashModal__field">
-                <span>PhilHealth ID</span>
-                <input
-                  value={editDraft.philhealthNumber}
-                  placeholder="00-000000000-0"
-                  onChange={(e) => setEditField('philhealthNumber', e.target.value)}
-                />
-              </label>
-              <label className="dashModal__field">
-                <span>Pag-IBIG MID</span>
-                <input
-                  value={editDraft.pagibigNumber}
-                  placeholder="0000-0000-0000"
-                  onChange={(e) => setEditField('pagibigNumber', e.target.value)}
-                />
-              </label>
-              <label className="dashModal__field">
-                <span>TIN</span>
-                <input
-                  value={editDraft.tinNumber}
-                  placeholder="000-000-000-000"
-                  onChange={(e) => setEditField('tinNumber', e.target.value)}
-                />
-              </label>
-
-              <div className="dashModal__sectionHeader">Emergency Contact</div>
-              <label className="dashModal__field">
-                <span>Contact Name</span>
-                <input
-                  value={editDraft.emergencyContactName}
-                  placeholder="Full name"
-                  onChange={(e) => setEditField('emergencyContactName', e.target.value)}
-                />
-              </label>
-              <label className="dashModal__field">
-                <span>Relationship</span>
-                <input
-                  value={editDraft.emergencyContactRelationship}
-                  placeholder="e.g. Spouse, Sibling"
-                  onChange={(e) => setEditField('emergencyContactRelationship', e.target.value)}
-                />
-              </label>
-              <label className="dashModal__field dashModal__field--full">
-                <span>Contact Number</span>
-                <input
-                  value={editDraft.emergencyContactNumber}
-                  placeholder="Phone number"
-                  onChange={(e) => setEditField('emergencyContactNumber', e.target.value)}
-                />
-              </label>
-            </div>
-
-            {emailVerificationWillReset && (
-              <div className="dashModal__helper dashModal__helper--warning">
-                Changing this verified email will reset its verification status until the new address is verified.
-              </div>
-            )}
-
-            <div className="dashModal__actions">
+        <LargePopup
+          open
+          ariaLabel="Edit employee info"
+          title="Edit Info"
+          subtitle="Update your contact details and address information before saving the changes."
+          size="xl"
+          onClose={closeEditModal}
+          closeDisabled={savingEdit}
+          footer={(
+            <>
               <button
                 type="button"
-                className="dashModal__btn dashModal__btn--ghost"
+                className="btn btn--ghost"
                 onClick={closeEditModal}
                 disabled={savingEdit}
               >
@@ -1624,15 +1481,148 @@ export default function Dashboard() {
               </button>
               <button
                 type="button"
-                className="dashModal__btn"
+                className="btn"
                 onClick={() => void submitEditInfo()}
                 disabled={savingEdit}
               >
                 {savingEdit ? 'Saving...' : 'Save Changes'}
               </button>
-            </div>
+            </>
+          )}
+        >
+          <div className="dashModal__grid">
+            <label className="dashModal__field">
+              <span>Email</span>
+              <input
+                value={editDraft.email}
+                placeholder="Optional email address"
+                onChange={(e) => setEditField('email', e.target.value)}
+              />
+            </label>
+            <label className="dashModal__field">
+              <span>Phone Number</span>
+              <input
+                value={editDraft.phoneNumber}
+                placeholder="Optional phone number"
+                onChange={(e) => setEditField('phoneNumber', e.target.value)}
+              />
+            </label>
+            <label className="dashModal__field dashModal__field--full">
+              <span>Permanent Address</span>
+              <input
+                value={editDraft.permanentAddress}
+                placeholder="Optional permanent address"
+                onChange={(e) => setEditField('permanentAddress', e.target.value)}
+              />
+            </label>
+            <label className="dashModal__field dashModal__field--full">
+              <span>Temporary Address</span>
+              <input
+                value={editDraft.temporaryAddress}
+                placeholder="Optional temporary address"
+                onChange={(e) => setEditField('temporaryAddress', e.target.value)}
+              />
+            </label>
+            <label className="dashModal__field">
+              <span>City</span>
+              <input
+                value={editDraft.city}
+                placeholder="Optional city"
+                onChange={(e) => setEditField('city', e.target.value)}
+              />
+            </label>
+            <label className="dashModal__field">
+              <span>State</span>
+              <input
+                value={editDraft.state}
+                placeholder="Optional state"
+                onChange={(e) => setEditField('state', e.target.value)}
+              />
+            </label>
+            <label className="dashModal__field">
+              <span>Country</span>
+              <input
+                value={editDraft.country}
+                placeholder="Optional country"
+                onChange={(e) => setEditField('country', e.target.value)}
+              />
+            </label>
+            <label className="dashModal__field">
+              <span>Zip Code</span>
+              <input
+                value={editDraft.zipCode}
+                placeholder="Optional ZIP code"
+                onChange={(e) => setEditField('zipCode', e.target.value)}
+              />
+            </label>
+
+            <div className="dashModal__sectionHeader">Government Identifiers</div>
+            <label className="dashModal__field">
+              <span>SSS Number</span>
+              <input
+                value={editDraft.sssNumber}
+                placeholder="00-0000000-0"
+                onChange={(e) => setEditField('sssNumber', e.target.value)}
+              />
+            </label>
+            <label className="dashModal__field">
+              <span>PhilHealth ID</span>
+              <input
+                value={editDraft.philhealthNumber}
+                placeholder="00-000000000-0"
+                onChange={(e) => setEditField('philhealthNumber', e.target.value)}
+              />
+            </label>
+            <label className="dashModal__field">
+              <span>Pag-IBIG MID</span>
+              <input
+                value={editDraft.pagibigNumber}
+                placeholder="0000-0000-0000"
+                onChange={(e) => setEditField('pagibigNumber', e.target.value)}
+              />
+            </label>
+            <label className="dashModal__field">
+              <span>TIN</span>
+              <input
+                value={editDraft.tinNumber}
+                placeholder="000-000-000-000"
+                onChange={(e) => setEditField('tinNumber', e.target.value)}
+              />
+            </label>
+
+            <div className="dashModal__sectionHeader">Emergency Contact</div>
+            <label className="dashModal__field">
+              <span>Contact Name</span>
+              <input
+                value={editDraft.emergencyContactName}
+                placeholder="Full name"
+                onChange={(e) => setEditField('emergencyContactName', e.target.value)}
+              />
+            </label>
+            <label className="dashModal__field">
+              <span>Relationship</span>
+              <input
+                value={editDraft.emergencyContactRelationship}
+                placeholder="e.g. Spouse, Sibling"
+                onChange={(e) => setEditField('emergencyContactRelationship', e.target.value)}
+              />
+            </label>
+            <label className="dashModal__field dashModal__field--full">
+              <span>Contact Number</span>
+              <input
+                value={editDraft.emergencyContactNumber}
+                placeholder="Phone number"
+                onChange={(e) => setEditField('emergencyContactNumber', e.target.value)}
+              />
+            </label>
           </div>
-        </div>
+
+          {emailVerificationWillReset && (
+            <div className="dashModal__helper dashModal__helper--warning">
+              Changing this verified email will reset its verification status until the new address is verified.
+            </div>
+          )}
+        </LargePopup>
       )}
 
     </div>

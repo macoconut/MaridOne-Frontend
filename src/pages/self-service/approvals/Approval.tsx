@@ -1,10 +1,9 @@
 import { useLoading } from '../../../context/useLoading';
 import { useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
 import ApprovalStatusSummary from '../../../components/approvals/ApprovalStatusSummary';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
-import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
+import LargePopup from '../../../components/dialog/LargePopup';
 import { useUiDialog } from '../../../components/dialog/useUiDialog';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
@@ -746,23 +745,34 @@ export default function Approval() {
         </div>
       </section>
 
-      {selectedApproval && createPortal(
-        <div className="apprModalBackdrop" role="dialog" aria-modal="true" aria-label="Approval details">
-          <div className="apprModal">
-            <div className="apprModal__top">
-              <div>
-                <div className="apprModal__title">
-                  {selectedApproval.requestType === 'Payslip Dispute'
-                    ? selectedApproval.requestType
-                    : `${selectedApproval.requestType} Request`}
-                </div>
-                <p className="apprModal__subtitle">
-                  Review the request timeline, current status, and recorded decision notes for this approval item.
-                </p>
-              </div>
-              <ModalCloseButton className="apprModal__close" onClick={() => setSelectedApprovalId(null)} />
-            </div>
-
+      <LargePopup
+        open={Boolean(selectedApproval)}
+        ariaLabel="Approval details"
+        title={
+          selectedApproval
+            ? selectedApproval.requestType === 'Payslip Dispute'
+              ? selectedApproval.requestType
+              : `${selectedApproval.requestType} Request`
+            : 'Approval details'
+        }
+        subtitle="Review the request timeline, current status, and recorded decision notes for this approval item."
+        size="md"
+        onClose={() => setSelectedApprovalId(null)}
+        footer={(
+          <>
+            <button type="button" className="btn btn--ghost is-secondary" onClick={() => setSelectedApprovalId(null)}>
+              Close
+            </button>
+            {canCancelSelected && (
+              <button type="button" className="btn is-danger" onClick={() => setConfirmCancelOpen(true)}>
+                Cancel Request
+              </button>
+            )}
+          </>
+        )}
+      >
+        {selectedApproval ? (
+          <>
             <div className={`apprModal__statusTone apprModal__statusTone--${approvalStatusTone(selectedApproval.status)}`} />
 
             <div className="apprModal__content">
@@ -840,21 +850,9 @@ export default function Approval() {
                 )}
               </div>
             </div>
-
-            <div className="apprModal__actions">
-              <button type="button" className="is-secondary" onClick={() => setSelectedApprovalId(null)}>
-                Close
-              </button>
-              {canCancelSelected && (
-                <button type="button" className="is-danger" onClick={() => setConfirmCancelOpen(true)}>
-                  Cancel Request
-                </button>
-              )}
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+          </>
+        ) : null}
+      </LargePopup>
       <ConfirmDialog
         open={confirmCancelOpen}
         title="Cancel Request"

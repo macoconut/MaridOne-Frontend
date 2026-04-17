@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FiCalendar, FiChevronDown, FiChevronLeft, FiChevronRight, FiFilter, FiSave, FiX } from 'react-icons/fi';
-import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
+import LargePopup from '../../../components/dialog/LargePopup';
 import { useUiDialog } from '../../../components/dialog/useUiDialog';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
@@ -1218,19 +1218,16 @@ export function MonthlyScheduleBoard({
       </section>
 
       {editorOpen && selectedEmployee && selectedDateKey && editorDraft ? (
-        <div className="hrAttModalBackdrop" role="dialog" aria-modal="true" aria-label="Schedule editor" onClick={closeEditor}>
-          <div className="hrAttModal mgrMonth__modal" onClick={(event) => event.stopPropagation()}>
-            <div className="hrAttModal__top">
-              <div>
-                <div className="hrAttModal__eyebrow">Schedule Calendar</div>
-                <div className="hrAttModal__title">{formatSpecificDateLabel(selectedDateKey)}</div>
-              </div>
-              <ModalCloseButton className="hrAttModal__close" onClick={closeEditor} />
-            </div>
-
-            <div className="hrAttModal__rule" />
-
-            <div className="hrAttSummary mgrMonth__editorSummary">
+        <LargePopup
+          open
+          ariaLabel="Schedule editor"
+          title={formatSpecificDateLabel(selectedDateKey)}
+          subtitle=""
+          size="lg"
+          onClose={closeEditor}
+          dismissOnBackdrop
+        >
+          <div className="hrAttSummary mgrMonth__editorSummary">
               <article className="hrAttSummary__card">
                 <span>Employee</span>
                 <strong>{selectedEmployee.name}</strong>
@@ -1295,45 +1292,34 @@ export function MonthlyScheduleBoard({
                 </button>
               </div>
             ) : null}
-          </div>
-        </div>
+        </LargePopup>
       ) : null}
 
       {templateEditorOpen && selectedEmployee ? (
-        <div
-          className="hrAttModalBackdrop"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Default hours editor"
-          onClick={closeTemplateEditor}
+        <LargePopup
+          open
+          ariaLabel="Default hours editor"
+          title={
+            enableDefaultHoursBatchSelection && !enableBatchSelection
+              ? batchTemplateEmployees.length > 1
+                ? `${batchTemplateEmployees.length} ${formatUiLabel(employeePluralLabel)} Selected`
+                : batchTemplateEmployees[0]?.name ?? `Select ${formatUiLabel(employeePluralLabel)}`
+              : batchTemplateEmployees.length > 1
+                ? `${batchTemplateEmployees.length} ${formatUiLabel(employeePluralLabel)} Selected`
+                : batchTemplateEmployees[0]?.name ?? selectedEmployee.name
+          }
+          subtitle={
+            enableDefaultHoursBatchSelection && !enableBatchSelection
+              ? `Choose one or more ${employeePluralLabel} below, then pick the days that should share the same default hours. Existing custom day changes stay exactly as they are.`
+              : batchTemplateEmployees.length > 1
+                ? `Choose the days that should share the same default hours for every selected ${employeeSingularLabel}. Existing custom day changes stay exactly as they are.`
+                : 'Choose the days that should share the same default hours. Existing custom day changes stay exactly as they are.'
+          }
+          size="xl"
+          onClose={closeTemplateEditor}
+          dismissOnBackdrop
         >
-          <div className="hrAttModal mgrMonth__modal mgrMonth__modal--template" onClick={(event) => event.stopPropagation()}>
-            <div className="hrAttModal__top">
-              <div>
-                <div className="hrAttModal__eyebrow">Default Hours</div>
-                <div className="hrAttModal__title">
-                  {enableDefaultHoursBatchSelection && !enableBatchSelection
-                    ? batchTemplateEmployees.length > 1
-                      ? `${batchTemplateEmployees.length} ${formatUiLabel(employeePluralLabel)} Selected`
-                      : batchTemplateEmployees[0]?.name ?? `Select ${formatUiLabel(employeePluralLabel)}`
-                    : batchTemplateEmployees.length > 1
-                      ? `${batchTemplateEmployees.length} ${formatUiLabel(employeePluralLabel)} Selected`
-                      : batchTemplateEmployees[0]?.name ?? selectedEmployee.name}
-                </div>
-                <p className="hrAttModal__subtitle">
-                  {enableDefaultHoursBatchSelection && !enableBatchSelection
-                    ? `Choose one or more ${employeePluralLabel} below, then pick the days that should share the same default hours. Existing custom day changes stay exactly as they are.`
-                    : batchTemplateEmployees.length > 1
-                      ? `Choose the days that should share the same default hours for every selected ${employeeSingularLabel}. Existing custom day changes stay exactly as they are.`
-                      : 'Choose the days that should share the same default hours. Existing custom day changes stay exactly as they are.'}
-                </p>
-              </div>
-              <ModalCloseButton className="hrAttModal__close" onClick={closeTemplateEditor} />
-            </div>
-
-            <div className="hrAttModal__rule" />
-
-            {enableDefaultHoursBatchSelection && !enableBatchSelection ? (
+          {enableDefaultHoursBatchSelection && !enableBatchSelection ? (
               <section className="mgrMonth__templateTargetsCard">
                 <div className="mgrMonth__sectionIntro">
                   <div className="mgrMonth__sectionHeader">
@@ -1541,8 +1527,7 @@ export function MonthlyScheduleBoard({
                 <span>{savingTemplate ? 'Saving...' : templateDayOff ? 'Apply Day Off to Selected Days' : 'Apply to Selected Days'}</span>
               </button>
             </div>
-          </div>
-        </div>
+        </LargePopup>
       ) : null}
     </div>
   );

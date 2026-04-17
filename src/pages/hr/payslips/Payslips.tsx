@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FiCheckCircle, FiChevronDown, FiEdit2, FiFilter, FiPlus, FiSearch, FiX, FiXCircle } from 'react-icons/fi';
 import { ApiError, apiFetchJson, toArray } from '../../../lib/api';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
-import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
+import LargePopup from '../../../components/dialog/LargePopup';
 import SensitiveAccessIndicator from '../../../components/security/SensitiveAccessIndicator';
 import SensitiveAccessModal from '../../../components/security/SensitiveAccessModal';
 import { useUiDialog } from '../../../components/dialog/useUiDialog';
@@ -2163,12 +2163,31 @@ export default function HrPayslips() {
       </section>
 
       {runModalOpen && (
-        <div className="hrPayModalBackdrop" role="dialog" aria-modal="true" aria-label={runModalTitle}>
-          <article className="hrPayModal hrPayModal--run">
-            <h3>{runModalTitle}</h3>
-            <p className="hrPayModal__subtitle">Set the payroll coverage window and run type before starting this payroll process.</p>
-            <div className="hrPayModal__rule" />
-
+        <LargePopup
+          open
+          ariaLabel={runModalTitle}
+          title={runModalTitle}
+          subtitle="Set the payroll coverage window and run type before starting this payroll process."
+          size="lg"
+          onClose={runUnsavedPrompt.requestClose}
+          closeDisabled={isSubmittingRun}
+          footer={(
+            <>
+              <button
+                type="button"
+                className="btn btn--ghost"
+                onClick={runUnsavedPrompt.requestClose}
+                disabled={isSubmittingRun}
+              >
+                Cancel
+              </button>
+              <button type="button" className="btn" onClick={requestPayrollRunConfirmation} disabled={isSubmittingRun}>
+                {isSubmittingRun ? 'Submitting...' : runSubmitLabel}
+              </button>
+            </>
+          )}
+        >
+          <div className="hrPayModal hrPayModal--run">
             <div className="hrPayModal__grid hrPayModal__grid--compact">
               <label>
                 <span>Period Start:</span>
@@ -2222,7 +2241,8 @@ export default function HrPayslips() {
                   onChange={(event) => setRunForm((prev) => ({ ...prev, paymentDate: event.target.value }))}
                   min={runForm.periodEnd || undefined}
                 />
-              </label>              <label>
+              </label>
+              <label>
                 <span>Run Type:</span>
                 <select
                   value={runForm.runType}
@@ -2238,44 +2258,41 @@ export default function HrPayslips() {
                 </select>
               </label>
             </div>
-
-            <div className="hrPayModal__actions">
-              <button
-                type="button"
-                className="is-muted"
-                onClick={runUnsavedPrompt.requestClose}
-                disabled={isSubmittingRun}
-              >
-                Cancel
-              </button>
-              <button type="button" onClick={requestPayrollRunConfirmation} disabled={isSubmittingRun}>
-                {isSubmittingRun ? 'Submitting...' : runSubmitLabel}
-              </button>
-            </div>
-          </article>
-        </div>
+          </div>
+        </LargePopup>
       )}
 
       {manualLineModalOpen && currentRun && (
-        <div className="hrPayModalBackdrop" role="dialog" aria-modal="true" aria-label="Add manual adjustment line">
-          <article className="hrPayModal hrPayModal--run">
-            <div className="hrPayModal__top">
-              <div className="hrPayModal__heading">
-                <h3>Add Manual Adjustment Line</h3>
-                <p className="hrPayModal__subtitle">
-                  Choose an employee, select whether this is an earning or deduction, and enter the amount to add it to
-                  the active adjustment run.
-                </p>
-              </div>
-              <ModalCloseButton
-                className="hrPayModal__close"
-                aria-label="Close manual adjustment line dialog"
+        <LargePopup
+          open
+          ariaLabel="Add manual adjustment line"
+          title="Add Manual Adjustment Line"
+          subtitle="Choose an employee, select whether this is an earning or deduction, and enter the amount to add it to the active adjustment run."
+          size="xl"
+          onClose={manualLineUnsavedPrompt.requestClose}
+          closeDisabled={isSubmittingManualLine}
+          footer={(
+            <>
+              <button
+                type="button"
+                className="btn btn--ghost"
                 onClick={manualLineUnsavedPrompt.requestClose}
                 disabled={isSubmittingManualLine}
-              />
-            </div>
-            <div className="hrPayModal__rule" />
-
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => void submitManualLine()}
+                disabled={isLoadingEmployeeOptions || isSubmittingManualLine}
+              >
+                {isSubmittingManualLine ? 'Adding...' : 'Add Line'}
+              </button>
+            </>
+          )}
+        >
+          <div className="hrPayModal hrPayModal--run">
             <div className="hrPayModal__grid hrPayModal__grid--compact hrPayModal__grid--manualLine">
               <label className="hrPayModal__gridItem--full">
                 <span>Employee:</span>
@@ -2384,31 +2401,31 @@ export default function HrPayslips() {
               </label>
             </div>
             {manualLineError && <p className="hrPay__message">{manualLineError}</p>}
-
-            <div className="hrPayModal__actions">
-              <button
-                type="button"
-                className="is-muted"
-                onClick={manualLineUnsavedPrompt.requestClose}
-                disabled={isSubmittingManualLine}
-              >
-                Cancel
-              </button>
-              <button type="button" onClick={() => void submitManualLine()} disabled={isLoadingEmployeeOptions || isSubmittingManualLine}>
-                {isSubmittingManualLine ? 'Adding...' : 'Add Line'}
-              </button>
-            </div>
-          </article>
-        </div>
+          </div>
+        </LargePopup>
       )}
 
       {postModalOpen && currentRun && (
-        <div className="hrPayModalBackdrop" role="dialog" aria-modal="true" aria-label="Post payroll run">
-          <article className="hrPayModal hrPayModal--run">
-            <h3>Post Payroll Run</h3>
-            <p className="hrPayModal__subtitle">Review the payroll run summary carefully before confirming the final posting step.</p>
-            <div className="hrPayModal__rule" />
-
+        <LargePopup
+          open
+          ariaLabel="Post payroll run"
+          title="Post Payroll Run"
+          subtitle="Review the payroll run summary carefully before confirming the final posting step."
+          size="lg"
+          onClose={() => setPostModalOpen(false)}
+          closeDisabled={isPostingRun}
+          footer={(
+            <>
+              <button type="button" className="btn btn--ghost" onClick={() => setPostModalOpen(false)} disabled={isPostingRun}>
+                Cancel
+              </button>
+              <button type="button" className="btn" onClick={() => void postCurrentRun()} disabled={isPostingRun}>
+                {isPostingRun ? 'Posting...' : 'Confirm Post'}
+              </button>
+            </>
+          )}
+        >
+          <div className="hrPayModal hrPayModal--run">
             <div className="hrPayModal__summary">
               <div className="hrPayModal__summaryRow">
                 <span>Run ID</span>
@@ -2423,39 +2440,41 @@ export default function HrPayslips() {
                 <strong>{formatDate(currentRun.periodStart)} - {formatDate(currentRun.periodEnd)}</strong>
               </div>
             </div>
-
-            <div className="hrPayModal__actions">
-              <button type="button" className="is-muted" onClick={() => setPostModalOpen(false)} disabled={isPostingRun}>
-                Cancel
-              </button>
-              <button type="button" onClick={() => void postCurrentRun()} disabled={isPostingRun}>
-                {isPostingRun ? 'Posting...' : 'Confirm Post'}
-              </button>
-            </div>
-          </article>
-        </div>
+          </div>
+        </LargePopup>
       )}
 
       {correctionOpen && (
-        <div className="hrPayModalBackdrop" role="dialog" aria-modal="true" aria-label="Stage payroll correction">
-          <article className="hrPayModal">
-            <div className="hrPayModal__top">
-              <div className="hrPayModal__heading">
-                <h3>Stage Approved Dispute Correction</h3>
-                <p className="hrPayModal__subtitle">
-                  Review the approved dispute, choose the matching payroll line, and stage the corrected amount into the
-                  active adjustment run.
-                </p>
-              </div>
-              <ModalCloseButton
-                className="hrPayModal__close"
-                aria-label="Close dispute correction workspace"
+        <LargePopup
+          open
+          ariaLabel="Stage payroll correction"
+          title="Stage Approved Dispute Correction"
+          subtitle="Review the approved dispute, choose the matching payroll line, and stage the corrected amount into the active adjustment run."
+          size="xl"
+          onClose={correctionUnsavedPrompt.requestClose}
+          closeDisabled={isSubmittingCorrection}
+          footer={(
+            <>
+              <button
+                type="button"
+                className="btn btn--ghost"
                 onClick={correctionUnsavedPrompt.requestClose}
                 disabled={isSubmittingCorrection}
-              />
-            </div>
-            <div className="hrPayModal__rule" />
-
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => void submitCorrection()}
+                disabled={isLoadingCorrection || isSubmittingCorrection || !selectedCorrectionLine}
+              >
+                {isSubmittingCorrection ? 'Staging...' : 'Stage Correction'}
+              </button>
+            </>
+          )}
+        >
+          <div className="hrPayModal">
             {isLoadingCorrection ? (
               <p className="hrPayModal__intro">
                 Loading the disputed payslip item, its earnings and deductions, and the adjustment run to use for this
@@ -2573,46 +2592,20 @@ export default function HrPayslips() {
               </>
             )}
 
-            <div className="hrPayModal__actions">
-              <button
-                type="button"
-                className="is-muted"
-                onClick={correctionUnsavedPrompt.requestClose}
-                disabled={isSubmittingCorrection}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => void submitCorrection()}
-                disabled={isLoadingCorrection || isSubmittingCorrection || !selectedCorrectionLine}
-              >
-                {isSubmittingCorrection ? 'Staging...' : 'Stage Correction'}
-              </button>
-            </div>
-          </article>
-        </div>
+          </div>
+        </LargePopup>
       )}
 
       {selectedPayrollItem && (
-        <div className="hrPayModalBackdrop" role="dialog" aria-modal="true" aria-label="Payroll item breakdown">
-          <article className="hrPayModal">
-            <div className="hrPayModal__top">
-              <div className="hrPayModal__heading">
-                <h3>{selectedPayrollItem.employee} - Payslip Breakdown</h3>
-                <p className="hrPayModal__subtitle">
-                  Review the current earnings, deductions, and totals, and edit line amounts while this payroll item is
-                  still in progress.
-                </p>
-              </div>
-              <ModalCloseButton
-                className="hrPayModal__close"
-                aria-label="Close payroll item breakdown"
-                onClick={() => setSelectedPayrollItem(null)}
-              />
-            </div>
-            <div className="hrPayModal__rule" />
-
+        <LargePopup
+          open
+          ariaLabel="Payroll item breakdown"
+          title={`${selectedPayrollItem.employee} - Payslip Breakdown`}
+          subtitle="Review the current earnings, deductions, and totals, and edit line amounts while this payroll item is still in progress."
+          size="xl"
+          onClose={() => setSelectedPayrollItem(null)}
+        >
+          <div className="hrPayModal">
             <div className="hrPayModal__grid">
               <label>
                 <span>Payroll Item:</span>
@@ -2811,30 +2804,51 @@ export default function HrPayslips() {
                 </div>
               </>
             )}
-
-          </article>
-        </div>
+          </div>
+        </LargePopup>
       )}
 
       {selectedDispute && (
-        <div className="hrPayModalBackdrop" role="dialog" aria-modal="true">
-          <article className="hrPayModal">
-            <div className="hrPayModal__top">
-              <div className="hrPayModal__heading">
-                <h3>{selectedDispute.employee} - Payslip Dispute</h3>
-                <p className="hrPayModal__subtitle">
-                  Review the employee dispute, decide whether it should be denied or moved to waiting for adjustment,
-                  and reopen it later when you are ready to stage the correction.
-                </p>
-              </div>
-              <ModalCloseButton
-                className="hrPayModal__close"
-                aria-label="Close payslip dispute review"
+        <LargePopup
+          open
+          ariaLabel="Payslip dispute review"
+          title={`${selectedDispute.employee} - Payslip Dispute`}
+          subtitle="Review the employee dispute, decide whether it should be denied or moved to waiting for adjustment, and reopen it later when you are ready to stage the correction."
+          size="xl"
+          onClose={disputeReviewUnsavedPrompt.requestClose}
+          footer={(
+            <>
+              <button
+                type="button"
+                className="btn btn--ghost"
                 onClick={disputeReviewUnsavedPrompt.requestClose}
-              />
-            </div>
-            <div className="hrPayModal__rule" />
-
+                disabled={isSaving}
+              >
+                {canReviewSelectedDispute || canStageSelectedDisputeCorrection ? 'Cancel' : 'Close'}
+              </button>
+              {canReviewSelectedDispute ? (
+                <button type="button" className="btn" onClick={requestDisputeDecisionConfirmation} disabled={isSaving || !pendingDisputeDecision}>
+                  {isSaving
+                    ? 'Saving...'
+                    : pendingDisputeDecision === 'APPROVED'
+                      ? 'Move to Waiting Adjustment'
+                      : pendingDisputeDecision === 'REJECTED'
+                        ? 'Confirm Denial'
+                        : 'Confirm Decision'}
+                </button>
+              ) : canStageSelectedDisputeCorrection ? (
+                <button type="button" className="btn" onClick={openSelectedDisputeCorrection}>
+                  Open Adjustment Workspace
+                </button>
+              ) : (
+                <button type="button" className="btn" onClick={disputeReviewUnsavedPrompt.requestClose} disabled={isSaving}>
+                  Close
+                </button>
+              )}
+            </>
+          )}
+        >
+          <div className="hrPayModal">
             <div className="hrPayModal__grid">
               <label>
                 <span>Status:</span>
@@ -2952,37 +2966,8 @@ export default function HrPayslips() {
             {selectedDispute.statusCode === 'CANCELLED' && (
               <p className="hrPay__message">The employee cancelled this dispute before it was fully processed.</p>
             )}
-            <div className="hrPayModal__actions">
-              <button
-                type="button"
-                className="is-muted"
-                onClick={disputeReviewUnsavedPrompt.requestClose}
-                disabled={isSaving}
-              >
-                {canReviewSelectedDispute || canStageSelectedDisputeCorrection ? 'Cancel' : 'Close'}
-              </button>
-              {canReviewSelectedDispute ? (
-                <button type="button" onClick={requestDisputeDecisionConfirmation} disabled={isSaving || !pendingDisputeDecision}>
-                  {isSaving
-                    ? 'Saving...'
-                    : pendingDisputeDecision === 'APPROVED'
-                      ? 'Move to Waiting Adjustment'
-                      : pendingDisputeDecision === 'REJECTED'
-                        ? 'Confirm Denial'
-                        : 'Confirm Decision'}
-                </button>
-              ) : canStageSelectedDisputeCorrection ? (
-                <button type="button" onClick={openSelectedDisputeCorrection}>
-                  Open Adjustment Workspace
-                </button>
-              ) : (
-                <button type="button" onClick={disputeReviewUnsavedPrompt.requestClose} disabled={isSaving}>
-                  Close
-                </button>
-              )}
-            </div>
-          </article>
-        </div>
+          </div>
+        </LargePopup>
       )}
       <ConfirmDialog
         open={confirmRunOpen}

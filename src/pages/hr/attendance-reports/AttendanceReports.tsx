@@ -12,7 +12,7 @@ import {
   FiUsers,
   FiXCircle,
 } from 'react-icons/fi';
-import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
+import LargePopup from '../../../components/dialog/LargePopup';
 import FileUploadField from '../../../components/form/FileUploadField';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
@@ -2705,34 +2705,26 @@ export function AttendanceReportsBoard({
         </div>
       </section>
       {importDialogOpen && (
-        <div className="hrAttModalBackdrop" role="dialog" aria-modal="true" aria-label="Import attendance CSV">
+        <LargePopup
+          open
+          ariaLabel="Import attendance CSV"
+          title="Import Attendance CSV"
+          subtitle="Upload a CSV exported from this attendance report. The import expects Employee ID, Employee Name, Date, Time In, Time Out as the leading columns, allows extra export columns, and ignores the trailing summary section."
+          size="lg"
+          onClose={closeImportDialog}
+          footer={(
+            <>
+              <button type="button" className="btn btn--ghost" onClick={closeImportDialog} disabled={isImporting}>
+                Close
+              </button>
+              <button type="button" className="btn" onClick={() => void importAttendanceReport()} disabled={isImporting}>
+                <FiUpload aria-hidden="true" />
+                <span>{isImporting ? 'Importing CSV...' : 'Import Attendance (CSV)'}</span>
+              </button>
+            </>
+          )}
+        >
           <div className="hrAttModal hrAttModal--import">
-            <div className="hrAttModal__top">
-              <div>
-                <div className="hrAttModal__eyebrow">Attendance Migration Import</div>
-                <div className="hrAttModal__title">Import Attendance CSV</div>
-                <p className="hrAttModal__subtitle">
-                  Upload a CSV exported from this attendance report. The import expects
-                  {' '}
-                  <strong>Employee ID, Employee Name, Date, Time In, Time Out</strong>
-                  {' '}
-                  as the leading columns, allows extra export columns, and ignores the trailing summary section.
-                  It also treats a
-                  {' '}
-                  <strong>Time Out</strong>
-                  {' '}
-                  earlier than
-                  {' '}
-                  <strong>Time In</strong>
-                  {' '}
-                  as an overnight next-day timeout.
-                </p>
-              </div>
-              <ModalCloseButton className="hrAttModal__close" onClick={closeImportDialog} />
-            </div>
-
-            <div className="hrAttModal__rule" />
-
             <div className="hrAttImport">
               <FileUploadField
                 label="Attendance CSV"
@@ -2749,25 +2741,6 @@ export function AttendanceReportsBoard({
                 replaceLabel="Replace CSV"
                 emptyLabel="No CSV selected"
               />
-
-              <div className="hrAttImport__actions">
-                <button
-                  type="button"
-                  className="hrAtt__actionBtn hrAtt__actionBtn--ghost"
-                  onClick={closeImportDialog}
-                >
-                  Close
-                </button>
-                <button
-                  type="button"
-                  className="hrAtt__actionBtn"
-                  onClick={() => void importAttendanceReport()}
-                  disabled={isImporting}
-                >
-                  <FiUpload aria-hidden="true" />
-                  <span>{isImporting ? 'Importing CSV...' : 'Import Attendance (CSV)'}</span>
-                </button>
-              </div>
 
               {importSummary && (
                 <section className="hrAttImportSummary" aria-label="Attendance import summary">
@@ -2827,23 +2800,24 @@ export function AttendanceReportsBoard({
               )}
             </div>
           </div>
-        </div>
+        </LargePopup>
       )}
 
       {detailOpen && (
-        <div className="hrAttModalBackdrop" role="dialog" aria-modal="true" aria-label="Attendance breakdown">
+        <LargePopup
+          open
+          ariaLabel="Attendance breakdown"
+          title={selectedDateLabel}
+          subtitle={selectedDetailSubtitle}
+          size="xl"
+          onClose={() => setDetailOpen(false)}
+          footer={(
+            <button type="button" className="btn btn--ghost" onClick={() => setDetailOpen(false)}>
+              Close
+            </button>
+          )}
+        >
           <div className="hrAttModal">
-            <div className="hrAttModal__top">
-              <div>
-                <div className="hrAttModal__eyebrow">Daily Attendance Breakdown</div>
-                <div className="hrAttModal__title">{selectedDateLabel}</div>
-                <p className="hrAttModal__subtitle">{selectedDetailSubtitle}</p>
-              </div>
-              <ModalCloseButton className="hrAttModal__close" onClick={() => setDetailOpen(false)} />
-            </div>
-
-            <div className="hrAttModal__rule" />
-
             <div className="hrAttSummary">
               <article className="hrAttSummary__card">
                 <span>Present</span>
@@ -3020,37 +2994,37 @@ export function AttendanceReportsBoard({
                 </section>
               )}
             </div>
-
-            <div className="hrAttModal__actions">
-              <button className="hrAtt__actionBtn hrAtt__actionBtn--ghost" type="button" onClick={() => setDetailOpen(false)}>
-                Close
-              </button>
-            </div>
           </div>
-        </div>
+        </LargePopup>
       )}
 
       {exportDialogOpen && (
-        <div
-          className="hrAttModalBackdrop"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Export attendance CSV"
-          onClick={() => setExportDialogOpen(false)}
+        <LargePopup
+          open
+          ariaLabel="Export attendance CSV"
+          title="Export Attendance"
+          subtitle="Select a date range to export the attendance summary for all currently filtered employees."
+          size="lg"
+          onClose={() => setExportDialogOpen(false)}
+          dismissOnBackdrop
+          footer={(
+            <>
+              <button type="button" className="btn btn--ghost" onClick={() => setExportDialogOpen(false)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => void downloadAttendanceReportInRange()}
+                disabled={isExporting}
+              >
+                <FiDownload aria-hidden="true" />
+                <span>{isExporting ? 'Preparing CSV...' : 'Download CSV'}</span>
+              </button>
+            </>
+          )}
         >
-          <div className="hrAttModal hrAttModal--export" onClick={(event) => event.stopPropagation()}>
-            <div className="hrAttModal__top">
-              <div>
-                <div className="hrAttModal__title">Export Attendance</div>
-                <p className="hrAttModal__subtitle">
-                  Select a date range to export the attendance summary for all currently filtered employees.
-                </p>
-              </div>
-              <ModalCloseButton className="hrAttModal__close" onClick={() => setExportDialogOpen(false)} />
-            </div>
-
-            <div className="hrAttModal__rule" />
-
+          <div className="hrAttModal hrAttModal--export">
             <div className="hrAttExportForm">
               <div className="hrAttExportForm__grid">
                 <label className="hrAttExportForm__field">
@@ -3070,28 +3044,9 @@ export function AttendanceReportsBoard({
                   />
                 </label>
               </div>
-
-              <div className="hrAttExportForm__actions">
-                <button
-                  type="button"
-                  className="hrAtt__actionBtn hrAtt__actionBtn--ghost"
-                  onClick={() => setExportDialogOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="hrAtt__actionBtn"
-                  onClick={() => void downloadAttendanceReportInRange()}
-                  disabled={isExporting}
-                >
-                  <FiDownload aria-hidden="true" />
-                  <span>{isExporting ? 'Preparing CSV...' : 'Download CSV'}</span>
-                </button>
-              </div>
             </div>
           </div>
-        </div>
+        </LargePopup>
       )}
     </div>
   );

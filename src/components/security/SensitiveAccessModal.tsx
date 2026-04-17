@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
-import ModalCloseButton from '../dialog/ModalCloseButton';
+import LargePopup from '../dialog/LargePopup';
 import { verifySensitiveAccess } from '../../lib/sensitiveAccess';
 import { getFriendlyErrorMessage } from '../../lib/uiErrors';
-import { useEscapeDismiss } from '../../hooks/useEscapeDismiss';
-import './SensitiveAccessModal.css';
 
 type SensitiveAccessModalProps = {
   open: boolean;
@@ -22,7 +19,6 @@ export default function SensitiveAccessModal({
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  useEscapeDismiss(open, onClose, 40);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -46,7 +42,6 @@ export default function SensitiveAccessModal({
         throw new Error('Enter your password to continue.');
       }
       await verifySensitiveAccess({ password });
-
       onVerified();
     } catch (error) {
       setErrorMessage(getFriendlyErrorMessage(error, 'generic'));
@@ -55,61 +50,41 @@ export default function SensitiveAccessModal({
     }
   }
 
-  if (!open) return null;
-
-  return createPortal(
-    <div
-      className="sensitiveAccessModalBackdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Sensitive access verification"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !submitting) {
-          onClose();
-        }
-      }}
-    >
-      <article className="sensitiveAccessModal">
-        <div className="sensitiveAccessModal__top">
-          <div className="sensitiveAccessModal__heading">
-            <div className="sensitiveAccessModal__eyebrow">Sensitive Access</div>
-            <h2 className="sensitiveAccessModal__title">Verify Before Viewing</h2>
-            <p className="sensitiveAccessModal__subtitle">
-              {notice ||
-                'This HR action exposes protected employee information. Verify your identity before continuing.'}
-            </p>
-          </div>
-          <ModalCloseButton
-            className="sensitiveAccessModal__close"
-            aria-label="Close sensitive access modal"
-            onClick={onClose}
-          />
-        </div>
-
-        <div className="sensitiveAccessModal__rule" />
-        <label className="sensitiveAccessModal__field">
-          <span>Enter Password</span>
-          <input
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            placeholder="Enter your password"
-            autoComplete="current-password"
-          />
-        </label>
-
-        {errorMessage ? <div className="sensitiveAccessModal__error">{errorMessage}</div> : null}
-
-        <div className="sensitiveAccessModal__actions">
+  return (
+    <LargePopup
+      open={open}
+      ariaLabel="Sensitive access verification"
+      title="Verify Before Viewing"
+      subtitle={
+        notice || 'This HR action exposes protected employee information. Verify your identity before continuing.'
+      }
+      size="md"
+      onClose={onClose}
+      closeDisabled={submitting}
+      dismissOnBackdrop
+      footer={(
+        <>
           <button type="button" className="btn btn--ghost" onClick={onClose} disabled={submitting}>
             Cancel
           </button>
           <button type="button" className="btn" onClick={() => void handleSubmit()} disabled={submitting}>
             {submitting ? 'Verifying...' : 'Verify Access'}
           </button>
-        </div>
-      </article>
-    </div>,
-    document.body
+        </>
+      )}
+    >
+      <label className="sensitiveAccessModal__field">
+        <span>Enter Password</span>
+        <input
+          type="password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          placeholder="Enter your password"
+          autoComplete="current-password"
+        />
+      </label>
+
+      {errorMessage ? <div className="sensitiveAccessModal__error">{errorMessage}</div> : null}
+    </LargePopup>
   );
 }

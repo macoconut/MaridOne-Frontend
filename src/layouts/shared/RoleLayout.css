@@ -54,6 +54,7 @@ body.modal-open :where(
   .settingsModalBackdrop,
   .hrRunModalBackdrop,
   .aReviewRunModalBackdrop,
+  .largePopupBackdrop,
   .confirmDialog__backdrop,
   .alertDialog__backdrop,
   .modal,
@@ -70,6 +71,7 @@ body.modal-open :where(
   .settingsModal,
   .hrRunModal,
   .aReviewRunModal,
+  .largePopup,
   .confirmDialog__card,
   .alertDialog__card
 ){

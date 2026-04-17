@@ -1,9 +1,8 @@
 import { useLoading } from '../../../context/useLoading';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { FiChevronDown, FiDownload, FiEdit2, FiFilter, FiMoreVertical, FiPlus, FiSearch, FiUserX, FiX, FiXCircle } from 'react-icons/fi';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
-import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
+import LargePopup from '../../../components/dialog/LargePopup';
 import SensitiveAccessIndicator from '../../../components/security/SensitiveAccessIndicator';
 import SensitiveAccessModal from '../../../components/security/SensitiveAccessModal';
 import { useUiDialog } from '../../../components/dialog/useUiDialog';
@@ -2467,68 +2466,68 @@ export default function HrManageEmp() {
         </div>
       </section>
 
-      {detailsDialogEmployee
-        ? createPortal(
-            <div className="hrEmpModalBackdrop" role="dialog" aria-modal="true" onClick={closeDetailsDialog}>
-              <div className="hrEmpModal hrEmpModal--details" onClick={(event) => event.stopPropagation()}>
-                <div className="hrEmpModal__top">
-                  <div className="hrEmpModal__heading">
-                    <h2>EMPLOYEE DETAILS</h2>
-                    <p className="hrEmpModal__subtitle">
-                      Review the full employee profile, account information, and employment details in one view.
-                    </p>
-                  </div>
-                  <ModalCloseButton
-                    className="hrEmpModal__close"
-                    onClick={closeDetailsDialog}
-                    aria-label="Close employee details"
-                  />
-                </div>
-                <div className="hrEmpModal__rule" />
-                <div
-                  className="hrEmpDetails hrEmpDetails--dialog"
-                  role="region"
-                  aria-label={`${detailsDialogEmployee.name} details`}
-                >
-                  {renderExpandedDetails(detailsDialogEmployee)}
-                </div>
-              </div>
-            </div>,
-            document.body
-          )
-        : null}
+      {detailsDialogEmployee ? (
+        <LargePopup
+          open
+          ariaLabel="Employee details"
+          title="EMPLOYEE DETAILS"
+          subtitle="Review the full employee profile, account information, and employment details in one view."
+          size="xl"
+          onClose={closeDetailsDialog}
+          dismissOnBackdrop
+        >
+          <div className="hrEmpModal hrEmpModal--details">
+            <div
+              className="hrEmpDetails hrEmpDetails--dialog"
+              role="region"
+              aria-label={`${detailsDialogEmployee.name} details`}
+            >
+              {renderExpandedDetails(detailsDialogEmployee)}
+            </div>
+          </div>
+        </LargePopup>
+      ) : null}
 
-      {modal
-        ? createPortal(
-            <div className="hrEmpModalBackdrop" role="dialog" aria-modal="true">
-              <div className={`hrEmpModal ${modal === 'delete' ? 'is-delete' : ''}`}>
-                <div className="hrEmpModal__top">
-                  <div className="hrEmpModal__heading">
-                    <h2>
-                      {modal === 'add'
-                        ? 'ADD EMPLOYEE'
-                        : modal === 'edit'
-                          ? 'EDIT EMPLOYEE'
-                          : 'RECORD EMPLOYEE SEPARATION'}
-                    </h2>
-                    <p className="hrEmpModal__subtitle">
-                      {modal === 'add'
-                        ? 'Create the employee record and its login account together so HR does not need to manage them separately.'
-                        : modal === 'edit'
-                          ? 'Review the employee profile, employment details, and account access before saving the update.'
-                          : 'Confirm the selected employee and document the release details before updating the employment status.'}
-                    </p>
-                  </div>
-                  <ModalCloseButton
-                    className="hrEmpModal__close"
-                    onClick={requestCloseModal}
-                    disabled={isSaving}
-                    aria-label="Close modal"
-                  />
-                </div>
-                <div className="hrEmpModal__rule" />
-
-                <div className="hrEmpForm">
+      {modal ? (
+        <LargePopup
+          open
+          ariaLabel={
+            modal === 'add'
+              ? 'Add employee'
+              : modal === 'edit'
+                ? 'Edit employee'
+                : 'Record employee separation'
+          }
+          title={
+            modal === 'add'
+              ? 'ADD EMPLOYEE'
+              : modal === 'edit'
+                ? 'EDIT EMPLOYEE'
+                : 'RECORD EMPLOYEE SEPARATION'
+          }
+          subtitle={
+            modal === 'add'
+              ? 'Create the employee record and its login account together so HR does not need to manage them separately.'
+              : modal === 'edit'
+                ? 'Review the employee profile, employment details, and account access before saving the update.'
+                : 'Confirm the selected employee and document the release details before updating the employment status.'
+          }
+          size="xl"
+          onClose={requestCloseModal}
+          closeDisabled={isSaving}
+          footer={(
+            <>
+              <button type="button" className="btn btn--ghost" onClick={requestCloseModal} disabled={isSaving}>
+                Cancel
+              </button>
+              <button type="button" className="btn" onClick={() => void submit()} disabled={isSaving}>
+                {modal === 'add' ? 'Add Employee' : modal === 'edit' ? 'Save Changes' : 'Record Separation'}
+              </button>
+            </>
+          )}
+        >
+          <div className={`hrEmpModal ${modal === 'delete' ? 'is-delete' : ''}`}>
+            <div className="hrEmpForm">
                   {modal === 'delete' ? (
                     <div className="hrEmpForm__section hrEmpForm__section--danger">
                       <div className="hrEmpForm__sectionTitle">Separation Details</div>
@@ -3027,17 +3026,8 @@ export default function HrManageEmp() {
               )}
             </div>
 
-            <div className="hrEmpModal__actions">
-              <button type="button" onClick={requestCloseModal} disabled={isSaving}>
-                Cancel
-              </button>
-              <button type="button" onClick={() => void submit()} disabled={isSaving}>
-                {modal === 'add' ? 'Add Employee' : modal === 'edit' ? 'Save Changes' : 'Record Separation'}
-              </button>
-            </div>
           </div>
-        </div>,
-        document.body
+        </LargePopup>
       ) : null}
       <ConfirmDialog
         open={Boolean(confirmAction)}

@@ -1,13 +1,12 @@
 import { useLoading } from '../../../context/useLoading';
 import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
 import './Attendance.css';
 import { FiCalendar, FiCheckCircle, FiChevronLeft, FiChevronRight, FiClock, FiDownload, FiPlusSquare, FiPrinter, FiXCircle } from 'react-icons/fi';
 import ActionButton from '../../../components/button/ActionButton';
-import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import FileUploadField from '../../../components/form/FileUploadField';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
+import LargePopup from '../../../components/dialog/LargePopup';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
@@ -1666,7 +1665,6 @@ export default function Attendance() {
     setIsClocking(true);
     showLoading();
     try {
-      const attemptedAction = confirmClockAction === 'TIME_OUT' ? 'Time out' : 'Time in';
       const response = await apiFetchRaw(`/api/logs/attendance/${employeeId}`, {
         method: 'POST',
       });
@@ -2477,23 +2475,33 @@ export default function Attendance() {
       )}
 
       {/* Leave Modal */}
-      {leaveOpen &&
-        createPortal(
-          <div className="payModalBackdrop" role="dialog" aria-modal="true" aria-label="Leave Application Form">
-            <div className="payModal">
-              <div className="payModal__top">
-                <div>
-                  <div className="payModal__title">Leave Application Form</div>
-                  <p className="payModal__subtitle">
-                    Submit the coverage window, leave type, and any supporting details for approval.
-                  </p>
-                </div>
-                <ModalCloseButton className="payModal__close" onClick={leaveUnsavedPrompt.requestClose} />
-              </div>
-
-              <div className="payModal__rule" />
-
-              <div className="requestForm">
+      <LargePopup
+        open={leaveOpen}
+        ariaLabel="Leave Application Form"
+        title="Leave Application Form"
+        subtitle="Submit the coverage window, leave type, and any supporting details for approval."
+        size="lg"
+        onClose={leaveUnsavedPrompt.requestClose}
+        closeDisabled={isLeaveSubmitting}
+        footer={(
+          <>
+            <ActionButton
+              className="payModal__cancel"
+              variant="ghost"
+              type="button"
+              icon={<FiXCircle />}
+              onClick={leaveUnsavedPrompt.requestClose}
+              disabled={isLeaveSubmitting}
+            >
+              Cancel
+            </ActionButton>
+            <ActionButton type="button" icon={<FiCheckCircle />} onClick={requestLeaveConfirmation} disabled={isLeaveSubmitting}>
+              {isLeaveSubmitting ? 'Submitting...' : 'Submit'}
+            </ActionButton>
+          </>
+        )}
+      >
+        <div className="requestForm">
                 {submitError && <p className="field__error">{submitError}</p>}
                 <div className="payModal__row">
                   <label>Type of Leave Requested</label>
@@ -2609,43 +2617,36 @@ export default function Attendance() {
                   />
                 </div>
 
-                <div className="payModal__actions">
-                  <ActionButton
-                    className="payModal__cancel"
-                    variant="ghost"
-                    type="button"
-                    icon={<FiXCircle />}
-                    onClick={leaveUnsavedPrompt.requestClose}
-                  >
-                    Cancel
-                  </ActionButton>
-                  <ActionButton type="button" icon={<FiCheckCircle />} onClick={requestLeaveConfirmation} >
-                    {isLeaveSubmitting ? 'Submitting...' : 'Submit'}
-                  </ActionButton>
-                </div>
-              </div>
-            </div>
-          </div>,
-          document.body
+        </div>
+      </LargePopup>
+
+      <LargePopup
+        open={otOpen}
+        ariaLabel="Overtime Application Form"
+        title="Overtime Application Form"
+        subtitle="Request overtime coverage with the exact date, time window, and reason for the additional work."
+        size="lg"
+        onClose={overtimeUnsavedPrompt.requestClose}
+        closeDisabled={isOtSubmitting}
+        footer={(
+          <>
+            <ActionButton
+              className="payModal__cancel"
+              variant="ghost"
+              type="button"
+              icon={<FiXCircle />}
+              disabled={isOtSubmitting}
+              onClick={overtimeUnsavedPrompt.requestClose}
+            >
+              Cancel
+            </ActionButton>
+            <ActionButton type="button" icon={<FiCheckCircle />} disabled={isOtSubmitting} onClick={requestOtConfirmation}>
+              {isOtSubmitting ? 'Submitting...' : 'Submit'}
+            </ActionButton>
+          </>
         )}
-
-      {otOpen &&
-        createPortal(
-          <div className="payModalBackdrop" role="dialog" aria-modal="true" aria-label="Overtime Application Form">
-            <div className="payModal">
-              <div className="payModal__top">
-                <div>
-                  <div className="payModal__title">Overtime Application Form</div>
-                  <p className="payModal__subtitle">
-                    Request overtime coverage with the exact date, time window, and reason for the additional work.
-                  </p>
-                </div>
-                <ModalCloseButton className="payModal__close" onClick={overtimeUnsavedPrompt.requestClose} />
-              </div>
-
-              <div className="payModal__rule" />
-
-              <div className="requestForm">
+      >
+        <div className="requestForm">
                 <div className="payModal__row">
                   <label>Type of Overtime Requested</label>
                   <select
@@ -2753,37 +2754,23 @@ export default function Attendance() {
                   />
                 </div>
 
-                <div className="payModal__actions">
-                  <ActionButton
-                    className="payModal__cancel"
-                    variant="ghost"
-                    type="button"
-                    icon={<FiXCircle />}
-                    disabled={isOtSubmitting}
-                    onClick={overtimeUnsavedPrompt.requestClose}
-                  >
-                    Cancel
-                  </ActionButton>
-                  <ActionButton type="button" icon={<FiCheckCircle />} disabled={isOtSubmitting} onClick={requestOtConfirmation} >
-                    {isOtSubmitting ? 'Submitting...' : 'Submit'}
-                  </ActionButton>
-                </div>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
+        </div>
+      </LargePopup>
 
-      {requestViewOpen &&
-        createPortal(
-          <div className="modalBackdrop" role="dialog" aria-modal="true" aria-label="Request Details">
-            <div className="modal">
-              <div className="modal__top">
-                <div className="modal__title">REQUEST DETAILS</div>
-                <ModalCloseButton className="modal__close" onClick={closeRequestView} />
-              </div>
-              <div className="modal__rule" />
-              <div className="form">
+      <LargePopup
+        open={requestViewOpen}
+        ariaLabel="Request Details"
+        title="Request Details"
+        subtitle="Review the request notes, coverage, and status recorded for the selected date."
+        size="md"
+        onClose={closeRequestView}
+        footer={(
+          <button className="btn btn--ghost" type="button" onClick={closeRequestView}>
+            Close
+          </button>
+        )}
+      >
+        <div className="form">
                 <div className="formRow">
                   <label className="label">Date:</label>
                   <input className="input" value={formatDisplayDate(requestViewDate)} readOnly />
@@ -2807,33 +2794,23 @@ export default function Attendance() {
                     </div>
                   </div>
                 ))}
-                <div className="modalActions">
-                  <button className="btn btn--ghost" type="button" onClick={closeRequestView}>
-                    Close
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>,
-          document.body
+        </div>
+      </LargePopup>
+
+      <LargePopup
+        open={scheduleOpen}
+        ariaLabel="My Schedule"
+        title="My Schedule"
+        subtitle="Review your assigned work hours for the selected week."
+        size="lg"
+        onClose={closeSchedule}
+        footer={(
+          <ActionButton variant="ghost" type="button" icon={<FiXCircle />} onClick={closeSchedule}>
+            Close
+          </ActionButton>
         )}
-
-      {scheduleOpen &&
-        createPortal(
-          <div className="modalBackdrop" role="dialog" aria-modal="true" aria-label="My Schedule">
-            <div className="modal modal--request modal--schedule">
-              <div className="modal__top modal__top--request">
-                <div className="modal__meta">
-                  <div className="modal__title">My Schedule</div>
-                  <p className="modal__subtitle">
-                    Review your assigned work hours for the selected week.
-                  </p>
-                </div>
-                <ModalCloseButton className="modal__close" onClick={closeSchedule} />
-              </div>
-              <div className="modal__rule modal__rule--request" />
-
-              <div className="attScheduleModal">
+      >
+        <div className="attScheduleModal">
                 <div className="attScheduleModal__toolbar">
                   <label className="attScheduleCard__selectWrap attScheduleCard__selectWrap--modal">
                     <span className="attScheduleCard__selectLabel">Week</span>
@@ -2870,16 +2847,8 @@ export default function Attendance() {
                   </div>
                 )}
 
-                <div className="requestActions">
-                  <ActionButton variant="ghost" type="button" icon={<FiXCircle />} onClick={closeSchedule}>
-                    Close
-                  </ActionButton>
-                </div>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
+        </div>
+      </LargePopup>
 
       <ConfirmDialog
         open={confirmClockAction !== null}

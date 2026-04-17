@@ -4,7 +4,7 @@ import { FiCalendar, FiDownload, FiEye, FiFilter, FiMoreVertical, FiSearch, FiXC
 type AggregatedEmployeeRow = EmployeeReportRow & {
   itemIds: number[];
 };
-import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
+import LargePopup from '../../../components/dialog/LargePopup';
 import SensitiveAccessIndicator from '../../../components/security/SensitiveAccessIndicator';
 import SensitiveAccessModal from '../../../components/security/SensitiveAccessModal';
 import EmployeeSortMenu from '../../../components/layout/EmployeeSortMenu';
@@ -16,7 +16,6 @@ import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { useSensitiveAccessPrompt } from '../../../hooks/useSensitiveAccessPrompt';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { compareEmployees, type EmployeeSortKey } from '../../../lib/employeeSort';
-import { formatPayrollRunTypeLabel, hasBonusEarning } from '../../../lib/payrollRunLabels';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './PayRunReporting.css';
 
@@ -227,16 +226,6 @@ function buildEmployeeDirectory(response: unknown) {
       } satisfies EmployeeDirectoryEntry;
     })
     .filter((entry): entry is EmployeeDirectoryEntry => entry !== null);
-}
-
-function formatRunLabel(run: PayrollRunRow) {
-  if (run.paymentDate) {
-    return `${formatDate(run.paymentDate)} (${formatDate(run.periodStart)} - ${formatDate(run.periodEnd)})`;
-  }
-  if (run.periodStart || run.periodEnd) {
-    return `${formatDate(run.periodStart)} to ${formatDate(run.periodEnd)}`;
-  }
-  return run.periodDescription || 'Payroll period unavailable';
 }
 
 function toMoneyString(value: unknown) {
@@ -1192,142 +1181,106 @@ export default function HrPayRunReporting() {
       )}
 
       {selectedBreakdownItem && (
-        <div className="hrRunModalBackdrop" role="dialog" aria-modal="true" aria-label="Payroll item breakdown">
-          <article className="hrRunModal">
-            <div className="hrRunModal__top">
-              <div className="hrRunModal__heading">
-                <h2 className="hrRunModal__title">{formatEmployeeName(selectedBreakdownItem)} - Payslip Breakdown</h2>
-                <p className="hrRunModal__subtitle">
-                  Review the current earnings, deductions, and totals before posting this in-progress payroll item.
-                </p>
-              </div>
-              <ModalCloseButton
-                className="hrRunModal__close"
-                aria-label="Close payroll item breakdown"
-                onClick={closeBreakdownModal}
-              />
+        <LargePopup
+          open
+          ariaLabel="Payroll item breakdown"
+          title={`${formatEmployeeName(selectedBreakdownItem)} - Payslip Breakdown`}
+          subtitle="Review the current earnings, deductions, and totals before posting this in-progress payroll item."
+          size="lg"
+          onClose={closeBreakdownModal}
+          footer={(
+            <button type="button" className="btn btn--ghost" onClick={closeBreakdownModal}>
+              Close
+            </button>
+          )}
+        >
+          <div className="hrRunBreakdownTotals">
+            <div className="hrRunBreakdownTotals__card">
+              <span>Gross Pay</span>
+              <strong>{formatCurrency(selectedBreakdownGross)}</strong>
             </div>
-            <div className="hrRunModal__rule" />
-
-            <div className="hrRunModal__grid">
-              <label>
-                <span>Payroll Item</span>
-                <input
-                  value={
-                    selectedBreakdownItem.itemIds.length > 1
-                      ? `Multiple (${selectedBreakdownItem.itemIds.length})`
-                      : `#${selectedBreakdownItem.itemIds[0] ?? '-'}`
-                  }
-                  readOnly
-                />
-              </label>
-              <label>
-                <span>Run Status</span>
-                <input value={selectedRun?.payrollStatus ?? 'Unknown'} readOnly />
-              </label>
-              <label>
-                <span>Pay Period</span>
-                <input value={selectedRun ? formatRunLabel(selectedRun) : 'Payroll period unavailable'} readOnly />
-              </label>
-              <label>
-                <span>Run Type</span>
-                <input
-                  value={formatPayrollRunTypeLabel(selectedRun?.runType, {
-                    bonusPayout: selectedRun?.runType === 'ADJUSTMENT' && hasBonusEarning(selectedBreakdownEarnings),
-                  })}
-                  readOnly
-                />
-              </label>
+            <div className="hrRunBreakdownTotals__card">
+              <span>Total Deductions</span>
+              <strong>{formatCurrency(selectedBreakdownDeductionsTotal)}</strong>
             </div>
-
-            <div className="hrRunBreakdownTotals">
-              <div className="hrRunBreakdownTotals__card">
-                <span>Gross Pay</span>
-                <strong>{formatCurrency(selectedBreakdownGross)}</strong>
-              </div>
-              <div className="hrRunBreakdownTotals__card">
-                <span>Total Deductions</span>
-                <strong>{formatCurrency(selectedBreakdownDeductionsTotal)}</strong>
-              </div>
-              <div className="hrRunBreakdownTotals__card">
-                <span>Net Pay</span>
-                <strong>{formatCurrency(selectedBreakdownNet)}</strong>
-              </div>
+            <div className="hrRunBreakdownTotals__card">
+              <span>Net Pay</span>
+              <strong>{formatCurrency(selectedBreakdownNet)}</strong>
             </div>
+          </div>
 
-            {isLoadingBreakdown ? (
-              <p className="hrRunModal__intro">
-                Loading the payroll lines for this employee so the full payslip breakdown can be reviewed.
-              </p>
-            ) : (
-              <>
-                {breakdownError && <p className="hrRunModal__message">{breakdownError}</p>}
+          {isLoadingBreakdown ? (
+            <p className="hrRunModal__intro">
+              Loading the payroll lines for this employee so the full payslip breakdown can be reviewed.
+            </p>
+          ) : (
+            <>
+              {breakdownError && <p className="hrRunModal__message">{breakdownError}</p>}
 
-                <div className="hrRunBreakdown">
-                  <section className="hrRunBreakdown__section">
-                    <div className="hrRunBreakdown__head">
-                      <h3>Earnings</h3>
-                      <span>{selectedBreakdownEarnings.length} line(s)</span>
-                    </div>
-                    <div className="hrRunBreakdown__list">
-                      {selectedBreakdownEarnings.length > 0 ? (
-                        selectedBreakdownEarnings.map((line) => (
-                          <div key={line.key} className="hrRunBreakdown__row">
-                            <div>
-                              <strong>{line.label}</strong>
-                              {(line.adjustedBy || line.adjustedAt) && (
-                                <span>
-                                  {line.adjustedBy ? `Adjusted by ${line.adjustedBy}` : 'Adjusted'}{' '}
-                                  {line.adjustedAt ? `on ${formatDateTime(line.adjustedAt)}` : ''}
-                                </span>
-                              )}
-                            </div>
-                            <div className="hrRunBreakdown__amounts">
-                              {line.originalAmount && <small>Original: {formatCurrency(line.originalAmount)}</small>}
-                              <strong>{formatCurrency(line.amount)}</strong>
-                            </div>
+              <div className="hrRunBreakdown">
+                <section className="hrRunBreakdown__section">
+                  <div className="hrRunBreakdown__head">
+                    <h3>Earnings</h3>
+                    <span>{selectedBreakdownEarnings.length} line(s)</span>
+                  </div>
+                  <div className="hrRunBreakdown__list">
+                    {selectedBreakdownEarnings.length > 0 ? (
+                      selectedBreakdownEarnings.map((line) => (
+                        <div key={line.key} className="hrRunBreakdown__row">
+                          <div>
+                            <strong>{line.label}</strong>
+                            {(line.adjustedBy || line.adjustedAt) && (
+                              <span>
+                                {line.adjustedBy ? `Adjusted by ${line.adjustedBy}` : 'Adjusted'}{' '}
+                                {line.adjustedAt ? `on ${formatDateTime(line.adjustedAt)}` : ''}
+                              </span>
+                            )}
                           </div>
-                        ))
-                      ) : (
-                        <div className="hrRunBreakdown__empty">No earnings were returned for this payroll item.</div>
-                      )}
-                    </div>
-                  </section>
-
-                  <section className="hrRunBreakdown__section">
-                    <div className="hrRunBreakdown__head">
-                      <h3>Deductions</h3>
-                      <span>{selectedBreakdownDeductions.length} line(s)</span>
-                    </div>
-                    <div className="hrRunBreakdown__list">
-                      {selectedBreakdownDeductions.length > 0 ? (
-                        selectedBreakdownDeductions.map((line) => (
-                          <div key={line.key} className="hrRunBreakdown__row">
-                            <div>
-                              <strong>{line.label}</strong>
-                              {(line.adjustedBy || line.adjustedAt) && (
-                                <span>
-                                  {line.adjustedBy ? `Adjusted by ${line.adjustedBy}` : 'Adjusted'}{' '}
-                                  {line.adjustedAt ? `on ${formatDateTime(line.adjustedAt)}` : ''}
-                                </span>
-                              )}
-                            </div>
-                            <div className="hrRunBreakdown__amounts">
-                              {line.originalAmount && <small>Original: {formatCurrency(line.originalAmount)}</small>}
-                              <strong>{formatCurrency(line.amount)}</strong>
-                            </div>
+                          <div className="hrRunBreakdown__amounts">
+                            {line.originalAmount && <small>Original: {formatCurrency(line.originalAmount)}</small>}
+                            <strong>{formatCurrency(line.amount)}</strong>
                           </div>
-                        ))
-                      ) : (
-                        <div className="hrRunBreakdown__empty">No deductions were returned for this payroll item.</div>
-                      )}
-                    </div>
-                  </section>
-                </div>
-              </>
-            )}
-          </article>
-        </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="hrRunBreakdown__empty">No earnings were returned for this payroll item.</div>
+                    )}
+                  </div>
+                </section>
+
+                <section className="hrRunBreakdown__section">
+                  <div className="hrRunBreakdown__head">
+                    <h3>Deductions</h3>
+                    <span>{selectedBreakdownDeductions.length} line(s)</span>
+                  </div>
+                  <div className="hrRunBreakdown__list">
+                    {selectedBreakdownDeductions.length > 0 ? (
+                      selectedBreakdownDeductions.map((line) => (
+                        <div key={line.key} className="hrRunBreakdown__row">
+                          <div>
+                            <strong>{line.label}</strong>
+                            {(line.adjustedBy || line.adjustedAt) && (
+                              <span>
+                                {line.adjustedBy ? `Adjusted by ${line.adjustedBy}` : 'Adjusted'}{' '}
+                                {line.adjustedAt ? `on ${formatDateTime(line.adjustedAt)}` : ''}
+                              </span>
+                            )}
+                          </div>
+                          <div className="hrRunBreakdown__amounts">
+                            {line.originalAmount && <small>Original: {formatCurrency(line.originalAmount)}</small>}
+                            <strong>{formatCurrency(line.amount)}</strong>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="hrRunBreakdown__empty">No deductions were returned for this payroll item.</div>
+                    )}
+                  </div>
+                </section>
+              </div>
+            </>
+          )}
+        </LargePopup>
       )}
       <SensitiveAccessModal
         open={sensitiveAccess.open}

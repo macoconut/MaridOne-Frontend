@@ -1,10 +1,9 @@
 import { useLoading } from '../../../context/useLoading';
 import { useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
 import ApprovalStatusSummary from '../../../components/approvals/ApprovalStatusSummary';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
-import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
+import LargePopup from '../../../components/dialog/LargePopup';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
@@ -563,23 +562,39 @@ export default function ManagerPendingApprovals() {
         )}
       </section>
 
-      {selected && createPortal(
-        <div className="hrApprModalBackdrop" role="dialog" aria-modal="true">
-          <div className="hrApprModal">
-            <div className="dashModal__top">
-              <div>
-                <h2 className="hrApprModal__title">
-                  {selected.employee} - {selected.type}
-                </h2>
-                <p className="hrApprModal__subtitle">
-                  Review the team request details, then either forward the request to HR or deny it here.
-                </p>
-              </div>
-              <ModalCloseButton className="hrApprModal__close" onClick={requestCloseModal} />
-            </div>
-
-            <div className="hrApprModal__rule" />
-
+      <LargePopup
+        open={Boolean(selected)}
+        ariaLabel="Pending approval review"
+        title={selected ? `${selected.employee} - ${selected.type}` : 'Pending approval review'}
+        subtitle="Review the team request details, then either forward the request to HR or deny it here."
+        size="lg"
+        onClose={requestCloseModal}
+        closeDisabled={isSaving}
+        footer={
+          canReviewSelected ? (
+            <>
+              <button type="button" className="btn btn--ghost" onClick={requestCloseModal} disabled={isSaving}>
+                Cancel
+              </button>
+              <button type="button" className="btn" onClick={requestDecisionConfirmation} disabled={isSaving || !pendingDecision}>
+                {isSaving
+                  ? 'Saving...'
+                  : pendingDecision === 'APPROVED'
+                    ? 'Confirm Forward to HR'
+                    : pendingDecision === 'REJECTED'
+                      ? 'Confirm Denial'
+                      : 'Confirm Decision'}
+              </button>
+            </>
+          ) : (
+            <button type="button" className="btn btn--ghost" onClick={requestCloseModal} disabled={isSaving}>
+              Close
+            </button>
+          )
+        }
+      >
+        {selected ? (
+          <>
             <div className="hrApprForm__row hrApprForm__row--2">
               <label>
                 <span>Type:</span>
@@ -670,10 +685,6 @@ export default function ManagerPendingApprovals() {
               </div>
             )}
 
-            {hasFinalDecision && (
-              <div className="hrApprModal__rule" />
-            )}
-
             <div className="hrApprForm__row">
               <label className="decisionPicker">
                 <span>Manager Review:</span>
@@ -715,33 +726,9 @@ export default function ManagerPendingApprovals() {
                 />
               </label>
             </div>
-
-            <div className="hrApprModal__footer">
-              {canReviewSelected ? (
-                <>
-                  <button type="button" onClick={requestCloseModal} disabled={isSaving}>
-                    Cancel
-                  </button>
-                  <button type="button" onClick={requestDecisionConfirmation} disabled={isSaving || !pendingDecision}>
-                    {isSaving
-                      ? 'Saving...'
-                      : pendingDecision === 'APPROVED'
-                        ? 'Confirm Forward to HR'
-                        : pendingDecision === 'REJECTED'
-                          ? 'Confirm Denial'
-                          : 'Confirm Decision'}
-                  </button>
-                </>
-              ) : (
-                <button type="button" onClick={requestCloseModal} disabled={isSaving}>
-                  Close
-                </button>
-              )}
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+          </>
+        ) : null}
+      </LargePopup>
       <ConfirmDialog
         open={confirmDiscardOpen}
         title="Discard Unsaved Changes?"

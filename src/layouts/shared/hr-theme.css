@@ -18,7 +18,8 @@
   body.modal-open .hrAttModalBackdrop,
   body.modal-open .hrPayModalBackdrop,
   body.modal-open .hrAuditModalBackdrop,
-  body.modal-open .hrRunModalBackdrop {
+  body.modal-open .hrRunModalBackdrop,
+  body.modal-open .largePopupBackdrop {
     padding-left: calc(var(--sideW) + 40px);
     padding-right: 32px;
   }
@@ -28,7 +29,8 @@
   body.modal-open .hrAttModal,
   body.modal-open .hrPayModal,
   body.modal-open .hrAuditModal,
-  body.modal-open .hrRunModal {
+  body.modal-open .hrRunModal,
+  body.modal-open .largePopup {
     max-width: calc(100vw - var(--sideW) - 96px);
   }
 

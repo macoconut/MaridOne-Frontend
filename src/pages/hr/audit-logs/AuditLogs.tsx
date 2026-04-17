@@ -1,6 +1,6 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
-import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
+import LargePopup from '../../../components/dialog/LargePopup';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
@@ -337,8 +337,16 @@ function parseBreakdownItems(detailPayload?: string | null) {
     .filter(Boolean) as AuditBreakdownItem[];
 }
 
+function humanizeEnum(value?: string) {
+  if (!value) return '';
+  return value
+    .replaceAll('_', ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 function sanitizeRawAuditMessage(message?: string | null) {
-  const normalized = normalizeWhitespace(message);
+  const normalized = normalizeWhitespace(message ?? undefined);
   if (!normalized) return 'No raw message available.';
 
   return normalized
@@ -1103,52 +1111,54 @@ export default function HrAuditLogs() {
       </section>
 
       {selectedEntry ? (
-        <div className="hrAuditModalBackdrop" role="dialog" aria-modal="true" onClick={() => setSelectedEntryId(null)}>
-          <div className="hrAuditModal" onClick={(event) => event.stopPropagation()}>
-            <div className="hrAuditModal__header">
-              <div className="hrAuditModal__intro">
-                <h2>{selectedEntry.title}</h2>
-                {showSelectedEntrySummary ? <p>{selectedEntry.detail}</p> : null}
-              </div>
-              <ModalCloseButton onClick={() => setSelectedEntryId(null)} aria-label="Close audit log details" />
+        <LargePopup
+          open
+          ariaLabel="Audit log details"
+          title={selectedEntry.title}
+          subtitle={showSelectedEntrySummary ? selectedEntry.detail ?? '' : ''}
+          size="md"
+          onClose={() => setSelectedEntryId(null)}
+          footer={(
+            <button type="button" className="btn btn--ghost" onClick={() => setSelectedEntryId(null)}>
+              Close
+            </button>
+          )}
+        >
+          <div className="hrAuditModal__meta">
+            <span className={`hrAuditRow__badge hrAuditRow__badge--${selectedEntry.tone}`}>
+              {selectedEntry.activityLabel}
+            </span>
+            <span className="hrAuditRow__area">{selectedEntry.area}</span>
+            <span className="hrAuditModal__time">{selectedEntry.recordedAt}</span>
+          </div>
+
+          <div className="hrAuditModal__rule" />
+
+          {selectedBreakdownItems.length > 0 ? (
+            <div className="hrAuditModal__grid">
+              {selectedBreakdownItems.map((item) => (
+                <article
+                  key={`${selectedEntry.id}-${item.label}`}
+                  className={`hrAuditModal__card ${item.emphasis ? 'is-emphasis' : ''}`}
+                >
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </article>
+              ))}
             </div>
+          ) : (
+            <div className="hrAuditModal__empty">No detailed audit breakdown is available for this entry yet.</div>
+          )}
 
-            <div className="hrAuditModal__meta">
-              <span className={`hrAuditRow__badge hrAuditRow__badge--${selectedEntry.tone}`}>
-                {selectedEntry.activityLabel}
-              </span>
-              <span className="hrAuditRow__area">{selectedEntry.area}</span>
-              <span className="hrAuditModal__time">{selectedEntry.recordedAt}</span>
-            </div>
+          <div className="hrAuditModal__rule is-subtle" />
 
-            <div className="hrAuditModal__rule" />
-
-            {selectedBreakdownItems.length > 0 ? (
-              <div className="hrAuditModal__grid">
-                {selectedBreakdownItems.map((item) => (
-                  <article
-                    key={`${selectedEntry.id}-${item.label}`}
-                    className={`hrAuditModal__card ${item.emphasis ? 'is-emphasis' : ''}`}
-                  >
-                    <span>{item.label}</span>
-                    <strong>{item.value}</strong>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <div className="hrAuditModal__empty">No detailed audit breakdown is available for this entry yet.</div>
-            )}
-
-            <div className="hrAuditModal__rule is-subtle" />
-
-            <div className="hrAuditModal__footer">
-              <div className="hrAuditModal__footerItem">
-                <span>Stored Audit Message</span>
-                <strong>{selectedEntry.rawMessageDisplay}</strong>
-              </div>
+          <div className="hrAuditModal__footer">
+            <div className="hrAuditModal__footerItem">
+              <span>Stored Audit Message</span>
+              <strong>{selectedEntry.rawMessageDisplay}</strong>
             </div>
           </div>
-        </div>
+        </LargePopup>
       ) : null}
     </div>
   );
