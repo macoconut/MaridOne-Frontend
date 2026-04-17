@@ -5,6 +5,8 @@ type EmployeeSortMenuProps = {
   value: EmployeeSortKey;
   onChange: (value: EmployeeSortKey) => void;
   className?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 const SORT_OPTIONS: Array<SortOption<EmployeeSortKey>> = [
@@ -20,7 +22,7 @@ const SORT_OPTIONS: Array<SortOption<EmployeeSortKey>> = [
   },
 ];
 
-export default function EmployeeSortMenu({ value, onChange, className }: EmployeeSortMenuProps) {
+export default function EmployeeSortMenu({ value, onChange, className, open, onOpenChange }: EmployeeSortMenuProps) {
   return (
     <SortMenu
       value={value}
@@ -28,6 +30,8 @@ export default function EmployeeSortMenu({ value, onChange, className }: Employe
       options={SORT_OPTIONS}
       className={className}
       panelLabel="Sort employees"
+      open={open}
+      onOpenChange={onOpenChange}
     />
   );
 }

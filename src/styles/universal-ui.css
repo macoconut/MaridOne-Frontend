@@ -348,6 +348,7 @@ body {
 ) {
   display: grid !important;
   gap: 6px !important;
+  min-width: 0 !important;
 }
 
 :where(
@@ -385,6 +386,9 @@ body {
   .hrDash__dateFilter,
   .uFilter__field select
 ) {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
   min-height: 44px !important;
   border: 1px solid var(--ui-border-strong) !important;
   border-radius: var(--ui-radius-sm) !important;
@@ -392,6 +396,7 @@ body {
   color: var(--ui-title-color) !important;
   font-size: 14px !important;
   box-shadow: none !important;
+  box-sizing: border-box !important;
   padding: 0 10px !important;
   outline: none !important;
 }
@@ -532,10 +537,13 @@ body {
   right: 0 !important;
   z-index: 100 !important;
   min-width: 260px !important;
+  width: min(max(100%, 280px), calc(100vw - 32px)) !important;
+  max-width: calc(100vw - 32px) !important;
   border: 1px solid var(--ui-border) !important;
   border-radius: var(--ui-radius-lg) !important;
   background: var(--ui-surface) !important;
   box-shadow: var(--ui-shadow-medium) !important;
+  box-sizing: border-box !important;
   padding: 14px !important;
   display: grid !important;
   gap: 12px !important;

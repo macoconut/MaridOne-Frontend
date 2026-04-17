@@ -420,6 +420,7 @@ export default function HrPayRunReporting() {
   const [employeeDirectory, setEmployeeDirectory] = useState<EmployeeDirectoryEntry[]>([]);
   const [payTypeRows, setPayTypeRows] = useState<PayTypeSummaryRow[]>([]);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [dateRangeOpen, setDateRangeOpen] = useState(false);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [roleFilter, setRoleFilter] = useState('all');
@@ -446,6 +447,10 @@ export default function HrPayRunReporting() {
   const filterLabel = useMemo(() => (view === 'employee' ? 'Employee:' : 'Category:'), [view]);
 
   useAutoRefreshingPage(handlePageRefresh, { intervalMs: 15000 });
+
+  useEffect(() => {
+    setSortMenuOpen(false);
+  }, [view]);
 
   useEffect(() => {
     if (selectedBreakdownItem || sensitiveAccess.open) document.body.classList.add('modal-open');
@@ -1013,13 +1018,30 @@ export default function HrPayRunReporting() {
           <label>Sort By:</label>
           <div className="hrRunFilters__actions">
             {view === 'employee' ? (
-              <EmployeeSortMenu value={employeeSort} onChange={setEmployeeSort} />
+              <EmployeeSortMenu
+                value={employeeSort}
+                onChange={setEmployeeSort}
+                open={sortMenuOpen}
+                onOpenChange={(open) => {
+                  setSortMenuOpen(open);
+                  if (open) {
+                    setFilterOpen(false);
+                  }
+                }}
+              />
             ) : (
               <SortMenu
                 value={payTypeSort}
                 onChange={setPayTypeSort}
                 options={PAY_TYPE_SORT_OPTIONS}
                 panelLabel="Sort categories"
+                open={sortMenuOpen}
+                onOpenChange={(open) => {
+                  setSortMenuOpen(open);
+                  if (open) {
+                    setFilterOpen(false);
+                  }
+                }}
               />
             )}
             <div className="uFilter">
@@ -1029,7 +1051,13 @@ export default function HrPayRunReporting() {
                   activeFilterCount > 0 ? 'is-active' : ''
                 }`}
                 onClick={() => {
-                  setFilterOpen((open) => !open);
+                  setFilterOpen((open) => {
+                    const nextOpen = !open;
+                    if (nextOpen) {
+                      setSortMenuOpen(false);
+                    }
+                    return nextOpen;
+                  });
                   setActionMenuOpen(false);
                 }}
               >

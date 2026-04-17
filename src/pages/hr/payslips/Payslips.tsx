@@ -655,6 +655,7 @@ export default function HrPayslips() {
   const [runError, setRunError] = useState('');
   const [currentRun, setCurrentRun] = useState<PayrollRunDto | null>(null);
   const [runItemFilterOpen, setRunItemFilterOpen] = useState(false);
+  const [runItemSortOpen, setRunItemSortOpen] = useState(false);
   const [runItemRoleFilter, setRunItemRoleFilter] = useState('all');
   const [runItemDepartmentFilter, setRunItemDepartmentFilter] = useState('all');
   const [correctionOpen, setCorrectionOpen] = useState(false);
@@ -1927,14 +1928,32 @@ export default function HrPayslips() {
                   <span>Add Manual Line</span>
                 </button>
               )}
-              <EmployeeSortMenu value={runItemSort} onChange={setRunItemSort} />
+              <EmployeeSortMenu
+                value={runItemSort}
+                onChange={setRunItemSort}
+                open={runItemSortOpen}
+                onOpenChange={(open) => {
+                  setRunItemSortOpen(open);
+                  if (open) {
+                    setRunItemFilterOpen(false);
+                  }
+                }}
+              />
               <div className="uFilter">
                 <button
                   type="button"
                   className={`uFilter__toggle ${runItemFilterOpen ? 'is-open' : ''} ${
                     activeRunItemFilterCount > 0 ? 'is-active' : ''
                   }`}
-                  onClick={() => setRunItemFilterOpen((open) => !open)}
+                  onClick={() =>
+                    setRunItemFilterOpen((open) => {
+                      const nextOpen = !open;
+                      if (nextOpen) {
+                        setRunItemSortOpen(false);
+                      }
+                      return nextOpen;
+                    })
+                  }
                 >
                   <FiFilter />
                   <span>Filter</span>

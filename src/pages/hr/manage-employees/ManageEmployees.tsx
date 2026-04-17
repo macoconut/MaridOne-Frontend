@@ -549,6 +549,7 @@ export default function HrManageEmp() {
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
   const [positionFilter, setPositionFilter] = useState('all');
@@ -2298,7 +2299,17 @@ export default function HrManageEmp() {
           </label>
 
           <div className="hrEmpToolbar__actions">
-            <EmployeeSortMenu value={employeeSort} onChange={setEmployeeSort} />
+            <EmployeeSortMenu
+              value={employeeSort}
+              onChange={setEmployeeSort}
+              open={sortMenuOpen}
+              onOpenChange={(open) => {
+                setSortMenuOpen(open);
+                if (open) {
+                  setFilterOpen(false);
+                }
+              }}
+            />
 
             <div className="uFilter">
               <button
@@ -2307,7 +2318,13 @@ export default function HrManageEmp() {
                   activeFilterCount > 0 ? 'is-active' : ''
                 }`}
                 onClick={() => {
-                  setFilterOpen((open) => !open);
+                  setFilterOpen((open) => {
+                    const nextOpen = !open;
+                    if (nextOpen) {
+                      setSortMenuOpen(false);
+                    }
+                    return nextOpen;
+                  });
                   setExportMenuOpen(false);
                 }}
               >

@@ -272,6 +272,7 @@ export default function AccountingPayrollReview() {
   const [employeeDirectory, setEmployeeDirectory] = useState<EmployeeDirectoryEntry[]>([]);
   const [payTypeRows, setPayTypeRows] = useState<PayTypeSummaryRow[]>([]);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [roleFilter, setRoleFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [selectedBreakdownItem, setSelectedBreakdownItem] = useState<AggregatedEmployeeRow | null>(null);
@@ -293,6 +294,10 @@ export default function AccountingPayrollReview() {
   const filterLabel = useMemo(() => (view === 'employee' ? 'Employee:' : 'Category:'), [view]);
 
   useAutoRefreshingPage(handlePageRefresh, { intervalMs: 15000 });
+
+  useEffect(() => {
+    setSortMenuOpen(false);
+  }, [view]);
 
   useEffect(() => {
     if (selectedBreakdownItem) document.body.classList.add('modal-open');
@@ -657,13 +662,30 @@ export default function AccountingPayrollReview() {
           <label>Sort By:</label>
           <div className="aReviewRunFilters__actions">
             {view === 'employee' ? (
-              <EmployeeSortMenu value={employeeSort} onChange={setEmployeeSort} />
+              <EmployeeSortMenu
+                value={employeeSort}
+                onChange={setEmployeeSort}
+                open={sortMenuOpen}
+                onOpenChange={(open) => {
+                  setSortMenuOpen(open);
+                  if (open) {
+                    setFilterOpen(false);
+                  }
+                }}
+              />
             ) : (
               <SortMenu
                 value={payTypeSort}
                 onChange={setPayTypeSort}
                 options={PAY_TYPE_SORT_OPTIONS}
                 panelLabel="Sort categories"
+                open={sortMenuOpen}
+                onOpenChange={(open) => {
+                  setSortMenuOpen(open);
+                  if (open) {
+                    setFilterOpen(false);
+                  }
+                }}
               />
             )}
             <div className="uFilter">
@@ -673,7 +695,13 @@ export default function AccountingPayrollReview() {
                   activeFilterCount > 0 ? 'is-active' : ''
                 }`}
                 onClick={() => {
-                  setFilterOpen((open) => !open);
+                  setFilterOpen((open) => {
+                    const nextOpen = !open;
+                    if (nextOpen) {
+                      setSortMenuOpen(false);
+                    }
+                    return nextOpen;
+                  });
                 }}
               >
                 <FiFilter />
