@@ -7,6 +7,7 @@ import ActionButton from '../../../components/button/ActionButton';
 import FileUploadField from '../../../components/form/FileUploadField';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import LargePopup from '../../../components/dialog/LargePopup';
+import { useUiDialog } from '../../../components/dialog/useUiDialog';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
@@ -713,6 +714,7 @@ function buildAttendanceHistory(logs: unknown): AttendanceHistory {
 
 export default function Attendance() {
   const { showLoading, hideLoading } = useLoading();
+  const { showSuccess } = useUiDialog();
   const todayKey = useMemo(() => getManilaNow().dateKey, []);
   const initialTimecardRange = useMemo(() => resolveDefaultTimecardRange(), []);
   const nonSickLeaveMinDate = useMemo(
@@ -788,7 +790,6 @@ export default function Attendance() {
   const [requestViewDate, setRequestViewDate] = useState<string>('');
   const [selectedDateKey, setSelectedDateKey] = useState<string>('');
   const [isClocking, setIsClocking] = useState(false);
-  const [clockMessage, setClockMessage] = useState('');
   const [clockError, setClockError] = useState('');
   const [confirmClockAction, setConfirmClockAction] = useState<'TIME_IN' | 'TIME_OUT' | null>(null);
   const [confirmLeaveSubmit, setConfirmLeaveSubmit] = useState(false);
@@ -1640,7 +1641,6 @@ export default function Attendance() {
   }
 
   function requestAttendanceConfirmation() {
-    setClockMessage('');
     setClockError('');
     if (!employeeId) {
       setClockError('Employee record could not be resolved.');
@@ -1662,6 +1662,7 @@ export default function Attendance() {
   async function recordAttendance() {
     if (!employeeId || !confirmClockAction) return;
 
+    const action = confirmClockAction;
     setIsClocking(true);
     showLoading();
     try {
@@ -1700,8 +1701,13 @@ export default function Attendance() {
         setLatestAttendanceDirection((prev) => (prev === 'IN' ? 'OUT' : 'IN'));
       }
 
-      setClockMessage('Success');
       setConfirmClockAction(null);
+      showSuccess(
+        action === 'TIME_OUT'
+          ? 'Your time out was recorded successfully.'
+          : 'Your time in was recorded successfully.',
+        action === 'TIME_OUT' ? 'Time Out Recorded' : 'Time In Recorded'
+      );
     } catch (error) {
       setClockError(getFriendlyErrorMessage(error, 'attendance'));
     } finally {
@@ -2123,8 +2129,6 @@ export default function Attendance() {
           </button>
         </div>
       </div>
-      {clockMessage && <p className="field__ok">{clockMessage}</p>}
-
       <section className="attBalanceCard" aria-labelledby="att-leave-balances-title">
         <div className="attBalanceCard__header">
           <div className="attBalanceCard__copy">
