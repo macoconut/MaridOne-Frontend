@@ -1,6 +1,18 @@
 import { useLoading } from '../../../context/useLoading';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FiCheckCircle, FiChevronDown, FiEdit2, FiFilter, FiPlus, FiSearch, FiX, FiXCircle } from 'react-icons/fi';
+import {
+  FiCheckCircle,
+  FiChevronDown,
+  FiChevronLeft,
+  FiChevronRight,
+  FiEye,
+  FiEdit2,
+  FiFilter,
+  FiPlus,
+  FiSearch,
+  FiX,
+  FiXCircle,
+} from 'react-icons/fi';
 import { ApiError, apiFetchJson, toArray } from '../../../lib/api';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import LargePopup from '../../../components/dialog/LargePopup';
@@ -653,6 +665,7 @@ export default function HrPayslips() {
   const [isSubmittingRun, setIsSubmittingRun] = useState(false);
   const [isPostingRun, setIsPostingRun] = useState(false);
   const [runError, setRunError] = useState('');
+  const [payrollRuns, setPayrollRuns] = useState<PayrollRunDto[]>([]);
   const [currentRun, setCurrentRun] = useState<PayrollRunDto | null>(null);
   const [runItemFilterOpen, setRunItemFilterOpen] = useState(false);
   const [runItemSortOpen, setRunItemSortOpen] = useState(false);
@@ -785,9 +798,11 @@ export default function HrPayslips() {
       }
       const nextRun = pickCurrentRun(runs, preferredPayId);
 
+      setPayrollRuns(runs);
       setCurrentRun(nextRun);
       if (nextRun) syncRunForm(nextRun);
     } catch (error) {
+      setPayrollRuns([]);
       setRunError(getFriendlyErrorMessage(error, 'payroll-run'));
     }
   }, [syncRunForm]);
@@ -1048,6 +1063,18 @@ export default function HrPayslips() {
     selectedDispute ? selectedDispute.statusCode === 'WAITING_ADJUSTMENT' : false;
   const isCurrentRunInProgress = currentRun?.payrollStatus === 'IN_PROGRESS';
   const canEditSelectedPayrollItem = currentRun?.payrollStatus === 'IN_PROGRESS';
+  const inProgressRuns = useMemo(
+    () => payrollRuns.filter((run) => run.payrollStatus === 'IN_PROGRESS'),
+    [payrollRuns]
+  );
+  const currentInProgressRunIndex = useMemo(() => {
+    if (currentRun?.payId == null) return -1;
+    return inProgressRuns.findIndex((run) => run.payId === currentRun.payId);
+  }, [currentRun?.payId, inProgressRuns]);
+  const hasMultipleInProgressRuns = inProgressRuns.length > 1;
+  const canViewPreviousInProgressRun = currentInProgressRunIndex > 0;
+  const canViewNextInProgressRun =
+    currentInProgressRunIndex >= 0 && currentInProgressRunIndex < inProgressRuns.length - 1;
   const employeeOptionsById = useMemo(
     () => new Map(employeeOptions.map((option) => [option.id, option])),
     [employeeOptions]
@@ -1173,6 +1200,16 @@ export default function HrPayslips() {
   function clearRunItemFilters() {
     setRunItemRoleFilter('all');
     setRunItemDepartmentFilter('all');
+  }
+
+  function showAdjacentInProgressRun(direction: -1 | 1) {
+    if (currentInProgressRunIndex < 0) return;
+
+    const nextRun = inProgressRuns[currentInProgressRunIndex + direction];
+    if (!nextRun) return;
+
+    setCurrentRun(nextRun);
+    syncRunForm(nextRun);
   }
 
   function closeRunModal() {
@@ -1492,6 +1529,8 @@ export default function HrPayslips() {
 
     const runsResponse = await apiFetchJson<unknown>('/api/payroll/run');
     const runs = toArray<PayrollRunDto>(runsResponse);
+    const sortedRuns = [...runs].sort(compareRunsDescending);
+    setPayrollRuns(sortedRuns);
     const reusableRun =
       runs.find(
         (run) =>
@@ -1506,7 +1545,6 @@ export default function HrPayslips() {
       syncRunForm(reusableRun);
       persistRunSelection(reusableRun);
       setAdjustmentRunId(reusableRun.payId ?? null);
-      showSuccess('Existing adjustment run is ready for the approved dispute.', 'Adjustment Run Ready');
       return reusableRun;
     }
 
@@ -1521,6 +1559,7 @@ export default function HrPayslips() {
       }),
     });
 
+    setPayrollRuns((prev) => [...prev.filter((run) => run.payId !== createdRun.payId), createdRun].sort(compareRunsDescending));
     setCurrentRun(createdRun);
     syncRunForm(createdRun);
     persistRunSelection(createdRun);
@@ -1856,7 +1895,7 @@ export default function HrPayslips() {
               onActivate={() =>
                 sensitiveAccess.requestVerification(
                   async () => Promise.resolve(),
-                  'Verify sensitive access to unlock payslip management.'
+                  'Enter your password to unlock payslip management.'
                 )
               }
             />
@@ -1872,15 +1911,6 @@ export default function HrPayslips() {
           <p>
             <strong>Period from:</strong> {formatDate(displayedPeriodStart)} - {formatDate(displayedPeriodEnd)}
           </p>
-
-          {currentRun && (
-            <div className="hrPayPeriod__meta">
-              <span className="hrPayPill">{formatRunType(currentRun.runType)}</span>
-              <span className="hrPayPill hrPayPill--status">
-                {formatPayrollStatusLabel(currentRun.payrollStatus ?? 'IN_PROGRESS')}
-              </span>
-            </div>
-          )}
         </div>
 
         <div className="hrPayPeriod__actions">
@@ -1915,6 +1945,31 @@ export default function HrPayslips() {
       {isCurrentRunInProgress && currentRun && (
         <section className="hrPayPanel hrPayPanel--runProgress">
           <div className="hrPayPanel__headRow hrPayPanel__headRow--centered">
+            {hasMultipleInProgressRuns ? (
+              <div className="hrPayPanel__runPager" aria-label="In-progress payroll run navigation">
+                <button
+                  type="button"
+                  className="hrPayPanel__runPagerBtn"
+                  onClick={() => showAdjacentInProgressRun(-1)}
+                  disabled={!canViewPreviousInProgressRun}
+                  aria-label="Show previous in-progress payroll run"
+                >
+                  <FiChevronLeft aria-hidden="true" />
+                </button>
+                <span className="hrPayPanel__runPagerLabel">
+                  {currentInProgressRunIndex + 1} of {inProgressRuns.length}
+                </span>
+                <button
+                  type="button"
+                  className="hrPayPanel__runPagerBtn"
+                  onClick={() => showAdjacentInProgressRun(1)}
+                  disabled={!canViewNextInProgressRun}
+                  aria-label="Show next in-progress payroll run"
+                >
+                  <FiChevronRight aria-hidden="true" />
+                </button>
+              </div>
+            ) : null}
             <header className="hrPayPanel__head">Payroll Run in Progress</header>
             <div className="hrPayPanel__tools">
               {canAddManualAdjustmentLine && (
@@ -2001,8 +2056,8 @@ export default function HrPayslips() {
 
           <div className="hrPayRunSummary">
             <article className="hrPayRunSummary__card">
-              <span>Run ID</span>
-              <strong>#{currentRun.payId ?? '-'}</strong>
+              <span>Payment Date</span>
+              <strong>{formatDate(currentRun.paymentDate)}</strong>
             </article>
             <article className="hrPayRunSummary__card">
               <span>Coverage</span>
@@ -2013,7 +2068,7 @@ export default function HrPayslips() {
               <strong>{formatRunType(currentRun.runType)}</strong>
             </article>
             <article className="hrPayRunSummary__card">
-              <span>Payroll Items</span>
+              <span>Payslips Generated</span>
               <strong>{currentRun.itemCount ?? 0}</strong>
             </article>
           </div>
@@ -2032,7 +2087,7 @@ export default function HrPayslips() {
                   <span>Gross Pay</span>
                   <span>Deductions</span>
                   <span>Net Pay</span>
-                  <span className="hrPayRunTable__headCell--action">Details</span>
+                  <span className="hrPayRunTable__headCell--peek" aria-hidden="true" />
                 </div>
 
                 <div className="mgrPendTable__body">
@@ -2050,8 +2105,8 @@ export default function HrPayslips() {
                       <span className="mgrPendTable__cell">{formatCurrency(row.grossPay)}</span>
                       <span className="mgrPendTable__cell">{formatCurrency(row.deductions)}</span>
                       <span className="mgrPendTable__cell">{formatCurrency(row.netPay)}</span>
-                      <span className="mgrPendTable__cell hrPayRunTable__cell--action">
-                        <span className="hrPayPreviewPill">View Breakdown</span>
+                      <span className="mgrPendTable__cell hrPayRunTable__cell--peek" aria-hidden="true">
+                        <FiEye className="hrPayRunTable__peekIcon" />
                       </span>
                     </button>
                   ))}
@@ -2188,6 +2243,7 @@ export default function HrPayslips() {
           title={runModalTitle}
           subtitle="Set the payroll coverage window and run type before starting this payroll process."
           size="lg"
+          className="hrPayPopup hrPayPopup--runSetup"
           onClose={runUnsavedPrompt.requestClose}
           closeDisabled={isSubmittingRun}
           footer={(
@@ -2288,6 +2344,7 @@ export default function HrPayslips() {
           title="Add Manual Adjustment Line"
           subtitle="Choose an employee, select whether this is an earning or deduction, and enter the amount to add it to the active adjustment run."
           size="xl"
+          className="hrPayPopup hrPayPopup--manualLine"
           onClose={manualLineUnsavedPrompt.requestClose}
           closeDisabled={isSubmittingManualLine}
           footer={(
@@ -2431,6 +2488,7 @@ export default function HrPayslips() {
           title="Post Payroll Run"
           subtitle="Review the payroll run summary carefully before confirming the final posting step."
           size="lg"
+          className="hrPayPopup hrPayPopup--postRun"
           onClose={() => setPostModalOpen(false)}
           closeDisabled={isPostingRun}
           footer={(
@@ -2470,6 +2528,7 @@ export default function HrPayslips() {
           title="Stage Approved Dispute Correction"
           subtitle="Review the approved dispute, choose the matching payroll line, and stage the corrected amount into the active adjustment run."
           size="xl"
+          className="hrPayPopup hrPayPopup--correction"
           onClose={correctionUnsavedPrompt.requestClose}
           closeDisabled={isSubmittingCorrection}
           footer={(
@@ -2622,6 +2681,7 @@ export default function HrPayslips() {
           title={`${selectedPayrollItem.employee} - Payslip Breakdown`}
           subtitle="Review the current earnings, deductions, and totals, and edit line amounts while this payroll item is still in progress."
           size="xl"
+          className="hrPayPopup hrPayPopup--breakdown"
           onClose={() => setSelectedPayrollItem(null)}
         >
           <div className="hrPayModal">
@@ -2834,6 +2894,7 @@ export default function HrPayslips() {
           title={`${selectedDispute.employee} - Payslip Dispute`}
           subtitle="Review the employee dispute, decide whether it should be denied or moved to waiting for adjustment, and reopen it later when you are ready to stage the correction."
           size="xl"
+          className="hrPayPopup hrPayPopup--dispute"
           onClose={disputeReviewUnsavedPrompt.requestClose}
           footer={(
             <>

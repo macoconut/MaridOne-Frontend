@@ -920,7 +920,7 @@ export default function HrPayRunReporting() {
               onActivate={() =>
                 sensitiveAccess.requestVerification(
                   async () => Promise.resolve(),
-                  'Verify sensitive access to unlock pay run reporting.'
+                  'Enter your password to unlock pay run reporting.'
                 )
               }
             />
@@ -1215,6 +1215,7 @@ export default function HrPayRunReporting() {
           title={`${formatEmployeeName(selectedBreakdownItem)} - Payslip Breakdown`}
           subtitle="Review the current earnings, deductions, and totals before posting this in-progress payroll item."
           size="lg"
+          className="hrRunPopup hrRunPopup--breakdown"
           onClose={closeBreakdownModal}
           footer={(
             <button type="button" className="btn btn--ghost" onClick={closeBreakdownModal}>

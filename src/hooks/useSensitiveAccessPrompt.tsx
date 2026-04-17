@@ -4,11 +4,11 @@ import { isSensitiveAccessRequired } from '../lib/sensitiveAccess';
 export function useSensitiveAccessPrompt() {
   const pendingActionRef = useRef<null | (() => Promise<void>)>(null);
   const [open, setOpen] = useState(false);
-  const [notice, setNotice] = useState('Verify sensitive access to continue.');
+  const [notice, setNotice] = useState('Enter your password to continue.');
 
   const requestVerification = useCallback((action: () => Promise<void>, nextNotice?: string) => {
     pendingActionRef.current = action;
-    setNotice(nextNotice || 'Verify sensitive access to continue.');
+    setNotice(nextNotice || 'Enter your password to continue.');
     setOpen(true);
   }, []);
 

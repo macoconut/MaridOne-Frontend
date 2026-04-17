@@ -254,10 +254,9 @@ export function MonthlyScheduleBoard({
   const [templateEndTime, setTemplateEndTime] = useState('17:00');
   const [templateDayOff, setTemplateDayOff] = useState(false);
   const [lockedDayDrafts, setLockedDayDrafts] = useState<Record<string, EditorDraft>>({});
-  const [filterOpen, setFilterOpen] = useState(false);
   const [templateFilterOpen, setTemplateFilterOpen] = useState(false);
-  const [roleFilter, setRoleFilter] = useState('all');
-  const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [templateRoleFilter, setTemplateRoleFilter] = useState('all');
+  const [templateDepartmentFilter, setTemplateDepartmentFilter] = useState('all');
   const [loadingTeam, setLoadingTeam] = useState(false);
   const [loadingMonth, setLoadingMonth] = useState(false);
   const [holidayDateKeys, setHolidayDateKeys] = useState<string[]>([]);
@@ -268,14 +267,12 @@ export function MonthlyScheduleBoard({
   const [saveError, setSaveError] = useState('');
   const employeePickerRef = useRef<HTMLDivElement | null>(null);
   const employeeSearchInputRef = useRef<HTMLInputElement | null>(null);
-  const filterRef = useRef<HTMLDivElement | null>(null);
   const templateFilterRef = useRef<HTMLDivElement | null>(null);
 
   useErrorDialogEffect(loadError, 'Schedule calendar could not be loaded');
   useErrorDialogEffect(saveError, 'Schedule calendar could not be saved');
   useEscapeDismiss(editorOpen, closeEditor, 10);
   useEscapeDismiss(templateEditorOpen, closeTemplateEditor, 11);
-  useEscapeDismiss(filterOpen, () => setFilterOpen(false), 13);
   useEscapeDismiss(templateFilterOpen, () => setTemplateFilterOpen(false), 14);
 
   const todayKey = useMemo(() => toIsoDate(new Date()), []);
@@ -331,19 +328,25 @@ export function MonthlyScheduleBoard({
 
     const query = normalizeSearchText(templateTargetSearch);
     return sortedEmployees.filter((employee) => {
-      if (!matchesEmployeeFilters(employee, { showDepartmentFilter, roleFilter, departmentFilter })) {
+      if (
+        !matchesEmployeeFilters(employee, {
+          showDepartmentFilter,
+          roleFilter: templateRoleFilter,
+          departmentFilter: templateDepartmentFilter,
+        })
+      ) {
         return false;
       }
 
       return matchesEmployeeSearch(employee, query);
     });
   }, [
-    departmentFilter,
     enableBatchSelection,
     enableDefaultHoursBatchSelection,
-    roleFilter,
     showDepartmentFilter,
     sortedEmployees,
+    templateDepartmentFilter,
+    templateRoleFilter,
     templateTargetSearch,
   ]);
   const departmentOptions = useMemo(
@@ -354,14 +357,8 @@ export function MonthlyScheduleBoard({
   );
   const filteredEmployees = useMemo(() => {
     const query = normalizeSearchText(employeeSearch);
-    return sortedEmployees.filter((employee) => {
-      if (!matchesEmployeeFilters(employee, { showDepartmentFilter, roleFilter, departmentFilter })) {
-        return false;
-      }
-
-      return matchesEmployeeSearch(employee, query);
-    });
-  }, [departmentFilter, employeeSearch, roleFilter, showDepartmentFilter, sortedEmployees]);
+    return sortedEmployees.filter((employee) => matchesEmployeeSearch(employee, query));
+  }, [employeeSearch, sortedEmployees]);
 
   const calendarCells = useMemo(() => buildCalendarCells(selectedMonthStart), [selectedMonthStart]);
   const calendarStyle = useMemo(
@@ -419,9 +416,9 @@ export function MonthlyScheduleBoard({
     }
     return `${selectedEmployee?.name ?? selectedEmployees[0].name} is shown in the calendar. Default-hour changes will apply to all ${selectedEmployees.length} selected ${employeePluralLabel}.`;
   }, [enableBatchSelection, employeePluralLabel, selectedEmployee, selectedEmployees]);
-  const activeFilterCount =
-    (showDepartmentFilter && roleFilter !== 'all' ? 1 : 0) +
-    (showDepartmentFilter && departmentFilter !== 'all' ? 1 : 0);
+  const templateActiveFilterCount =
+    (showDepartmentFilter && templateRoleFilter !== 'all' ? 1 : 0) +
+    (showDepartmentFilter && templateDepartmentFilter !== 'all' ? 1 : 0);
   const resolveDisplayedDraft = useCallback(
     (workDate: string) => {
       if (workDate <= todayKey && lockedDayDrafts[workDate]) {
@@ -450,9 +447,9 @@ export function MonthlyScheduleBoard({
     setSaveError('');
   }
 
-  function clearEmployeeFilters() {
-    setRoleFilter('all');
-    setDepartmentFilter('all');
+  function clearTemplateFilters() {
+    setTemplateRoleFilter('all');
+    setTemplateDepartmentFilter('all');
   }
 
   const loadTeamSchedules = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
@@ -627,21 +624,6 @@ export function MonthlyScheduleBoard({
       setEmployeeSearch(enableBatchSelection ? '' : selectedEmployee?.name ?? '');
     }
   }, [employeePickerOpen, enableBatchSelection, selectedEmployee]);
-
-  useEffect(() => {
-    if (!showDepartmentFilter || !filterOpen) return;
-
-    function handlePointerDown(event: MouseEvent) {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (!filterRef.current?.contains(target)) {
-        setFilterOpen(false);
-      }
-    }
-
-    document.addEventListener('mousedown', handlePointerDown);
-    return () => document.removeEventListener('mousedown', handlePointerDown);
-  }, [filterOpen, showDepartmentFilter]);
 
   useEffect(() => {
     if (!showDepartmentFilter || !templateFilterOpen) return;
@@ -931,7 +913,7 @@ export function MonthlyScheduleBoard({
   }
 
   return (
-    <div className="hrAtt mgrMonth">
+    <div className={`hrAtt mgrMonth ${showDepartmentFilter ? 'mgrMonth--hr' : ''}`.trim()}>
       <div className="hrAtt__head">
         <PageHeader
           title="Schedule Calendar"
@@ -1088,54 +1070,6 @@ export function MonthlyScheduleBoard({
             ) : null}
           </div>
 
-          {showDepartmentFilter ? (
-            <div className="hrAttFilter mgrMonth__employeeFilter" ref={filterRef}>
-              <button
-                type="button"
-                className={`hrAttFilter__toggle ${filterOpen ? 'is-open' : ''} ${activeFilterCount > 0 ? 'is-active' : ''}`}
-                onClick={() => setFilterOpen((open) => !open)}
-                disabled={loadingTeam}
-              >
-                <FiFilter />
-                <span>Filter</span>
-                {activeFilterCount > 0 ? <span className="hrAttFilter__count">{activeFilterCount}</span> : null}
-              </button>
-
-              {filterOpen ? (
-                <div className="hrAttFilter__panel">
-                  <label className="hrAttFilter__field">
-                    <span>Role</span>
-                    <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
-                      <option value="all">All roles</option>
-                      {HR_SCHEDULE_ROLE_FILTERS.map((option) => (
-                        <option key={option.value} value={option.value.replace('role:', '')}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="hrAttFilter__field">
-                    <span>Unit</span>
-                    <select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}>
-                      <option value="all">All units</option>
-                      {departmentOptions.map((department) => (
-                        <option key={department} value={department}>
-                          {department}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <div className="hrAttFilter__actions">
-                    <button type="button" onClick={clearEmployeeFilters}>
-                      Clear Filters
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
         </div>
 
         <div className="mgrMonth__toolbarActions">
@@ -1477,20 +1411,20 @@ export function MonthlyScheduleBoard({
                       <div className="hrAttFilter mgrMonth__employeeFilter mgrMonth__templateFilter" ref={templateFilterRef}>
                         <button
                           type="button"
-                          className={`hrAttFilter__toggle ${templateFilterOpen ? 'is-open' : ''} ${activeFilterCount > 0 ? 'is-active' : ''}`}
+                          className={`hrAttFilter__toggle ${templateFilterOpen ? 'is-open' : ''} ${templateActiveFilterCount > 0 ? 'is-active' : ''}`}
                           onClick={() => setTemplateFilterOpen((open) => !open)}
                           disabled={savingTemplate || sortedEmployees.length === 0}
                         >
                           <FiFilter />
                           <span>Filter</span>
-                          {activeFilterCount > 0 ? <span className="hrAttFilter__count">{activeFilterCount}</span> : null}
+                          {templateActiveFilterCount > 0 ? <span className="hrAttFilter__count">{templateActiveFilterCount}</span> : null}
                         </button>
 
                         {templateFilterOpen ? (
                           <div className="hrAttFilter__panel">
                             <label className="hrAttFilter__field">
                               <span>Role</span>
-                              <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
+                              <select value={templateRoleFilter} onChange={(event) => setTemplateRoleFilter(event.target.value)}>
                                 <option value="all">All roles</option>
                                 {HR_SCHEDULE_ROLE_FILTERS.map((option) => (
                                   <option key={option.value} value={option.value.replace('role:', '')}>
@@ -1502,7 +1436,7 @@ export function MonthlyScheduleBoard({
 
                             <label className="hrAttFilter__field">
                               <span>Unit</span>
-                              <select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}>
+                              <select value={templateDepartmentFilter} onChange={(event) => setTemplateDepartmentFilter(event.target.value)}>
                                 <option value="all">All units</option>
                                 {departmentOptions.map((department) => (
                                   <option key={department} value={department}>
@@ -1513,7 +1447,7 @@ export function MonthlyScheduleBoard({
                             </label>
 
                             <div className="hrAttFilter__actions">
-                              <button type="button" onClick={clearEmployeeFilters}>
+                              <button type="button" onClick={clearTemplateFilters}>
                                 Clear Filters
                               </button>
                             </div>

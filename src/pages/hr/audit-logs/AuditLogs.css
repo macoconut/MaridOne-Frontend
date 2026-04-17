@@ -41,10 +41,10 @@
   border-top: 1px solid var(--hr-line);
   display: grid;
   grid-template-columns: minmax(148px, 220px) minmax(0, 1fr) auto;
-  gap: 16px;
+  gap: 14px;
   align-items: center;
   text-align: left;
-  padding: 14px;
+  padding: 11px 14px;
   background: #fff;
   transition: background 0.15s ease;
   cursor: pointer;
@@ -67,7 +67,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .hrAuditRow__actorName {
@@ -86,7 +86,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .hrAuditRow__title {
@@ -106,18 +106,18 @@
 .hrAuditRow__meta {
   min-width: 260px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 156px;
+  grid-template-columns: auto 156px;
   align-items: center;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 10px;
 }
 
 .hrAuditRow__tagGroup {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: center;
-  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
   justify-self: end;
 }
 
@@ -125,8 +125,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 108px;
-  padding: 4px 10px;
+  min-width: 96px;
+  padding: 3px 10px;
   border-radius: 999px;
   font-size: 13px;
   font-weight: 800;
@@ -166,9 +166,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 108px;
-  min-height: 30px;
-  padding: 4px 12px;
+  min-width: 96px;
+  min-height: 28px;
+  padding: 3px 11px;
   border-radius: 999px;
   border: 1px solid rgba(59, 34, 87, 0.14);
   background: #f6f1fb;
@@ -181,7 +181,7 @@
 }
 
 .hrAuditRow__time {
-  font-size: 14px;
+  font-size: 13px;
   color: #2f2c39;
   text-align: right;
   white-space: nowrap;
@@ -193,7 +193,7 @@
 }
 
 .hrAuditModal {
-  width: min(860px, 96vw) !important;
+  width: min(760px, 96vw) !important;
   position: relative;
   isolation: isolate;
   background:
@@ -203,122 +203,51 @@
 
 @media (min-width: 1100px) {
   .hrAuditModal {
-    width: min(860px, calc(var(--contentW) - (var(--contentPadX) * 2))) !important;
+    width: min(760px, calc(var(--contentW) - (var(--contentPadX) * 2))) !important;
   }
 }
 
-.hrAuditModal__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.hrAuditModal__intro {
-  min-width: 0;
-  max-width: 680px;
-}
-
-.hrAuditModal__header h2 {
-  margin: 0;
-  color: #251f37;
-  font-size: 26px;
-  font-weight: 900;
-  letter-spacing: -0.02em;
-}
-
-.hrAuditModal__header p {
-  margin: 10px 0 0;
-  color: #625b72;
-  font-size: 15px;
-  line-height: 1.5;
-  font-weight: 700;
-}
-
-.hrAuditModal__meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  margin-top: 16px;
-}
-
-.hrAuditModal__time {
-  color: #4d465c;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.hrAuditModal__rule {
-  height: 1px;
-  margin-top: 18px;
-  background: linear-gradient(90deg, rgba(93, 66, 129, 0.14) 0%, rgba(93, 66, 129, 0.06) 100%);
-}
-
-.hrAuditModal__rule.is-subtle {
-  margin-top: 22px;
-}
-
-.hrAuditModal__grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  margin-top: 20px;
-}
-
-.hrAuditModal__card {
+.hrAuditModal__form {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 16px 18px;
-  border-radius: 16px;
-  border: 1px solid rgba(68, 42, 102, 0.12);
-  background: #fbfafe;
 }
 
-.hrAuditModal__card.is-emphasis {
-  border-color: rgba(109, 63, 160, 0.22);
-  background: linear-gradient(180deg, rgba(248, 242, 255, 0.96) 0%, rgba(252, 249, 255, 0.98) 100%);
+.hrAuditModal__formRow {
+  margin-bottom: 8px;
 }
 
-.hrAuditModal__card span,
-.hrAuditModal__footerItem span {
-  color: #7c718f;
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 0.06em;
+.hrAuditModal__formRow:last-child {
+  margin-bottom: 0;
+}
+
+.hrAuditModal__formRow--2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.hrAuditModal__formRow label {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.hrAuditModal__formRow label > span:first-child {
+  color: var(--app-label-color);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
-.hrAuditModal__card strong,
-.hrAuditModal__footerItem strong {
-  color: #241f33;
-  font-size: 15px;
-  font-weight: 700;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-
-.hrAuditModal__footer {
-  display: grid;
-  gap: 12px;
-  margin-top: 18px;
-  padding-bottom: 4px;
-}
-
-.hrAuditModal__footerItem {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 14px 16px;
-  border-radius: 16px;
-  border: 1px solid rgba(68, 42, 102, 0.1);
-  background: #ffffff;
-  box-shadow: 0 10px 24px rgba(41, 24, 67, 0.05);
+.hrAuditModal__formRow textarea {
+  min-height: 132px;
+  resize: none;
 }
 
 .hrAuditModal__empty {
-  margin-top: 20px;
   padding: 16px;
   border-radius: 14px;
   background: #faf9fc;
@@ -354,7 +283,7 @@
 
   .hrAuditRow {
     grid-template-columns: 1fr;
-    gap: 6px;
+    gap: 8px;
   }
 
   .hrAuditRow__meta {
@@ -371,14 +300,7 @@
 
   .hrAuditRow__tagGroup {
     align-items: flex-start;
-  }
-
-  .hrAuditModal__grid {
-    grid-template-columns: 1fr;
-  }
-
-  .hrAuditModal__header {
-    flex-direction: column;
+    justify-content: flex-start;
   }
 
   .hrAuditModalBackdrop {
@@ -388,5 +310,9 @@
   .hrAuditModal {
     width: min(880px, 100%);
     padding: 22px;
+  }
+
+  .hrAuditModal__formRow--2 {
+    grid-template-columns: 1fr;
   }
 }

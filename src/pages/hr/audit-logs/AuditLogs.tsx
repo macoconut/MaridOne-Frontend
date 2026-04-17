@@ -76,15 +76,14 @@ type AuditEntry = {
   timestampValue: number;
   searchIndex: string;
   endpoint: string;
-  rawMessage: string;
   detailPayload: string | null;
-  rawMessageDisplay: string;
 };
 
-type AuditBreakdownItem = {
-  label: string;
-  value: string;
-  emphasis?: boolean;
+type AuditModalDetails = {
+  name: string;
+  username: string;
+  activity: string;
+  summary: string;
 };
 
 const SERVER_PAGE_SIZE = 200;
@@ -309,32 +308,23 @@ function cleanDetailMessage(message: string) {
   return normalized || null;
 }
 
-function parseBreakdownItems(detailPayload?: string | null) {
-  const lines = String(detailPayload ?? '')
+function readDetailPayloadValues(detailPayload?: string | null) {
+  return String(detailPayload ?? '')
     .split(/\r?\n/)
     .map((line) => line.trim())
-    .filter(Boolean);
-
-  return lines
-    .map((line) => {
+    .filter(Boolean)
+    .reduce((values, line) => {
       const separatorIndex = line.indexOf(':');
-      if (separatorIndex <= 0) return null;
+      if (separatorIndex <= 0) return values;
 
       const label = line.slice(0, separatorIndex).trim();
       const value = line.slice(separatorIndex + 1).trim();
-      if (!label || !value) return null;
-      if (/^endpoint$/i.test(label)) return null;
+      if (label && value) {
+        values.set(normalizeSearch(label), value);
+      }
 
-      return {
-        label,
-        value,
-        emphasis:
-          /^(Actor|Employee|Submitted By|Current Status|Change|Release Reason|Eligible For Rehire|Effective Date|Summary)$/i.test(
-            label
-          ),
-      } satisfies AuditBreakdownItem;
-    })
-    .filter(Boolean) as AuditBreakdownItem[];
+      return values;
+    }, new Map<string, string>());
 }
 
 function humanizeEnum(value?: string) {
@@ -343,17 +333,6 @@ function humanizeEnum(value?: string) {
     .replaceAll('_', ' ')
     .toLowerCase()
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function sanitizeRawAuditMessage(message?: string | null) {
-  const normalized = normalizeWhitespace(message ?? undefined);
-  if (!normalized) return 'No raw message available.';
-
-  return normalized
-    .replace(/\s*Endpoint:\s*\/api\/[^\s.]+\.?/gi, '.')
-    .replace(/\.\.+/g, '.')
-    .replace(/\s+\./g, '.')
-    .trim();
 }
 
 function isDuplicateAuditSummary(title: string, detail: string) {
@@ -793,8 +772,6 @@ function toAuditEntry(
     recordedAt: formatDateTime(row.timestamp),
     timestampValue,
     endpoint,
-    rawMessage: row.message ?? '',
-    rawMessageDisplay: sanitizeRawAuditMessage(row.message),
     detailPayload: row.detailPayload ?? null,
     searchIndex: toSearchIndex([
       row.activityId,
@@ -979,14 +956,24 @@ export default function HrAuditLogs() {
     () => visibleEntries.find((entry) => entry.id === selectedEntryId) ?? null,
     [selectedEntryId, visibleEntries]
   );
-  const selectedBreakdownItems = useMemo(
-    () => parseBreakdownItems(selectedEntry?.detailPayload),
-    [selectedEntry?.detailPayload]
-  );
-  const showSelectedEntrySummary = useMemo(
-    () => Boolean(selectedEntry?.detail) && !isDuplicateAuditSummary(selectedEntry?.title ?? '', selectedEntry?.detail ?? ''),
-    [selectedEntry?.detail, selectedEntry?.title]
-  );
+  const selectedEntryDetails = useMemo<AuditModalDetails | null>(() => {
+    if (!selectedEntry) return null;
+
+    const detailValues = readDetailPayloadValues(selectedEntry.detailPayload);
+    const name = detailValues.get('name') ?? detailValues.get('actor') ?? selectedEntry.actorName;
+    const username = detailValues.get('username') ?? selectedEntry.actorUsername;
+    const summaryValue = detailValues.get('summary') ?? selectedEntry.detail;
+
+    return {
+      name: normalizeWhitespace(name) || 'Unknown user',
+      username: normalizeWhitespace(username) || 'Unknown user',
+      activity: selectedEntry.activityLabel,
+      summary:
+        normalizeWhitespace(
+          isDuplicateAuditSummary(selectedEntry.title, summaryValue) ? selectedEntry.detail : summaryValue
+        ) || 'No summary is available for this audit entry yet.',
+    };
+  }, [selectedEntry]);
 
   function clearFilters() {
     setTypeFilter('all');
@@ -1114,9 +1101,10 @@ export default function HrAuditLogs() {
         <LargePopup
           open
           ariaLabel="Audit log details"
-          title={selectedEntry.title}
-          subtitle={showSelectedEntrySummary ? selectedEntry.detail ?? '' : ''}
-          size="md"
+          title="Detailed Audit Logs"
+          subtitle="Review user activity summaries across the system and see what actions were carried out."
+          size="lg"
+          className="hrAuditModal"
           onClose={() => setSelectedEntryId(null)}
           footer={(
             <button type="button" className="btn btn--ghost" onClick={() => setSelectedEntryId(null)}>
@@ -1124,40 +1112,36 @@ export default function HrAuditLogs() {
             </button>
           )}
         >
-          <div className="hrAuditModal__meta">
-            <span className={`hrAuditRow__badge hrAuditRow__badge--${selectedEntry.tone}`}>
-              {selectedEntry.activityLabel}
-            </span>
-            <span className="hrAuditRow__area">{selectedEntry.area}</span>
-            <span className="hrAuditModal__time">{selectedEntry.recordedAt}</span>
-          </div>
+          {selectedEntryDetails ? (
+            <div className="hrAuditModal__form">
+              <div className="hrAuditModal__formRow hrAuditModal__formRow--2">
+                <label>
+                  <span>Name:</span>
+                  <input value={selectedEntryDetails.name} readOnly />
+                </label>
+                <label>
+                  <span>Username:</span>
+                  <input value={selectedEntryDetails.username} readOnly />
+                </label>
+              </div>
 
-          <div className="hrAuditModal__rule" />
+              <div className="hrAuditModal__formRow">
+                <label>
+                  <span>Activity:</span>
+                  <input value={selectedEntryDetails.activity} readOnly />
+                </label>
+              </div>
 
-          {selectedBreakdownItems.length > 0 ? (
-            <div className="hrAuditModal__grid">
-              {selectedBreakdownItems.map((item) => (
-                <article
-                  key={`${selectedEntry.id}-${item.label}`}
-                  className={`hrAuditModal__card ${item.emphasis ? 'is-emphasis' : ''}`}
-                >
-                  <span>{item.label}</span>
-                  <strong>{item.value}</strong>
-                </article>
-              ))}
+              <div className="hrAuditModal__formRow">
+                <label>
+                  <span>Summary:</span>
+                  <textarea value={selectedEntryDetails.summary} readOnly />
+                </label>
+              </div>
             </div>
           ) : (
             <div className="hrAuditModal__empty">No detailed audit breakdown is available for this entry yet.</div>
           )}
-
-          <div className="hrAuditModal__rule is-subtle" />
-
-          <div className="hrAuditModal__footer">
-            <div className="hrAuditModal__footerItem">
-              <span>Stored Audit Message</span>
-              <strong>{selectedEntry.rawMessageDisplay}</strong>
-            </div>
-          </div>
         </LargePopup>
       ) : null}
     </div>

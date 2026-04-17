@@ -92,31 +92,13 @@
   font-weight: 500;
 }
 
-.hrPayPeriod__meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-}
-
 .hrPayPeriod__actions {
   display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
-}
-
-.hrPayPill {
-  border-radius: 999px;
-  padding: 8px 14px;
-  background: rgba(123, 74, 143, 0.12);
-  color: var(--hr-primary-dark);
-  font-size: 16px;
-  font-weight: 900;
-}
-
-.hrPayPill--status {
-  background: #f6f1ff;
 }
 
 .hrPayPanel {
@@ -170,6 +152,54 @@
   width: 100%;
   flex: 0 1 auto;
   text-align: center;
+}
+
+.hrPayPanel__runPager {
+  grid-column: 1;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.hrPayPanel__runPagerBtn {
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+  min-height: 38px;
+  border: 1px solid rgba(123, 74, 143, 0.16);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--hr-primary-dark);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(49, 34, 74, 0.08);
+  transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+
+.hrPayPanel__runPagerBtn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(123, 74, 143, 0.28);
+  background: #fbf8fe;
+  box-shadow: 0 10px 22px rgba(49, 34, 74, 0.1);
+}
+
+.hrPayPanel__runPagerBtn:disabled {
+  opacity: 0.46;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.hrPayPanel__runPagerLabel {
+  color: #5b536d;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .hrPayPanel__headRow--centered .hrPayPanel__tools {
@@ -245,7 +275,7 @@
 
 .hrPayRunTable__head,
 .hrPayRunTable__row {
-  min-width: 960px;
+  min-width: 860px;
   display: grid;
   grid-template-columns:
     minmax(110px, 0.6fr)
@@ -253,7 +283,7 @@
     minmax(130px, 0.78fr)
     minmax(130px, 0.78fr)
     minmax(130px, 0.78fr)
-    minmax(150px, 0.92fr);
+    32px;
   gap: 16px;
   align-items: center;
 }
@@ -280,8 +310,8 @@
   border-bottom: 1px solid rgba(59, 34, 87, 0.12);
 }
 
-.hrPayRunTable__headCell--action {
-  text-align: center;
+.hrPayRunTable__headCell--peek {
+  min-width: 0;
 }
 
 .hrPayRunTable__row {
@@ -302,23 +332,23 @@
   background: #f8f3fc;
 }
 
-.hrPayRunTable__cell--action {
+.hrPayRunTable__cell--peek {
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
 }
 
-.hrPayPreviewPill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 110px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: rgba(123, 74, 143, 0.12);
+.hrPayRunTable__peekIcon {
   color: #5d3676;
-  font-size: 13px;
-  font-weight: 800;
-  border: 1px solid rgba(123, 74, 143, 0.16);
+  font-size: 17px;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition: opacity 140ms ease, transform 140ms ease;
+}
+
+.hrPayRunTable__row:hover .hrPayRunTable__peekIcon,
+.hrPayRunTable__row:focus-visible .hrPayRunTable__peekIcon {
+  opacity: 1;
+  transform: translateX(0);
 }
 
 .mgrPendTable__row--waiting-adjustment {
@@ -405,14 +435,78 @@
 .hrPayModal__heading {
   min-width: 0;
 }
+
+.hrPayPopup .largePopup__body {
+  padding-right: 0;
+}
+
+.hrPayPopup .largePopup__body > * {
+  width: 100%;
+  min-width: 0;
+}
+
+.hrPayPopup .largePopup__body *,
+.hrPayPopup .largePopup__body *::before,
+.hrPayPopup .largePopup__body *::after {
+  box-sizing: border-box;
+}
+
+.largePopup.hrPayPopup--runSetup {
+  width: min(760px, 96vw);
+}
+
+.largePopup.hrPayPopup--manualLine {
+  width: min(860px, 96vw);
+}
+
+.largePopup.hrPayPopup--postRun {
+  width: min(620px, 96vw);
+}
+
+.largePopup.hrPayPopup--correction {
+  width: min(1040px, 96vw);
+}
+
+.largePopup.hrPayPopup--breakdown {
+  width: min(1040px, 96vw);
+}
+
+.largePopup.hrPayPopup--dispute {
+  width: min(1040px, 96vw);
+}
+
+.largePopup.hrPayPopup--breakdown .largePopup__body,
+.largePopup.hrPayPopup--correction .largePopup__body {
+  overflow-x: hidden;
+}
+
+.largePopup.hrPayPopup--correction .largePopup__body {
+  overflow-y: auto;
+  padding-right: 0;
+  scrollbar-gutter: auto;
+}
+
+.hrPayPopup .hrPayModal {
+  width: 100% !important;
+  max-height: none !important;
+  overflow: visible !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  animation: none !important;
+  will-change: auto !important;
+}
+
 .hrPayModal__grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px 16px;
 }
 
 .hrPayModal__grid--compact {
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .hrPayModal__grid--manualLine {
@@ -535,6 +629,28 @@
   gap: 12px;
 }
 
+.hrPayModal,
+.hrPayModal > *,
+.hrPayModal__grid,
+.hrPayModal__grid > *,
+.hrPayModal__area,
+.hrPayCorrectionSummary,
+.hrPayCorrectionSummary > *,
+.hrPayCorrectionPicker,
+.hrPayCorrectionAction,
+.hrPayCorrectionAction > *,
+.hrPayBreakdown,
+.hrPayBreakdown > *,
+.hrPayBreakdown__row > *,
+.hrPayBreakdownTotals,
+.hrPayBreakdownTotals > *,
+.hrApprAttachment,
+.hrApprAttachment > *,
+.decisionPicker,
+.decisionPicker > * {
+  min-width: 0;
+}
+
 .hrPayBreakdownTotals__card {
   border: 1px solid rgba(123, 74, 143, 0.14);
   border-radius: 14px;
@@ -580,6 +696,8 @@
 }
 
 .hrPayModal__area textarea {
+  width: 100%;
+  max-width: 100%;
   min-height: 96px;
   resize: vertical;
   padding: 10px 12px;
@@ -803,7 +921,7 @@
 .hrPayCorrectionAction {
   margin-top: 16px;
   display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
   gap: 14px;
 }
 
@@ -853,7 +971,7 @@
 .hrPayBreakdown {
   margin-top: 16px;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -922,6 +1040,7 @@
 
 .hrPayBreakdown__amounts {
   display: grid;
+  min-width: 0;
   justify-items: end;
   gap: 4px;
   text-align: right;
@@ -1040,6 +1159,11 @@
     align-items: stretch;
   }
 
+  .hrPayPanel__runPager {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   .hrPayPanel__headRow .uiEmployeeSort,
   .hrPayPanel__headRow .uiEmployeeSort .uiEmployeeSort__toggle {
     width: 100%;
@@ -1047,7 +1171,7 @@
 
   .hrPayPeriod__actions {
     width: 100%;
-    justify-content: stretch;
+    justify-content: flex-start;
   }
 
   .hrPayToolbar {
@@ -1094,6 +1218,11 @@
 }
 
 @media (max-width: 700px) {
+  .hrPayPeriod__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .hrPay__runBtn {
     width: 100%;
   }

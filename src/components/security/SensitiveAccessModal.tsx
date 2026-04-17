@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { FiEye, FiEyeOff } from 'react-icons/fi';
 import LargePopup from '../dialog/LargePopup';
 import { verifySensitiveAccess } from '../../lib/sensitiveAccess';
 import { getFriendlyErrorMessage } from '../../lib/uiErrors';
@@ -17,6 +18,7 @@ export default function SensitiveAccessModal({
   notice,
 }: SensitiveAccessModalProps) {
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -24,6 +26,7 @@ export default function SensitiveAccessModal({
     if (!open) return undefined;
     setErrorMessage('');
     setPassword('');
+    setShowPassword(false);
     return undefined;
   }, [open]);
 
@@ -56,7 +59,7 @@ export default function SensitiveAccessModal({
       ariaLabel="Sensitive access verification"
       title="Verify Before Viewing"
       subtitle={
-        notice || 'This HR action exposes protected employee information. Verify your identity before continuing.'
+        notice || 'Enter your password to continue with this protected HR action.'
       }
       size="md"
       onClose={onClose}
@@ -73,16 +76,27 @@ export default function SensitiveAccessModal({
         </>
       )}
     >
-      <label className="sensitiveAccessModal__field">
-        <span>Enter Password</span>
-        <input
-          type="password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          placeholder="Enter your password"
-          autoComplete="current-password"
-        />
-      </label>
+      <div className="sensitiveAccessModal__field">
+        <div className="sensitiveAccessModal__inputWrap">
+          <input
+            type={showPassword ? 'text' : 'password'}
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="Enter your password"
+            aria-label="Password"
+            autoComplete="current-password"
+          />
+          <button
+            type="button"
+            className="sensitiveAccessModal__toggle"
+            onClick={() => setShowPassword((value) => !value)}
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+            disabled={submitting}
+          >
+            {showPassword ? <FiEyeOff /> : <FiEye />}
+          </button>
+        </div>
+      </div>
 
       {errorMessage ? <div className="sensitiveAccessModal__error">{errorMessage}</div> : null}
     </LargePopup>

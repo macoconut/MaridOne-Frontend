@@ -1690,13 +1690,6 @@ export default function HrManageEmp() {
 
     return (
       <>
-        <div className="hrEmpLeaveBalance__create">
-          <div className="hrEmpLeaveBalance__createHead">
-            <strong>Standard balances are created automatically</strong>
-            <span>Use this section for corrections and for adding special leave types only when the employee is eligible.</span>
-          </div>
-        </div>
-
         {orderedLeaveBalances.length > 0 ? (
           <div className="hrEmpLeaveBalance__list">
             {orderedLeaveBalances.map((balance) => {
@@ -1841,18 +1834,27 @@ export default function HrManageEmp() {
 
     return (
       <>
-        <div className="hrEmpDetails__hero">
-          <div className="hrEmpDetails__heroText">
-            <span className="hrEmpDetails__eyebrow">Employee Profile</span>
-            <strong>{row.name}</strong>
-            <span>Employee ID {row.id}</span>
+        <section className="hrEmpDetails__card hrEmpDetails__card--full">
+          <h3>Name and ID</h3>
+          <div className="hrEmpDetails__items">
+            <div className="hrEmpDetails__item">
+              <span>First Name</span>
+              <strong>{displayValue(details.firstName)}</strong>
+            </div>
+            <div className="hrEmpDetails__item">
+              <span>Middle Name</span>
+              <strong>{displayValue(details.middleName)}</strong>
+            </div>
+            <div className="hrEmpDetails__item">
+              <span>Last Name</span>
+              <strong>{displayValue(details.lastName)}</strong>
+            </div>
+            <div className="hrEmpDetails__item">
+              <span>Employee ID</span>
+              <strong>{row.id}</strong>
+            </div>
           </div>
-          <div className="hrEmpDetails__badges">
-            <span>{displayValue(details.position ?? row.position)}</span>
-            <span>{formatEmploymentStatusLabel(details.employmentStatus ?? row.status)}</span>
-            <span>{displayValue(details.exemptionStatus)}</span>
-          </div>
-        </div>
+        </section>
 
         <div className="hrEmpDetails__grid">
           <section className="hrEmpDetails__card">
@@ -2268,7 +2270,7 @@ export default function HrManageEmp() {
               onActivate={() =>
                 sensitiveAccess.requestVerification(
                   async () => Promise.resolve(),
-                  'Verify sensitive access to unlock employee management.'
+                  'Enter your password to unlock employee management.'
                 )
               }
             />
@@ -2490,6 +2492,7 @@ export default function HrManageEmp() {
           title="EMPLOYEE DETAILS"
           subtitle="Review the full employee profile, account information, and employment details in one view."
           size="xl"
+          className="hrEmpPopup hrEmpPopup--details"
           onClose={closeDetailsDialog}
           dismissOnBackdrop
         >
@@ -2530,6 +2533,7 @@ export default function HrManageEmp() {
                 : 'Confirm the selected employee and document the release details before updating the employment status.'
           }
           size="xl"
+          className={`hrEmpPopup hrEmpPopup--editor${modal === 'add' ? ' hrEmpPopup--add' : ''}${modal === 'edit' ? ' hrEmpPopup--edit' : ''}${modal === 'delete' ? ' hrEmpPopup--delete' : ''}`}
           onClose={requestCloseModal}
           closeDisabled={isSaving}
           footer={(
@@ -2552,19 +2556,33 @@ export default function HrManageEmp() {
                         <div className="hrEmpDelete__summary">
                           <span className="hrEmpDelete__summaryLabel">Employee on record</span>
                           <strong>{selectedEmployee ? selectedEmployee.name : 'No employee selected yet'}</strong>
-                          <span>
-                            {selectedEmployee
-                              ? `Employee ID ${selectedEmployee.id} | ${selectedEmployee.username === '-' ? 'No username yet' : selectedEmployee.username} | ${selectedEmployee.position} | ${formatEmploymentStatusLabel(selectedEmployee.status)}`
-                              : 'Select a valid employee record before recording the separation.'}
-                          </span>
+                          {selectedEmployee ? (
+                            <div className="hrEmpDelete__summaryGrid">
+                              <div className="hrEmpDelete__summaryItem">
+                                <span>Employee ID</span>
+                                <strong>{selectedEmployee.id}</strong>
+                              </div>
+                              <div className="hrEmpDelete__summaryItem">
+                                <span>Role</span>
+                                <strong>{displayValue(selectedEmployee.position)}</strong>
+                              </div>
+                              {selectedEmployee.department && selectedEmployee.department !== '-' ? (
+                                <div className="hrEmpDelete__summaryItem">
+                                  <span>Department</span>
+                                  <strong>{selectedEmployee.department}</strong>
+                                </div>
+                              ) : null}
+                              <div className="hrEmpDelete__summaryItem">
+                                <span>Status</span>
+                                <strong>{formatEmploymentStatusLabel(selectedEmployee.status)}</strong>
+                              </div>
+                            </div>
+                          ) : (
+                            <span>Select a valid employee record before recording the separation.</span>
+                          )}
                         </div>
 
                         <div className="hrEmpForm__grid hrEmpForm__grid--delete">
-                          <div className="hrEmpField">
-                            <label>Employee ID</label>
-                            <input value={form.employeeId} readOnly placeholder="Employee ID" />
-                          </div>
-
                           <div className="hrEmpField">
                             <label>Separation Reason</label>
                             <select

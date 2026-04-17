@@ -324,7 +324,7 @@
 
 .hrEmpDetails--dialog {
   overflow-y: auto;
-  padding: 0 4px 4px 0;
+  padding: 0;
 }
 
 .hrEmpDetails__feedback {
@@ -335,60 +335,6 @@
 
 .hrEmpDetails__feedback.is-error {
   color: #b24651;
-}
-
-.hrEmpDetails__hero {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 14px;
-  flex-wrap: wrap;
-  margin-bottom: 14px;
-}
-
-.hrEmpDetails__heroText {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.hrEmpDetails__eyebrow {
-  color: #7a668e;
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.hrEmpDetails__heroText strong {
-  color: var(--hr-primary-dark);
-  font-size: 20px;
-  font-weight: 900;
-  letter-spacing: -0.02em;
-}
-
-.hrEmpDetails__heroText span:last-child {
-  color: #5e5671;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.hrEmpDetails__badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.hrEmpDetails__badges span {
-  border: 1px solid rgba(123, 74, 143, 0.14);
-  border-radius: 999px;
-  background: #ffffff;
-  padding: 6px 10px;
-  color: #5d4372;
-  font-size: 12px;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 .hrEmpDetails__grid {
@@ -407,6 +353,10 @@
 
 .hrEmpDetails__card--full {
   grid-column: 1 / -1;
+}
+
+.hrEmpDetails > .hrEmpDetails__card--full:first-child {
+  margin-bottom: 12px;
 }
 
 .hrEmpDetails__card h3 {
@@ -743,8 +693,8 @@
 }
 
 .hrEmpRow__action {
-  border: 1px solid rgba(62, 35, 94, 0.12);
-  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--app-muted, #5b536d);
   min-width: 42px;
   height: 36px;
@@ -755,14 +705,22 @@
   justify-content: center;
   font-size: 16px;
   cursor: pointer;
-  box-shadow: 0 8px 18px rgba(36, 24, 52, 0.06);
-  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease-out, border-color 0.2s ease;
+  box-shadow: none;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease-out,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
-.hrEmpRow__action:hover {
+.hrEmpRow__action:hover,
+.hrEmpRow__action:focus-visible {
+  outline: none;
   background: var(--app-soft-fill, rgba(123, 74, 143, 0.1));
   border-color: rgba(123, 74, 143, 0.22);
   color: var(--app-accent-dark, #2a1247);
+  box-shadow: 0 8px 18px rgba(36, 24, 52, 0.06);
   transform: translateY(-1px);
 }
 
@@ -770,8 +728,11 @@
   color: #a63f4d;
 }
 
-.hrEmpRow__action--danger:hover {
+.hrEmpRow__action--danger:hover,
+.hrEmpRow__action--danger:focus-visible {
   background: rgba(166, 63, 77, 0.1);
+  border-color: rgba(166, 63, 77, 0.18);
+  box-shadow: 0 8px 18px rgba(36, 24, 52, 0.06);
   color: #8f1f34;
 }
 
@@ -893,7 +854,40 @@
   flex-direction: column;
   gap: 12px;
   overflow-y: auto;
-  padding-right: 6px;
+  padding-right: 0;
+}
+
+.hrEmpPopup .largePopup__body {
+  padding-right: 0;
+}
+
+.hrEmpPopup--add .largePopup__rule {
+  height: 1px;
+  background: linear-gradient(90deg, rgba(123, 74, 143, 0.18), rgba(123, 74, 143, 0.1), transparent);
+  margin: 16px 0 12px;
+}
+
+.hrEmpPopup .largePopup__body > * {
+  width: 100%;
+  min-width: 0;
+}
+
+.hrEmpPopup .largePopup__body,
+.hrEmpPopup .largePopup__body * {
+  box-sizing: border-box;
+}
+
+.hrEmpPopup .hrEmpModal {
+  width: 100% !important;
+  max-height: none !important;
+  overflow: visible !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  animation: none !important;
+  will-change: auto !important;
 }
 
 .hrEmpForm__section {
@@ -924,7 +918,7 @@
 }
 
 .hrEmpForm__grid--delete {
-  grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
 }
 
@@ -1048,6 +1042,40 @@
   font-size: 19px;
   font-weight: 900;
   letter-spacing: -0.02em;
+}
+
+.hrEmpDelete__summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+}
+
+.hrEmpDelete__summaryItem {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid rgba(178, 70, 81, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.hrEmpDelete__summaryItem span {
+  color: #8d4350;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hrEmpDelete__summaryItem strong {
+  color: var(--hr-text);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .hrEmpDelete__summary span:last-child {

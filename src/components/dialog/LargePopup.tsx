@@ -10,6 +10,7 @@ type LargePopupProps = {
   title: string;
   subtitle?: string;
   size: 'md' | 'lg' | 'xl';
+  className?: string;
   onClose: () => void;
   closeDisabled?: boolean;
   dismissOnBackdrop?: boolean;
@@ -23,6 +24,7 @@ export default function LargePopup({
   title,
   subtitle,
   size,
+  className,
   onClose,
   closeDisabled = false,
   dismissOnBackdrop = false,
@@ -52,7 +54,7 @@ export default function LargePopup({
       onClick={handleBackdropClick}
     >
       <section
-        className={`largePopup largePopup--${size}${popupPresence.isClosing ? ' is-closing' : ''}`}
+        className={`largePopup largePopup--${size}${className ? ` ${className}` : ''}${popupPresence.isClosing ? ' is-closing' : ''}`}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="largePopup__top">

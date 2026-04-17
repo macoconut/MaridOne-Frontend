@@ -858,6 +858,7 @@ export default function AccountingPayrollReview() {
           title={`${formatEmployeeName(selectedBreakdownItem)} - Payslip Breakdown`}
           subtitle="Review the current earnings, deductions, and totals before posting this in-progress payroll item."
           size="lg"
+          className="aReviewRunPopup aReviewRunPopup--breakdown"
           onClose={closeBreakdownModal}
           footer={(
             <button type="button" className="btn btn--ghost" onClick={closeBreakdownModal}>

@@ -687,6 +687,15 @@
   gap: 12px;
 }
 
+.largePopup.aReviewRunPopup--breakdown .largePopup__body {
+  gap: 12px;
+}
+
+.aReviewRunPopup--breakdown .aReviewRunBreakdownTotals {
+  margin-top: 0;
+  gap: 10px;
+}
+
 .aReviewRunBreakdownTotals__card {
   border: 1px solid rgba(123, 74, 143, 0.14);
   border-radius: 14px;
@@ -714,6 +723,11 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 14px;
+}
+
+.aReviewRunPopup--breakdown .aReviewRunBreakdown {
+  margin-top: 0;
+  gap: 10px;
 }
 
 .aReviewRunBreakdown__section {
