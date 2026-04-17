@@ -82,9 +82,15 @@ export default function SensitiveAccessModal({
             type={showPassword ? 'text' : 'password'}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !submitting) {
+                void handleSubmit();
+              }
+            }}
             placeholder="Enter your password"
             aria-label="Password"
             autoComplete="current-password"
+            disabled={submitting}
           />
           <button
             type="button"

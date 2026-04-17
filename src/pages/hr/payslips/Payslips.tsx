@@ -1054,8 +1054,8 @@ export default function HrPayslips() {
   const confirmRunCancelLabel = hasOngoingRunConflict ? 'Keep Current Run' : 'Go Back';
 
   const currentPayPeriod = useMemo(() => {
-    return formatDate(displayedPeriodEnd);
-  }, [displayedPeriodEnd]);
+    return formatDate(currentRun?.paymentDate ?? runForm.paymentDate);
+  }, [currentRun?.paymentDate, runForm.paymentDate]);
   const todayIsoDate = useMemo(() => getTodayIsoDate(), []);
   const normalizedDisputeSearch = normalizeText(disputeSearchValue);
   const canReviewSelectedDispute = selectedDispute ? selectedDispute.statusCode === 'PENDING' : false;
