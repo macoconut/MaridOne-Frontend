@@ -2239,8 +2239,8 @@ export default function Attendance() {
                   const detailNotes = c.detailNotes ?? [];
                   const visibleDetailNotes =
                     detailNotes.length > MAX_VISIBLE_CALENDAR_LOGS
-                      ? detailNotes.slice(-MAX_VISIBLE_CALENDAR_LOGS)
-                      : detailNotes;
+                      ? detailNotes.slice(-MAX_VISIBLE_CALENDAR_LOGS).reverse()
+                      : [...detailNotes].reverse();
                   const hiddenDetailCount = Math.max(0, detailNotes.length - visibleDetailNotes.length);
                   const cellTitle = [...(c.statusNotes ?? []), ...(c.detailNotes ?? [])].join(' | ');
                   const cls = [
