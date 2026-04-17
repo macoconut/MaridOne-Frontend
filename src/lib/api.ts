@@ -11,6 +11,7 @@ import {
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
 let refreshPromise: Promise<boolean> | null = null;
+const inflightGetRequests = new Map<string, Promise<Response>>();
 
 export class ApiError extends Error {
   status: number;
@@ -185,6 +186,7 @@ async function refreshAccessToken(): Promise<boolean> {
 
 export async function apiFetchRaw(path: string, init: RequestInit = {}, allowRetry = true): Promise<Response> {
   const token = getAuthToken();
+  const method = String(init.method ?? 'GET').toUpperCase();
   const headers = new Headers(init.headers ?? {});
   const isFormDataBody = typeof FormData !== 'undefined' && init.body instanceof FormData;
 
@@ -201,28 +203,54 @@ export async function apiFetchRaw(path: string, init: RequestInit = {}, allowRet
     headers.set('X-Sensitive-Access-Token', sensitiveAccessToken);
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers,
-    credentials: 'include',
-  });
+  const requestUrl = `${API_BASE_URL}${path}`;
+  const canDeduplicateGet =
+    method === 'GET' &&
+    allowRetry &&
+    !init.body &&
+    !init.signal;
+  const requestKey = canDeduplicateGet ? `${method} ${requestUrl}` : null;
 
-  if (response.status === 401 && allowRetry && getRefreshToken()) {
-    const refreshed = await refreshAccessToken();
-    if (refreshed) {
-      return apiFetchRaw(path, init, false);
+  const performRequest = async () => {
+    const response = await fetch(requestUrl, {
+      ...init,
+      headers,
+      credentials: 'include',
+    });
+
+    if (response.status === 401 && allowRetry && getRefreshToken()) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        return apiFetchRaw(path, init, false);
+      }
+
+      redirectToLogin();
     }
 
-    redirectToLogin();
-  }
+    if (
+      response.status === 403 &&
+      getRequiresPasswordChange() &&
+      path !== '/api/user/password/change' &&
+      path !== '/api/auth/logout'
+    ) {
+      redirectToPasswordChange();
+    }
 
-  if (
-    response.status === 403 &&
-    getRequiresPasswordChange() &&
-    path !== '/api/user/password/change' &&
-    path !== '/api/auth/logout'
-  ) {
-    redirectToPasswordChange();
+    return response;
+  };
+
+  let response: Response;
+  if (requestKey) {
+    let pending = inflightGetRequests.get(requestKey);
+    if (!pending) {
+      pending = performRequest().finally(() => {
+        inflightGetRequests.delete(requestKey);
+      });
+      inflightGetRequests.set(requestKey, pending);
+    }
+    response = (await pending).clone();
+  } else {
+    response = await performRequest();
   }
 
   return response;

@@ -12,16 +12,18 @@ import {
 
 type UseNotificationPollingOptions = {
   intervalMs?: number;
+  focusRefreshCooldownMs?: number;
 };
 
 export function useNotificationPolling(
   role: NotificationRole,
   options: UseNotificationPollingOptions = {}
 ) {
-  const { intervalMs = 10000 } = options;
+  const { intervalMs = 10000, focusRefreshCooldownMs = 3000 } = options;
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const previousUnreadIdsRef = useRef<Set<string>>(new Set());
   const hasLoadedRef = useRef(false);
+  const lastLoadAtRef = useRef(0);
 
   useEffect(() => {
     installNotificationSoundPrimer();
@@ -29,6 +31,7 @@ export function useNotificationPolling(
 
   const loadNotifications = useCallback(async () => {
     try {
+      lastLoadAtRef.current = Date.now();
       const response = await apiFetchRaw('/api/notifications?page=0&size=20', {
         method: 'GET',
       });
@@ -97,13 +100,18 @@ export function useNotificationPolling(
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
+    const shouldLoadOnForeground = () => {
+      if (document.visibilityState !== 'visible') return false;
+      return Date.now() - lastLoadAtRef.current >= focusRefreshCooldownMs;
+    };
+
     const handleFocus = () => {
-      if (document.visibilityState !== 'visible') return;
+      if (!shouldLoadOnForeground()) return;
       void loadNotifications();
     };
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState !== 'visible') return;
+      if (!shouldLoadOnForeground()) return;
       void loadNotifications();
     };
 
@@ -114,7 +122,7 @@ export function useNotificationPolling(
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [loadNotifications]);
+  }, [focusRefreshCooldownMs, loadNotifications]);
 
   return {
     notifications,

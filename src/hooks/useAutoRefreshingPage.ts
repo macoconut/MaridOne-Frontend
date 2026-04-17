@@ -5,15 +5,22 @@ type UseAutoRefreshingPageOptions = {
   enabled?: boolean;
   intervalMs?: number;
   refreshOnFocus?: boolean;
+  focusRefreshCooldownMs?: number;
 };
 
 export function useAutoRefreshingPage(
   handler: () => void | Promise<void>,
   options: UseAutoRefreshingPageOptions = {}
 ) {
-  const { enabled = true, intervalMs = 10000, refreshOnFocus = true } = options;
+  const {
+    enabled = true,
+    intervalMs = 10000,
+    refreshOnFocus = true,
+    focusRefreshCooldownMs = 3000,
+  } = options;
   const handlerRef = useRef(handler);
   const isRefreshingRef = useRef(false);
+  const lastRefreshAtRef = useRef(0);
 
   useEffect(() => {
     handlerRef.current = handler;
@@ -24,6 +31,7 @@ export function useAutoRefreshingPage(
 
     isRefreshingRef.current = true;
     try {
+      lastRefreshAtRef.current = Date.now();
       await handlerRef.current();
     } finally {
       isRefreshingRef.current = false;
@@ -46,13 +54,18 @@ export function useAutoRefreshingPage(
   useEffect(() => {
     if (!enabled || !refreshOnFocus || typeof window === 'undefined') return;
 
+    const shouldRefreshOnForeground = () => {
+      if (document.visibilityState !== 'visible') return false;
+      return Date.now() - lastRefreshAtRef.current >= focusRefreshCooldownMs;
+    };
+
     const handleFocus = () => {
-      if (document.visibilityState !== 'visible') return;
+      if (!shouldRefreshOnForeground()) return;
       void refreshPage();
     };
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState !== 'visible') return;
+      if (!shouldRefreshOnForeground()) return;
       void refreshPage();
     };
 
@@ -63,7 +76,7 @@ export function useAutoRefreshingPage(
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [enabled, refreshOnFocus, refreshPage]);
+  }, [enabled, refreshOnFocus, focusRefreshCooldownMs, refreshPage]);
 
   return refreshPage;
 }
