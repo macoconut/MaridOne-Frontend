@@ -42,6 +42,9 @@ function fromLeaveMessage(error: ApiError) {
   if (message.includes('no shift schedule')) {
     return 'Your work schedule is not set up yet, so the leave request cannot be processed.';
   }
+  if (message.includes('already started or passed')) {
+    return 'This leave request could not be submitted. Leave cannot be requested for a time window that has already started or passed.';
+  }
 
   return null;
 }
@@ -62,6 +65,9 @@ function fromOvertimeMessage(error: ApiError) {
   }
   if (message.includes('not pending')) {
     return 'This overtime request was already processed and cannot be updated again.';
+  }
+  if (message.includes('already started or passed')) {
+    return 'This overtime request could not be submitted. Overtime cannot be requested for a time window that has already started or passed.';
   }
   return null;
 }

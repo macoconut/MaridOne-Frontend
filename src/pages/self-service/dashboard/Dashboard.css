@@ -681,13 +681,15 @@
 
 .announcementModal__detailRow--description{
   gap: 4px;
+  margin-top: 8px;
 }
 
 .announcementModal__detailLabel{
-  color: #6d5f85;
-  font-size: 11px;
+  color: #4b2d73;
+  font-size: 12px;
   font-weight: 900;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.11em;
+  line-height: 1.1;
   text-transform: uppercase;
 }
 

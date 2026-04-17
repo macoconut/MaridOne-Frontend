@@ -1001,37 +1001,39 @@ export default function Payslip() {
           </>
         )}
       >
-        <div className="payModal__row">
-          <label>Dispute Type:</label>
-          <select value={disputeSubject} onChange={(e) => setDisputeSubject(e.target.value)}>
-            <option>Overtime pay dispute</option>
-            <option>Attendance issue dispute</option>
-            <option>Absent deduction dispute</option>
-            <option>General payroll dispute</option>
-          </select>
-        </div>
+        <div className="payDisputeForm">
+          <div className="payModal__row">
+            <label>Dispute Type:</label>
+            <select value={disputeSubject} onChange={(e) => setDisputeSubject(e.target.value)}>
+              <option>Overtime pay dispute</option>
+              <option>Attendance issue dispute</option>
+              <option>Absent deduction dispute</option>
+              <option>General payroll dispute</option>
+            </select>
+          </div>
 
-        <div className="payModal__row payModal__row--col">
-          <label>Reason for Dispute:</label>
-          <textarea
-            placeholder="Describe your dispute..."
-            value={disputeReason}
-            aria-invalid={disputeSubmitAttempted && disputeReason.trim().length < 5 ? 'true' : undefined}
-            onChange={(e) => setDisputeReason(e.target.value)}
-          />
-        </div>
+          <div className="payModal__row payModal__row--col">
+            <label>Reason for Dispute:</label>
+            <textarea
+              placeholder="Describe your dispute..."
+              value={disputeReason}
+              aria-invalid={disputeSubmitAttempted && disputeReason.trim().length < 5 ? 'true' : undefined}
+              onChange={(e) => setDisputeReason(e.target.value)}
+            />
+          </div>
 
-        <div className="payModal__row">
-          <FileUploadField
-            label="Supporting Documents (Required)"
-            hint="Upload screenshots, payroll references, or other supporting files that directly explain the issue."
-            file={disputeFile}
-            onChange={setDisputeFile}
-            invalid={disputeSubmitAttempted && !disputeFile}
-            uploadLabel="Upload Attachment"
-            replaceLabel="Replace Attachment"
-            emptyLabel="Attachment required"
-          />
+          <div className="payModal__row">
+            <FileUploadField
+              label="Supporting Documents (Required)"
+              hint="Upload screenshots, payroll references, or other supporting files that directly explain the issue."
+              file={disputeFile}
+              onChange={setDisputeFile}
+              invalid={disputeSubmitAttempted && !disputeFile}
+              uploadLabel="Upload Attachment"
+              replaceLabel="Replace Attachment"
+              emptyLabel="Attachment required"
+            />
+          </div>
         </div>
       </LargePopup>
       <ConfirmDialog

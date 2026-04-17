@@ -546,6 +546,16 @@
   margin-bottom: 20px;
 }
 
+.payDisputeForm{
+  display: flex;
+  flex-direction: column;
+}
+
+.payDisputeForm .payModal__row{
+  margin-bottom: 0;
+  margin-top: 0;
+}
+
 .payModal__row--col{
   grid-template-columns: 1fr;
 }

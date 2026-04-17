@@ -1384,13 +1384,13 @@ export default function Dashboard() {
                   ) : null}
                   <div className="announcementModal__details">
                     <div className="announcementModal__detailRow">
-                      <span className="announcementModal__detailLabel">Event Duration:</span>
+                      <strong className="announcementModal__detailLabel">Event Duration:</strong>
                       <strong className="announcementModal__detailValue">
                         {formatAnnouncementEventDuration(event.startDate, event.endDate)}
                       </strong>
                     </div>
                     <div className="announcementModal__detailRow announcementModal__detailRow--description">
-                      <span className="announcementModal__detailLabel">Description:</span>
+                      <strong className="announcementModal__detailLabel">Description:</strong>
                       <p className="announcementModal__detailValue announcementModal__detailValue--description">
                         {event.description || 'No description provided for this announcement yet.'}
                       </p>
@@ -1525,11 +1525,6 @@ export default function Dashboard() {
             </label>
           </div>
 
-          <div className="dashModal__helper">
-            {announcementDraft.title.trim().length}/120 title characters
-            {' · '}
-            {announcementDraft.description.trim().length}/500 description characters
-          </div>
         </LargePopup>
       )}
 

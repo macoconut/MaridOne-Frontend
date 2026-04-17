@@ -269,14 +269,14 @@
 .apprModal__content{
   display:flex;
   flex-direction:column;
-  gap: 16px;
-  margin-top:16px;
+  gap: 12px;
+  margin-top: 0;
 }
 
 .apprModal__tilesWrapper{
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
 }
 
 .apprModal__tilesRow{

@@ -746,6 +746,7 @@ export default function Approval() {
       </section>
 
       <LargePopup
+        key={selectedApproval?.id ?? 'approval-details'}
         open={Boolean(selectedApproval)}
         ariaLabel="Approval details"
         title={
@@ -773,8 +774,6 @@ export default function Approval() {
       >
         {selectedApproval ? (
           <>
-            <div className={`apprModal__statusTone apprModal__statusTone--${approvalStatusTone(selectedApproval.status)}`} />
-
             <div className="apprModal__content">
               <div className="apprModal__tilesWrapper">
                 <div className="apprModal__tilesRow">

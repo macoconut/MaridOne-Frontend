@@ -1,8 +1,8 @@
 import { useLoading } from '../../../context/useLoading';
 import type { CSSProperties } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import './Attendance.css';
-import { FiCalendar, FiCheckCircle, FiChevronLeft, FiChevronRight, FiClock, FiDownload, FiPlusSquare, FiPrinter, FiXCircle } from 'react-icons/fi';
+import { FiCalendar, FiCheckCircle, FiChevronLeft, FiChevronRight, FiClock, FiDownload, FiInfo, FiPlusSquare, FiPrinter, FiXCircle } from 'react-icons/fi';
 import ActionButton from '../../../components/button/ActionButton';
 import FileUploadField from '../../../components/form/FileUploadField';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
@@ -83,7 +83,6 @@ type DayCell = {
   statusNotes?: string[];
   detailNotes?: string[];
   variant?: 'leave' | 'ot';
-  clickable?: boolean;
 };
 
 type AttendanceLog = {
@@ -145,6 +144,26 @@ type LeaveBalanceRow = {
 type LeaveShiftWindow = {
   start: Date;
   end: Date;
+};
+
+type LeaveDraftState = {
+  leaveType: LeaveType;
+  startDate: string;
+  startTime: string;
+  endDate: string;
+  endTime: string;
+  reason: string;
+  file: File | null;
+};
+
+type OvertimeDraftState = {
+  startDate: string;
+  endDate: string;
+  startTime: string;
+  endTime: string;
+  type: OvertimeType;
+  reason: string;
+  file: File | null;
 };
 
 const LEAVE_UPLOAD_SUBDIR = 'leave-request';
@@ -248,13 +267,12 @@ function subtractDays(dateValue: string, days: number) {
   return addDays(dateValue, -days);
 }
 
-function startOfWeekMonday(dateValue: string) {
+function startOfWeekSunday(dateValue: string) {
   if (!dateValue) return '';
   const date = new Date(`${dateValue}T12:00:00`);
   if (Number.isNaN(date.getTime())) return '';
   const day = date.getDay();
-  const offset = day === 0 ? -6 : 1 - day;
-  date.setDate(date.getDate() + offset);
+  date.setDate(date.getDate() - day);
   return toISODate(date.getFullYear(), date.getMonth(), date.getDate());
 }
 
@@ -400,6 +418,10 @@ function formatWeekdayDateLabel(value: string) {
     month: 'short',
     day: 'numeric',
   });
+}
+
+function buildScheduleWeekCacheKey(employeeId: number, weekStart: string) {
+  return `${employeeId}:${weekStart}`;
 }
 
 function toManilaDateParts(value: Date | string) {
@@ -759,6 +781,15 @@ export default function Attendance() {
   const [endTime, setEndTime] = useState<string>('17:00');
   const [reason, setReason] = useState<string>('');
   const [file, setFile] = useState<File | null>(null);
+  const [leaveInitialDraft, setLeaveInitialDraft] = useState<LeaveDraftState>({
+    leaveType: 'SICK_LEAVE',
+    startDate: '',
+    startTime: '08:00',
+    endDate: '',
+    endTime: '17:00',
+    reason: '',
+    file: null,
+  });
   const [submitError, setSubmitError] = useState('');
   const [isLeaveSubmitting, setIsLeaveSubmitting] = useState(false);
   const [isOtSubmitting, setIsOtSubmitting] = useState(false);
@@ -789,26 +820,32 @@ export default function Attendance() {
   const [otType, setOtType] = useState<OvertimeType>('OVERTIME');
   const [otReason, setOtReason] = useState<string>('');
   const [otFile, setOtFile] = useState<File | null>(null);
+  const [otInitialDraft, setOtInitialDraft] = useState<OvertimeDraftState>({
+    startDate: '',
+    endDate: '',
+    startTime: '17:00',
+    endTime: '20:00',
+    type: 'OVERTIME',
+    reason: '',
+    file: null,
+  });
   const [otSubmitError, setOtSubmitError] = useState('');
   const [otSubmitAttempted, setOtSubmitAttempted] = useState(false);
-  const [requestViewOpen, setRequestViewOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
-  const [requestViewDate, setRequestViewDate] = useState<string>('');
-  const [selectedDateKey, setSelectedDateKey] = useState<string>('');
   const [isClocking, setIsClocking] = useState(false);
   const [clockError, setClockError] = useState('');
   const [confirmClockAction, setConfirmClockAction] = useState<'TIME_IN' | 'TIME_OUT' | null>(null);
   const [confirmLeaveSubmit, setConfirmLeaveSubmit] = useState(false);
   const [confirmOtSubmit, setConfirmOtSubmit] = useState(false);
   const [latestAttendanceDirection, setLatestAttendanceDirection] = useState<'IN' | 'OUT' | null>(null);
-  const currentScheduleWeekStart = useMemo(() => startOfWeekMonday(todayKey), [todayKey]);
+  const currentScheduleWeekStart = useMemo(() => startOfWeekSunday(todayKey), [todayKey]);
   const [selectedScheduleWeekStart, setSelectedScheduleWeekStart] = useState(currentScheduleWeekStart);
+  const scheduleWeekCacheRef = useRef<Map<string, DailyShiftRow[]>>(new Map());
   const [overtimeRequests, setOvertimeRequests] = useState<OvertimeRequestRow[]>([]);
   useErrorDialogEffect(clockError, 'Attendance action failed');
   useErrorDialogEffect(otSubmitError, 'Overtime request could not be submitted');
   useErrorDialogEffect(submitError, 'Leave request could not be submitted');
   useErrorDialogEffect(timecardActionError, 'Timecard action failed');
-  useEscapeDismiss(requestViewOpen, closeRequestView, 10);
   useEscapeDismiss(scheduleOpen, closeSchedule, 10);
   useEffect(() => {
     setSelectedScheduleWeekStart(currentScheduleWeekStart);
@@ -834,22 +871,22 @@ export default function Attendance() {
   const isOtReasonInvalid = otSubmitAttempted && otReason.trim().length < 5;
   const isLeaveDirty =
     leaveOpen &&
-    (leaveType !== 'SICK_LEAVE' ||
-      startDate !== todayKey ||
-      startTime !== '08:00' ||
-      endDate !== todayKey ||
-      endTime !== '17:00' ||
-      reason.trim().length > 0 ||
-      file !== null);
+    (leaveType !== leaveInitialDraft.leaveType ||
+      startDate !== leaveInitialDraft.startDate ||
+      startTime !== leaveInitialDraft.startTime ||
+      endDate !== leaveInitialDraft.endDate ||
+      endTime !== leaveInitialDraft.endTime ||
+      reason !== leaveInitialDraft.reason ||
+      file !== leaveInitialDraft.file);
   const isOtDirty =
     otOpen &&
-    (otStartDate !== todayKey ||
-      otEndDate !== todayKey ||
-      otStartTime !== '17:00' ||
-      otEndTime !== '20:00' ||
-      otType !== 'OVERTIME' ||
-      otReason.trim().length > 0 ||
-      otFile !== null);
+    (otStartDate !== otInitialDraft.startDate ||
+      otEndDate !== otInitialDraft.endDate ||
+      otStartTime !== otInitialDraft.startTime ||
+      otEndTime !== otInitialDraft.endTime ||
+      otType !== otInitialDraft.type ||
+      otReason !== otInitialDraft.reason ||
+      otFile !== otInitialDraft.file);
   const leaveUnsavedPrompt = useUnsavedChangesPrompt({
     isOpen: leaveOpen,
     isDirty: isLeaveDirty,
@@ -875,6 +912,7 @@ export default function Attendance() {
     setDailyShiftSchedule([]);
     setLeaveDailyShiftSchedule([]);
     setTimecardDailyShiftSchedule([]);
+    scheduleWeekCacheRef.current.clear();
     setLeaveBalances([]);
     setLatestAttendanceDirection(null);
     setLeaveBalanceStatus('unavailable');
@@ -929,15 +967,6 @@ export default function Attendance() {
   useEffect(() => {
     setMonthValue(monthLabel);
   }, [monthLabel, monthIndex]);
-
-  useEffect(() => {
-    const manila = getManilaNow();
-    if (manila.year === year && manila.month - 1 === monthIndex) {
-      setSelectedDateKey(todayKey);
-    } else {
-      setSelectedDateKey('');
-    }
-  }, [monthIndex, todayKey, year]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1098,6 +1127,15 @@ export default function Attendance() {
         return;
       }
 
+      const cacheKey = buildScheduleWeekCacheKey(employeeId, selectedScheduleWeekStart);
+      const cachedWeek = scheduleWeekCacheRef.current.get(cacheKey);
+      if (cachedWeek) {
+        setDailyShiftSchedule(cachedWeek);
+        setScheduleWeekStatus('ready');
+        return;
+      }
+
+      setDailyShiftSchedule([]);
       setScheduleWeekStatus('loading');
 
       try {
@@ -1105,9 +1143,11 @@ export default function Attendance() {
         const response = await apiFetchJson<unknown>(
           `/api/employee/schedule/daily/${employeeId}?startDate=${selectedScheduleWeekStart}&endDate=${weekEnd}`
         );
+        const parsedRows = toArray<DailyShiftRow>(response);
+        scheduleWeekCacheRef.current.set(cacheKey, parsedRows);
 
         if (cancelled) return;
-        setDailyShiftSchedule(toArray<DailyShiftRow>(response));
+        setDailyShiftSchedule(parsedRows);
         setScheduleWeekStatus('ready');
       } catch {
         if (cancelled) return;
@@ -1195,19 +1235,11 @@ export default function Attendance() {
   }, [maxOtEndDate, otEndDate, otEndTime, otStartDate]);
 
   useEffect(() => {
-    if (leaveOpen || otOpen || requestViewOpen || scheduleOpen || confirmClockAction) document.body.classList.add('modal-open');
+    if (leaveOpen || otOpen || scheduleOpen || confirmClockAction) document.body.classList.add('modal-open');
     else document.body.classList.remove('modal-open');
 
     return () => document.body.classList.remove('modal-open');
-  }, [confirmClockAction, leaveOpen, otOpen, requestViewOpen, scheduleOpen]);
-
-  const approvedRequestDateKeys = useMemo(() => {
-    return new Set(
-      requestEntries
-        .filter((entry) => entry.status.toUpperCase() === 'APPROVED')
-        .map((entry) => entry.dateKey)
-    );
-  }, [requestEntries]);
+  }, [confirmClockAction, leaveOpen, otOpen, scheduleOpen]);
 
   const leaveBalancesByType = useMemo(() => {
     const next = new Map<string, LeaveBalanceRow>();
@@ -1336,6 +1368,7 @@ export default function Attendance() {
     return buildWeekDateKeys(selectedScheduleWeekStart).map((dateKey) => {
       const dailyShift = dailyShiftScheduleByDate.get(dateKey) ?? null;
       const templateShift = shiftScheduleByDayOfWeek.get(resolveDayOfWeek(dateKey)) ?? null;
+      const isToday = dateKey === todayKey;
 
       if (dailyShift?.dayOff) {
         return {
@@ -1343,6 +1376,7 @@ export default function Attendance() {
           label: formatWeekdayDateLabel(dateKey),
           detail: 'Day Off',
           variant: 'dayoff' as const,
+          isToday,
         };
       }
 
@@ -1363,6 +1397,7 @@ export default function Attendance() {
           label: formatWeekdayDateLabel(dateKey),
           detail: `${startValue} - ${endValue}`,
           variant: 'scheduled' as const,
+          isToday,
         };
       }
 
@@ -1371,9 +1406,20 @@ export default function Attendance() {
         label: formatWeekdayDateLabel(dateKey),
         detail: 'Day Off',
         variant: 'dayoff' as const,
+        isToday,
       };
     });
-  }, [dailyShiftScheduleByDate, selectedScheduleWeekStart, shiftScheduleByDayOfWeek]);
+  }, [dailyShiftScheduleByDate, selectedScheduleWeekStart, shiftScheduleByDayOfWeek, todayKey]);
+
+  const loadingWeekScheduleRows = useMemo(
+    () =>
+      buildWeekDateKeys(selectedScheduleWeekStart).map((dateKey) => ({
+        dateKey,
+        label: formatWeekdayDateLabel(dateKey),
+        isToday: dateKey === todayKey,
+      })),
+    [selectedScheduleWeekStart, todayKey]
+  );
 
   const selectedLeaveBalance = leaveBalancesByType.get(leaveType) ?? null;
   const selectedLeaveBalanceLabel =
@@ -1510,14 +1556,12 @@ export default function Attendance() {
       const statusNotes: string[] = [];
       const detailNotes: string[] = [];
       let variant: DayCell['variant'] | undefined;
-      let clickable = false;
 
       if (approvedDayRequests.length > 0) {
         variant = approvedDayRequests.some((entry) => entry.kind === 'LEAVE') ? 'leave' : 'ot';
         for (const entry of approvedDayRequests) {
           statusNotes.push(entry.kind === 'OT' ? 'Overtime' : 'Leave');
         }
-        clickable = true;
       }
 
       const hasApprovedLeave = approvedDayRequests.some(
@@ -1533,7 +1577,6 @@ export default function Attendance() {
         statusNotes: statusNotes.length > 0 ? statusNotes : undefined,
         detailNotes: detailNotes.length > 0 ? detailNotes : undefined,
         variant,
-        clickable,
       });
     }
 
@@ -1568,14 +1611,24 @@ export default function Attendance() {
     const times = (dailyShift && !dailyShift.dayOff && dailyShift.startDateTime && dailyShift.endDateTime)
       ? { start: dailyShift.startDateTime.slice(11, 16), end: dailyShift.endDateTime.slice(11, 16) }
       : { start: '08:00', end: '17:00' };
+    const nextDraft: LeaveDraftState = {
+      leaveType: 'SICK_LEAVE',
+      startDate: iso,
+      startTime: times.start,
+      endDate: iso,
+      endTime: times.end,
+      reason: '',
+      file: null,
+    };
 
-    setStartDate(iso);
-    setStartTime(times.start);
-    setEndDate(iso);
-    setEndTime(times.end);
-    setLeaveType('SICK_LEAVE');
-    setReason('');
-    setFile(null);
+    setStartDate(nextDraft.startDate);
+    setStartTime(nextDraft.startTime);
+    setEndDate(nextDraft.endDate);
+    setEndTime(nextDraft.endTime);
+    setLeaveType(nextDraft.leaveType);
+    setReason(nextDraft.reason);
+    setFile(nextDraft.file);
+    setLeaveInitialDraft(nextDraft);
     setSubmitError('');
     setLeaveSubmitAttempted(false);
     setLeaveOpen(true);
@@ -1602,16 +1655,6 @@ export default function Attendance() {
     setLeaveOpen(false);
   }
 
-  function openRequestForDay(day: number) {
-    const key = toISODate(year, monthIndex, day);
-    setRequestViewDate(key);
-    setRequestViewOpen(true);
-  }
-
-  function closeRequestView() {
-    setRequestViewOpen(false);
-  }
-
   function openSchedule() {
     setSelectedScheduleWeekStart(currentScheduleWeekStart);
     setScheduleOpen(true);
@@ -1626,13 +1669,23 @@ export default function Attendance() {
     const manila = getManilaNow();
     const iso = manila.dateKey;
     const times = resolveShiftTimes(iso);
-    setOtStartDate(iso);
-    setOtEndDate(iso);
-    setOtStartTime(times.start);
-    setOtEndTime(times.end);
-    setOtType('OVERTIME');
-    setOtReason('');
-    setOtFile(null);
+    const nextDraft: OvertimeDraftState = {
+      startDate: iso,
+      endDate: iso,
+      startTime: times.start,
+      endTime: times.end,
+      type: 'OVERTIME',
+      reason: '',
+      file: null,
+    };
+    setOtStartDate(nextDraft.startDate);
+    setOtEndDate(nextDraft.endDate);
+    setOtStartTime(nextDraft.startTime);
+    setOtEndTime(nextDraft.endTime);
+    setOtType(nextDraft.type);
+    setOtReason(nextDraft.reason);
+    setOtFile(nextDraft.file);
+    setOtInitialDraft(nextDraft);
     setOtSubmitError('');
     setOtSubmitAttempted(false);
     setOtOpen(true);
@@ -2232,9 +2285,6 @@ export default function Attendance() {
                 {calendarCells.map((c, idx) => {
                   const dateKey = c.day ? toISODate(year, monthIndex, c.day) : '';
                   const isToday = c.day !== null && dateKey === todayKey;
-                  const isSelected = c.day !== null && dateKey === selectedDateKey;
-                  const hasRequest = c.day !== null && approvedRequestDateKeys.has(dateKey);
-                  const clickable = c.day !== null;
                   const hasContent = Boolean((c.statusNotes?.length ?? 0) || (c.detailNotes?.length ?? 0));
                   const detailNotes = c.detailNotes ?? [];
                   const visibleDetailNotes =
@@ -2245,10 +2295,9 @@ export default function Attendance() {
                   const cellTitle = [...(c.statusNotes ?? []), ...(c.detailNotes ?? [])].join(' | ');
                   const cls = [
                     'cal__cell',
-                    clickable ? 'cal__cell--click' : 'cal__cell--disabled',
+                    c.day === null ? 'cal__cell--disabled' : '',
                     hasContent ? 'cal__cell--active' : '',
                     isToday ? 'cal__cell--today' : '',
-                    isSelected ? 'cal__cell--selected' : '',
                     c.variant ? `cal__cell--${c.variant}` : '',
                   ]
                     .filter(Boolean)
@@ -2261,11 +2310,6 @@ export default function Attendance() {
                       className={cls}
                       disabled={c.day === null}
                       title={cellTitle || undefined}
-                      onClick={() => {
-                        if (!c.day) return;
-                        setSelectedDateKey(dateKey);
-                        if (hasRequest) openRequestForDay(c.day);
-                      }}
                       aria-label={c.day ? `Date ${monthLabel} ${c.day}${isToday ? ', today' : ''}` : 'Empty'}
                       aria-current={isToday ? 'date' : undefined}
                     >
@@ -2523,7 +2567,6 @@ export default function Attendance() {
         )}
       >
         <div className="requestForm">
-                {submitError && <p className="field__error">{submitError}</p>}
                 <div className="payModal__row">
                   <label>Type of Leave Requested</label>
                   <p className="requestField__help">
@@ -2779,46 +2822,6 @@ export default function Attendance() {
       </LargePopup>
 
       <LargePopup
-        open={requestViewOpen}
-        ariaLabel="Request Details"
-        title="Request Details"
-        subtitle="Review the request notes, coverage, and status recorded for the selected date."
-        size="md"
-        onClose={closeRequestView}
-        footer={(
-          <button className="btn btn--ghost" type="button" onClick={closeRequestView}>
-            Close
-          </button>
-        )}
-      >
-        <div className="form">
-                <div className="formRow">
-                  <label className="label">Date:</label>
-                  <input className="input" value={formatDisplayDate(requestViewDate)} readOnly />
-                </div>
-                {(requestEntries.filter((entry) => entry.dateKey === requestViewDate)).map((entry) => (
-                  <div key={entry.id} className="formRow">
-                    <label className="label">
-                      {entry.kind} ({entry.status}):
-                    </label>
-                    <div>
-                      <input
-                        className="input"
-                        value={
-                          entry.kind === 'OT'
-                            ? `${entry.overtimeType ?? 'OT'} ${entry.startTime ?? ''}-${entry.endTime ?? ''}`.trim()
-                            : `${formatLeaveTypeLabel(entry.leaveType)} - ${entry.paid === false ? 'Unpaid' : 'Paid'}`
-                        }
-                        readOnly
-                      />
-                      <textarea className="textarea" value={entry.reason || 'No reason provided.'} readOnly />
-                    </div>
-                  </div>
-                ))}
-        </div>
-      </LargePopup>
-
-      <LargePopup
         open={scheduleOpen}
         ariaLabel="My Schedule"
         title="My Schedule"
@@ -2849,22 +2852,58 @@ export default function Attendance() {
                   </label>
                 </div>
 
-                <p className="attScheduleModal__notice">If this schedule looks wrong, please contact your manager.</p>
+                <div className="attScheduleModal__notice" role="note">
+                  <span className="attScheduleModal__noticeIcon" aria-hidden="true">
+                    <FiInfo />
+                  </span>
+                  <p>If this schedule looks wrong, please contact your manager.</p>
+                </div>
 
-                {scheduleWeekStatus === 'loading' ? (
-                  <div className="attScheduleState" role="status">
-                    Loading your schedule...
-                  </div>
-                ) : scheduleWeekStatus === 'unavailable' ? (
+                {scheduleWeekStatus === 'unavailable' ? (
                   <div className="attScheduleState attScheduleState--muted">Your schedule is unavailable right now.</div>
                 ) : (
-                  <div className="attScheduleGrid">
-                    {weekScheduleRows.map((row) => (
-                      <article key={row.dateKey} className={`attScheduleDay attScheduleDay--${row.variant}`}>
-                        <span className="attScheduleDay__label">{row.label}</span>
-                        <span className={`attScheduleDay__detail attScheduleDay__detail--${row.variant}`}>{row.detail}</span>
-                      </article>
-                    ))}
+                  <div
+                    className={`attScheduleGrid${scheduleWeekStatus === 'loading' ? ' attScheduleGrid--loading' : ''}`}
+                    role="list"
+                    aria-busy={scheduleWeekStatus === 'loading' ? 'true' : undefined}
+                  >
+                    {scheduleWeekStatus === 'loading'
+                      ? loadingWeekScheduleRows.map((row) => (
+                          <article
+                            key={row.dateKey}
+                            className={`attScheduleDay attScheduleDay--placeholder${row.isToday ? ' attScheduleDay--today' : ''}`}
+                            role="listitem"
+                            aria-current={row.isToday ? 'date' : undefined}
+                          >
+                            <div className="attScheduleDay__main">
+                              <div className="attScheduleDay__heading">
+                                <span className="attScheduleDay__label">{row.label}</span>
+                                {row.isToday ? <span className="attScheduleDay__today">Today</span> : null}
+                              </div>
+                            </div>
+                            <span className="attScheduleDay__skeleton" aria-hidden="true" />
+                          </article>
+                        ))
+                      : weekScheduleRows.map((row) => (
+                          <article
+                            key={row.dateKey}
+                            className={`attScheduleDay attScheduleDay--${row.variant}${row.isToday ? ' attScheduleDay--today' : ''}`}
+                            role="listitem"
+                            aria-current={row.isToday ? 'date' : undefined}
+                          >
+                            <div className="attScheduleDay__main">
+                              <div className="attScheduleDay__heading">
+                                <span className="attScheduleDay__label">{row.label}</span>
+                                {row.isToday ? <span className="attScheduleDay__today">Today</span> : null}
+                              </div>
+                            </div>
+                            <span
+                              className={`attScheduleDay__detail attScheduleDay__detail--${row.variant}${row.variant === 'dayoff' ? ' attScheduleDay__badge' : ''}`}
+                            >
+                              {row.detail}
+                            </span>
+                          </article>
+                        ))}
                   </div>
                 )}
 
