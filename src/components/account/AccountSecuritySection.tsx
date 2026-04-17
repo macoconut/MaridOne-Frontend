@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 import type { TwoFactorSetupResponse } from '../../lib/accountSecurity';
 import './AccountSecuritySection.css';
@@ -59,7 +59,7 @@ export default function AccountSecuritySection({
   const emailReady = savedEmail.trim().length > 0 && !emailDirty;
   const isBusy =
     sendingVerification || startingTwoFactor || confirmingTwoFactor || disablingTwoFactor || changingPassword;
-  const [showManualSecret, setShowManualSecret] = useState(false);
+  const [revealedSetupKey, setRevealedSetupKey] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -83,17 +83,10 @@ export default function AccountSecuritySection({
     : emailVerified
       ? 'Resend Verification Email'
       : 'Send Verification Email';
-
-  useEffect(() => {
-    if (!setup) {
-      setShowManualSecret(false);
-      return;
-    }
-
-    if (!setup.qrCodeImageUri) {
-      setShowManualSecret(true);
-    }
-  }, [setup]);
+  const setupSecretKey = `${setup?.manualSecret ?? ''}|${setup?.qrCodeImageUri ?? ''}`;
+  const showManualSecret =
+    Boolean(setup?.manualSecret) &&
+    (!setup?.qrCodeImageUri || revealedSetupKey === setupSecretKey);
 
   function handlePasswordSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -211,7 +204,7 @@ export default function AccountSecuritySection({
                         <button
                           type="button"
                           className="dashSecurityBtn dashSecurityBtn--ghost"
-                          onClick={() => setShowManualSecret(true)}
+                          onClick={() => setRevealedSetupKey(setupSecretKey)}
                         >
                           Use Manual Key Instead
                         </button>
@@ -222,7 +215,7 @@ export default function AccountSecuritySection({
                             <button
                               type="button"
                               className="dashTwoFactorSetup__manualToggle"
-                              onClick={() => setShowManualSecret(false)}
+                              onClick={() => setRevealedSetupKey('')}
                             >
                               Hide
                             </button>

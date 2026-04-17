@@ -1,11 +1,11 @@
-import { useLoading } from '../../../context/LoadingContext';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLoading } from '../../../context/useLoading';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FiChevronDown, FiDownload, FiEdit2, FiFilter, FiMoreVertical, FiPlus, FiSearch, FiUserX, FiX, FiXCircle } from 'react-icons/fi';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import SensitiveAccessIndicator from '../../../components/security/SensitiveAccessIndicator';
 import SensitiveAccessModal from '../../../components/security/SensitiveAccessModal';
-import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
+import { useUiDialog } from '../../../components/dialog/useUiDialog';
 import EmployeeSortMenu from '../../../components/layout/EmployeeSortMenu';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
@@ -775,20 +775,6 @@ export default function HrManageEmp() {
     }
   }, [managerSearch, selectedManagerOption, showManagerPicker]);
 
-  useEffect(() => {
-    if (!activeLeaveBalanceEmployeeId) {
-      setLeaveBalances([]);
-      setLeaveBalanceStatus('idle');
-      setLeaveBalanceError('');
-      setLeaveBalanceCreateForm(emptyLeaveBalanceCreateForm);
-      setLeaveBalanceAdjustForms({});
-      setLeaveBalanceSavingKey(null);
-      return;
-    }
-
-    void loadLeaveBalances(activeLeaveBalanceEmployeeId);
-  }, [activeLeaveBalanceEmployeeId]);
-
   async function loadEmployees() {
     try {
       const response = await apiFetchJson<unknown>('/api/employees?page=0&size=5000');
@@ -1045,7 +1031,7 @@ export default function HrManageEmp() {
     });
   }
 
-  async function loadLeaveBalances(employeeId: string) {
+  const loadLeaveBalances = useCallback(async (employeeId: string) => {
     setLeaveBalanceStatus('loading');
     setLeaveBalanceError('');
 
@@ -1061,7 +1047,21 @@ export default function HrManageEmp() {
       setLeaveBalanceStatus('error');
       setLeaveBalanceError(getFriendlyErrorMessage(error, 'employee-load'));
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    if (!activeLeaveBalanceEmployeeId) {
+      setLeaveBalances([]);
+      setLeaveBalanceStatus('idle');
+      setLeaveBalanceError('');
+      setLeaveBalanceCreateForm(emptyLeaveBalanceCreateForm);
+      setLeaveBalanceAdjustForms({});
+      setLeaveBalanceSavingKey(null);
+      return;
+    }
+
+    void loadLeaveBalances(activeLeaveBalanceEmployeeId);
+  }, [activeLeaveBalanceEmployeeId, loadLeaveBalances]);
 
   async function fetchEmployeeDetails(employeeId: string) {
     if (employeeDetailsById[employeeId]) {

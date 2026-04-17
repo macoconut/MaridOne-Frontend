@@ -1,4 +1,4 @@
-import { useLoading } from '../../../context/LoadingContext';
+import { useLoading } from '../../../context/useLoading';
 import type { CSSProperties } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -14,6 +14,7 @@ import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { useUnsavedChangesPrompt } from '../../../hooks/useUnsavedChangesPrompt';
 import { ApiError, apiFetchJson, apiFetchRaw, toArray } from '../../../lib/api';
 import { uploadDocument } from '../../../lib/documentUpload';
+import { sanitizeFileNamePart } from '../../../lib/fileNames';
 import { getUserEmail, getUserRole } from '../../../lib/session';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import { getManilaNow } from '../../../lib/manilaTime';
@@ -547,16 +548,6 @@ function resolveTimecardSessionsForDate(logs: AttendanceLog[], workDate: string)
   }
 
   return sessions;
-}
-
-function sanitizeFileNamePart(value?: string) {
-  if (!value) return '';
-  return value
-    .trim()
-    .replace(/[<>:"/\\|?*\x00-\x1F]+/g, '-')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
 }
 
 function parseContentDispositionFileName(value?: string | null) {
@@ -1544,7 +1535,7 @@ export default function Attendance() {
     while (cells.length % 7 !== 0) cells.push({ day: null });
 
     return cells;
-  }, [attendanceByDate, daysInMonth, requestEntriesByDate, sundayBasedStart, timecardMode, year]);
+  }, [attendanceByDate, daysInMonth, monthIndex, requestEntriesByDate, sundayBasedStart, timecardMode, year]);
 
   
   const resolveShiftTimes = (dateKey: string) => {

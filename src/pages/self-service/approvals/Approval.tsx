@@ -1,11 +1,11 @@
-import { useLoading } from '../../../context/LoadingContext';
+import { useLoading } from '../../../context/useLoading';
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
 import ApprovalStatusSummary from '../../../components/approvals/ApprovalStatusSummary';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
-import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
+import { useUiDialog } from '../../../components/dialog/useUiDialog';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';

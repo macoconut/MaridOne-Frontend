@@ -1,8 +1,8 @@
-import { useLoading } from '../../../context/LoadingContext';
+import { useLoading } from '../../../context/useLoading';
 import { useState } from 'react';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
-import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
+import { useUiDialog } from '../../../components/dialog/useUiDialog';
 import { apiFetchText } from '../../../lib/api';
 import './ForgotPassword.css';
 

@@ -1,4 +1,4 @@
-import { useLoading } from '../../../context/LoadingContext';
+import { useLoading } from '../../../context/useLoading';
 import { useEffect, useMemo, useState, useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { FiAlertCircle, FiCheckCircle, FiChevronRight, FiDownload, FiPrinter, FiXCircle, FiCalendar } from 'react-icons/fi';
@@ -6,6 +6,7 @@ import { apiFetchJson, apiFetchRaw, toArray } from '../../../lib/api';
 import { uploadDocument } from '../../../lib/documentUpload';
 import ActionButton from '../../../components/button/ActionButton';
 import { hasBonusEarning } from '../../../lib/payrollRunLabels';
+import { sanitizeFileNamePart } from '../../../lib/fileNames';
 import { getUserEmail } from '../../../lib/session';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import FileUploadField from '../../../components/form/FileUploadField';
@@ -126,16 +127,6 @@ function formatFileDate(value?: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   return date.toISOString().slice(0, 10);
-}
-
-function sanitizeFileNamePart(value?: string) {
-  if (!value) return '';
-  return value
-    .trim()
-    .replace(/[<>:"/\\|?*\x00-\x1F]+/g, '-')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
 }
 
 function formatCurrency(value: number | string | undefined) {

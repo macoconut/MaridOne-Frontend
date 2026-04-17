@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { verifyEmailToken } from '../../lib/accountSecurity';
 import { useErrorDialogEffect } from '../../hooks/useErrorDialogEffect';
@@ -19,7 +19,7 @@ export default function VerifyEmail() {
 
   useErrorDialogEffect(status === 'error' ? message : '', 'Email verification failed');
 
-  async function submitVerification() {
+  const submitVerification = useCallback(async () => {
     if (!token) {
       setStatus('error');
       setMessage('Verification token is missing from the link.');
@@ -37,13 +37,19 @@ export default function VerifyEmail() {
       setStatus('error');
       setMessage(getFriendlyErrorMessage(error, 'generic'));
     }
-  }
+  }, [token]);
 
   useEffect(() => {
     if (!token || startedRef.current) return;
     startedRef.current = true;
-    void submitVerification();
-  }, [token]);
+    const timeoutId = window.setTimeout(() => {
+      void submitVerification();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [submitVerification, token]);
 
   const visibleMessage =
     status === 'error'

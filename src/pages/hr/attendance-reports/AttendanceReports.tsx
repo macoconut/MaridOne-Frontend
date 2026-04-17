@@ -1588,7 +1588,7 @@ export function AttendanceReportsBoard({
     }
 
     return grouped;
-  }, [approvedLeavesByDate, approvedOvertimeByDate, filteredEmployeeById, focusedEmployee, holidayDateSet, logsByDate, scheduledShiftsByEmployeeAndDate]);
+  }, [approvedOvertimeByDate, filteredEmployeeById, focusedEmployee, holidayDateSet, logsByDate, scheduledShiftsByEmployeeAndDate]);
 
   const aggregateCalendarCells = useMemo(() => {
     const cells = monthCells(year, monthIndex);
@@ -1657,12 +1657,13 @@ export function AttendanceReportsBoard({
     approvedLeaveEmployeeIdsByDate,
     approvedOvertimeByDate,
     filteredEmployeeById,
-    hasDailyShiftOnDate,
     hasFullRoster,
+    hasScheduledWorkOnDate,
     holidayDateSet,
     isKnownDayOffOnDate,
     logsByDate,
     monthIndex,
+    scheduledShiftsByEmployeeAndDate,
     todayDateKey,
     year,
   ]);
@@ -1770,7 +1771,7 @@ export function AttendanceReportsBoard({
       groupOvertimeByEmployee(approvedOvertimeByDate.get(selectedDateKey) ?? []),
       holidayDateSet
     );
-  }, [approvedLeavesByDate, approvedOvertimeByDate, filteredEmployeeById, holidayDateSet, logsByDate, scheduledShiftsByEmployeeAndDate, selectedDateKey]);
+  }, [approvedOvertimeByDate, filteredEmployeeById, holidayDateSet, logsByDate, scheduledShiftsByEmployeeAndDate, selectedDateKey]);
 
   const selectedIsFuture = useMemo(() => {
     return Boolean(selectedDateKey) && selectedDateKey > todayDateKey;

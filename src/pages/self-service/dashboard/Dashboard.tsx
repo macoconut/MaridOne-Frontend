@@ -1,10 +1,10 @@
-import { useLoading } from '../../../context/LoadingContext';
+import { useLoading } from '../../../context/useLoading';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { FiDownload, FiEdit2, FiFileText, FiPlus, FiTrash2 } from 'react-icons/fi';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ActionButton from '../../../components/button/ActionButton';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
-import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
+import { useUiDialog } from '../../../components/dialog/useUiDialog';
 import MaterialArt from '../../../components/document/MaterialArt';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import PageHeader from '../../../components/layout/PageHeader';
@@ -353,8 +353,31 @@ function getLeaveTypeLabel(type?: string) {
   }
 }
 
-function getLeaveMaxHours(_type?: string) {
+function getLeaveMaxHours(type?: string) {
+  if (!type) return 40;
   return 40;
+}
+
+function getApprovedUpcomingLeave(rows: unknown) {
+  const payload =
+    rows && typeof rows === 'object' && 'content' in rows
+      ? (rows as { content?: unknown }).content
+      : rows;
+  const list = toArray<LeaveRequestRow>(payload);
+
+  return (
+    list
+      .filter(
+        (leave) =>
+          leave.requestStatus === 'APPROVED' &&
+          Boolean(leave.startDateTime) &&
+          new Date(leave.startDateTime as string) > new Date()
+      )
+      .sort(
+        (left, right) =>
+          new Date(left.startDateTime ?? '').getTime() - new Date(right.startDateTime ?? '').getTime()
+      )[0] ?? null
+  );
 }
 
 function calculateNextDayOff(
@@ -594,12 +617,7 @@ export default function Dashboard() {
           // fetch upcoming leaves
           void apiFetchJson<unknown>(`/api/leave/request/${resolvedEmpId}`)
             .then(leaves => {
-              // Page object response from backend
-              const list = (leaves as any)?.content || toArray<LeaveRequestRow>(leaves);
-              const upcoming = list
-                .filter((l: any) => l.requestStatus === 'APPROVED' && l.startDateTime && new Date(l.startDateTime) > new Date())
-                .sort((a: any, b: any) => new Date(a.startDateTime!).getTime() - new Date(b.startDateTime!).getTime())[0];
-              setNextLeave(upcoming || null);
+              setNextLeave(getApprovedUpcomingLeave(leaves));
             })
             .catch(() => setNextLeave(null));
         }

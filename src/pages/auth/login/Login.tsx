@@ -1,8 +1,8 @@
-import { useLoading } from '../../../context/LoadingContext';
+import { useLoading } from '../../../context/useLoading';
 import { useEffect, useRef, useState } from 'react';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
-import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
+import { useUiDialog } from '../../../components/dialog/useUiDialog';
 import { clearSession, setSession } from '../../../lib/session';
 import { getRoleHomePath } from '../../../lib/roleRoutes';
 import './Login.css';

@@ -1,12 +1,12 @@
-import { useLoading } from '../../../context/LoadingContext';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLoading } from '../../../context/useLoading';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FiCheckCircle, FiChevronDown, FiEdit2, FiFilter, FiPlus, FiSearch, FiX, FiXCircle } from 'react-icons/fi';
 import { ApiError, apiFetchJson, toArray } from '../../../lib/api';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
 import SensitiveAccessIndicator from '../../../components/security/SensitiveAccessIndicator';
 import SensitiveAccessModal from '../../../components/security/SensitiveAccessModal';
-import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
+import { useUiDialog } from '../../../components/dialog/useUiDialog';
 import EmployeeSortMenu from '../../../components/layout/EmployeeSortMenu';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
@@ -766,16 +766,16 @@ export default function HrPayslips() {
       !isSubmittingCorrection,
   });
 
-  function syncRunForm(run: PayrollRunDto) {
+  const syncRunForm = useCallback((run: PayrollRunDto) => {
     setRunForm((prev) => ({
       periodStart: run.periodStart ?? prev.periodStart,
       periodEnd: run.periodEnd ?? prev.periodEnd,
       paymentDate: run.paymentDate ?? prev.paymentDate,
       runType: normalizeRunType(run.runType),
     }));
-  }
+  }, []);
 
-  async function loadCurrentRun(preferredPayId?: number | null) {
+  const loadCurrentRun = useCallback(async (preferredPayId?: number | null) => {
     try {
       const response = await apiFetchJson<unknown>('/api/payroll/run');
       const runs = [...toArray<PayrollRunDto>(response)].sort(compareRunsDescending);
@@ -789,7 +789,7 @@ export default function HrPayslips() {
     } catch (error) {
       setRunError(getFriendlyErrorMessage(error, 'payroll-run'));
     }
-  }
+  }, [syncRunForm]);
 
   useEffect(() => {
     if (selectedDispute || selectedPayrollItem || runModalOpen || postModalOpen || manualLineModalOpen || correctionOpen) {
@@ -896,7 +896,7 @@ export default function HrPayslips() {
   useEffect(() => {
     const storedRun = readStoredRun();
     void loadCurrentRun(storedRun?.payId);
-  }, [refreshTick]);
+  }, [loadCurrentRun, refreshTick]);
 
   useEffect(() => {
     persistRunSelection(currentRun);

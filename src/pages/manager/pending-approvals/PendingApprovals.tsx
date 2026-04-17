@@ -1,4 +1,4 @@
-import { useLoading } from '../../../context/LoadingContext';
+import { useLoading } from '../../../context/useLoading';
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';

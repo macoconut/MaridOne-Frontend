@@ -1262,7 +1262,6 @@ export function AttendanceOverviewDashboard({
       employeeById,
       scheduledShiftsByEmployeeAndDate,
       selectedDateLogs,
-      selectedLeaveRequestsByEmployee,
       selectedApprovedOvertimeByEmployee,
     ]
   );

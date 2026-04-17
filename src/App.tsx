@@ -1,7 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, type ReactElement } from 'react';
 import { getAuthToken, getRequiresPasswordChange, getUserRole, type UserRole } from './lib/session';
-import { getRoleHomePath } from './lib/roleRoutes';
+import {
+  getAllLoginAliases,
+  getRoleHomePath,
+  getSelfServiceRouteMetadata,
+  type SelfServicePage,
+  type SelfServiceRole,
+} from './lib/roleRoutes';
 
 import Landing from './pages/public/Landing';
 import VerifyEmail from './pages/public/VerifyEmail';
@@ -49,6 +55,9 @@ import './styles/spinner.css';
 function roleHome(role: UserRole) {
   return getRoleHomePath(role);
 }
+
+const selfServiceRouteMetadata = getSelfServiceRouteMetadata();
+const loginAliasPaths = getAllLoginAliases();
 
 function RequireRole({
   role,
@@ -132,6 +141,27 @@ function RequirePasswordChange() {
   return <ChangePassword />;
 }
 
+function getSelfServiceElement(page: SelfServicePage) {
+  switch (page) {
+    case 'dashboard':
+      return <Dashboard />;
+    case 'attendance':
+      return <Attendance />;
+    case 'approvals':
+      return <Approval />;
+    case 'payslip':
+      return <Payslip />;
+    case 'training':
+      return <Training />;
+  }
+}
+
+function renderSelfServiceRoutes(role: SelfServiceRole) {
+  return selfServiceRouteMetadata.map((route) => (
+    <Route key={`${role}-${route.path}`} path={route.path} element={getSelfServiceElement(route.page)} />
+  ));
+}
+
 export default function App() {
   useEffect(() => {
     const syncPreferences = () => {
@@ -153,27 +183,20 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<LandingRoute />} />
-            <Route path="/login" element={<LoginRoute />} />
             <Route path="/forgot-password" element={<ForgotPasswordRoute />} />
             <Route path="/change-password" element={<RequirePasswordChange />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
-            <Route path="/employee/login" element={<LoginRoute />} />
-            <Route path="/hr/login" element={<LoginRoute />} />
-            <Route path="/manager/login" element={<LoginRoute />} />
-            <Route path="/management/login" element={<LoginRoute />} />
-            <Route path="/accounting/login" element={<LoginRoute />} />
+            {loginAliasPaths.map((path) => (
+              <Route key={path} path={path} element={<LoginRoute />} />
+            ))}
 
             <Route path="/employee" element={<RequireRole role="employee"><EmployeeLayout /></RequireRole>}>
               <Route index element={<Navigate to="dashboard" replace />} />
-              <Route path="dashboard" element={<Dashboard />} />
-              <Route path="attendance" element={<Attendance />} />
-              <Route path="approvals" element={<Approval />} />
-              <Route path="payslip" element={<Payslip />} />
-              <Route path="training" element={<Training />} />
+              {renderSelfServiceRoutes('employee')}
             </Route>
 
             <Route path="/hr" element={<RequireRole role="hr"><HrLayout /></RequireRole>}>
-              <Route index element={<Navigate to="self-service/dashboard" replace />} />
+              <Route index element={<Navigate to={roleHome('hr')} replace />} />
               <Route path="dashboard" element={<HrDashboard />} />
               <Route path="attendance-reports" element={<HrAttendanceReports />} />
               <Route path="manage-schedule" element={<HrManageSchedule />} />
@@ -185,17 +208,13 @@ export default function App() {
               <Route path="audit-logs" element={<HrAuditLogs />} />
               <Route path="self-service">
                 <Route index element={<Navigate to="dashboard" replace />} />
-                <Route path="dashboard" element={<Dashboard />} />
-                <Route path="attendance" element={<Attendance />} />
-                <Route path="approvals" element={<Approval />} />
-                <Route path="payslip" element={<Payslip />} />
-                <Route path="training" element={<Training />} />
+                {renderSelfServiceRoutes('hr')}
               </Route>
               <Route path="employees" element={<Navigate to="/hr/manage-employees" replace />} />
             </Route>
 
             <Route path="/management" element={<RequireRole role="management"><ManagementLayout /></RequireRole>}>
-              <Route index element={<Navigate to="self-service/dashboard" replace />} />
+              <Route index element={<Navigate to={roleHome('management')} replace />} />
               <Route path="dashboard" element={<ManagementAttendance />} />
               <Route path="attendance" element={<ManagementAttendance />} />
               <Route path="payroll-dashboard" element={<ManagementPayrollCosts />} />
@@ -203,16 +222,12 @@ export default function App() {
               <Route path="payroll-costs" element={<ManagementPayrollCosts />} />
               <Route path="self-service">
                 <Route index element={<Navigate to="dashboard" replace />} />
-                <Route path="dashboard" element={<Dashboard />} />
-                <Route path="attendance" element={<Attendance />} />
-                <Route path="approvals" element={<Approval />} />
-                <Route path="payslip" element={<Payslip />} />
-                <Route path="training" element={<Training />} />
+                {renderSelfServiceRoutes('management')}
               </Route>
             </Route>
 
             <Route path="/manager" element={<RequireRole role="manager"><ManagerLayout /></RequireRole>}>
-              <Route index element={<Navigate to="self-service/dashboard" replace />} />
+              <Route index element={<Navigate to={roleHome('manager')} replace />} />
               <Route path="dashboard" element={<Navigate to="/manager/self-service/dashboard" replace />} />
               <Route path="attendance-dashboard" element={<ManagerAttendanceDashboard />} />
               <Route path="attendance-reports" element={<ManagerAttendanceReports />} />
@@ -221,10 +236,7 @@ export default function App() {
               <Route path="pending-approvals" element={<ManagerPendingApprovals />} />
               <Route path="self-service">
                 <Route index element={<Navigate to="dashboard" replace />} />
-                <Route path="dashboard" element={<Dashboard />} />
-                <Route path="attendance" element={<Attendance />} />
-                <Route path="payslip" element={<Payslip />} />
-                <Route path="training" element={<Training />} />
+                {renderSelfServiceRoutes('manager')}
               </Route>
             </Route>
 

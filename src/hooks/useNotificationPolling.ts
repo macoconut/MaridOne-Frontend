@@ -74,7 +74,13 @@ export function useNotificationPolling(
   }, [role]);
 
   useEffect(() => {
-    void loadNotifications();
+    if (typeof window === 'undefined') return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      void loadNotifications();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [loadNotifications]);
 
   useEffect(() => {

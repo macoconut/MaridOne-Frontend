@@ -557,7 +557,7 @@ export default function HrPayRunReporting() {
     return () => {
       cancelled = true;
     };
-  }, [fromDate, toDate, refreshTick]);
+  }, [fromDate, refreshTick, sensitiveAccess.handleProtectedError, toDate]);
 
   const selectedRun = useMemo(() => {
     if (!fromDate || !toDate) return null;

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { isSensitiveAccessRequired } from '../lib/sensitiveAccess';
 
 export function useSensitiveAccessPrompt() {
@@ -32,12 +32,12 @@ export function useSensitiveAccessPrompt() {
     pendingActionRef.current = null;
   }, []);
 
-  return {
+  return useMemo(() => ({
     open,
     notice,
     close,
     handleVerified,
     handleProtectedError,
     requestVerification,
-  };
+  }), [open, notice, close, handleVerified, handleProtectedError, requestVerification]);
 }

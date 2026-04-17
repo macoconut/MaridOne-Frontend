@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useUiDialog } from '../components/dialog/UiDialogProvider';
+import { useUiDialog } from '../components/dialog/useUiDialog';
 
 export function useErrorDialogEffect(errorMessage: string | null | undefined, title = 'Something went wrong') {
   const { showError } = useUiDialog();

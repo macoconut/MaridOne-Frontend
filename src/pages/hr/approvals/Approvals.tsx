@@ -1,4 +1,4 @@
-import { useLoading } from '../../../context/LoadingContext';
+import { useLoading } from '../../../context/useLoading';
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FiSearch, FiFilter, FiXCircle } from 'react-icons/fi';
@@ -134,10 +134,10 @@ function formatDateTime(value?: string) {
   });
 }
 
-function employeeLabel(employeeName?: string, _employeeId?: number) {
+function employeeLabel(employeeName?: string, employeeId?: number) {
   const trimmedName = typeof employeeName === 'string' ? employeeName.trim() : '';
   if (trimmedName) return trimmedName;
-  return 'Employee unavailable';
+  return typeof employeeId === 'number' ? `Employee #${employeeId}` : 'Employee unavailable';
 }
 
 function employeeDirectoryLabel(row?: EmployeeDirectoryRow) {
@@ -484,7 +484,7 @@ export default function HrApprovals() {
     setSubmitError('');
     setPendingDecision(null);
     setConfirmDecisionOpen(false);
-  }, [selectedId]);
+  }, [selected]);
 
   useEffect(() => {
     if (!selected || selected.source !== 'leave' || typeof selected.employeeId !== 'number' || !selected.leaveType) {

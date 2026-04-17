@@ -668,6 +668,26 @@ body.modal-open .eMain{
   margin-bottom:16px;
 }
 
+.backendTest--collapsible{
+  padding:0;
+}
+
+.backendTest__summary{
+  list-style:none;
+  cursor:pointer;
+  padding:18px;
+  font-weight:800;
+  user-select:none;
+}
+
+.backendTest__summary::-webkit-details-marker{
+  display:none;
+}
+
+.backendTest__body{
+  padding:0 18px 18px;
+}
+
 .backendTest__head{
   display:flex;
   align-items:center;

@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FiCalendar, FiChevronDown, FiChevronLeft, FiChevronRight, FiFilter, FiSave, FiX } from 'react-icons/fi';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
-import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
+import { useUiDialog } from '../../../components/dialog/useUiDialog';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
@@ -24,8 +24,8 @@ import {
   parseTeamEmployees,
   timeFromDateTime,
   toIsoDate,
-} from '../team-shift-schedules/scheduleUtils';
-import type { DailyShift, TeamEmployee } from '../team-shift-schedules/scheduleUtils';
+} from './scheduleUtils';
+import type { DailyShift, TeamEmployee } from './scheduleUtils';
 import './MonthlyTeamSchedule.css';
 
 const CALENDAR_DAYS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
@@ -232,7 +232,6 @@ export function MonthlyScheduleBoard({
   useErrorDialogEffect(saveError, 'Schedule calendar could not be saved');
   useEscapeDismiss(editorOpen, closeEditor, 10);
   useEscapeDismiss(templateEditorOpen, closeTemplateEditor, 11);
-  useEscapeDismiss(employeePickerOpen, closeEmployeePicker, 12);
   useEscapeDismiss(filterOpen, () => setFilterOpen(false), 13);
 
   const todayKey = useMemo(() => toIsoDate(new Date()), []);
@@ -379,10 +378,11 @@ export function MonthlyScheduleBoard({
     [lockedDayDrafts, selectedEmployee, shiftMap, todayKey]
   );
 
-  function closeEmployeePicker() {
+  const closeEmployeePicker = useCallback(() => {
     setEmployeePickerOpen(false);
     setEmployeeSearch(enableBatchSelection ? '' : selectedEmployee?.name ?? '');
-  }
+  }, [enableBatchSelection, selectedEmployee]);
+  useEscapeDismiss(employeePickerOpen, closeEmployeePicker, 12);
 
   function closeEditor() {
     setEditorOpen(false);
@@ -556,7 +556,7 @@ export function MonthlyScheduleBoard({
     }
 
     setLockedDayDrafts(buildLockedDayDrafts(selectedEmployee, selectedMonthStart, shiftMap, todayKey));
-  }, [selectedEmployeeId, selectedMonthStart, dailyShifts, shiftMap, todayKey]);
+  }, [selectedEmployee, selectedMonthStart, shiftMap, todayKey]);
 
   useEffect(() => {
     if (!selectedEmployee || !selectedDateKey) {
@@ -601,7 +601,7 @@ export function MonthlyScheduleBoard({
 
     document.addEventListener('mousedown', handlePointerDown);
     return () => document.removeEventListener('mousedown', handlePointerDown);
-  }, [employeePickerOpen, selectedEmployee]);
+  }, [employeePickerOpen, closeEmployeePicker]);
 
   function selectDate(workDate: string) {
     setSelectedDateKey(workDate);

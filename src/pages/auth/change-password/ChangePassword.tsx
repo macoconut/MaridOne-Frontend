@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
-import { useUiDialog } from '../../../components/dialog/UiDialogProvider';
+import { useUiDialog } from '../../../components/dialog/useUiDialog';
 import { expireCurrentSession } from '../../../lib/api';
 import { changeOwnPassword } from '../../../lib/accountSecurity';
 import { getUserRole, setRequiresPasswordChange } from '../../../lib/session';

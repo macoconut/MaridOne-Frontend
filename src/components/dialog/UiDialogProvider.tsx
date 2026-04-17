@@ -1,37 +1,17 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useMemo,
   useState,
   type ReactNode,
 } from 'react';
-import AlertDialog, { type AlertDialogVariant } from './AlertDialog';
-
-type DialogOptions = {
-  title?: string;
-  message: string;
-  confirmLabel?: string;
-  variant?: AlertDialogVariant;
-};
-
-type DialogState = Required<DialogOptions>;
-
-type UiDialogContextValue = {
-  dismissDialog: () => void;
-  showDialog: (options: DialogOptions) => void;
-  showError: (message: string, title?: string) => void;
-  showInfo: (message: string, title?: string) => void;
-  showSuccess: (message: string, title?: string) => void;
-};
-
-const UiDialogContext = createContext<UiDialogContextValue | null>(null);
-
-function defaultTitleFor(variant: AlertDialogVariant) {
-  if (variant === 'error') return 'Something went wrong';
-  if (variant === 'success') return 'Success';
-  return 'Notice';
-}
+import AlertDialog from './AlertDialog';
+import {
+  defaultTitleFor,
+  type DialogOptions,
+  type DialogState,
+  type UiDialogContextValue,
+  UiDialogContext,
+} from './uiDialogContext';
 
 export function UiDialogProvider({ children }: { children: ReactNode }) {
   const [dialog, setDialog] = useState<DialogState | null>(null);
@@ -110,14 +90,4 @@ export function UiDialogProvider({ children }: { children: ReactNode }) {
       />
     </UiDialogContext.Provider>
   );
-}
-
-export function useUiDialog() {
-  const value = useContext(UiDialogContext);
-
-  if (!value) {
-    throw new Error('useUiDialog must be used within UiDialogProvider.');
-  }
-
-  return value;
 }

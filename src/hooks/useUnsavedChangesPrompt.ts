@@ -13,13 +13,8 @@ export function useUnsavedChangesPrompt({
   isBusy = false,
   onDiscard,
 }: UseUnsavedChangesPromptOptions) {
-  const [confirmOpen, setConfirmOpen] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen || !isDirty) {
-      setConfirmOpen(false);
-    }
-  }, [isDirty, isOpen]);
+  const [confirmRequested, setConfirmRequested] = useState(false);
+  const confirmOpen = confirmRequested && isOpen && isDirty;
 
   useEffect(() => {
     if (!isOpen || !isDirty) return undefined;
@@ -36,19 +31,19 @@ export function useUnsavedChangesPrompt({
   const requestClose = useCallback(() => {
     if (isBusy) return;
     if (isOpen && isDirty) {
-      setConfirmOpen(true);
+      setConfirmRequested(true);
       return;
     }
     onDiscard();
   }, [isBusy, isOpen, isDirty, onDiscard]);
 
   const discardAndClose = useCallback(() => {
-    setConfirmOpen(false);
+    setConfirmRequested(false);
     onDiscard();
   }, [onDiscard]);
 
   const keepEditing = useCallback(() => {
-    setConfirmOpen(false);
+    setConfirmRequested(false);
   }, []);
 
   return {
