@@ -1,5 +1,6 @@
 import { useLoading } from '../../../context/useLoading';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { FiChevronDown, FiDownload, FiEdit2, FiFilter, FiMoreVertical, FiPlus, FiSearch, FiUserX, FiX, FiXCircle } from 'react-icons/fi';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import ModalCloseButton from '../../../components/dialog/ModalCloseButton';
@@ -2466,355 +2467,381 @@ export default function HrManageEmp() {
         </div>
       </section>
 
-      {detailsDialogEmployee ? (
-        <div className="hrEmpModalBackdrop" role="dialog" aria-modal="true" onClick={closeDetailsDialog}>
-          <div className="hrEmpModal hrEmpModal--details" onClick={(event) => event.stopPropagation()}>
-            <div className="hrEmpModal__top">
-              <div className="hrEmpModal__heading">
-                <h2>EMPLOYEE DETAILS</h2>
-                <p className="hrEmpModal__subtitle">
-                  Review the full employee profile, account information, and employment details in one view.
-                </p>
-              </div>
-              <ModalCloseButton
-                className="hrEmpModal__close"
-                onClick={closeDetailsDialog}
-                aria-label="Close employee details"
-              />
-            </div>
-            <div className="hrEmpModal__rule" />
-            <div className="hrEmpDetails hrEmpDetails--dialog" role="region" aria-label={`${detailsDialogEmployee.name} details`}>
-              {renderExpandedDetails(detailsDialogEmployee)}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {modal ? (
-        <div className="hrEmpModalBackdrop" role="dialog" aria-modal="true">
-          <div className={`hrEmpModal ${modal === 'delete' ? 'is-delete' : ''}`}>
-            <div className="hrEmpModal__top">
-              <div className="hrEmpModal__heading">
-                <h2>{modal === 'add' ? 'ADD EMPLOYEE' : modal === 'edit' ? 'EDIT EMPLOYEE' : 'RECORD EMPLOYEE SEPARATION'}</h2>
-                <p className="hrEmpModal__subtitle">
-                  {modal === 'add'
-                    ? 'Create the employee record and its login account together so HR does not need to manage them separately.'
-                    : modal === 'edit'
-                      ? 'Review the employee profile, employment details, and account access before saving the update.'
-                      : 'Confirm the selected employee and document the release details before updating the employment status.'}
-                </p>
-              </div>
-              <ModalCloseButton
-                className="hrEmpModal__close"
-                onClick={requestCloseModal}
-                disabled={isSaving}
-                aria-label="Close modal"
-              />
-            </div>
-            <div className="hrEmpModal__rule" />
-
-            <div className="hrEmpForm">
-              {modal === 'delete' ? (
-                <div className="hrEmpForm__section hrEmpForm__section--danger">
-                  <div className="hrEmpForm__sectionTitle">Separation Details</div>
-                  <div className="hrEmpDelete">
-                    <div className="hrEmpDelete__summary">
-                      <span className="hrEmpDelete__summaryLabel">Employee on record</span>
-                      <strong>{selectedEmployee ? selectedEmployee.name : 'No employee selected yet'}</strong>
-                      <span>
-                        {selectedEmployee
-                          ? `Employee ID ${selectedEmployee.id} | ${selectedEmployee.username === '-' ? 'No username yet' : selectedEmployee.username} | ${selectedEmployee.position} | ${formatEmploymentStatusLabel(selectedEmployee.status)}`
-                          : 'Select a valid employee record before recording the separation.'}
-                      </span>
-                    </div>
-
-                    <div className="hrEmpForm__grid hrEmpForm__grid--delete">
-                      <div className="hrEmpField">
-                        <label>Employee ID</label>
-                        <input value={form.employeeId} readOnly placeholder="Employee ID" />
-                      </div>
-
-                      <div className="hrEmpField">
-                        <label>Separation Reason</label>
-                        <select
-                          value={form.separationReason}
-                          onChange={(event) => setField('separationReason', event.target.value as FormState['separationReason'])}
-                        >
-                          <option value="">Select a reason</option>
-                          {separationReasonOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="hrEmpField">
-                        <label>Eligible for Rehire</label>
-                        <select
-                          value={form.eligibleForRehire}
-                          onChange={(event) => setField('eligibleForRehire', event.target.value as FormState['eligibleForRehire'])}
-                        >
-                          <option value="">Select</option>
-                          <option value="YES">Yes</option>
-                          <option value="NO">No</option>
-                        </select>
-                      </div>
-
-                      <div className="hrEmpField hrEmpField--full">
-                        <label>Notes</label>
-                        <textarea
-                          value={form.separationNotes}
-                          onChange={(event) => setField('separationNotes', event.target.value)}
-                          placeholder="Optional HR notes for the separation record"
-                        />
-                      </div>
-                    </div>
+      {detailsDialogEmployee
+        ? createPortal(
+            <div className="hrEmpModalBackdrop" role="dialog" aria-modal="true" onClick={closeDetailsDialog}>
+              <div className="hrEmpModal hrEmpModal--details" onClick={(event) => event.stopPropagation()}>
+                <div className="hrEmpModal__top">
+                  <div className="hrEmpModal__heading">
+                    <h2>EMPLOYEE DETAILS</h2>
+                    <p className="hrEmpModal__subtitle">
+                      Review the full employee profile, account information, and employment details in one view.
+                    </p>
                   </div>
+                  <ModalCloseButton
+                    className="hrEmpModal__close"
+                    onClick={closeDetailsDialog}
+                    aria-label="Close employee details"
+                  />
                 </div>
-              ) : (
-                <>
-                  <div className="hrEmpForm__section">
-                    <div className="hrEmpForm__sectionTitle">Employment Details</div>
-                    <div className="hrEmpForm__grid">
-                      {modal === 'edit' ? (
-                        <div className="hrEmpField">
-                          <label>Employee ID</label>
-                          <input value={form.employeeId} readOnly />
+                <div className="hrEmpModal__rule" />
+                <div
+                  className="hrEmpDetails hrEmpDetails--dialog"
+                  role="region"
+                  aria-label={`${detailsDialogEmployee.name} details`}
+                >
+                  {renderExpandedDetails(detailsDialogEmployee)}
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
+
+      {modal
+        ? createPortal(
+            <div className="hrEmpModalBackdrop" role="dialog" aria-modal="true">
+              <div className={`hrEmpModal ${modal === 'delete' ? 'is-delete' : ''}`}>
+                <div className="hrEmpModal__top">
+                  <div className="hrEmpModal__heading">
+                    <h2>
+                      {modal === 'add'
+                        ? 'ADD EMPLOYEE'
+                        : modal === 'edit'
+                          ? 'EDIT EMPLOYEE'
+                          : 'RECORD EMPLOYEE SEPARATION'}
+                    </h2>
+                    <p className="hrEmpModal__subtitle">
+                      {modal === 'add'
+                        ? 'Create the employee record and its login account together so HR does not need to manage them separately.'
+                        : modal === 'edit'
+                          ? 'Review the employee profile, employment details, and account access before saving the update.'
+                          : 'Confirm the selected employee and document the release details before updating the employment status.'}
+                    </p>
+                  </div>
+                  <ModalCloseButton
+                    className="hrEmpModal__close"
+                    onClick={requestCloseModal}
+                    disabled={isSaving}
+                    aria-label="Close modal"
+                  />
+                </div>
+                <div className="hrEmpModal__rule" />
+
+                <div className="hrEmpForm">
+                  {modal === 'delete' ? (
+                    <div className="hrEmpForm__section hrEmpForm__section--danger">
+                      <div className="hrEmpForm__sectionTitle">Separation Details</div>
+                      <div className="hrEmpDelete">
+                        <div className="hrEmpDelete__summary">
+                          <span className="hrEmpDelete__summaryLabel">Employee on record</span>
+                          <strong>{selectedEmployee ? selectedEmployee.name : 'No employee selected yet'}</strong>
+                          <span>
+                            {selectedEmployee
+                              ? `Employee ID ${selectedEmployee.id} | ${selectedEmployee.username === '-' ? 'No username yet' : selectedEmployee.username} | ${selectedEmployee.position} | ${formatEmploymentStatusLabel(selectedEmployee.status)}`
+                              : 'Select a valid employee record before recording the separation.'}
+                          </span>
                         </div>
-                      ) : null}
 
-                      <div className="hrEmpField">
-                        <label>Status</label>
-                        <select
-                          value={form.employmentStatus}
-                          onChange={(event) => setField('employmentStatus', event.target.value)}
-                        >
-                          {employmentStatusOptions.map((option) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="hrEmpField">
-                        <label>Position</label>
-                        <select value={form.position} onChange={(event) => handlePositionChange(event.target.value)}>
-                          {positionOptions.map((option) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="hrEmpField">
-                        <label>Exemption Status</label>
-                        <select
-                          value={form.exemptionStatus}
-                          onChange={(event) => setField('exemptionStatus', event.target.value)}
-                        >
-                          {exemptionStatusOptions.map((option) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="hrEmpField">
-                        <label>Employment Start Date</label>
-                        <input
-                          type="date"
-                          value={form.employmentDateStart}
-                          onChange={(event) => setField('employmentDateStart', event.target.value)}
-                        />
-                      </div>
-
-                      <div className="hrEmpField">
-                        <label>Employment End Date</label>
-                        <input
-                          type="date"
-                          value={form.employmentDateEnd}
-                          onChange={(event) => setField('employmentDateEnd', event.target.value)}
-                        />
-                      </div>
-
-                      <div className="hrEmpField">
-                        <label>Yearly Salary</label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={form.yearlySalary}
-                          onChange={(event) => setField('yearlySalary', event.target.value)}
-                          placeholder="Optional salary amount"
-                        />
-                      </div>
-
-                      {showManagerPicker ? (
-                        <div className="hrEmpField hrEmpField--manager">
-                          <div className="hrEmpField__labelRow">
-                            <label>Manager</label>
-                            {selectedManagerOption ? (
-                              <span className="hrEmpCombo__labelPill" aria-live="polite">
-                                {selectedManagerOption.department || 'Not assigned'}
-                              </span>
-                            ) : null}
+                        <div className="hrEmpForm__grid hrEmpForm__grid--delete">
+                          <div className="hrEmpField">
+                            <label>Employee ID</label>
+                            <input value={form.employeeId} readOnly placeholder="Employee ID" />
                           </div>
-                          <div
-                            className={`hrEmpCombo hrEmpCombo--compact ${managerPickerOpen ? 'is-open' : ''}`}
-                            ref={managerPickerRef}
-                          >
-                            <div className="hrEmpCombo__control" aria-invalid={managerSelectionMissing ? 'true' : undefined}>
-                              <input
-                                type="text"
-                                className="hrEmpCombo__input"
-                                role="combobox"
-                                aria-autocomplete="list"
-                                aria-controls="employee-manager-options"
-                                aria-expanded={managerPickerOpen}
-                                aria-haspopup="listbox"
-                                aria-invalid={managerSelectionMissing ? 'true' : undefined}
-                                value={managerSearch}
-                                onFocus={() => setManagerPickerOpen(true)}
-                                onChange={(event) => {
-                                  const nextValue = event.target.value;
-                                  setManagerSearch(nextValue);
-                                  setManagerPickerOpen(true);
-                                  if (normalizeText(selectedManagerOption?.name ?? '') !== normalizeText(nextValue)) {
-                                    setField('managerId', '');
-                                  }
-                                }}
-                                placeholder={isLoadingEmployeeOptions ? 'Loading managers...' : 'Search by manager name'}
-                                disabled={isLoadingEmployeeOptions}
-                              />
-                              {canClearManagerPicker ? (
-                                <button
-                                  type="button"
-                                  className="hrEmpCombo__clear"
-                                  onClick={clearManagerSelection}
-                                  disabled={isLoadingEmployeeOptions}
-                                  aria-label="Clear manager selection"
-                                >
-                                  <FiX />
-                                </button>
-                              ) : null}
-                              <button
-                                type="button"
-                                className="hrEmpCombo__toggle"
-                                onClick={() => setManagerPickerOpen((current) => !current)}
-                                disabled={isLoadingEmployeeOptions}
-                                aria-label={managerPickerOpen ? 'Close manager list' : 'Open manager list'}
-                              >
-                                <FiChevronDown />
-                              </button>
+
+                          <div className="hrEmpField">
+                            <label>Separation Reason</label>
+                            <select
+                              value={form.separationReason}
+                              onChange={(event) =>
+                                setField('separationReason', event.target.value as FormState['separationReason'])
+                              }
+                            >
+                              <option value="">Select a reason</option>
+                              {separationReasonOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="hrEmpField">
+                            <label>Eligible for Rehire</label>
+                            <select
+                              value={form.eligibleForRehire}
+                              onChange={(event) =>
+                                setField('eligibleForRehire', event.target.value as FormState['eligibleForRehire'])
+                              }
+                            >
+                              <option value="">Select</option>
+                              <option value="YES">Yes</option>
+                              <option value="NO">No</option>
+                            </select>
+                          </div>
+
+                          <div className="hrEmpField hrEmpField--full">
+                            <label>Notes</label>
+                            <textarea
+                              value={form.separationNotes}
+                              onChange={(event) => setField('separationNotes', event.target.value)}
+                              placeholder="Optional HR notes for the separation record"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="hrEmpForm__section">
+                        <div className="hrEmpForm__sectionTitle">Employment Details</div>
+                        <div className="hrEmpForm__grid">
+                          {modal === 'edit' ? (
+                            <div className="hrEmpField">
+                              <label>Employee ID</label>
+                              <input value={form.employeeId} readOnly />
                             </div>
+                          ) : null}
 
-                            {managerPickerOpen ? (
-                              <div className="hrEmpCombo__menu" id="employee-manager-options" role="listbox">
-                                {isLoadingEmployeeOptions ? (
-                                  <div className="hrEmpCombo__empty">Loading managers...</div>
-                                ) : filteredManagerOptions.length > 0 ? (
-                                  filteredManagerOptions.map((option) => {
-                                    const isSelected = option.id === Number(form.managerId);
-                                    return (
-                                      <button
-                                        key={option.id}
-                                        type="button"
-                                        role="option"
-                                        aria-selected={isSelected}
-                                        className={`hrEmpCombo__option ${isSelected ? 'is-selected' : ''}`}
-                                        onClick={() => selectManager(option)}
-                                      >
-                                        <span className="hrEmpCombo__optionName">{option.name}</span>
-                                        <span className="hrEmpCombo__optionMeta">
-                                          {option.department || 'No department assigned yet'}
-                                        </span>
-                                      </button>
-                                    );
-                                  })
-                                ) : (
-                                  <div className="hrEmpCombo__empty">No managers match that search.</div>
-                                )}
-                              </div>
-                            ) : null}
+                          <div className="hrEmpField">
+                            <label>Status</label>
+                            <select
+                              value={form.employmentStatus}
+                              onChange={(event) => setField('employmentStatus', event.target.value)}
+                            >
+                              {employmentStatusOptions.map((option) => (
+                                <option key={option} value={option}>
+                                  {option}
+                                </option>
+                              ))}
+                            </select>
                           </div>
-                          {employeeOptionsError ? (
-                            <span className="hrEmpField__hint is-error">
-                              Manager list could not be loaded right now. ({employeeOptionsError})
-                            </span>
+
+                          <div className="hrEmpField">
+                            <label>Position</label>
+                            <select
+                              value={form.position}
+                              onChange={(event) => handlePositionChange(event.target.value)}
+                            >
+                              {positionOptions.map((option) => (
+                                <option key={option} value={option}>
+                                  {option}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="hrEmpField">
+                            <label>Exemption Status</label>
+                            <select
+                              value={form.exemptionStatus}
+                              onChange={(event) => setField('exemptionStatus', event.target.value)}
+                            >
+                              {exemptionStatusOptions.map((option) => (
+                                <option key={option} value={option}>
+                                  {option}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="hrEmpField">
+                            <label>Employment Start Date</label>
+                            <input
+                              type="date"
+                              value={form.employmentDateStart}
+                              onChange={(event) => setField('employmentDateStart', event.target.value)}
+                            />
+                          </div>
+
+                          <div className="hrEmpField">
+                            <label>Employment End Date</label>
+                            <input
+                              type="date"
+                              value={form.employmentDateEnd}
+                              onChange={(event) => setField('employmentDateEnd', event.target.value)}
+                            />
+                          </div>
+
+                          <div className="hrEmpField">
+                            <label>Yearly Salary</label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={form.yearlySalary}
+                              onChange={(event) => setField('yearlySalary', event.target.value)}
+                              placeholder="Optional salary amount"
+                            />
+                          </div>
+
+                          {showManagerPicker ? (
+                            <div className="hrEmpField hrEmpField--manager">
+                              <div className="hrEmpField__labelRow">
+                                <label>Manager</label>
+                                {selectedManagerOption ? (
+                                  <span className="hrEmpCombo__labelPill" aria-live="polite">
+                                    {selectedManagerOption.department || 'Not assigned'}
+                                  </span>
+                                ) : null}
+                              </div>
+                              <div
+                                className={`hrEmpCombo hrEmpCombo--compact ${managerPickerOpen ? 'is-open' : ''}`}
+                                ref={managerPickerRef}
+                              >
+                                <div
+                                  className="hrEmpCombo__control"
+                                  aria-invalid={managerSelectionMissing ? 'true' : undefined}
+                                >
+                                  <input
+                                    type="text"
+                                    className="hrEmpCombo__input"
+                                    role="combobox"
+                                    aria-autocomplete="list"
+                                    aria-controls="employee-manager-options"
+                                    aria-expanded={managerPickerOpen}
+                                    aria-haspopup="listbox"
+                                    aria-invalid={managerSelectionMissing ? 'true' : undefined}
+                                    value={managerSearch}
+                                    onFocus={() => setManagerPickerOpen(true)}
+                                    onChange={(event) => {
+                                      const nextValue = event.target.value;
+                                      setManagerSearch(nextValue);
+                                      setManagerPickerOpen(true);
+                                      if (
+                                        normalizeText(selectedManagerOption?.name ?? '') !== normalizeText(nextValue)
+                                      ) {
+                                        setField('managerId', '');
+                                      }
+                                    }}
+                                    placeholder={isLoadingEmployeeOptions ? 'Loading managers...' : 'Search by manager name'}
+                                    disabled={isLoadingEmployeeOptions}
+                                  />
+                                  {canClearManagerPicker ? (
+                                    <button
+                                      type="button"
+                                      className="hrEmpCombo__clear"
+                                      onClick={clearManagerSelection}
+                                      disabled={isLoadingEmployeeOptions}
+                                      aria-label="Clear manager selection"
+                                    >
+                                      <FiX />
+                                    </button>
+                                  ) : null}
+                                  <button
+                                    type="button"
+                                    className="hrEmpCombo__toggle"
+                                    onClick={() => setManagerPickerOpen((current) => !current)}
+                                    disabled={isLoadingEmployeeOptions}
+                                    aria-label={managerPickerOpen ? 'Close manager list' : 'Open manager list'}
+                                  >
+                                    <FiChevronDown />
+                                  </button>
+                                </div>
+
+                                {managerPickerOpen ? (
+                                  <div className="hrEmpCombo__menu" id="employee-manager-options" role="listbox">
+                                    {isLoadingEmployeeOptions ? (
+                                      <div className="hrEmpCombo__empty">Loading managers...</div>
+                                    ) : filteredManagerOptions.length > 0 ? (
+                                      filteredManagerOptions.map((option) => {
+                                        const isSelected = option.id === Number(form.managerId);
+                                        return (
+                                          <button
+                                            key={option.id}
+                                            type="button"
+                                            role="option"
+                                            aria-selected={isSelected}
+                                            className={`hrEmpCombo__option ${isSelected ? 'is-selected' : ''}`}
+                                            onClick={() => selectManager(option)}
+                                          >
+                                            <span className="hrEmpCombo__optionName">{option.name}</span>
+                                            <span className="hrEmpCombo__optionMeta">
+                                              {option.department || 'No department assigned yet'}
+                                            </span>
+                                          </button>
+                                        );
+                                      })
+                                    ) : (
+                                      <div className="hrEmpCombo__empty">No managers match that search.</div>
+                                    )}
+                                  </div>
+                                ) : null}
+                              </div>
+                              {employeeOptionsError ? (
+                                <span className="hrEmpField__hint is-error">
+                                  Manager list could not be loaded right now. ({employeeOptionsError})
+                                </span>
+                              ) : null}
+                            </div>
+                          ) : null}
+
+                          {showDepartmentPicker ? (
+                            <div className="hrEmpField">
+                              <label>Department</label>
+                              <select
+                                value={form.department}
+                                aria-invalid={departmentMissing ? 'true' : undefined}
+                                onChange={(event) => setField('department', event.target.value)}
+                              >
+                                <option value="">Select department</option>
+                                {managerDepartmentOptions.map((option) => (
+                                  <option key={option} value={option}>
+                                    {option}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                           ) : null}
                         </div>
-                      ) : null}
+                      </div>
 
-                      {showDepartmentPicker ? (
-                        <div className="hrEmpField">
-                          <label>Department</label>
-                          <select
-                            value={form.department}
-                            aria-invalid={departmentMissing ? 'true' : undefined}
-                            onChange={(event) => setField('department', event.target.value)}
-                          >
-                            <option value="">Select department</option>
-                            {managerDepartmentOptions.map((option) => (
-                              <option key={option} value={option}>
-                                {option}
-                              </option>
-                            ))}
-                          </select>
+                      {modal === 'edit' ? (
+                        <div className="hrEmpForm__section">
+                          <div className="hrEmpForm__sectionTitle">Leave Balances</div>
+                          {renderLeaveBalanceEditor()}
                         </div>
                       ) : null}
-                    </div>
-                  </div>
 
-                  {modal === 'edit' ? (
-                    <div className="hrEmpForm__section">
-                      <div className="hrEmpForm__sectionTitle">Leave Balances</div>
-                      {renderLeaveBalanceEditor()}
-                    </div>
-                  ) : null}
+                      <div className="hrEmpForm__section">
+                        <div className="hrEmpForm__sectionTitle">Personal Information</div>
+                        <div className="hrEmpForm__grid">
+                          <div className="hrEmpField">
+                            <label>First Name</label>
+                            <input
+                              value={form.firstName}
+                              aria-invalid={firstNameMissing ? 'true' : undefined}
+                              onChange={(event) => setField('firstName', event.target.value)}
+                            />
+                          </div>
 
-                  <div className="hrEmpForm__section">
-                    <div className="hrEmpForm__sectionTitle">Personal Information</div>
-                    <div className="hrEmpForm__grid">
-                      <div className="hrEmpField">
-                        <label>First Name</label>
-                        <input
-                          value={form.firstName}
-                          aria-invalid={firstNameMissing ? 'true' : undefined}
-                          onChange={(event) => setField('firstName', event.target.value)}
-                        />
-                      </div>
+                          <div className="hrEmpField">
+                            <label>Middle Name</label>
+                            <input
+                              value={form.middleName}
+                              placeholder="Optional middle name"
+                              onChange={(event) => setField('middleName', event.target.value)}
+                            />
+                          </div>
 
-                      <div className="hrEmpField">
-                        <label>Middle Name</label>
-                        <input
-                          value={form.middleName}
-                          placeholder="Optional middle name"
-                          onChange={(event) => setField('middleName', event.target.value)}
-                        />
-                      </div>
+                          <div className="hrEmpField">
+                            <label>Last Name</label>
+                            <input
+                              value={form.lastName}
+                              aria-invalid={lastNameMissing ? 'true' : undefined}
+                              onChange={(event) => setField('lastName', event.target.value)}
+                            />
+                          </div>
 
-                      <div className="hrEmpField">
-                        <label>Last Name</label>
-                        <input
-                          value={form.lastName}
-                          aria-invalid={lastNameMissing ? 'true' : undefined}
-                          onChange={(event) => setField('lastName', event.target.value)}
-                        />
-                      </div>
-
-                      <div className="hrEmpField">
-                        <label>Birth Date</label>
-                        <input
-                          type="date"
-                          value={form.birthDate}
-                          aria-invalid={birthDateMissing ? 'true' : undefined}
-                          onChange={(event) => setField('birthDate', event.target.value)}
-                        />
-                      </div>
+                          <div className="hrEmpField">
+                            <label>Birth Date</label>
+                            <input
+                              type="date"
+                              value={form.birthDate}
+                              aria-invalid={birthDateMissing ? 'true' : undefined}
+                              onChange={(event) => setField('birthDate', event.target.value)}
+                            />
+                          </div>
 
                       <div className="hrEmpField">
                         <label>Email</label>
@@ -3008,9 +3035,9 @@ export default function HrManageEmp() {
                 {modal === 'add' ? 'Add Employee' : modal === 'edit' ? 'Save Changes' : 'Record Separation'}
               </button>
             </div>
-
           </div>
-        </div>
+        </div>,
+        document.body
       ) : null}
       <ConfirmDialog
         open={Boolean(confirmAction)}

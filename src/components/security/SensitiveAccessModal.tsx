@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import ModalCloseButton from '../dialog/ModalCloseButton';
 import { verifySensitiveAccess } from '../../lib/sensitiveAccess';
 import { getFriendlyErrorMessage } from '../../lib/uiErrors';
@@ -56,7 +57,7 @@ export default function SensitiveAccessModal({
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div
       className="sensitiveAccessModalBackdrop"
       role="dialog"
@@ -74,10 +75,15 @@ export default function SensitiveAccessModal({
             <div className="sensitiveAccessModal__eyebrow">Sensitive Access</div>
             <h2 className="sensitiveAccessModal__title">Verify Before Viewing</h2>
             <p className="sensitiveAccessModal__subtitle">
-              {notice || 'This HR action exposes protected employee information. Verify your identity before continuing.'}
+              {notice ||
+                'This HR action exposes protected employee information. Verify your identity before continuing.'}
             </p>
           </div>
-          <ModalCloseButton className="sensitiveAccessModal__close" aria-label="Close sensitive access modal" onClick={onClose} />
+          <ModalCloseButton
+            className="sensitiveAccessModal__close"
+            aria-label="Close sensitive access modal"
+            onClick={onClose}
+          />
         </div>
 
         <div className="sensitiveAccessModal__rule" />
@@ -103,6 +109,7 @@ export default function SensitiveAccessModal({
           </button>
         </div>
       </article>
-    </div>
+    </div>,
+    document.body
   );
 }
