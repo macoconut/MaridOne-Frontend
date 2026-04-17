@@ -79,6 +79,7 @@
   align-items: center;
   justify-content: center;
   justify-self: stretch;
+  text-align: center;
 }
 
 .mgrPendTable__empty {

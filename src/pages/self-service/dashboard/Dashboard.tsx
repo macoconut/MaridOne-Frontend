@@ -273,43 +273,76 @@ function getCalendarEventKey(event: CalendarEvent) {
   ].join('|');
 }
 
-function formatCalendarEventDateRange(startDate?: string, endDate?: string) {
-  if (!startDate) return 'Date not available';
+function formatAnnouncementDateTime(value?: string, fallback = 'Date not available') {
+  if (!value) return fallback;
 
-  const start = new Date(startDate);
-  if (Number.isNaN(start.getTime())) return 'Date not available';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return fallback;
 
-  const formattedStart = start.toLocaleDateString(undefined, {
+  const formattedDate = date.toLocaleDateString(undefined, {
     month: 'long',
     day: 'numeric',
     year: 'numeric',
   });
-  if (!endDate) return formattedStart;
-
-  const end = new Date(endDate);
-  if (Number.isNaN(end.getTime())) return formattedStart;
-
-  const formattedEnd = end.toLocaleDateString(undefined, {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
-  return formattedStart === formattedEnd ? formattedStart : `${formattedStart} - ${formattedEnd}`;
-}
-
-function formatAnnouncementCreatedAt(value?: string) {
-  if (!value) return 'Created date not available';
-
-  const createdAt = new Date(value);
-  if (Number.isNaN(createdAt.getTime())) return 'Created date not available';
-
-  return createdAt.toLocaleString(undefined, {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
+  const formattedTime = date.toLocaleTimeString(undefined, {
     hour: 'numeric',
     minute: '2-digit',
   });
+
+  return `${formattedDate} at ${formattedTime}`;
+}
+
+function formatAnnouncementCreatedAt(value?: string) {
+  return formatAnnouncementDateTime(value, 'Created date not available');
+}
+
+function formatAnnouncementMeta(employeeName?: string, createdAt?: string) {
+  const author = typeof employeeName === 'string' && employeeName.trim().length > 0
+    ? employeeName.trim()
+    : 'MaridOne Staff';
+  const createdLabel = formatAnnouncementCreatedAt(createdAt);
+
+  return createdLabel === 'Created date not available'
+    ? `Posted by ${author}`
+    : `Posted by ${author} • ${createdLabel}`;
+}
+
+function formatAnnouncementEventDuration(startDate?: string, endDate?: string) {
+  if (!startDate) return 'Event duration not available';
+
+  const start = new Date(startDate);
+  if (Number.isNaN(start.getTime())) return 'Event duration not available';
+
+  const formattedStartDate = start.toLocaleDateString(undefined, {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  const formattedStartTime = start.toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+
+  if (!endDate) return `${formattedStartDate} at ${formattedStartTime}`;
+
+  const end = new Date(endDate);
+  if (Number.isNaN(end.getTime())) return `${formattedStartDate} at ${formattedStartTime}`;
+
+  const formattedEndDate = end.toLocaleDateString(undefined, {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  const formattedEndTime = end.toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+
+  if (formattedStartDate === formattedEndDate) {
+    return `${formattedStartDate} from ${formattedStartTime} to ${formattedEndTime}`;
+  }
+
+  return `${formattedStartDate} at ${formattedStartTime} - ${formattedEndDate} at ${formattedEndTime}`;
 }
 
 type LeaveBalanceRow = {
@@ -712,9 +745,13 @@ export default function Dashboard() {
     () => getCalendarEventsByDay(calendarEvents, calendarYear, calendarMonthIndex),
     [calendarEvents, calendarMonthIndex, calendarYear]
   );
-  const announcementHeaderEvent = selectedAnnouncementDay?.events[0] ?? null;
+  const selectedAnnouncementEvents = selectedAnnouncementDay?.events ?? [];
+  const hasSingleAnnouncement = selectedAnnouncementEvents.length === 1;
+  const announcementHeaderEvent = hasSingleAnnouncement ? selectedAnnouncementEvents[0] : null;
   const canManageAnnouncements =
     location.pathname.startsWith('/hr/') || location.pathname.startsWith('/management/');
+  const canDeleteSingleAnnouncement =
+    canManageAnnouncements && typeof announcementHeaderEvent?.calendarId === 'number';
   const savedEmailNormalized = employee?.email?.trim().toLowerCase() ?? '';
   const draftEmailNormalized = editDraft.email.trim().toLowerCase();
   const emailChanged = Boolean(draftEmailNormalized && draftEmailNormalized !== savedEmailNormalized);
@@ -1300,34 +1337,70 @@ export default function Dashboard() {
         <LargePopup
           open
           ariaLabel="Company announcements"
-          title={announcementHeaderEvent?.employeeName || 'MaridOne Staff'}
-          subtitle={formatAnnouncementCreatedAt(announcementHeaderEvent?.createdAt)}
+          title={announcementHeaderEvent?.title || selectedAnnouncementDay.label}
+          subtitle={
+            announcementHeaderEvent
+              ? formatAnnouncementMeta(announcementHeaderEvent.employeeName, announcementHeaderEvent.createdAt)
+              : `${selectedAnnouncementEvents.length} company announcement${selectedAnnouncementEvents.length === 1 ? '' : 's'}`
+          }
           size="lg"
           onClose={closeAnnouncementDay}
           footer={(
-            <button type="button" className="btn btn--ghost" onClick={closeAnnouncementDay}>
-              Close
-            </button>
+            <>
+              {canDeleteSingleAnnouncement ? (
+                <button
+                  type="button"
+                  className="announcementModal__deleteIconButton"
+                  onClick={() => requestDeleteAnnouncement(announcementHeaderEvent!)}
+                  disabled={deletingAnnouncementId === announcementHeaderEvent?.calendarId}
+                  aria-label="Delete Announcement"
+                  title="Delete Announcement"
+                >
+                  <FiTrash2 aria-hidden="true" />
+                </button>
+              ) : null}
+              {canDeleteSingleAnnouncement ? <span className="announcementModal__footerSpacer" aria-hidden="true" /> : null}
+              <button type="button" className="btn btn--ghost" onClick={closeAnnouncementDay}>
+                Close
+              </button>
+            </>
           )}
         >
           <div className="announcementModal__list">
-            {selectedAnnouncementDay.events.map((event) => {
+            {selectedAnnouncementEvents.map((event) => {
               const isDeleting = deletingAnnouncementId === event.calendarId;
+              const showInlineHeader = !hasSingleAnnouncement;
+              const showInlineDelete = showInlineHeader && canManageAnnouncements && typeof event.calendarId === 'number';
 
               return (
                 <article key={event.key} className="announcementModal__card">
-                  <div className="announcementModal__titleRow">
-                    <h3 className="announcementModal__title">{event.title}</h3>
-                    <div className="announcementModal__dates">
-                      {formatCalendarEventDateRange(event.startDate, event.endDate)}
+                  {showInlineHeader ? (
+                    <header className="announcementModal__header">
+                      <h3 className="announcementModal__title">{event.title}</h3>
+                      <p className="announcementModal__meta">
+                        {formatAnnouncementMeta(event.employeeName, event.createdAt)}
+                      </p>
+                    </header>
+                  ) : null}
+                  <div className="announcementModal__details">
+                    <div className="announcementModal__detailRow">
+                      <span className="announcementModal__detailLabel">Event Duration:</span>
+                      <strong className="announcementModal__detailValue">
+                        {formatAnnouncementEventDuration(event.startDate, event.endDate)}
+                      </strong>
+                    </div>
+                    <div className="announcementModal__detailRow announcementModal__detailRow--description">
+                      <span className="announcementModal__detailLabel">Description:</span>
+                      <p className="announcementModal__detailValue announcementModal__detailValue--description">
+                        {event.description || 'No description provided for this announcement yet.'}
+                      </p>
                     </div>
                   </div>
-                  <p>{event.description || 'No description provided for this announcement yet.'}</p>
-                  {canManageAnnouncements && typeof event.calendarId === 'number' ? (
-                    <div className="announcementModal__deleteRow">
+                  {showInlineDelete ? (
+                    <div className="announcementModal__cardFooter">
                       <button
                         type="button"
-                        className="announcementModal__delete"
+                        className="announcementModal__deleteIconButton announcementModal__deleteIconButton--inline"
                         onClick={() => requestDeleteAnnouncement(event)}
                         disabled={isDeleting}
                         aria-label={`Delete announcement ${event.title}`}
