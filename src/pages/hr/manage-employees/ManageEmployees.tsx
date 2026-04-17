@@ -1471,7 +1471,7 @@ export default function HrManageEmp() {
       return;
     }
 
-    await apiFetchJson(`/api/user/${employeeId}`, {
+    await apiFetchJson(`/api/user/update/${employeeId}`, {
       method: 'PATCH',
       body: JSON.stringify({
         employeeId,
