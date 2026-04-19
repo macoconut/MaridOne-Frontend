@@ -767,6 +767,7 @@ export default function HrPayslips() {
   useAutoRefreshingPage(handlePageRefresh, {
     intervalMs: 15000,
     enabled:
+      !sensitiveAccess.open &&
       !selectedDispute &&
       !selectedPayrollItem &&
       !runModalOpen &&
@@ -990,6 +991,15 @@ export default function HrPayslips() {
         setRunItems(mapped);
       } catch (error) {
         if (!cancelled) {
+          if (
+            sensitiveAccess.handleProtectedError(
+              error,
+              loadRunItems,
+              'Verify access before loading payroll run items for this payslip run.'
+            )
+          ) {
+            return;
+          }
           if (shouldShowLoadingState) {
             loadedRunItemsPayIdRef.current = null;
             setRunItems([]);

@@ -301,6 +301,10 @@ export default function Approval() {
     const isPending = selectedApproval.status.toLowerCase().startsWith('pending');
     const isApproved = selectedApproval.status.toLowerCase() === 'approved';
     if (!isPending && !isApproved) return false;
+    if (selectedApproval.source !== 'leave' && selectedApproval.source !== 'overtime') {
+      return true;
+    }
+    if (isPending) return true;
 
     const now = new Date();
     if (selectedApproval.source === 'leave') {
