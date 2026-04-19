@@ -569,8 +569,8 @@ export default function HrManageEmp() {
     () => employeeRows.find((row) => row.id === form.employeeId) ?? null,
     [employeeRows, form.employeeId]
   );
-  const showManagerPicker = isEmployeePosition(form.position);
-  const showDepartmentPicker = isManagerPosition(form.position);
+  const showManagerPicker = false;
+  const showDepartmentPicker = isManagerPosition(form.position) || isEmployeePosition(form.position);
 
   const detailsDialogEmployee = useMemo(
     () => employeeRows.find((row) => row.id === detailsDialogEmployeeId) ?? null,
@@ -1373,7 +1373,7 @@ export default function HrManageEmp() {
     }
 
     if (showDepartmentPicker && !form.department.trim()) {
-      setSubmitError('Department is required when the selected position is MANAGER.');
+      setSubmitError('Department is required when the selected position is MANAGER or EMPLOYEE.');
       return false;
     }
 
@@ -1406,7 +1406,7 @@ export default function HrManageEmp() {
     }
 
     if (showDepartmentPicker && !form.department.trim()) {
-      throw new Error('Department is required when the selected position is MANAGER.');
+      throw new Error('Department is required when the selected position is MANAGER or EMPLOYEE.');
     }
 
     const shouldDefaultEmploymentEndDate =
@@ -2825,6 +2825,11 @@ export default function HrManageEmp() {
                                   </option>
                                 ))}
                               </select>
+                              {isEmployeePosition(form.position) ? (
+                                <span className="hrEmpField__hint">
+                                  The assigned department will automatically route this employee under that department&apos;s manager.
+                                </span>
+                              ) : null}
                             </div>
                           ) : null}
                         </div>
