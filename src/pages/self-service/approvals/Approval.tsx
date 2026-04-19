@@ -10,6 +10,7 @@ import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
+import { extractAttachmentReference, openDocumentAttachment } from '../../../lib/documentAttachments';
 import { getManilaNow } from '../../../lib/manilaTime';
 import { getUserEmail } from '../../../lib/session';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
@@ -43,6 +44,7 @@ type ApprovalItem = {
   managerDecisionDate?: string;
   rawWorkDate?: string;
   rawStartTime?: string;
+  attachmentPathId?: number;
 };
 
 type ApprovalTypeFilter = 'all' | 'Leave' | 'Overtime' | 'Payslip Dispute';
@@ -290,8 +292,11 @@ export default function Approval() {
   const [isCancelling, setIsCancelling] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
   const [cancelError, setCancelError] = useState('');
+  const [attachmentError, setAttachmentError] = useState('');
+  const [openingAttachmentId, setOpeningAttachmentId] = useState<number | null>(null);
   const { showSuccess } = useUiDialog();
   useErrorDialogEffect(cancelError, 'Request could not be cancelled');
+  useErrorDialogEffect(attachmentError, 'Attachment could not be opened');
   const selectedApproval = useMemo(
     () => approvals.find((item) => item.id === selectedApprovalId) ?? null,
     [approvals, selectedApprovalId]
@@ -393,6 +398,7 @@ export default function Approval() {
         const startDateStr = formatDate(row.startDateTime);
         const endDateStr = formatDate(row.endDateTime);
         const requestTarget = startDateStr === endDateStr ? startDateStr : `${startDateStr} to ${endDateStr}`;
+        const attachment = extractAttachmentReference(row.reason);
 
         const managerNote = (row.managerApproverReason || '').trim();
         const rawDecisionNote = (row.approverReason || '').trim();
@@ -423,12 +429,13 @@ export default function Approval() {
           durationLabel: formatLeaveDuration(row.startDateTime, row.endDateTime),
           status,
           approvedBy: status.startsWith('Pending') ? '-' : status === 'Cancelled' ? '-' : row.approver?.trim() || '-',
-          requestReason: row.reason ?? '-',
+          requestReason: attachment.cleanText || '-',
           decisionReason: finalDecisionReason,
           decisionDate: formatDateTime(row.approvedAt),
           managerApprover: row.managerApprover,
           managerDecisionReason: managerNote,
           managerDecisionDate: formatDateTime(row.managerApprovedAt),
+          attachmentPathId: attachment.attachmentPathId ?? undefined,
         };
       });
 
@@ -436,6 +443,7 @@ export default function Approval() {
         const status = mapApprovalStatus(row.requestStatus);
         const overtimeId = row.overtimeId ?? index;
         const workDateStr = formatDate(row.workDate);
+        const attachment = extractAttachmentReference(row.reason);
 
         const managerNote = (row.managerApproveReason || '').trim();
         const rawDecisionNote = (row.approveReason || '').trim();
@@ -468,12 +476,13 @@ export default function Approval() {
           durationLabel: formatClockWindow(row.startTime, row.endTime),
           status,
           approvedBy: status.startsWith('Pending') ? '-' : status === 'Cancelled' ? '-' : row.approver ?? '-',
-          requestReason: row.reason ?? '-',
+          requestReason: attachment.cleanText || '-',
           decisionReason: finalDecisionReason,
           decisionDate: formatDateTime(row.approvedAt),
           managerApprover: row.managerApprover,
           managerDecisionReason: managerNote,
           managerDecisionDate: formatDateTime(row.managerApprovedAt),
+          attachmentPathId: attachment.attachmentPathId ?? undefined,
         };
       });
 
@@ -481,6 +490,7 @@ export default function Approval() {
         const status = mapApprovalStatus(row.status);
         const disputeId = row.id ?? index;
         const rawDecisionNote = (row.statusReason || '').trim();
+        const attachment = extractAttachmentReference(row.reason);
 
         let finalDecisionReason = '';
         if (status === 'Cancelled') {
@@ -507,9 +517,10 @@ export default function Approval() {
               : 'Payroll period unavailable',
           status,
           approvedBy: status.startsWith('Pending') ? '-' : status === 'Cancelled' ? '-' : resolveDisputeApprover(row),
-          requestReason: row.reason ?? '-',
+          requestReason: attachment.cleanText || '-',
           decisionReason: finalDecisionReason,
           decisionDate: formatDateTime(row.updatedAt),
+          attachmentPathId: attachment.attachmentPathId ?? undefined,
         };
       });
 
@@ -561,6 +572,18 @@ export default function Approval() {
     } finally {
       hideLoading();
       setIsCancelling(false);
+    }
+  }
+
+  async function handleOpenAttachment(pathId: number) {
+    setAttachmentError('');
+    setOpeningAttachmentId(pathId);
+    try {
+      await openDocumentAttachment(pathId);
+    } catch (error) {
+      setAttachmentError(error instanceof Error ? error.message : 'Failed to open the attachment.');
+    } finally {
+      setOpeningAttachmentId(null);
     }
   }
 
@@ -821,7 +844,30 @@ export default function Approval() {
               <div className="apprModal__messages">
                 <div className="apprModal__message">
                   <span>Request Reason</span>
-                  <p>{selectedApproval.requestReason}</p>
+                  <p>{selectedApproval.requestReason || 'No reason provided.'}</p>
+                </div>
+
+                <div className="apprModal__message apprModal__message--attachment">
+                  <div className="apprModal__documentRow">
+                    <div className="apprModal__documentCopy">
+                      <span>Supporting Document</span>
+                      <p>
+                        {typeof selectedApproval.attachmentPathId === 'number'
+                          ? 'A supporting file was uploaded with this request.'
+                          : 'No supporting file was uploaded with this request.'}
+                      </p>
+                    </div>
+                    {typeof selectedApproval.attachmentPathId === 'number' && (
+                      <button
+                        type="button"
+                        className="apprModal__documentButton"
+                        onClick={() => void handleOpenAttachment(selectedApproval.attachmentPathId!)}
+                        disabled={openingAttachmentId === selectedApproval.attachmentPathId}
+                      >
+                        {openingAttachmentId === selectedApproval.attachmentPathId ? 'Opening...' : 'View Attachment'}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {selectedApproval.managerDecisionReason && selectedApproval.managerDecisionReason.trim() !== '' && (

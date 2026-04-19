@@ -8,6 +8,28 @@ type UseAutoRefreshingPageOptions = {
   focusRefreshCooldownMs?: number;
 };
 
+function isEditableElement(target: EventTarget | null) {
+  if (!(target instanceof HTMLElement)) return false;
+
+  if (target.isContentEditable) return true;
+
+  const editableAncestor = target.closest(
+    'input, textarea, select, [contenteditable="true"], [role="textbox"]'
+  );
+
+  return editableAncestor instanceof HTMLElement;
+}
+
+function shouldPauseAutoRefresh() {
+  if (typeof document === 'undefined') return false;
+
+  if (document.body.classList.contains('modal-open')) {
+    return true;
+  }
+
+  return isEditableElement(document.activeElement);
+}
+
 export function useAutoRefreshingPage(
   handler: () => void | Promise<void>,
   options: UseAutoRefreshingPageOptions = {}
@@ -45,6 +67,7 @@ export function useAutoRefreshingPage(
 
     const intervalId = window.setInterval(() => {
       if (document.visibilityState !== 'visible') return;
+      if (shouldPauseAutoRefresh()) return;
       void refreshPage();
     }, intervalMs);
 
@@ -56,6 +79,7 @@ export function useAutoRefreshingPage(
 
     const shouldRefreshOnForeground = () => {
       if (document.visibilityState !== 'visible') return false;
+      if (shouldPauseAutoRefresh()) return false;
       return Date.now() - lastRefreshAtRef.current >= focusRefreshCooldownMs;
     };
 

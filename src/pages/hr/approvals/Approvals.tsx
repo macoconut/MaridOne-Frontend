@@ -18,6 +18,7 @@ import {
   formatRequestTypeLabel,
 } from '../../../lib/requestPresentation';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
+import '../../self-service/approvals/Approval.css';
 import './Approvals.css';
 import '../../manager/pending-approvals/PendingApprovals.css';
 
@@ -195,6 +196,22 @@ function toStatusCode(status: string) {
   return normalized;
 }
 
+function approvalStatusTone(status: string) {
+  const normalized = toStatusCode(status);
+  if (normalized === 'APPROVED') return 'approved';
+  if (normalized === 'REJECTED') return 'denied';
+  if (normalized === 'CANCELLED') return 'cancelled';
+  return 'pending';
+}
+
+function splitRequestKind(value?: string) {
+  const [primary = '', payLabel = ''] = String(value ?? '').split(' - ');
+  return {
+    primary: primary || value || 'Request',
+    payLabel,
+  };
+}
+
 function buildApiPath(path: string, params: Record<string, string | undefined>) {
   const searchParams = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -252,6 +269,8 @@ export default function HrApprovals() {
     : false;
   const canReviewSelected = selected ? normalizedSelectedStatus === 'PENDING_HR' : false;
   const selectedSuggestedPaid = Boolean(selected?.suggestedPaid ?? selected?.paid ?? true);
+  const selectedStatusTone = selected ? approvalStatusTone(selected.status) : 'pending';
+  const selectedRequestKind = splitRequestKind(selected?.requestKind);
 
   const isDirty = useMemo(() => {
     if (!selected || !canReviewSelected) return false;
@@ -658,12 +677,8 @@ export default function HrApprovals() {
     <div className="hrAppr">
       <div className="hrAppr__head">
         <PageHeader
-          title={selected ? 'Review Employee Request' : 'Requests from Employees'}
-          description={
-            selected
-              ? 'Review the manager recommendation, confirm the paid or unpaid treatment, and record the final HR decision.'
-              : 'Review leave and overtime requests here. Payroll disputes stay in Manage Payslips.'
-          }
+          title='Requests from Employees'
+          description='Review the manager recommendation, confirm the paid or unpaid treatment, and record the final HR decision.'
         />
 
         <div className="hrAppr__toolbar">
@@ -810,7 +825,11 @@ export default function HrApprovals() {
         open={Boolean(selected)}
         ariaLabel="Approval details"
         title={selected ? `${selected.employee} - ${selected.type}` : 'Approval details'}
-        subtitle="Review the manager recommendation, confirm the paid or unpaid treatment when needed, and record the final HR decision here."
+        subtitle={
+          canReviewSelected
+            ? 'Review the manager recommendation, confirm the paid or unpaid treatment when needed, and record the final HR decision here.'
+            : 'Review the submitted details, supporting documents, manager recommendation, and recorded final decision.'
+        }
         size="lg"
         onClose={requestCloseModal}
         closeDisabled={isSaving}
@@ -838,210 +857,209 @@ export default function HrApprovals() {
         }
       >
         {selected ? (
-          <>
-
-            <div className="hrApprForm__row hrApprForm__row--2">
-              <label>
-                <span>Type:</span>
-                <input value={selected.type} readOnly />
-              </label>
-              <label>
-                <span>Current Status:</span>
-                <input value={statusLabel(selected.status)} readOnly />
-              </label>
-            </div>
-
-            <div className="hrApprForm__row">
-              <label>
-                <span>Requested At:</span>
-                <input value={selected.submittedAt} readOnly />
-              </label>
-            </div>
-
-            <div className="hrApprForm__row hrApprForm__row--2">
-              <label>
-                <span>Requested For:</span>
-                <input value={selected.requestDate} readOnly />
-              </label>
-              <label>
-                <span>Duration:</span>
-                <input value={selected.durationLabel} readOnly />
-              </label>
-            </div>
-
-            <div className="hrApprForm__row">
-              <label>
-                <span>Reason:</span>
-                <textarea value={selected.reason || 'No reason provided.'} readOnly />
-              </label>
-            </div>
-
-            <div className="hrApprForm__row">
-              <div className="hrApprAttachment">
-                <div className="hrApprAttachment__copy">
-                  <span>Attachment:</span>
-                  <p>
-                    {typeof selected.attachmentPathId === 'number'
-                      ? 'A supporting file was uploaded with this request.'
-                      : 'No attachment was uploaded with this request.'}
-                  </p>
+          <div className="apprModal__content">
+            <div className="apprModal__tilesWrapper">
+              <div className="apprModal__tilesRow">
+                <div className="apprModal__tile apprModal__tile--status">
+                  <span>Current Status</span>
+                  <div className={`apprModal__badge apprModal__badge--${selectedStatusTone}`}>
+                    {statusLabel(selected.status)}
+                  </div>
                 </div>
-                {typeof selected.attachmentPathId === 'number' && (
-                  <button
-                    type="button"
-                    className="hrApprAttachment__button"
-                    onClick={() => void handleOpenAttachment(selected.attachmentPathId!)}
-                    disabled={openingAttachmentId === selected.attachmentPathId}
-                  >
-                    {openingAttachmentId === selected.attachmentPathId ? 'Opening...' : 'View Attachment'}
-                  </button>
-                )}
+                <div className="apprModal__tile apprModal__tile--type">
+                  <span>Request Type</span>
+                  <div className="apprModal__typeValue">
+                    <strong>{selectedRequestKind.primary}</strong>
+                    {selectedRequestKind.payLabel && (
+                      <span
+                        className={`apprModal__payBadge apprModal__payBadge--${
+                          selectedRequestKind.payLabel.toLowerCase() === 'unpaid' ? 'unpaid' : 'paid'
+                        }`}
+                      >
+                        {selectedRequestKind.payLabel}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="apprModal__tilesRow">
+                <div className="apprModal__tile">
+                  <span>Submitted At</span>
+                  <strong>{selected.submittedAt}</strong>
+                </div>
+                <div className="apprModal__tile">
+                  <span>{selected.referenceLabel}</span>
+                  <strong>{selected.referenceValue}</strong>
+                </div>
+                <div className="apprModal__tile">
+                  <span>Time Window</span>
+                  <strong>{selected.requestTime}</strong>
+                </div>
+                <div className="apprModal__tile">
+                  <span>Duration</span>
+                  <strong>{selected.durationLabel}</strong>
+                </div>
               </div>
             </div>
 
-            {selected.decisionSummary && (
-              <div className="hrApprForm__row">
-                <label>
-                  <span>Final Decision Note:</span>
-                  <textarea value={selected.decisionSummary} readOnly />
-                </label>
+            <div className="apprModal__messages">
+              <div className="apprModal__message">
+                <span>Request Reason</span>
+                <p>{selected.reason || 'No reason provided.'}</p>
               </div>
-            )}
 
-            {(selected.managerApprover || selected.managerDecisionSummary) && (
-              <>
-                <div className="hrApprForm__row hrApprForm__row--2">
-                  <label>
-                    <span>Manager Reviewer:</span>
-                    <input value={selected.managerApprover || '-'} readOnly />
-                  </label>
-                  <label>
-                    <span>Manager Reviewed At:</span>
-                    <input value={selected.managerReviewedAt || '-'} readOnly />
-                  </label>
-                </div>
-
-                <div className="hrApprForm__row">
-                  <label>
-                    <span>Manager Review Note:</span>
-                    <textarea value={selected.managerDecisionSummary || 'No manager note provided.'} readOnly />
-                  </label>
-                </div>
-              </>
-            )}
-
-            {hasFinalDecision && (
-              <div className="hrApprModal__rule" />
-            )}
-
-            {(selected.source === 'leave' || selected.source === 'overtime') && (
-              <>
-                <div className="hrApprForm__row hrApprForm__row--2">
-                  <label>
-                    <span>System Suggestion:</span>
-                    <input value={selectedSuggestedPaid ? 'Paid' : 'Unpaid'} readOnly />
-                  </label>
-                  {selected.source === 'leave' ? (
-                    <label>
-                      <span>Available Leave Balance:</span>
-                      <input value={leaveBalanceLabel} readOnly />
-                    </label>
-                  ) : (
-                    <label>
-                      <span>Current OT Treatment:</span>
-                      <input value={selected.paid === false ? 'Unpaid' : 'Paid'} readOnly />
-                    </label>
+              <div className="apprModal__message apprModal__message--attachment">
+                <div className="apprModal__documentRow">
+                  <div className="apprModal__documentCopy">
+                    <span>Supporting Document</span>
+                    <p>
+                      {typeof selected.attachmentPathId === 'number'
+                        ? 'A supporting file was uploaded with this request.'
+                        : 'No supporting file was uploaded with this request.'}
+                    </p>
+                  </div>
+                  {typeof selected.attachmentPathId === 'number' && (
+                    <button
+                      type="button"
+                      className="apprModal__documentButton"
+                      onClick={() => void handleOpenAttachment(selected.attachmentPathId!)}
+                      disabled={openingAttachmentId === selected.attachmentPathId}
+                    >
+                      {openingAttachmentId === selected.attachmentPathId ? 'Opening...' : 'View Attachment'}
+                    </button>
                   )}
                 </div>
+              </div>
 
-                <div className="hrApprForm__row">
-                  <label className="decisionPicker">
-                    <span>{selected.source === 'leave' ? 'Leave Pay Treatment:' : 'Overtime Pay Treatment:'}</span>
+              {(selected.managerApprover || selected.managerDecisionSummary) && (
+                <div className="apprModal__message apprModal__message--manager">
+                  <span>Manager Remarks</span>
+                  <p>
+                    {selected.managerDecisionSummary || 'No manager note provided.'}
+                    {(selected.managerApprover || selected.managerReviewedAt) && (
+                      <span className="apprModal__subNote">
+                        {selected.managerApprover ? <>Reviewed by <strong>{selected.managerApprover}</strong></> : 'Reviewed'}
+                        {selected.managerReviewedAt ? <> on <strong>{selected.managerReviewedAt}</strong></> : null}
+                      </span>
+                    )}
+                  </p>
+                </div>
+              )}
+
+              {selected.paidOverrideReason && hasFinalDecision && (
+                <div className="apprModal__message apprModal__message--hr">
+                  <span>Pay Treatment Override</span>
+                  <p>{selected.paidOverrideReason}</p>
+                </div>
+              )}
+
+              {selected.decisionSummary && (
+                <div className="apprModal__message apprModal__message--hr">
+                  <span>{normalizedSelectedStatus === 'CANCELLED' ? 'Cancellation Note' : 'Final Decision Note'}</span>
+                  <p>{selected.decisionSummary}</p>
+                </div>
+              )}
+            </div>
+
+            {canReviewSelected && (
+              <div className="apprModal__reviewPanels">
+                {(selected.source === 'leave' || selected.source === 'overtime') && (
+                  <div className="apprModal__panel">
+                    <p className="apprModal__panelTitle">
+                      {selected.source === 'leave' ? 'Leave Pay Treatment' : 'Overtime Pay Treatment'}
+                    </p>
+
+                    <div className="apprModal__tilesRow">
+                      <div className="apprModal__tile">
+                        <span>System Suggestion</span>
+                        <strong>{selectedSuggestedPaid ? 'Paid' : 'Unpaid'}</strong>
+                      </div>
+                      {selected.source === 'leave' ? (
+                        <div className="apprModal__tile">
+                          <span>Available Leave Balance</span>
+                          <strong>{leaveBalanceLabel}</strong>
+                        </div>
+                      ) : (
+                        <div className="apprModal__tile">
+                          <span>Current OT Treatment</span>
+                          <strong>{selected.paid === false ? 'Unpaid' : 'Paid'}</strong>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="decisionPicker">
+                      <div className="decisionPicker__actions">
+                        <button
+                          type="button"
+                          className={`decisionPicker__button ${pendingPaidDecision === true ? 'is-selected' : ''}`}
+                          disabled={isSaving}
+                          onClick={() => setPendingPaidDecision(true)}
+                        >
+                          Paid
+                        </button>
+                        <button
+                          type="button"
+                          className={`decisionPicker__button ${pendingPaidDecision === false ? 'is-selected' : ''}`}
+                          disabled={isSaving}
+                          onClick={() => setPendingPaidDecision(false)}
+                        >
+                          Unpaid
+                        </button>
+                      </div>
+                    </div>
+
+                    {pendingPaidDecision !== selectedSuggestedPaid && (
+                      <label>
+                        <textarea
+                          value={paidOverrideReason}
+                          onChange={(e) => setPaidOverrideReason(e.target.value)}
+                          placeholder="Explain why HR is overriding the paid or unpaid treatment"
+                          aria-invalid={decisionSubmitAttempted && paidOverrideReason.trim().length < 5 ? 'true' : undefined}
+                        />
+                      </label>
+                    )}
+                  </div>
+                )}
+
+                <div className="apprModal__panel">
+                  <p className="apprModal__panelTitle">HR Final Decision</p>
+
+                  <div className="decisionPicker">
                     <div className="decisionPicker__actions">
                       <button
                         type="button"
-                        className={`decisionPicker__button ${pendingPaidDecision === true ? 'is-selected' : ''}`}
-                        disabled={isSaving || !canReviewSelected}
-                        onClick={() => setPendingPaidDecision(true)}
+                        className={`decisionPicker__button ${pendingDecision === 'APPROVED' ? 'is-selected' : ''}`}
+                        disabled={isSaving}
+                        onClick={() => setPendingDecision('APPROVED')}
                       >
-                        Paid
+                        Approve
                       </button>
                       <button
                         type="button"
-                        className={`decisionPicker__button ${pendingPaidDecision === false ? 'is-selected' : ''}`}
-                        disabled={isSaving || !canReviewSelected}
-                        onClick={() => setPendingPaidDecision(false)}
+                        className={`decisionPicker__button ${pendingDecision === 'REJECTED' ? 'is-selected' : ''}`}
+                        disabled={isSaving}
+                        onClick={() => setPendingDecision('REJECTED')}
                       >
-                        Unpaid
+                        Deny
                       </button>
                     </div>
-                    {canReviewSelected && (
-                      <p className="decisionPicker__note">
-                        Keep the system suggestion when possible. If HR changes it, add an override reason below for the audit trail.
-                      </p>
-                    )}
-                  </label>
-                </div>
-
-                {canReviewSelected && pendingPaidDecision !== selectedSuggestedPaid && (
-                  <div className="hrApprForm__row">
-                    <label>
-                      <span>Paid / Unpaid Override Reason:</span>
-                      <textarea
-                        value={paidOverrideReason}
-                        onChange={(e) => setPaidOverrideReason(e.target.value)}
-                        placeholder="Explain why HR is overriding the paid or unpaid treatment"
-                        aria-invalid={decisionSubmitAttempted && paidOverrideReason.trim().length < 5 ? 'true' : undefined}
-                      />
-                    </label>
                   </div>
-                )}
-              </>
-            )}
 
-            <div className="hrApprForm__row">
-              <label className="decisionPicker">
-                <span>HR Final Decision:</span>
-                <div className="decisionPicker__actions">
-                  <button
-                    type="button"
-                    className={`decisionPicker__button ${pendingDecision === 'APPROVED' ? 'is-selected' : ''}`}
-                    disabled={isSaving || !canReviewSelected}
-                    onClick={() => setPendingDecision('APPROVED')}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    className={`decisionPicker__button ${pendingDecision === 'REJECTED' ? 'is-selected' : ''}`}
-                    disabled={isSaving || !canReviewSelected}
-                    onClick={() => setPendingDecision('REJECTED')}
-                  >
-                    Deny
-                  </button>
+                  <label>
+                    <textarea
+                      value={decisionReason}
+                      onChange={(e) => setDecisionReason(e.target.value)}
+                      placeholder="Type the reason for approving or denying this request"
+                      aria-invalid={decisionSubmitAttempted && decisionReason.trim().length < 5 ? 'true' : undefined}
+                    />
+                  </label>
+
+                  {submitError ? <p className="hrApprForm__error">{submitError}</p> : null}
                 </div>
-                {canReviewSelected && (
-                  <p className="decisionPicker__note">
-                    HR is the final approver. Choose the outcome here first, then confirm it below.
-                  </p>
-                )}
-              </label>
-            </div>
-
-            <div className="hrApprForm__row">
-              <label>
-                <span>Reason for Approval / Denial:</span>
-                <textarea
-                  value={decisionReason}
-                  onChange={(e) => setDecisionReason(e.target.value)}
-                  placeholder="Type the reason for approving or denying this request"
-                  aria-invalid={decisionSubmitAttempted && decisionReason.trim().length < 5 ? 'true' : undefined}
-                  readOnly={!canReviewSelected}
-                />
-              </label>
-            </div>
-
-          </>
+              </div>
+            )}
+          </div>
         ) : null}
       </LargePopup>
       <ConfirmDialog

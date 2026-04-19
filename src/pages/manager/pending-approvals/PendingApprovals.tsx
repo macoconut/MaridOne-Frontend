@@ -18,6 +18,7 @@ import {
   formatRequestTypeLabel,
 } from '../../../lib/requestPresentation';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
+import '../../self-service/approvals/Approval.css';
 import './PendingApprovals.css';
 import '../../hr/approvals/Approvals.css';
 
@@ -135,6 +136,22 @@ function statusLabel(status: string) {
   return status;
 }
 
+function approvalStatusTone(status: string) {
+  const normalized = toStatusCode(status);
+  if (normalized === 'APPROVED') return 'approved';
+  if (normalized === 'REJECTED') return 'denied';
+  if (normalized === 'CANCELLED') return 'cancelled';
+  return 'pending';
+}
+
+function splitRequestKind(value?: string) {
+  const [primary = '', payLabel = ''] = String(value ?? '').split(' - ');
+  return {
+    primary: primary || value || 'Request',
+    payLabel,
+  };
+}
+
 function rosterMap(payload: unknown) {
   const rows = toArray<Record<string, unknown>>(payload).map((row, idx) => ({
     id: Number(row.employeeId ?? row.id ?? idx + 1),
@@ -187,6 +204,8 @@ export default function ManagerPendingApprovals() {
   const canReviewSelected = selected
     ? normalizedSelectedStatus === 'PENDING_MANAGER' || normalizedSelectedStatus === 'PENDING'
     : false;
+  const selectedStatusTone = selected ? approvalStatusTone(selected.status) : 'pending';
+  const selectedRequestKind = splitRequestKind(selected?.requestKind);
 
   const isDirty = useMemo(() => {
     if (!selected || !canReviewSelected) return false;
@@ -566,7 +585,11 @@ export default function ManagerPendingApprovals() {
         open={Boolean(selected)}
         ariaLabel="Pending approval review"
         title={selected ? `${selected.employee} - ${selected.type}` : 'Pending approval review'}
-        subtitle="Review the team request details, then either forward the request to HR or deny it here."
+        subtitle={
+          canReviewSelected
+            ? 'Review the team request details, then either forward the request to HR or deny it here.'
+            : 'Review the submitted details, supporting documents, and recorded decision history for this team request.'
+        }
         size="lg"
         onClose={requestCloseModal}
         closeDisabled={isSaving}
@@ -594,139 +617,151 @@ export default function ManagerPendingApprovals() {
         }
       >
         {selected ? (
-          <>
-            <div className="hrApprForm__row hrApprForm__row--2">
-              <label>
-                <span>Type:</span>
-                <input value={selected.type} readOnly />
-              </label>
-              <label>
-                <span>Current Status:</span>
-                <input value={statusLabel(selected.status)} readOnly />
-              </label>
+          <div className="apprModal__content">
+            <div className="apprModal__tilesWrapper">
+              <div className="apprModal__tilesRow">
+                <div className="apprModal__tile apprModal__tile--status">
+                  <span>Current Status</span>
+                  <div className={`apprModal__badge apprModal__badge--${selectedStatusTone}`}>
+                    {statusLabel(selected.status)}
+                  </div>
+                </div>
+                <div className="apprModal__tile apprModal__tile--type">
+                  <span>Request Type</span>
+                  <div className="apprModal__typeValue">
+                    <strong>{selectedRequestKind.primary}</strong>
+                    {selectedRequestKind.payLabel && (
+                      <span
+                        className={`apprModal__payBadge apprModal__payBadge--${
+                          selectedRequestKind.payLabel.toLowerCase() === 'unpaid' ? 'unpaid' : 'paid'
+                        }`}
+                      >
+                        {selectedRequestKind.payLabel}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="apprModal__tilesRow">
+                <div className="apprModal__tile">
+                  <span>Submitted At</span>
+                  <strong>{selected.submittedAt}</strong>
+                </div>
+                <div className="apprModal__tile">
+                  <span>{selected.referenceLabel}</span>
+                  <strong>{selected.referenceValue}</strong>
+                </div>
+                <div className="apprModal__tile">
+                  <span>Time Window</span>
+                  <strong>{selected.requestTime}</strong>
+                </div>
+                <div className="apprModal__tile">
+                  <span>Duration</span>
+                  <strong>{selected.durationLabel}</strong>
+                </div>
+              </div>
             </div>
 
-            <div className="hrApprForm__row">
-              <label>
-                <span>Recorded At:</span>
-                <input value={selected.submittedAt} readOnly />
-              </label>
-            </div>
+            <div className="apprModal__messages">
+              <div className="apprModal__message">
+                <span>Request Reason</span>
+                <p>{selected.reason || 'No reason provided.'}</p>
+              </div>
 
-            <div className="hrApprForm__row hrApprForm__row--2">
-              <label>
-                <span>Requested For:</span>
-                <input value={selected.requestDate} readOnly />
-              </label>
-              <label>
-                <span>Duration:</span>
-                <input value={selected.durationLabel} readOnly />
-              </label>
-            </div>
+              <div className="apprModal__message apprModal__message--attachment">
+                <div className="apprModal__documentRow">
+                  <div className="apprModal__documentCopy">
+                    <span>Supporting Document</span>
+                    <p>
+                      {typeof selected.attachmentPathId === 'number'
+                        ? 'A supporting file was uploaded with this request.'
+                        : 'No supporting file was uploaded with this request.'}
+                    </p>
+                  </div>
+                  {typeof selected.attachmentPathId === 'number' && (
+                    <button
+                      type="button"
+                      className="apprModal__documentButton"
+                      onClick={() => void handleOpenAttachment(selected.attachmentPathId!)}
+                      disabled={openingAttachmentId === selected.attachmentPathId}
+                    >
+                      {openingAttachmentId === selected.attachmentPathId ? 'Opening...' : 'View Attachment'}
+                    </button>
+                  )}
+                </div>
+              </div>
 
-            <div className="hrApprForm__row">
-              <label>
-                <span>Reason:</span>
-                <textarea value={selected.reason || 'No reason provided.'} readOnly />
-              </label>
-            </div>
-
-            <div className="hrApprForm__row">
-              <div className="hrApprAttachment">
-                <div className="hrApprAttachment__copy">
-                  <span>Attachment:</span>
+              {selected.managerDecisionSummary && (
+                <div className="apprModal__message apprModal__message--manager">
+                  <span>Manager Remarks</span>
                   <p>
-                    {typeof selected.attachmentPathId === 'number'
-                      ? 'A supporting file was uploaded with this request.'
-                      : 'No attachment was uploaded with this request.'}
+                    {selected.managerDecisionSummary}
+                    {(selected.managerReviewer || selected.managerReviewedAt) && (
+                      <span className="apprModal__subNote">
+                        {selected.managerReviewer ? <>Reviewed by <strong>{selected.managerReviewer}</strong></> : 'Reviewed'}
+                        {selected.managerReviewedAt ? <> on <strong>{selected.managerReviewedAt}</strong></> : null}
+                      </span>
+                    )}
                   </p>
                 </div>
-                {typeof selected.attachmentPathId === 'number' && (
-                  <button
-                    type="button"
-                    className="hrApprAttachment__button"
-                    onClick={() => void handleOpenAttachment(selected.attachmentPathId!)}
-                    disabled={openingAttachmentId === selected.attachmentPathId}
-                  >
-                    {openingAttachmentId === selected.attachmentPathId ? 'Opening...' : 'View Attachment'}
-                  </button>
-                )}
-              </div>
-            </div>
+              )}
 
-            {selected.managerDecisionSummary && (
-              <div className="hrApprForm__row">
-                <label>
-                  <span>Manager Review Note:</span>
-                  <textarea value={selected.managerDecisionSummary} readOnly />
-                </label>
-              </div>
-            )}
-
-            {selected.managerReviewer && selected.managerReviewedAt && (
-              <div className="hrApprForm__row hrApprForm__row--2">
-                <label>
-                  <span>Reviewed By:</span>
-                  <input value={selected.managerReviewer} readOnly />
-                </label>
-                <label>
-                  <span>Reviewed At:</span>
-                  <input value={selected.managerReviewedAt} readOnly />
-                </label>
-              </div>
-            )}
-
-            {selected.decisionSummary && hasFinalDecision && (
-              <div className="hrApprForm__row">
-                <label>
-                  <span>Final Decision Note:</span>
-                  <textarea value={selected.decisionSummary} readOnly />
-                </label>
-              </div>
-            )}
-
-            <div className="hrApprForm__row">
-              <label className="decisionPicker">
-                <span>Manager Review:</span>
-                <div className="decisionPicker__actions">
-                  <button
-                    type="button"
-                    className={`decisionPicker__button ${pendingDecision === 'APPROVED' ? 'is-selected' : ''}`}
-                    disabled={isSaving || !canReviewSelected}
-                    onClick={() => setPendingDecision('APPROVED')}
-                  >
-                    Forward to HR
-                  </button>
-                  <button
-                    type="button"
-                    className={`decisionPicker__button ${pendingDecision === 'REJECTED' ? 'is-selected' : ''}`}
-                    disabled={isSaving || !canReviewSelected}
-                    onClick={() => setPendingDecision('REJECTED')}
-                  >
-                    Deny
-                  </button>
+              {!canReviewSelected && normalizedSelectedStatus === 'PENDING_HR' && (
+                <div className="apprModal__message apprModal__message--manager">
+                  <span>Workflow Update</span>
+                  <p>This request is already with HR for final review. No further manager action is needed right now.</p>
                 </div>
-                {canReviewSelected && (
-                  <p className="decisionPicker__note">
-                    Forwarding sends the request to HR for the final decision. Denying here ends the request immediately.
-                  </p>
-                )}
-              </label>
+              )}
+
+              {selected.decisionSummary && hasFinalDecision && (
+                <div className="apprModal__message apprModal__message--hr">
+                  <span>{normalizedSelectedStatus === 'CANCELLED' ? 'Cancellation Note' : 'Final Decision Note'}</span>
+                  <p>{selected.decisionSummary}</p>
+                </div>
+              )}
             </div>
 
-            <div className="hrApprForm__row">
-              <label>
-                <span>Reason for Approval / Denial:</span>
-                <textarea
-                  value={decisionReason}
-                  onChange={(e) => setDecisionReason(e.target.value)}
-                  placeholder="Type the reason for approving or denying this request"
-                  aria-invalid={decisionSubmitAttempted && decisionReason.trim().length < 5 ? 'true' : undefined}
-                  readOnly={!canReviewSelected}
-                />
-              </label>
-            </div>
-          </>
+            {canReviewSelected && (
+              <div className="apprModal__reviewPanels">
+                <div className="apprModal__panel">
+                  <p className="apprModal__panelTitle">Manager Review</p>
+
+                  <div className="decisionPicker">
+                    <div className="decisionPicker__actions">
+                      <button
+                        type="button"
+                        className={`decisionPicker__button ${pendingDecision === 'APPROVED' ? 'is-selected' : ''}`}
+                        disabled={isSaving}
+                        onClick={() => setPendingDecision('APPROVED')}
+                      >
+                        Forward to HR
+                      </button>
+                      <button
+                        type="button"
+                        className={`decisionPicker__button ${pendingDecision === 'REJECTED' ? 'is-selected' : ''}`}
+                        disabled={isSaving}
+                        onClick={() => setPendingDecision('REJECTED')}
+                      >
+                        Deny
+                      </button>
+                    </div>
+                  </div>
+
+                  <label>
+                    <textarea
+                      value={decisionReason}
+                      onChange={(e) => setDecisionReason(e.target.value)}
+                      placeholder="Type the reason for approving or denying this request"
+                      aria-invalid={decisionSubmitAttempted && decisionReason.trim().length < 5 ? 'true' : undefined}
+                    />
+                  </label>
+
+                  {submitError ? <p className="hrApprForm__error">{submitError}</p> : null}
+                </div>
+              </div>
+            )}
+          </div>
         ) : null}
       </LargePopup>
       <ConfirmDialog

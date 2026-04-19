@@ -347,9 +347,10 @@
 .apprModal__tile strong{
   margin:0;
   color:#2b2036;
-  font-size: 15px; /* Matched to request reason value */
+  font-family: var(--font-body);
+  font-size: 16px;
   line-height:1.4;
-  font-weight: 400;
+  font-weight: 600;
 }
 
 .apprModal__badge{
@@ -393,6 +394,11 @@
   border-left: 4px solid #5f2f78;
 }
 
+.apprModal__message--attachment{
+  background: #fcfbff;
+  border-left: 4px solid #8b8aa1;
+}
+
 .apprModal__message span{
   display: block;
   color:#5f2f78;
@@ -426,6 +432,90 @@
 
 .apprModal__subNote strong {
   font-weight: 700 !important;
+}
+
+.apprModal__documentRow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+}
+
+.apprModal__documentCopy{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.apprModal__documentButton{
+  border:1px solid rgba(95, 47, 120, 0.18);
+  background:#fff;
+  color:#5f2f78;
+  border-radius:10px;
+  padding:10px 14px;
+  font-size:14px;
+  font-weight:700;
+  cursor:pointer;
+  transition:background .18s ease, border-color .18s ease, color .18s ease;
+}
+
+.apprModal__documentButton:hover:not(:disabled){
+  background:#f8f4fc;
+  border-color:rgba(95, 47, 120, 0.28);
+}
+
+.apprModal__documentButton:disabled{
+  opacity:.68;
+  cursor:wait;
+}
+
+.apprModal__reviewPanels{
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+
+.apprModal__panel{
+  background:#fff;
+  border:1px solid rgba(77, 52, 104, 0.08);
+  border-radius:14px;
+  padding:16px 20px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.02);
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+
+.apprModal__panel label{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.apprModal__panelTitle{
+  margin:0;
+  color:#5f2f78;
+  font-size:15px;
+  font-weight:900;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+}
+
+.apprModal__fieldLabel{
+  color:#2b2036;
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.apprModal__panelNote{
+  margin:0;
+  color:#5a4b77;
+  font-size:14px;
+  font-weight:600;
+  line-height:1.5;
 }
 
 @media (max-width: 1320px){
@@ -491,6 +581,15 @@
   .apprTable__head div:nth-child(n+4),
   .apprRow div:nth-child(n+4){
     display:none;
+  }
+
+  .apprModal__documentRow{
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  .apprModal__documentButton{
+    width:100%;
   }
 }
 
