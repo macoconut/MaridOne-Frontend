@@ -5,12 +5,8 @@ import {
   FiChevronLeft,
   FiChevronRight,
   FiDownload,
-  FiFilter,
-  FiMoreVertical,
-  FiSearch,
   FiUpload,
   FiUsers,
-  FiXCircle,
 } from 'react-icons/fi';
 import LargePopup from '../../../components/dialog/LargePopup';
 import FileUploadField from '../../../components/form/FileUploadField';
@@ -22,63 +18,17 @@ import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import { getManilaNow } from '../../../lib/manilaTime';
 import { evaluateDailyAttendanceCoverage } from '../../../lib/attendance/dailyAttendanceEvaluator';
+import { useAttendanceReportFilters } from './hooks/useAttendanceReportFilters';
+import AttendanceReportToolbar from './sections/AttendanceReportToolbar';
+import type {
+  AttendanceEmployeeRow as EmployeeRow,
+  AttendanceLeaveRequest as LeaveRequest,
+  AttendanceLog,
+  AttendanceOvertimeRequest as OvertimeRequest,
+  DailyShift,
+  HolidayLookupPayload,
+} from '../../../lib/types/attendance';
 import './AttendanceReports.css';
-
-type AttendanceLog = {
-  attendanceId?: number;
-  employeeId?: number;
-  timestamp?: string;
-  direction?: string;
-};
-
-type LeaveRequest = {
-  requestId?: number;
-  empId?: number;
-  startDateTime?: string;
-  endDateTime?: string;
-  requestStatus?: string;
-  reason?: string;
-  leaveType?: string;
-  isPaid?: boolean;
-};
-
-type OvertimeRequest = {
-  overtimeId?: number;
-  employeeId?: number;
-  requestStatus?: string;
-  workDate?: string;
-  overtimeType?: string;
-  startTime?: string;
-  endTime?: string;
-  reason?: string;
-};
-
-type ShiftSchedule = {
-  shiftId?: number;
-  employeeId?: number;
-  startTime?: string;
-  endTime?: string;
-  dayOfWeek?: string;
-};
-
-type DailyShift = {
-  dailyShiftId?: number;
-  employeeId?: number;
-  workDate?: string;
-  startDateTime?: string;
-  endDateTime?: string;
-  dayOff?: boolean;
-};
-
-type EmployeeRow = {
-  id: number;
-  name: string;
-  status: string;
-  position: string;
-  department?: string;
-  shiftSchedules: ShiftSchedule[];
-  employmentDateStart?: string;
-};
 
 type DayCell = {
   day: number | null;
@@ -185,11 +135,6 @@ type AttendanceImportSummary = {
   importedLogs?: number;
   issueCount?: number;
   issues?: AttendanceImportIssue[];
-};
-
-type HolidayLookupPayload = {
-  holidayDates?: string[];
-  regularHolidayDates?: string[];
 };
 
 type AttendanceReportsBoardProps = {
@@ -1068,18 +1013,33 @@ export function AttendanceReportsBoard({
   const todayDateKey = useMemo(() => getManilaNow().dateKey, []);
   const todayYear = useMemo(() => getManilaNow().year, []);
   const todayMonthIndex = useMemo(() => getManilaNow().month - 1, []);
-  const [year, setYear] = useState(todayYear);
-  const [monthIndex, setMonthIndex] = useState(todayMonthIndex);
-  const monthLabel = new Date(year, monthIndex, 1).toLocaleDateString(undefined, {
-    month: 'long',
-    year: 'numeric',
+  const {
+    actionMenuOpen,
+    clearFilters,
+    departmentFilter,
+    detailOpen,
+    filterOpen,
+    monthIndex,
+    monthLabel,
+    monthValue,
+    openDayDetails,
+    parseMonthValue,
+    searchValue,
+    selectedDateKey,
+    setActionMenuOpen,
+    setDepartmentFilter,
+    setDetailOpen,
+    setFilterOpen,
+    setMonthValue,
+    setSearchValue,
+    setSelectedDateKey,
+    shiftCalendarMonth,
+    year,
+  } = useAttendanceReportFilters({
+    todayDateKey,
+    todayMonthIndex,
+    todayYear,
   });
-  const [monthValue, setMonthValue] = useState(
-    new Date(todayYear, todayMonthIndex, 1).toLocaleDateString(undefined, {
-      month: 'long',
-      year: 'numeric',
-    })
-  );
   const monthStartKey = useMemo(() => toISODate(year, monthIndex, 1), [monthIndex, year]);
   const monthEndKey = useMemo(
     () => toISODate(year, monthIndex, new Date(year, monthIndex + 1, 0).getDate()),
@@ -1113,12 +1073,6 @@ export function AttendanceReportsBoard({
   const [importSummary, setImportSummary] = useState<AttendanceImportSummary | null>(null);
   const [importSubmitAttempted, setImportSubmitAttempted] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
-  const [selectedDateKey, setSelectedDateKey] = useState(todayDateKey);
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [searchValue, setSearchValue] = useState('');
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [actionMenuOpen, setActionMenuOpen] = useState(false);
-  const [departmentFilter, setDepartmentFilter] = useState('all');
   const filterRef = useRef<HTMLDivElement | null>(null);
   const actionMenuRef = useRef<HTMLDivElement | null>(null);
   const silentRefreshRef = useRef(false);
@@ -1150,7 +1104,7 @@ export function AttendanceReportsBoard({
 
     document.addEventListener('mousedown', handlePointerDown);
     return () => document.removeEventListener('mousedown', handlePointerDown);
-  }, [filterOpen]);
+  }, [filterOpen, setFilterOpen]);
 
   useEffect(() => {
     if (!actionMenuOpen) return undefined;
@@ -1163,7 +1117,7 @@ export function AttendanceReportsBoard({
 
     document.addEventListener('mousedown', handlePointerDown);
     return () => document.removeEventListener('mousedown', handlePointerDown);
-  }, [actionMenuOpen]);
+  }, [actionMenuOpen, setActionMenuOpen]);
 
   useEffect(() => {
     setMonthValue(
@@ -1172,7 +1126,7 @@ export function AttendanceReportsBoard({
         year: 'numeric',
       })
     );
-  }, [monthIndex, year]);
+  }, [monthIndex, setMonthValue, year]);
 
   useEffect(() => {
     if (year === todayYear && monthIndex === todayMonthIndex) {
@@ -1180,7 +1134,7 @@ export function AttendanceReportsBoard({
     } else {
       setSelectedDateKey('');
     }
-  }, [monthIndex, todayDateKey, todayMonthIndex, todayYear, year]);
+  }, [monthIndex, setSelectedDateKey, todayDateKey, todayMonthIndex, todayYear, year]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1910,29 +1864,6 @@ export function AttendanceReportsBoard({
   const calendarGridStyle = { '--calendar-week-rows': calendarWeekRows } as CSSProperties;
   const legendItems = focusedEmployee ? FOCUS_LEGEND_ITEMS : BASE_LEGEND_ITEMS;
 
-  function parseMonthValue(value: string) {
-    const parsed = new Date(`1 ${value}`);
-    if (Number.isNaN(parsed.getTime())) return;
-    setMonthIndex(parsed.getMonth());
-    setYear(parsed.getFullYear());
-  }
-
-  function shiftCalendarMonth(offset: number) {
-    const next = new Date(year, monthIndex + offset, 1);
-    setMonthIndex(next.getMonth());
-    setYear(next.getFullYear());
-  }
-
-  function openDayDetails(day: number) {
-    const key = toISODate(year, monthIndex, day);
-    setSelectedDateKey(key);
-    setDetailOpen(true);
-  }
-
-  function clearFilters() {
-    setDepartmentFilter('all');
-  }
-
   function closeImportDialog() {
     setImportDialogOpen(false);
     setImportFile(null);
@@ -2372,113 +2303,44 @@ export function AttendanceReportsBoard({
         <PageHeader title="Attendance Report" description={attendanceReportDescription} />
       </div>
 
-      <div className="hrAtt__toolbar">
-        <label className="uSearch" aria-label="Search employees">
-          <FiSearch />
-          <input
-            value={searchValue}
-            onChange={(event) => setSearchValue(event.target.value)}
-            placeholder="Search employee, role, or department"
-          />
-          {searchValue && (
-            <button type="button" aria-label="Clear search" onClick={() => setSearchValue('')}>
-              <FiXCircle />
-            </button>
-          )}
-        </label>
-
-        <div className="hrAtt__toolbarActions">
-          {shouldShowDepartmentFilter && (
-            <div className="uFilter" ref={filterRef}>
-              <button
-                type="button"
-                className={`uFilter__toggle ${filterOpen ? 'is-open' : ''} ${activeFilterCount > 0 ? 'is-active' : ''}`}
-                onClick={() => {
-                  setFilterOpen((open) => !open);
-                  setActionMenuOpen(false);
-                }}
-              >
-                <FiFilter />
-                <span>Filter</span>
-              </button>
-
-              {filterOpen && (
-                <div className="uFilter__panel">
-                  <label className="uFilter__field">
-                    <span>Department</span>
-                    <select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}>
-                      <option value="all">All Departments</option>
-                      {departmentOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <div className="uFilter__actions">
-                    <button type="button" onClick={clearFilters}>
-                      Clear Filters
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="hrAttMenu" ref={actionMenuRef}>
-            <button
-              type="button"
-              className={`hrAttMenu__toggle ${actionMenuOpen ? 'is-open' : ''}`}
-              onClick={() => {
-                setActionMenuOpen((open) => !open);
-                setFilterOpen(false);
-              }}
-              aria-haspopup="menu"
-              aria-expanded={actionMenuOpen}
-              aria-label="Attendance report actions"
-            >
-              <FiMoreVertical />
-            </button>
-
-            {actionMenuOpen ? (
-              <div className="hrAttMenu__panel" role="menu" aria-label="Attendance report actions">
-                {canImport ? (
-                  <button
-                    type="button"
-                    className="hrAttMenu__item"
-                    role="menuitem"
-                    onClick={() => {
-                      setActionError('');
-                      setImportSubmitAttempted(false);
-                      setImportDialogOpen(true);
-                      setActionMenuOpen(false);
-                    }}
-                    disabled={isLoading || isImporting}
-                  >
-                    <FiUpload aria-hidden="true" />
-                    <span>{isImporting ? 'Importing CSV...' : 'Import Attendance (CSV)'}</span>
-                  </button>
-                ) : null}
-
-                <button
-                  type="button"
-                  className="hrAttMenu__item"
-                  role="menuitem"
-                  onClick={() => {
-                    setActionMenuOpen(false);
-                    setExportDialogOpen(true);
-                  }}
-                  disabled={isLoading || isExporting || Boolean(loadError)}
-                >
-                  <FiDownload aria-hidden="true" />
-                  <span>{isExporting ? 'Preparing CSV...' : 'Export Attendance (CSV)'}</span>
-                </button>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </div>
+      <AttendanceReportToolbar
+        actionMenuOpen={actionMenuOpen}
+        actionMenuRef={actionMenuRef}
+        activeFilterCount={activeFilterCount}
+        canImport={canImport}
+        departmentFilter={departmentFilter}
+        departmentOptions={departmentOptions}
+        exportDisabled={isLoading || isExporting || Boolean(loadError)}
+        exportLoading={isExporting}
+        filterOpen={filterOpen}
+        filterRef={filterRef}
+        importDisabled={isLoading || isImporting}
+        importLoading={isImporting}
+        onClearFilters={clearFilters}
+        onClearSearch={() => setSearchValue('')}
+        onDepartmentFilterChange={setDepartmentFilter}
+        onOpenExport={() => {
+          setActionMenuOpen(false);
+          setExportDialogOpen(true);
+        }}
+        onOpenImport={() => {
+          setActionError('');
+          setImportSubmitAttempted(false);
+          setImportDialogOpen(true);
+          setActionMenuOpen(false);
+        }}
+        onSearchChange={setSearchValue}
+        onToggleActionMenu={() => {
+          setActionMenuOpen((open) => !open);
+          setFilterOpen(false);
+        }}
+        onToggleFilter={() => {
+          setFilterOpen((open) => !open);
+          setActionMenuOpen(false);
+        }}
+        searchValue={searchValue}
+        shouldShowDepartmentFilter={shouldShowDepartmentFilter}
+      />
 
       {!isLoading && !loadError && rosterMessage && <p className="hrAtt__hint">{rosterMessage}</p>}
 

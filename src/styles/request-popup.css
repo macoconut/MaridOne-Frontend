@@ -1,0 +1,321 @@
+:where(
+  .requestActions,
+  .modalActions,
+  .dashModal__actions,
+  .payModal__actions,
+  .apprModal__actions,
+  .hrEmpModal__actions,
+  .hrEmpConfirmCard__actions,
+  .hrAttModal__actions,
+  .hrPayModal__actions,
+  .hrApprForm__actions,
+  .hrApprModal__footer,
+  .hrRunModal__actions,
+  .aReviewPayModal__actions,
+  .confirmDialog__actions,
+  .alertDialog__actions
+) {
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 12px !important;
+  flex-wrap: wrap !important;
+  margin-top: 18px !important;
+}
+
+:where(
+  .btn,
+  .dashModal__btn,
+  .payModal__actions button,
+  .apprModal__actions button,
+  .hrEmpModal__actions button,
+  .hrEmpConfirmCard__actions button,
+  .hrAttModal__actions button,
+  .hrPayModal__actions button,
+  .hrPayModal__inlineBtns button,
+  .hrApprAttachment__button,
+  .hrApprForm__inline > button,
+  .hrApprForm__actions button,
+  .hrApprModal__footer button,
+  .hrRunModal__actions button,
+  .aReviewPayModal__actions button,
+  .confirmDialog__btn,
+  .alertDialog__btn
+) {
+  min-width: 120px !important;
+  min-height: 42px !important;
+  border: none !important;
+  border-radius: 999px !important;
+  background: var(--popup-accent) !important;
+  color: #fff !important;
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  padding: 0 18px !important;
+  cursor: pointer !important;
+  box-shadow: 0 12px 22px rgba(32, 21, 49, 0.18) !important;
+  transition:
+    transform 180ms var(--popup-motion-spring),
+    box-shadow 180ms ease,
+    background 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    filter 180ms ease !important;
+}
+
+:where(
+  .btn--ghost,
+  .dashModal__btn--ghost,
+  .apprModal__actions button.is-secondary,
+  .payModal__cancel,
+  .hrPayModal .is-muted,
+  .confirmDialog__btn--ghost
+) {
+  background: var(--popup-soft-fill) !important;
+  color: var(--popup-accent-dark) !important;
+  border: 1px solid var(--popup-border) !important;
+  box-shadow: none !important;
+}
+
+:where(
+  .payModal__actions button:first-child,
+  .apprModal__actions button:first-child,
+  .hrEmpModal__actions button:first-child,
+  .hrEmpConfirmCard__actions button:first-child,
+  .hrAttModal__actions button:first-child,
+  .hrPayModal__actions button:first-child,
+  .hrApprModal__footer button:first-child,
+  .hrRunModal__actions button:first-child,
+  .aReviewPayModal__actions button:first-child
+) {
+  background: var(--popup-soft-fill) !important;
+  color: var(--popup-accent-dark) !important;
+  border: 1px solid var(--popup-border) !important;
+  box-shadow: none !important;
+}
+
+.hrApprForm__actions button:last-child,
+.hrPayModal__inlineBtns button:last-child {
+  background: var(--popup-soft-fill) !important;
+  color: var(--popup-accent-dark) !important;
+  border: 1px solid var(--popup-border) !important;
+  box-shadow: none !important;
+}
+
+:where(
+  .btn,
+  .dashModal__btn,
+  .payModal__actions button,
+  .apprModal__actions button,
+  .hrEmpModal__actions button,
+  .hrEmpConfirmCard__actions button,
+  .hrAttModal__actions button,
+  .hrPayModal__actions button,
+  .hrPayModal__inlineBtns button,
+  .hrApprAttachment__button,
+  .hrApprForm__inline > button,
+  .hrApprForm__actions button,
+  .hrApprModal__footer button,
+  .hrRunModal__actions button,
+  .aReviewPayModal__actions button,
+  .confirmDialog__btn,
+  .alertDialog__btn
+):hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 28px rgba(123, 74, 143, 0.24) !important;
+  filter: saturate(1.03);
+}
+
+:where(
+  .btn,
+  .dashModal__btn,
+  .payModal__actions button,
+  .apprModal__actions button,
+  .hrEmpModal__actions button,
+  .hrEmpConfirmCard__actions button,
+  .hrAttModal__actions button,
+  .hrPayModal__actions button,
+  .hrPayModal__inlineBtns button,
+  .hrApprAttachment__button,
+  .hrApprForm__inline > button,
+  .hrApprForm__actions button,
+  .hrApprModal__footer button,
+  .hrRunModal__actions button,
+  .aReviewPayModal__actions button,
+  .confirmDialog__btn,
+  .alertDialog__btn
+):active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+  box-shadow: 0 10px 18px rgba(123, 74, 143, 0.16) !important;
+}
+
+:where(
+  .btn:disabled,
+  .dashModal__btn:disabled,
+  .payModal__actions button:disabled,
+  .apprModal__actions button:disabled,
+  .hrEmpModal__actions button:disabled,
+  .hrEmpConfirmCard__actions button:disabled,
+  .hrAttModal__actions button:disabled,
+  .hrPayModal__actions button:disabled,
+  .hrPayModal__inlineBtns button:disabled,
+  .hrApprAttachment__button:disabled,
+  .hrApprForm__inline > button:disabled,
+  .hrApprForm__actions button:disabled,
+  .hrApprModal__footer button:disabled,
+  .hrRunModal__actions button:disabled,
+  .aReviewPayModal__actions button:disabled,
+  .confirmDialog__btn:disabled,
+  .alertDialog__btn:disabled
+) {
+  opacity: 0.72 !important;
+  cursor: not-allowed !important;
+}
+
+.alertDialog__card.is-error .alertDialog__btn {
+  background: #9a2e2e !important;
+  box-shadow: 0 12px 22px rgba(154, 46, 46, 0.18) !important;
+}
+
+.alertDialog__card.is-success .alertDialog__btn {
+  background: #1d6a42 !important;
+  box-shadow: 0 12px 22px rgba(29, 106, 66, 0.18) !important;
+}
+
+.apprModal__actions button.is-danger {
+  background: linear-gradient(135deg, #b04d58 0%, #cf6b74 100%) !important;
+  box-shadow: 0 10px 18px rgba(176, 77, 88, 0.2) !important;
+}
+
+.hrRunModal__message,
+.aReviewRunModal__message {
+  color: #a63f4d !important;
+  font-weight: 700 !important;
+}
+
+.announcementModal__list,
+.hrEmpForm,
+.hrEmpDelete,
+.requestForm {
+  padding-right: 4px;
+}
+
+.hrEmpConfirmLayer {
+  background: var(--popup-overlay) !important;
+}
+
+.payModal__uploadCard {
+  padding: 18px;
+}
+
+.payModal__uploadHint {
+  margin: 0;
+  color: var(--popup-copy);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.payModal__uploadRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.payModal__uploadBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--popup-border);
+  background: var(--popup-soft-fill);
+  border-radius: 999px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-weight: 800;
+  color: var(--popup-accent-dark);
+}
+
+.payModal__uploadName {
+  color: var(--popup-copy);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.decisionPicker {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.decisionPicker__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.decisionPicker__button {
+  min-width: 140px;
+  min-height: 42px;
+  border-radius: 999px;
+  border: 1px solid var(--popup-border);
+  background: var(--popup-soft-fill);
+  color: var(--popup-accent-dark);
+  font-size: 15px;
+  font-weight: 800;
+  padding: 0 18px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.decisionPicker__button.is-selected {
+  background: var(--popup-accent);
+  color: #fff;
+  box-shadow: 0 12px 22px rgba(32, 21, 49, 0.18);
+}
+
+.decisionPicker__button:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
+.decisionPicker__note {
+  margin: 0;
+  color: var(--popup-copy);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(
+    .btn,
+    .dashModal__btn,
+    .payModal__actions button,
+    .apprModal__actions button,
+    .hrEmpModal__actions button,
+    .hrEmpConfirmCard__actions button,
+    .hrAttModal__actions button,
+    .hrPayModal__actions button,
+    .hrPayModal__inlineBtns button,
+    .hrApprAttachment__button,
+    .hrApprForm__inline > button,
+    .hrApprForm__actions button,
+    .hrApprModal__footer button,
+    .aReviewPayModal__actions button,
+    .uiCloseButton,
+    .modal__close,
+    .dashModal__close,
+    .payModal__close,
+    .apprModal__close,
+    .hrAttModal__close,
+    .hrPayModal__close,
+    .hrApprModal__close,
+    .hrRunModal__close,
+    .hrEmpDetailsDialog__close,
+    .aReviewPayModal__close,
+    .aReviewRunModal__close,
+    .settingsModal__close,
+    .confirmDialog__btn,
+    .alertDialog__btn
+  ) {
+    transition: none !important;
+  }
+}

@@ -1,12 +1,8 @@
 import { useLoading } from '../../../context/useLoading';
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { FiDownload, FiEdit2, FiFileText, FiPlus, FiTrash2 } from 'react-icons/fi';
 import { useLocation, useNavigate } from 'react-router-dom';
-import ActionButton from '../../../components/button/ActionButton';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import { useUiDialog } from '../../../components/dialog/useUiDialog';
-import MaterialArt from '../../../components/document/MaterialArt';
-import LargePopup from '../../../components/dialog/LargePopup';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
@@ -21,513 +17,32 @@ import { getSelfServicePath } from '../../../lib/roleRoutes';
 import { getAuthToken, getUserEmail, getUserRole } from '../../../lib/session';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import { getManilaNow } from '../../../lib/manilaTime';
+import type { AttendanceLeaveRequest as LeaveRequestRow, AttendanceLog, ShiftSchedule as ShiftScheduleRow } from '../../../lib/types/attendance';
+import type { LeaveBalanceRow } from '../../../lib/types/employee';
+import {
+  createAnnouncementDraft,
+  createEditDraft,
+  formatDashboardDateTime,
+  formatJwtIssuedAt,
+  getApprovedUpcomingLeave,
+  getCalendarEventsByDay,
+  isEmailVerified,
+  syncAnnouncementRange,
+  type AnnouncementDraft,
+  type CalendarDayEvent,
+  type CalendarEvent,
+  type SelectedAnnouncementDay,
+  type UserDetails,
+} from './dashboardShared';
+import AnnouncementDayModal from './sections/AnnouncementDayModal';
+import CompanyEventsCalendar from './sections/CompanyEventsCalendar';
+import CreateAnnouncementModal from './sections/CreateAnnouncementModal';
+import DashboardActions from './sections/DashboardActions';
+import DocumentsWidget from './sections/DocumentsWidget';
+import EditInfoModal from './sections/EditInfoModal';
+import EmployeeSummaryCard from './sections/EmployeeSummaryCard';
+import TimeOffBalancesCard from './sections/TimeOffBalancesCard';
 import './Dashboard.css';
-
-type UserDetails = {
-  username?: string;
-  employeeId?: number;
-  twoFactorEnabled?: boolean;
-  canChangePasswordNow?: boolean;
-  passwordChangeAvailableAt?: string;
-  employee?: {
-    employeeId?: number;
-    fullName?: string;
-    firstName?: string;
-    lastName?: string;
-    middleName?: string;
-    contactNumber?: string;
-    phoneNumber?: string;
-    email?: string;
-    isVerified?: boolean | string;
-    address?: string | Record<string, unknown>;
-    employmentDateStart?: string;
-    employmentDate?: string;
-    dateHired?: string;
-    position?: string;
-    department?: string;
-    managerName?: string;
-    managerHeadLabel?: string;
-    employmentStatus?: string;
-    sssNumber?: string;
-    philhealthNumber?: string;
-    pagibigNumber?: string;
-    tinNumber?: string;
-    emergencyContactName?: string;
-    emergencyContactRelationship?: string;
-    emergencyContactNumber?: string;
-  };
-};
-
-type CalendarEvent = {
-  calendarId?: number;
-  day?: number;
-  title?: string;
-  description?: string;
-  startDate?: string;
-  endDate?: string;
-  createdAt?: string;
-  employeeId?: number;
-  employeeName?: string;
-};
-
-type CalendarDayEvent = {
-  key: string;
-  calendarId?: number;
-  title: string;
-  description: string;
-  startDate?: string;
-  endDate?: string;
-  createdAt?: string;
-  employeeId?: number;
-  employeeName: string;
-};
-
-type SelectedAnnouncementDay = {
-  label: string;
-  events: CalendarDayEvent[];
-};
-
-type AttendanceLog = {
-  timestamp?: string;
-};
-
-type AnnouncementDraft = {
-  title: string;
-  description: string;
-  startDateTime: string;
-  endDateTime: string;
-};
-
-function padDateTimePart(value: number) {
-  return String(value).padStart(2, '0');
-}
-
-function toDateTimeLocalValue(value: Date) {
-  return `${value.getFullYear()}-${padDateTimePart(value.getMonth() + 1)}-${padDateTimePart(value.getDate())}T${padDateTimePart(value.getHours())}:${padDateTimePart(value.getMinutes())}`;
-}
-
-function createAnnouncementDraft(baseDate?: Date): AnnouncementDraft {
-  const start = baseDate ? new Date(baseDate) : new Date();
-  if (!baseDate) {
-    const manila = getManilaNow();
-    start.setFullYear(manila.year, manila.month - 1, manila.day);
-    start.setHours(manila.hour, manila.minute, 0, 0);
-  }
-  start.setSeconds(0, 0);
-
-  const roundedMinutes = start.getMinutes() <= 30 ? 30 : 60;
-  if (roundedMinutes === 60) {
-    start.setHours(start.getHours() + 1, 0, 0, 0);
-  } else {
-    start.setMinutes(30, 0, 0);
-  }
-
-  const end = new Date(start.getTime() + 60 * 60 * 1000);
-
-  return {
-    title: '',
-    description: '',
-    startDateTime: toDateTimeLocalValue(start),
-    endDateTime: toDateTimeLocalValue(end),
-  };
-}
-
-function syncAnnouncementRange(startDateTime: string, endDateTime: string) {
-  if (!startDateTime) return endDateTime;
-  if (!endDateTime || endDateTime < startDateTime) return startDateTime;
-  return endDateTime;
-}
-
-function createEditDraft(source: UserDetails['employee'] | null | undefined) {
-  const rawAddress =
-    source && typeof source.address === 'object' && source.address
-      ? (source.address as Record<string, unknown>)
-      : {};
-
-  return {
-    email: typeof source?.email === 'string' ? source.email : '',
-    phoneNumber:
-      typeof source?.phoneNumber === 'string'
-        ? source.phoneNumber
-        : typeof source?.contactNumber === 'string'
-          ? source.contactNumber
-          : '',
-    permanentAddress: typeof rawAddress.permanentAddress === 'string' ? rawAddress.permanentAddress : '',
-    temporaryAddress: typeof rawAddress.temporaryAddress === 'string' ? rawAddress.temporaryAddress : '',
-    city: typeof rawAddress.city === 'string' ? rawAddress.city : '',
-    state: typeof rawAddress.state === 'string' ? rawAddress.state : '',
-    country: typeof rawAddress.country === 'string' ? rawAddress.country : '',
-    zipCode: typeof rawAddress.zipCode === 'string' ? rawAddress.zipCode : '',
-    sssNumber: typeof source?.sssNumber === 'string' ? source.sssNumber : '',
-    philhealthNumber: typeof source?.philhealthNumber === 'string' ? source.philhealthNumber : '',
-    pagibigNumber: typeof source?.pagibigNumber === 'string' ? source.pagibigNumber : '',
-    tinNumber: typeof source?.tinNumber === 'string' ? source.tinNumber : '',
-    emergencyContactName: typeof source?.emergencyContactName === 'string' ? source.emergencyContactName : '',
-    emergencyContactRelationship: typeof source?.emergencyContactRelationship === 'string' ? source.emergencyContactRelationship : '',
-    emergencyContactNumber: typeof source?.emergencyContactNumber === 'string' ? source.emergencyContactNumber : '',
-  };
-}
-
-function isEmailVerified(value: UserDetails['employee'] | null | undefined) {
-  const rawValue = value?.isVerified;
-
-  if (typeof rawValue === 'boolean') return rawValue;
-  if (typeof rawValue === 'string') {
-    const normalized = rawValue.trim().toLowerCase();
-    if (normalized === 'true' || normalized === 'verified') return true;
-    if (normalized === 'false' || normalized === 'unverified') return false;
-  }
-
-  return false;
-}
-
-function formatAddress(value: unknown) {
-  if (typeof value === 'string') return value.trim() || 'Address not available';
-  if (!value || typeof value !== 'object') return 'Address not available';
-
-  const data = value as Record<string, unknown>;
-  const parts = [
-    data.permanentAddress,
-    data.temporaryAddress,
-    data.city,
-    data.state,
-    data.country,
-    data.zipCode,
-  ]
-    .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
-    .map((part) => part.trim());
-
-  return parts.length > 0 ? parts.join(', ') : 'Address not available';
-}
-
-function formatDashboardDate(value?: string) {
-  if (!value) return 'Not available';
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Not available';
-
-  return date.toLocaleDateString(undefined, {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
-function formatDashboardDateTime(value?: string) {
-  if (!value) return 'Not available';
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Not available';
-
-  return date.toLocaleString(undefined, {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
-
-function formatJwtIssuedAt(token: string | null) {
-  if (!token || token === 'authenticated-session') return 'Not available';
-  const parts = token.split('.');
-  if (parts.length < 2) return 'Not available';
-
-  try {
-    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
-    const decoded = atob(padded);
-    const payload = JSON.parse(decoded) as Record<string, unknown>;
-    if (typeof payload.iat !== 'number') return 'Not available';
-    const issuedAt = new Date(payload.iat * 1000);
-    return formatDashboardDateTime(issuedAt.toISOString());
-  } catch {
-    return 'Not available';
-  }
-}
-
-function getCalendarEventTitle(event: CalendarEvent) {
-  return typeof event.title === 'string' && event.title.trim().length > 0
-    ? event.title.trim()
-    : 'Company event';
-}
-
-function getCalendarEventDescription(event: CalendarEvent) {
-  return typeof event.description === 'string' ? event.description.trim() : '';
-}
-
-function getCalendarEventEmployeeName(event: CalendarEvent) {
-  return typeof event.employeeName === 'string' && event.employeeName.trim().length > 0
-    ? event.employeeName.trim()
-    : 'MaridOne Staff';
-}
-
-function getCalendarEventKey(event: CalendarEvent) {
-  if (typeof event.calendarId === 'number') return `calendar-${event.calendarId}`;
-
-  return [
-    getCalendarEventTitle(event),
-    event.startDate ?? '',
-    event.endDate ?? '',
-    typeof event.day === 'number' ? String(event.day) : '',
-  ].join('|');
-}
-
-function formatAnnouncementDateTime(value?: string, fallback = 'Date not available') {
-  if (!value) return fallback;
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return fallback;
-
-  const formattedDate = date.toLocaleDateString(undefined, {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
-  const formattedTime = date.toLocaleTimeString(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-
-  return `${formattedDate} at ${formattedTime}`;
-}
-
-function formatAnnouncementCreatedAt(value?: string) {
-  return formatAnnouncementDateTime(value, 'Created date not available');
-}
-
-function formatAnnouncementMeta(employeeName?: string, createdAt?: string) {
-  const author = typeof employeeName === 'string' && employeeName.trim().length > 0
-    ? employeeName.trim()
-    : 'MaridOne Staff';
-  const createdLabel = formatAnnouncementCreatedAt(createdAt);
-
-  return createdLabel === 'Created date not available'
-    ? `Posted by ${author}`
-    : `Posted by ${author} • ${createdLabel}`;
-}
-
-function formatAnnouncementEventDuration(startDate?: string, endDate?: string) {
-  if (!startDate) return 'Event duration not available';
-
-  const start = new Date(startDate);
-  if (Number.isNaN(start.getTime())) return 'Event duration not available';
-
-  const formattedStartDate = start.toLocaleDateString(undefined, {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
-  const formattedStartTime = start.toLocaleTimeString(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-
-  if (!endDate) return `${formattedStartDate} at ${formattedStartTime}`;
-
-  const end = new Date(endDate);
-  if (Number.isNaN(end.getTime())) return `${formattedStartDate} at ${formattedStartTime}`;
-
-  const formattedEndDate = end.toLocaleDateString(undefined, {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
-  const formattedEndTime = end.toLocaleTimeString(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-
-  if (formattedStartDate === formattedEndDate) {
-    return `${formattedStartDate} from ${formattedStartTime} to ${formattedEndTime}`;
-  }
-
-  return `${formattedStartDate} at ${formattedStartTime} - ${formattedEndDate} at ${formattedEndTime}`;
-}
-
-type LeaveBalanceRow = {
-  leaveId?: number;
-  balanceHours?: number | string | null;
-  leaveType?: string;
-};
-
-type LeaveRequestRow = {
-  requestId?: number;
-  startDateTime?: string;
-  endDateTime?: string;
-  requestStatus?: string;
-  leaveType?: string;
-};
-
-type ShiftScheduleRow = {
-  shiftId?: number;
-  dayOfWeek?: string;
-  startTime?: string;
-  endTime?: string;
-};
-
-function formatBalanceHours(value?: number | string | null) {
-  const num = typeof value === 'number' ? value : typeof value === 'string' ? parseFloat(value) : 0;
-  if (Number.isNaN(num)) return '0';
-  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(num);
-}
-
-function getLeaveTypeLabel(type?: string) {
-  switch (type) {
-    case 'SICK_LEAVE': return 'Sick Leave';
-    case 'VACATION_LEAVE': return 'Vacation Leave';
-    case 'MATERNITY_LEAVE': return 'Maternity Leave';
-    case 'PATERNITY_LEAVE': return 'Paternity Leave';
-    case 'SOLO_PARENT_LEAVE': return 'Solo Parent';
-    case 'MAGNA_CARTA': return 'Magna Carta';
-    case 'RA9262': return 'RA 9262';
-    case 'EMERGENCY_LEAVE': return 'Emergency Leave';
-    default: return type?.replace(/_/g, ' ') || 'Leave';
-  }
-}
-
-function getLeaveMaxHours(type?: string) {
-  if (!type) return 40;
-  return 40;
-}
-
-function getApprovedUpcomingLeave(rows: unknown) {
-  const payload =
-    rows && typeof rows === 'object' && 'content' in rows
-      ? (rows as { content?: unknown }).content
-      : rows;
-  const list = toArray<LeaveRequestRow>(payload);
-
-  return (
-    list
-      .filter(
-        (leave) =>
-          leave.requestStatus === 'APPROVED' &&
-          Boolean(leave.startDateTime) &&
-          new Date(leave.startDateTime as string) > new Date()
-      )
-      .sort(
-        (left, right) =>
-          new Date(left.startDateTime ?? '').getTime() - new Date(right.startDateTime ?? '').getTime()
-      )[0] ?? null
-  );
-}
-
-function calculateNextDayOff(
-  approvedLeaves: LeaveRequestRow[],
-  shiftSchedule: ShiftScheduleRow[]
-) {
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(0, 0, 0, 0);
-
-  const daysOfWeek = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
-
-  // Scan next 30 days
-  for (let i = 0; i < 30; i++) {
-    const cursor = new Date(tomorrow);
-    cursor.setDate(cursor.getDate() + i);
-    const cursorKey = cursor.toISOString().slice(0, 10);
-    const dayName = daysOfWeek[cursor.getDay()];
-
-    // 1. Check approved leaves for this exact date
-    const leaveOnDay = approvedLeaves.find(l => {
-      if (!l.startDateTime) return false;
-      const lStart = l.startDateTime.slice(0, 10);
-      const lEnd = l.endDateTime?.slice(0, 10) || lStart;
-      return cursorKey >= lStart && cursorKey <= lEnd;
-    });
-
-    if (leaveOnDay) {
-      return {
-        date: cursor.toISOString(),
-        reason: getLeaveTypeLabel(leaveOnDay.leaveType),
-        isLeave: true
-      };
-    }
-
-    // 2. Check regular schedule (if day is missing or has no hours, it's a day off)
-    const scheduleForDay = shiftSchedule.find(s => s.dayOfWeek === dayName);
-    const isScheduledWorkDay = scheduleForDay && scheduleForDay.startTime && scheduleForDay.endTime;
-
-    if (!isScheduledWorkDay) {
-      return {
-        date: cursor.toISOString(),
-        reason: 'Scheduled Day Off',
-        isLeave: false
-      };
-    }
-  }
-
-  return null;
-}
-
-function getCalendarEventsByDay(events: CalendarEvent[], year: number, monthIndex: number) {
-  const monthStart = new Date(year, monthIndex, 1);
-  const monthEnd = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
-  const eventsByDay = new Map<number, Map<string, CalendarDayEvent>>();
-
-  for (const event of events) {
-    const eventItem: CalendarDayEvent = {
-      key: getCalendarEventKey(event),
-      calendarId: event.calendarId,
-      title: getCalendarEventTitle(event),
-      description: getCalendarEventDescription(event),
-      startDate: event.startDate,
-      endDate: event.endDate,
-      createdAt: event.createdAt,
-      employeeId: event.employeeId,
-      employeeName: getCalendarEventEmployeeName(event),
-    };
-
-    function addEventToDay(day: number) {
-      const existing = eventsByDay.get(day) ?? new Map<string, CalendarDayEvent>();
-      existing.set(eventItem.key, eventItem);
-      eventsByDay.set(day, existing);
-    }
-
-    if (!event.startDate && typeof event.day === 'number') {
-      addEventToDay(event.day);
-      continue;
-    }
-
-    if (!event.startDate) continue;
-
-    const rawStart = new Date(event.startDate);
-    if (Number.isNaN(rawStart.getTime())) continue;
-
-    const rawEnd = event.endDate ? new Date(event.endDate) : rawStart;
-    const safeEnd = Number.isNaN(rawEnd.getTime()) ? rawStart : rawEnd;
-    const visibleStart = rawStart > monthStart ? rawStart : monthStart;
-    const visibleEnd = safeEnd < monthEnd ? safeEnd : monthEnd;
-
-    if (visibleStart > visibleEnd) continue;
-
-    const cursor = new Date(
-      visibleStart.getFullYear(),
-      visibleStart.getMonth(),
-      visibleStart.getDate()
-    );
-    const endDay = new Date(
-      visibleEnd.getFullYear(),
-      visibleEnd.getMonth(),
-      visibleEnd.getDate()
-    );
-
-    while (cursor <= endDay) {
-      if (cursor.getFullYear() === year && cursor.getMonth() === monthIndex) {
-        addEventToDay(cursor.getDate());
-      }
-      cursor.setDate(cursor.getDate() + 1);
-    }
-  }
-
-  return new Map(
-    Array.from(eventsByDay.entries())
-      .sort(([left], [right]) => left - right)
-      .map(([day, dayEvents]) => [day, Array.from(dayEvents.values())])
-  );
-}
 
 export default function Dashboard() {
   const { showLoading, hideLoading } = useLoading();
@@ -1067,354 +582,56 @@ export default function Dashboard() {
         description="Review your profile, quick actions, and company events from one workspace."
       />
 
-      {/* INFO CARD */}
-      <section className="infoCardX">
-        <button
-          className="infoCardX__edit"
-          type="button"
-          onClick={openEditModal}
-          disabled={savingEdit}
-          aria-label="Edit information"
-          title="Edit information"
-        >
-          <FiEdit2 aria-hidden="true" />
-        </button>
+      <EmployeeSummaryCard
+        employee={employee}
+        employeeName={employeeName}
+        lastAttendanceLabel={lastAttendanceLabel}
+        lastLoginLabel={lastLoginLabel}
+        profile={profile}
+        savingEdit={savingEdit}
+        onEdit={openEditModal}
+      />
 
-        <div className="infoCardX__grid">
-          {/* left: Identity */}
-          <div className="infoCardX__left">
-            <div className="infoCardX__photo" aria-hidden="true" />
-            <div className="infoCardX__bio">
-              <div className="infoCardX__name">{employeeName}</div>
-              <div className="statBlock__sub">
-                Joined {formatDashboardDate(employee?.employmentDateStart || employee?.employmentDate || employee?.dateHired)}
-              </div>
-            </div>
-          </div>
+      <DashboardActions actions={dashboardActions} onNavigate={(path) => navigate(path)} />
 
-          <div className="infoCardX__divider" />
-
-          {/* middle: Contacts */}
-          <div className="infoCardX__mid">
-            <div className="infoRow">
-              <span className="infoRow__icon">✉</span>
-              <span className="infoRow__link">{employee?.email || profile?.username || 'Email not available'}</span>
-            </div>
-            <div className="infoRow">
-              <span className="infoRow__icon">☎</span>
-              <span>{employee?.phoneNumber || employee?.contactNumber || 'Phone not available'}</span>
-            </div>
-            <div className="infoRow">
-              <span className="infoRow__icon">⌂</span>
-              <span>{formatAddress(employee?.address)}</span>
-            </div>
-          </div>
-
-          <div className="infoCardX__divider" />
-
-          {/* right: Activity Stats */}
-          <div className="infoCardX__right">
-            <div className="statBlock">
-              <div className="statBlock__label">Last Portal Login</div>
-              <div className="statBlock__value">{lastLoginLabel}</div>
-            </div>
-
-            <div className="statBlock">
-              <div className="statBlock__label">Recent Attendance</div>
-              <div className="statBlock__value">{lastAttendanceLabel}</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ACTION BUTTONS */}
-      <section className="actionRowX">
-        {dashboardActions.map((action) => (
-          <button
-            key={action.label}
-            className="actionBtnX"
-            type="button"
-            onClick={() => navigate(action.path)}
-          >
-            <span>{action.label}</span>
-            <span className="actionBtnX__arrow">→</span>
-          </button>
-        ))}
-      </section>
-
-      {/* LOWER */}
       <section className="lowerGridX">
-        {/* left column */}
         <div className="lowerColX">
-          {/* time off summary card */}
-          <div className="cardX">
-            <div className="cardX__title">Time-Off & Balances</div>
-            
-            <div className="leaveSplitLayout">
-              {/* Left: Next Day Off */}
-              <div className="leaveSplitLayout__next">
-                {(() => {
-                  const nextOff = calculateNextDayOff(
-                    toArray<LeaveRequestRow>(nextLeave ? [nextLeave] : []),
-                    shiftSchedule
-                  );
-
-                  if (!nextOff) {
-                    return (
-                      <div className="nextDayOffEmpty">
-                        <div className="nextDayOffEmpty__icon">📅</div>
-                        <p>No upcoming time-off scheduled.</p>
-                      </div>
-                    );
-                  }
-
-                  const dateObj = new Date(nextOff.date);
-                  const monthShort = dateObj.toLocaleDateString(undefined, { month: 'short' }).toUpperCase();
-                  const dayNum = dateObj.getDate();
-                  const dayShort = dateObj.toLocaleDateString(undefined, { weekday: 'short' });
-
-                  return (
-                    <div className="nextDayOff">
-                      <div className="nextDayOff__label">
-                        {nextOff.isLeave ? 'Next Approved Leave' : 'Next Day Off'}
-                      </div>
-                      <div className="nextDayOff__badge">
-                        <div className="nextDayOff__badgeMonth">{monthShort}</div>
-                        <div className="nextDayOff__badgeNum">{dayNum}</div>
-                        <div className="nextDayOff__badgeDay">{dayShort}</div>
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
-
-              {/* Right: Balances */}
-              <div className="leaveSplitLayout__bars">
-                {leaveBalances.length > 0 ? (
-                  [...leaveBalances]
-                    .sort((a, b) => {
-                      const prio: Record<string, number> = { SICK_LEAVE: 1, VACATION_LEAVE: 2 };
-                      return (prio[a.leaveType || ''] || 99) - (prio[b.leaveType || ''] || 99);
-                    })
-                    .slice(0, 4)
-                    .map((balance) => {
-                      const current = typeof balance.balanceHours === 'number' ? balance.balanceHours : parseFloat(balance.balanceHours || '0');
-                      const max = getLeaveMaxHours(balance.leaveType);
-                      const percentage = Math.min(100, (current / max) * 100);
-                      return (
-                        <div key={balance.leaveId || balance.leaveType} className="leaveProgress">
-                          <div className="leaveProgress__top">
-                            <span className="leaveProgress__type">{getLeaveTypeLabel(balance.leaveType)}</span>
-                            <span className="leaveProgress__value">{formatBalanceHours(balance.balanceHours)}h</span>
-                          </div>
-                          <div className="leaveProgress__barWrap">
-                            <div className="leaveProgress__bar" style={{ width: `${percentage}%` }} />
-                          </div>
-                        </div>
-                      );
-                    })
-                ) : (
-                  <div className="leaveBalancesX__empty">No leave balances available.</div>
-                )}
-                {leaveBalances.length > 4 && (
-                  <button
-                    type="button"
-                    className="leaveBalancesX__more"
-                    onClick={() => navigate(selfServicePath('attendance'))}
-                  >
-                    View All Balances →
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* handbook */}
-          <div className="cardX">
-            <div className="cardX__title">Company Handbook</div>
-
-            <div className="handbookRow">
-              <div className="handbookRow__main">
-                <div className="handbookRow__artWrap" aria-hidden="true">
-                  <MaterialArt kind={handbookLibraryCard.artKind} className="handbookRow__art" />
-                </div>
-                <div className="handbookRow__text">
-                  <div className="handbookRow__name">{handbookLibraryCard.heading}</div>
-                  <p className="handbookRow__intro u-line-clamp-2">{handbookLibraryCard.introduction}</p>
-                </div>
-              </div>
-              <div className="handbookRow__actions">
-                <ActionButton className="handbookBtn" size="sm" icon={<FiFileText />} type="button" onClick={() => void openHandbook()}>
-                  {handbookLibraryCard.viewLabel}
-                </ActionButton>
-                <ActionButton className="handbookBtn" size="sm" icon={<FiDownload />} type="button" onClick={() => void downloadHandbook()}>
-                  {handbookLibraryCard.downloadLabel}
-                </ActionButton>
-              </div>
-            </div>
-          </div>
+          <TimeOffBalancesCard
+            leaveBalances={leaveBalances}
+            nextLeave={nextLeave}
+            shiftSchedule={shiftSchedule}
+            onViewAllBalances={() => navigate(selfServicePath('attendance'))}
+          />
+          <DocumentsWidget onDownload={() => void downloadHandbook()} onOpen={() => void openHandbook()} />
         </div>
-
-        {/* right calendar */}
-        <div className="cardX cardX--calendar">
-          <div className="cardX__titleBar">
-            <div className="cardX__title">Company Events</div>
-            {canManageAnnouncements ? (
-              <button type="button" className="cardX__manageBtn" onClick={openCreateAnnouncementModal}>
-                <FiPlus aria-hidden="true" />
-                <span>Create Announcement</span>
-              </button>
-            ) : null}
-          </div>
-          <div className="calendarShell" aria-label="Company events calendar">
-            <div className="calendarShell__top">
-              <button type="button" className="calendarShell__navBtn" onClick={() => shiftCalendarMonth(-1)} aria-label="Previous month">‹</button>
-              <strong>{monthLabel}</strong>
-              <button type="button" className="calendarShell__navBtn" onClick={() => shiftCalendarMonth(1)} aria-label="Next month">›</button>
-            </div>
-
-            <div className="calendarGrid" style={calendarGridStyle}>
-              <div className="calHead">SU</div><div className="calHead">MO</div><div className="calHead">TU</div>
-              <div className="calHead">WE</div><div className="calHead">TH</div><div className="calHead">FR</div><div className="calHead">SA</div>
-
-              {Array.from({ length: totalCells }).map((_, i) => {
-                const dayNumber = i - sundayBasedStart + 1;
-                const value = dayNumber > 0 && dayNumber <= daysInMonth ? dayNumber : '';
-                const dayEvents = typeof value === 'number' ? calendarEventsByDay.get(value) ?? [] : [];
-                const primaryDayEvent = dayEvents[0];
-                const dayLabel =
-                  typeof value === 'number'
-                    ? new Date(calendarYear, calendarMonthIndex, value).toLocaleDateString(undefined, {
-                        month: 'long',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })
-                    : '';
-                const cellTitle =
-                  dayEvents.length > 0
-                    ? `${dayEvents.map((event) => event.title).join(' • ')}. Click to view announcement details.`
-                    : undefined;
-                const cellContent = (
-                  <>
-                    {typeof value === 'number' ? <span className="calCell__day">{value}</span> : null}
-                    {primaryDayEvent ? (
-                      <div className="calCell__events">
-                        <span className="calCell__event">{primaryDayEvent.title}</span>
-                        {dayEvents.length > 1 ? (
-                          <span className="calCell__more">+{dayEvents.length - 1} more</span>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </>
-                );
-
-                if (dayEvents.length > 0 && typeof value === 'number') {
-                  return (
-                  <button
-                    key={i}
-                    type="button"
-                    className="calCell calCell--button is-event"
-                    title={cellTitle}
-                    aria-label={`View ${dayEvents.length} company announcement${dayEvents.length === 1 ? '' : 's'} for ${dayLabel}`}
-                    onClick={() => openAnnouncementDay(value, dayEvents)}
-                  >
-                    {cellContent}
-                  </button>
-                  );
-                }
-
-                return (
-                  <div key={i} className="calCell" title={cellTitle}>
-                    {cellContent}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+        <CompanyEventsCalendar
+          calendarEventsByDay={calendarEventsByDay}
+          calendarGridStyle={calendarGridStyle}
+          calendarMonthIndex={calendarMonthIndex}
+          calendarYear={calendarYear}
+          canManageAnnouncements={canManageAnnouncements}
+          daysInMonth={daysInMonth}
+          monthLabel={monthLabel}
+          sundayBasedStart={sundayBasedStart}
+          totalCells={totalCells}
+          onNextMonth={() => shiftCalendarMonth(1)}
+          onOpenAnnouncementDay={openAnnouncementDay}
+          onOpenCreateAnnouncementModal={openCreateAnnouncementModal}
+          onPreviousMonth={() => shiftCalendarMonth(-1)}
+        />
       </section>
       {selectedAnnouncementDay && (
-        <LargePopup
-          open
-          ariaLabel="Company announcements"
-          title={announcementHeaderEvent?.title || selectedAnnouncementDay.label}
-          subtitle={
-            announcementHeaderEvent
-              ? formatAnnouncementMeta(announcementHeaderEvent.employeeName, announcementHeaderEvent.createdAt)
-              : `${selectedAnnouncementEvents.length} company announcement${selectedAnnouncementEvents.length === 1 ? '' : 's'}`
-          }
-          size="lg"
+        <AnnouncementDayModal
+          announcementHeaderEvent={announcementHeaderEvent}
+          canDeleteSingleAnnouncement={canDeleteSingleAnnouncement}
+          canManageAnnouncements={canManageAnnouncements}
+          deletingAnnouncementId={deletingAnnouncementId}
+          hasSingleAnnouncement={hasSingleAnnouncement}
+          selectedAnnouncementDay={selectedAnnouncementDay}
+          selectedAnnouncementEvents={selectedAnnouncementEvents}
           onClose={closeAnnouncementDay}
-          footer={(
-            <>
-              {canDeleteSingleAnnouncement ? (
-                <button
-                  type="button"
-                  className="announcementModal__deleteIconButton"
-                  onClick={() => requestDeleteAnnouncement(announcementHeaderEvent!)}
-                  disabled={deletingAnnouncementId === announcementHeaderEvent?.calendarId}
-                  aria-label="Delete Announcement"
-                  title="Delete Announcement"
-                >
-                  <FiTrash2 aria-hidden="true" />
-                </button>
-              ) : null}
-              {canDeleteSingleAnnouncement ? <span className="announcementModal__footerSpacer" aria-hidden="true" /> : null}
-              <button type="button" className="btn btn--ghost" onClick={closeAnnouncementDay}>
-                Close
-              </button>
-            </>
-          )}
-        >
-          <div className="announcementModal__list">
-            {selectedAnnouncementEvents.map((event) => {
-              const isDeleting = deletingAnnouncementId === event.calendarId;
-              const showInlineHeader = !hasSingleAnnouncement;
-              const showInlineDelete = showInlineHeader && canManageAnnouncements && typeof event.calendarId === 'number';
-
-              return (
-                <article key={event.key} className="announcementModal__card">
-                  {showInlineHeader ? (
-                    <header className="announcementModal__header">
-                      <h3 className="announcementModal__title">{event.title}</h3>
-                      <p className="announcementModal__meta">
-                        {formatAnnouncementMeta(event.employeeName, event.createdAt)}
-                      </p>
-                    </header>
-                  ) : null}
-                  <div className="announcementModal__details">
-                    <div className="announcementModal__detailRow">
-                      <strong className="announcementModal__detailLabel">Event Duration:</strong>
-                      <strong className="announcementModal__detailValue">
-                        {formatAnnouncementEventDuration(event.startDate, event.endDate)}
-                      </strong>
-                    </div>
-                    <div className="announcementModal__detailRow announcementModal__detailRow--description">
-                      <strong className="announcementModal__detailLabel">Description:</strong>
-                      <p className="announcementModal__detailValue announcementModal__detailValue--description">
-                        {event.description || 'No description provided for this announcement yet.'}
-                      </p>
-                    </div>
-                  </div>
-                  {showInlineDelete ? (
-                    <div className="announcementModal__cardFooter">
-                      <button
-                        type="button"
-                        className="announcementModal__deleteIconButton announcementModal__deleteIconButton--inline"
-                        onClick={() => requestDeleteAnnouncement(event)}
-                        disabled={isDeleting}
-                        aria-label={`Delete announcement ${event.title}`}
-                        title="Delete announcement"
-                      >
-                        <FiTrash2 aria-hidden="true" />
-                      </button>
-                    </div>
-                  ) : null}
-                </article>
-              );
-            })}
-          </div>
-        </LargePopup>
+          onRequestDelete={requestDeleteAnnouncement}
+        />
       )}
 
       <ConfirmDialog
@@ -1447,250 +664,26 @@ export default function Dashboard() {
       />
 
       {createAnnouncementOpen && (
-        <LargePopup
-          open
-          ariaLabel="Create announcement"
-          title="Create Announcement"
-          subtitle="Share a company-wide announcement on the calendar."
-          size="lg"
+        <CreateAnnouncementModal
+          announcementDraft={announcementDraft}
+          createAnnouncementSubmitAttempted={createAnnouncementSubmitAttempted}
+          creatingAnnouncement={creatingAnnouncement}
           onClose={closeCreateAnnouncementModal}
-          closeDisabled={creatingAnnouncement}
-          footer={(
-            <>
-              <button
-                type="button"
-                className="btn btn--ghost"
-                onClick={closeCreateAnnouncementModal}
-                disabled={creatingAnnouncement}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => void submitAnnouncement()}
-                disabled={creatingAnnouncement}
-              >
-                {creatingAnnouncement ? 'Creating...' : 'Publish Announcement'}
-              </button>
-            </>
-          )}
-        >
-          <div className="dashModal__grid">
-            <label className="dashModal__field dashModal__field--full">
-              <span>Announcement Title</span>
-              <input
-                value={announcementDraft.title}
-                maxLength={120}
-                aria-invalid={
-                  createAnnouncementSubmitAttempted && announcementDraft.title.trim().length === 0
-                    ? 'true'
-                    : undefined
-                }
-                onChange={(event) => setAnnouncementDraftField('title', event.target.value)}
-              />
-            </label>
-            <label className="dashModal__field">
-              <span>Start Date and Time</span>
-              <input
-                type="datetime-local"
-                value={announcementDraft.startDateTime}
-                aria-invalid={
-                  createAnnouncementSubmitAttempted && !announcementDraft.startDateTime ? 'true' : undefined
-                }
-                onChange={(event) => setAnnouncementStartDateTime(event.target.value)}
-              />
-            </label>
-            <label className="dashModal__field">
-              <span>End Date and Time</span>
-              <input
-                type="datetime-local"
-                value={announcementDraft.endDateTime}
-                min={announcementDraft.startDateTime || undefined}
-                aria-invalid={
-                  createAnnouncementSubmitAttempted && !announcementDraft.endDateTime ? 'true' : undefined
-                }
-                onChange={(event) => setAnnouncementDraftField('endDateTime', event.target.value)}
-              />
-            </label>
-            <label className="dashModal__field dashModal__field--full">
-              <span>Description</span>
-              <textarea
-                value={announcementDraft.description}
-                maxLength={500}
-                rows={6}
-                placeholder="Optional announcement details"
-                onChange={(event) => setAnnouncementDraftField('description', event.target.value)}
-              />
-            </label>
-          </div>
-
-        </LargePopup>
+          onSetField={setAnnouncementDraftField}
+          onSetStartDateTime={setAnnouncementStartDateTime}
+          onSubmit={() => void submitAnnouncement()}
+        />
       )}
 
       {editOpen && (
-        <LargePopup
-          open
-          ariaLabel="Edit employee info"
-          title="Edit Info"
-          subtitle="Update your contact details and address information before saving the changes."
-          size="xl"
+        <EditInfoModal
+          editDraft={editDraft}
+          emailVerificationWillReset={emailVerificationWillReset}
+          savingEdit={savingEdit}
           onClose={closeEditModal}
-          closeDisabled={savingEdit}
-          footer={(
-            <>
-              <button
-                type="button"
-                className="btn btn--ghost"
-                onClick={closeEditModal}
-                disabled={savingEdit}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => void submitEditInfo()}
-                disabled={savingEdit}
-              >
-                {savingEdit ? 'Saving...' : 'Save Changes'}
-              </button>
-            </>
-          )}
-        >
-          <div className="dashModal__grid">
-            <label className="dashModal__field">
-              <span>Email</span>
-              <input
-                value={editDraft.email}
-                placeholder="Optional email address"
-                onChange={(e) => setEditField('email', e.target.value)}
-              />
-            </label>
-            <label className="dashModal__field">
-              <span>Phone Number</span>
-              <input
-                value={editDraft.phoneNumber}
-                placeholder="Optional phone number"
-                onChange={(e) => setEditField('phoneNumber', e.target.value)}
-              />
-            </label>
-            <label className="dashModal__field dashModal__field--full">
-              <span>Permanent Address</span>
-              <input
-                value={editDraft.permanentAddress}
-                placeholder="Optional permanent address"
-                onChange={(e) => setEditField('permanentAddress', e.target.value)}
-              />
-            </label>
-            <label className="dashModal__field dashModal__field--full">
-              <span>Temporary Address</span>
-              <input
-                value={editDraft.temporaryAddress}
-                placeholder="Optional temporary address"
-                onChange={(e) => setEditField('temporaryAddress', e.target.value)}
-              />
-            </label>
-            <label className="dashModal__field">
-              <span>City</span>
-              <input
-                value={editDraft.city}
-                placeholder="Optional city"
-                onChange={(e) => setEditField('city', e.target.value)}
-              />
-            </label>
-            <label className="dashModal__field">
-              <span>State</span>
-              <input
-                value={editDraft.state}
-                placeholder="Optional state"
-                onChange={(e) => setEditField('state', e.target.value)}
-              />
-            </label>
-            <label className="dashModal__field">
-              <span>Country</span>
-              <input
-                value={editDraft.country}
-                placeholder="Optional country"
-                onChange={(e) => setEditField('country', e.target.value)}
-              />
-            </label>
-            <label className="dashModal__field">
-              <span>Zip Code</span>
-              <input
-                value={editDraft.zipCode}
-                placeholder="Optional ZIP code"
-                onChange={(e) => setEditField('zipCode', e.target.value)}
-              />
-            </label>
-
-            <div className="dashModal__sectionHeader">Government Identifiers</div>
-            <label className="dashModal__field">
-              <span>SSS Number</span>
-              <input
-                value={editDraft.sssNumber}
-                placeholder="00-0000000-0"
-                onChange={(e) => setEditField('sssNumber', e.target.value)}
-              />
-            </label>
-            <label className="dashModal__field">
-              <span>PhilHealth ID</span>
-              <input
-                value={editDraft.philhealthNumber}
-                placeholder="00-000000000-0"
-                onChange={(e) => setEditField('philhealthNumber', e.target.value)}
-              />
-            </label>
-            <label className="dashModal__field">
-              <span>Pag-IBIG MID</span>
-              <input
-                value={editDraft.pagibigNumber}
-                placeholder="0000-0000-0000"
-                onChange={(e) => setEditField('pagibigNumber', e.target.value)}
-              />
-            </label>
-            <label className="dashModal__field">
-              <span>TIN</span>
-              <input
-                value={editDraft.tinNumber}
-                placeholder="000-000-000-000"
-                onChange={(e) => setEditField('tinNumber', e.target.value)}
-              />
-            </label>
-
-            <div className="dashModal__sectionHeader">Emergency Contact</div>
-            <label className="dashModal__field">
-              <span>Contact Name</span>
-              <input
-                value={editDraft.emergencyContactName}
-                placeholder="Full name"
-                onChange={(e) => setEditField('emergencyContactName', e.target.value)}
-              />
-            </label>
-            <label className="dashModal__field">
-              <span>Relationship</span>
-              <input
-                value={editDraft.emergencyContactRelationship}
-                placeholder="e.g. Spouse, Sibling"
-                onChange={(e) => setEditField('emergencyContactRelationship', e.target.value)}
-              />
-            </label>
-            <label className="dashModal__field dashModal__field--full">
-              <span>Contact Number</span>
-              <input
-                value={editDraft.emergencyContactNumber}
-                placeholder="Phone number"
-                onChange={(e) => setEditField('emergencyContactNumber', e.target.value)}
-              />
-            </label>
-          </div>
-
-          {emailVerificationWillReset && (
-            <div className="dashModal__helper dashModal__helper--warning">
-              Changing this verified email will reset its verification status until the new address is verified.
-            </div>
-          )}
-        </LargePopup>
+          onSetField={setEditField}
+          onSubmit={() => void submitEditInfo()}
+        />
       )}
 
     </div>

@@ -1,21 +1,24 @@
 import { useLoading } from '../../../context/useLoading';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FiChevronDown, FiDownload, FiEdit2, FiFilter, FiMoreVertical, FiPlus, FiSearch, FiUserX, FiX, FiXCircle } from 'react-icons/fi';
+import { FiChevronDown, FiPlus, FiX } from 'react-icons/fi';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import LargePopup from '../../../components/dialog/LargePopup';
 import SensitiveAccessIndicator from '../../../components/security/SensitiveAccessIndicator';
 import SensitiveAccessModal from '../../../components/security/SensitiveAccessModal';
 import { useUiDialog } from '../../../components/dialog/useUiDialog';
-import EmployeeSortMenu from '../../../components/layout/EmployeeSortMenu';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { useSensitiveAccessPrompt } from '../../../hooks/useSensitiveAccessPrompt';
 import { apiFetchJson, toArray } from '../../../lib/api';
-import { compareEmployees, type EmployeeSortKey } from '../../../lib/employeeSort';
+import { compareEmployees } from '../../../lib/employeeSort';
 import { openDocumentAttachment } from '../../../lib/documentAttachments';
+import type { EmployeeDetails, EmployeeOption, LeaveBalanceRow } from '../../../lib/types/employee';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
+import { useEmployeeFilters } from './hooks/useEmployeeFilters';
+import EmployeeTable from './sections/EmployeeTable';
+import EmployeeToolbar from './sections/EmployeeToolbar';
 import './ManageEmployees.css';
 
 type ModalType = 'add' | 'edit' | 'delete' | null;
@@ -48,45 +51,6 @@ type EmployeeRow = {
   department: string;
   exemptionStatus: string;
   searchIndex: string;
-};
-
-type EmployeeDetails = {
-  id?: number;
-  firstName?: string;
-  middleName?: string;
-  lastName?: string;
-  birthDate?: string;
-  employmentStatus?: string;
-  exemptionStatus?: string;
-  employmentDateStart?: string;
-  employmentDateEnd?: string;
-  yearlySalary?: number | string;
-  email?: string;
-  phoneNumber?: string;
-  position?: string;
-  department?: string;
-  userAccountName?: string;
-  managerId?: number;
-  sssNumber?: string;
-  philhealthNumber?: string;
-  pagibigNumber?: string;
-  tinNumber?: string;
-  emergencyContactName?: string;
-  emergencyContactRelationship?: string;
-  emergencyContactNumber?: string;
-  separationReason?: SeparationReason;
-  eligibleForRehire?: boolean;
-  separationNotes?: string;
-  separationEffectiveDate?: string;
-  separationProcessedBy?: string;
-  address?: {
-    permanentAddress?: string;
-    temporaryAddress?: string;
-    city?: string;
-    state?: string;
-    country?: string;
-    zipCode?: string;
-  };
 };
 
 type ComplianceDocument = {
@@ -168,20 +132,6 @@ type ComplianceRecord = {
 type EmployeeMutationResponse = {
   id?: number;
   employeeId?: number;
-};
-
-type EmployeeOption = {
-  id: number;
-  name: string;
-  status: string;
-  position: string;
-  department: string;
-};
-
-type LeaveBalanceRow = {
-  leaveId?: number;
-  balanceHours?: number | string | null;
-  leaveType?: LeaveType | string;
 };
 
 type LeaveBalanceCreateForm = {
@@ -547,14 +497,6 @@ export default function HrManageEmp() {
   const [formSubmitAttempted, setFormSubmitAttempted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
-  const [searchValue, setSearchValue] = useState('');
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [sortMenuOpen, setSortMenuOpen] = useState(false);
-  const [exportMenuOpen, setExportMenuOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [positionFilter, setPositionFilter] = useState('all');
-  const [departmentFilter, setDepartmentFilter] = useState('all');
-  const [employeeSort, setEmployeeSort] = useState<EmployeeSortKey>('id');
   const [refreshTick, setRefreshTick] = useState(0);
   const [employeeOptions, setEmployeeOptions] = useState<EmployeeOption[]>([]);
   const [isLoadingEmployeeOptions, setIsLoadingEmployeeOptions] = useState(false);
@@ -564,6 +506,31 @@ export default function HrManageEmp() {
   const [hasExistingUserAccount, setHasExistingUserAccount] = useState(false);
   const managerPickerRef = useRef<HTMLDivElement | null>(null);
   const exportMenuRef = useRef<HTMLDivElement | null>(null);
+  const {
+    activeFilterCount,
+    clearFilters,
+    clearSearch,
+    departmentFilter,
+    employeeSort,
+    exportMenuOpen,
+    filterDepartmentOptions,
+    filterOpen,
+    filterPositionOptions,
+    positionFilter,
+    searchValue,
+    setDepartmentFilter,
+    setEmployeeSort,
+    setExportMenuOpen,
+    setPositionFilter,
+    setSearchValue,
+    setSortMenuOpen,
+    setStatusFilter,
+    sortMenuOpen,
+    statusFilter,
+    statusOptions,
+    toggleExportMenu,
+    toggleFilterPanel,
+  } = useEmployeeFilters(employeeRows);
 
   const selectedEmployee = useMemo(
     () => employeeRows.find((row) => row.id === form.employeeId) ?? null,
@@ -605,21 +572,6 @@ export default function HrManageEmp() {
     [leaveBalancesByType]
   );
 
-  const statusOptions = useMemo(
-    () => Array.from(new Set(employeeRows.map((row) => row.status).filter((value) => value && value !== '-'))).sort(),
-    [employeeRows]
-  );
-
-  const filterPositionOptions = useMemo(
-    () => Array.from(new Set(employeeRows.map((row) => row.position).filter((value) => value && value !== '-'))).sort(),
-    [employeeRows]
-  );
-
-  const filterDepartmentOptions = useMemo(
-    () => Array.from(new Set(employeeRows.map((row) => row.department).filter((value) => value && value !== '-'))).sort(),
-    [employeeRows]
-  );
-
   const visibleEmployeeRows = useMemo(() => {
     const normalizedSearch = normalizeText(searchValue);
 
@@ -656,8 +608,6 @@ export default function HrManageEmp() {
     );
   }, [managerOptions, managerSearch]);
   const canClearManagerPicker = managerSearch.trim().length > 0 || form.managerId.trim().length > 0;
-
-  const activeFilterCount = [statusFilter, positionFilter, departmentFilter].filter((value) => value !== 'all').length;
   const phoneHelperMessage = modal !== 'delete' ? getPhoneValidationMessage(form.phoneNumber) : '';
   const phoneHasError =
     modal !== 'delete' && form.phoneNumber.trim().length > 0 && sanitizePhoneNumber(form.phoneNumber).length !== 11;
@@ -763,7 +713,7 @@ export default function HrManageEmp() {
 
     document.addEventListener('mousedown', handlePointerDown);
     return () => document.removeEventListener('mousedown', handlePointerDown);
-  }, [exportMenuOpen]);
+  }, [exportMenuOpen, setExportMenuOpen]);
 
   useEffect(() => {
     if (!showManagerPicker) {
@@ -1002,12 +952,6 @@ export default function HrManageEmp() {
     resetMessages();
     setForm(emptyForm);
     setInitialForm(emptyForm);
-  }
-
-  function clearFilters() {
-    setStatusFilter('all');
-    setPositionFilter('all');
-    setDepartmentFilter('all');
   }
 
   function syncLeaveBalanceForms(balances: LeaveBalanceRow[]) {
@@ -2285,204 +2229,40 @@ export default function HrManageEmp() {
       </div>
 
       <section className="hrEmpTable">
-        <div className="hrEmpToolbar">
-          <label className="uSearch" aria-label="Search employees">
-            <FiSearch />
-            <input
-              value={searchValue}
-              onChange={(event) => setSearchValue(event.target.value)}
-              placeholder="Search by employee name, ID, username, email, phone, role, or department"
-            />
-            {searchValue ? (
-              <button type="button" aria-label="Clear employee search" onClick={() => setSearchValue('')}>
-                <FiXCircle />
-              </button>
-            ) : null}
-          </label>
+        <EmployeeToolbar
+          activeFilterCount={activeFilterCount}
+          departmentFilter={departmentFilter}
+          employeeSort={employeeSort}
+          exportMenuOpen={exportMenuOpen}
+          exportMenuRef={exportMenuRef}
+          filterDepartmentOptions={filterDepartmentOptions}
+          filterOpen={filterOpen}
+          filterPositionOptions={filterPositionOptions}
+          onClearFilters={clearFilters}
+          onClearSearch={clearSearch}
+          onDepartmentFilterChange={setDepartmentFilter}
+          onExportEmployeeData={exportEmployeeData}
+          onPositionFilterChange={setPositionFilter}
+          onSearchChange={setSearchValue}
+          onSortChange={setEmployeeSort}
+          onSortMenuOpenChange={setSortMenuOpen}
+          onStatusFilterChange={setStatusFilter}
+          onToggleExportMenu={toggleExportMenu}
+          onToggleFilterPanel={toggleFilterPanel}
+          positionFilter={positionFilter}
+          searchValue={searchValue}
+          sortMenuOpen={sortMenuOpen}
+          statusFilter={statusFilter}
+          statusOptions={statusOptions}
+        />
 
-          <div className="hrEmpToolbar__actions">
-            <EmployeeSortMenu
-              value={employeeSort}
-              onChange={setEmployeeSort}
-              open={sortMenuOpen}
-              onOpenChange={(open) => {
-                setSortMenuOpen(open);
-                if (open) {
-                  setFilterOpen(false);
-                }
-              }}
-            />
-
-            <div className="uFilter">
-              <button
-                type="button"
-                className={`uFilter__toggle ${filterOpen ? 'is-open' : ''} ${
-                  activeFilterCount > 0 ? 'is-active' : ''
-                }`}
-                onClick={() => {
-                  setFilterOpen((open) => {
-                    const nextOpen = !open;
-                    if (nextOpen) {
-                      setSortMenuOpen(false);
-                    }
-                    return nextOpen;
-                  });
-                  setExportMenuOpen(false);
-                }}
-              >
-                <FiFilter />
-                <span>Filter</span>
-              </button>
-
-              {filterOpen ? (
-                <div className="uFilter__panel">
-                  <label className="uFilter__field">
-                    <span>Status</span>
-                    <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-                      <option value="all">All Statuses</option>
-                      {statusOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="uFilter__field">
-                    <span>Role</span>
-                    <select value={positionFilter} onChange={(event) => setPositionFilter(event.target.value)}>
-                      <option value="all">All Roles</option>
-                      {filterPositionOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="uFilter__field">
-                    <span>Department</span>
-                    <select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}>
-                      <option value="all">All Departments</option>
-                      {filterDepartmentOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <div className="uFilter__actions">
-                    <button type="button" onClick={clearFilters}>
-                      Reset Filters
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="hrEmpMenu" ref={exportMenuRef}>
-              <button
-                type="button"
-                className={`hrEmpMenu__toggle ${exportMenuOpen ? 'is-open' : ''}`}
-                onClick={() => {
-                  setExportMenuOpen((open) => !open);
-                  setFilterOpen(false);
-                }}
-                aria-haspopup="menu"
-                aria-expanded={exportMenuOpen}
-                aria-label="More employee table actions"
-              >
-                <FiMoreVertical />
-              </button>
-
-              {exportMenuOpen ? (
-                <div className="hrEmpMenu__panel" role="menu" aria-label="Employee table actions">
-                  <button
-                    type="button"
-                    className="hrEmpMenu__item"
-                    role="menuitem"
-                    onClick={exportEmployeeData}
-                    disabled={visibleEmployeeRows.length === 0}
-                  >
-                    <FiDownload aria-hidden="true" />
-                    <span>Export as CSV</span>
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        </div>
-
-          <div className="hrEmpTable__head">
-          <div>EMP ID</div>
-          <div>NAME</div>
-          <div>Username</div>
-          <div className="hrEmpTable__headCell--status">Status</div>
-          <div>Position</div>
-          <div>Email</div>
-          <div className="hrEmpTable__headCell--actions"></div>
-          </div>
-
-        <div className="hrEmpTable__body">
-          {visibleEmployeeRows.length > 0 ? (
-            visibleEmployeeRows.map((row) => {
-              const isTerminated = isTerminatedStatus(row.status);
-
-              return (
-                <div
-                  key={row.id}
-                  className={`hrEmpRow ${isTerminated ? 'is-terminated' : ''}`}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => openDetailsDialog(row.id)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      openDetailsDialog(row.id);
-                    }
-                  }}
-                >
-                  <div>{row.id}</div>
-                  <div className="hrEmpRow__name">
-                    <span className="hrEmpRow__nameText">{row.name}</span>
-                  </div>
-                  <div>{row.username}</div>
-                  <div className="hrEmpRow__statusCell">
-                    {isTerminated ? 'RELEASED' : formatEmploymentStatusLabel(row.status)}
-                  </div>
-                  <div className="hrEmpRow__positionCell">
-                    {row.position}
-                  </div>
-                  <div className="hrEmpRow__emailCell">
-                    {row.email}
-                  </div>
-                  <div className="hrEmpRow__actions" onClick={(event) => event.stopPropagation()}>
-                    {!isTerminated && (
-                      <>
-                        <button type="button" className="hrEmpRow__action" onClick={() => void openEditModal(row)} title="Edit employee">
-                          <FiEdit2 aria-hidden="true" />
-                        </button>
-                        <button
-                          type="button"
-                          className="hrEmpRow__action hrEmpRow__action--danger"
-                          onClick={() => openDeleteModal(row)}
-                          title="Record employee separation"
-                        >
-                          <FiUserX aria-hidden="true" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            })
-          ) : (
-            <div className="uEmptyState">
-              No employee records to show. {emptyStateMessage}
-            </div>
-          )}
-        </div>
+        <EmployeeTable
+          emptyStateMessage={emptyStateMessage}
+          onOpenDelete={openDeleteModal}
+          onOpenDetails={openDetailsDialog}
+          onOpenEdit={(row) => void openEditModal(row)}
+          rows={visibleEmployeeRows}
+        />
       </section>
 
       {detailsDialogEmployee ? (

@@ -1,0 +1,286 @@
+.largePopup__body :where(
+  input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='hidden']),
+  select,
+  textarea
+) {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--popup-input-border);
+  border-radius: 14px;
+  background: var(--popup-input-surface);
+  color: var(--popup-ink);
+  font-size: 15px;
+  padding: 12px 14px;
+  box-shadow: none;
+}
+
+.largePopup__body textarea {
+  min-height: 132px;
+  resize: vertical;
+}
+
+.largePopup__body :where(
+  input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='hidden']),
+  select,
+  textarea
+):focus {
+  outline: none;
+  border-color: var(--popup-accent);
+  box-shadow: var(--popup-focus-ring);
+}
+
+:where(.hrPayPicker, .hrEmpCombo) {
+  position: relative !important;
+  min-width: 0 !important;
+}
+
+:where(.hrPayPicker__control, .hrEmpCombo__control) {
+  position: relative !important;
+  display: block !important;
+  min-height: 50px !important;
+  border: 1px solid var(--popup-input-border) !important;
+  border-radius: 16px !important;
+  background: var(--popup-control-surface) !important;
+  overflow: hidden !important;
+  box-shadow: var(--popup-control-shadow) !important;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease !important;
+}
+
+:where(.hrEmpCombo--compact .hrEmpCombo__control, .hrPayPicker--compact .hrPayPicker__control) {
+  min-height: 0 !important;
+  border: 1px solid var(--popup-input-border) !important;
+  border-radius: 14px !important;
+  background: var(--popup-control-surface) !important;
+  box-shadow: none !important;
+}
+
+:where(.hrPayPicker__control, .hrEmpCombo__control):focus-within,
+:where(.hrPayPicker.is-open .hrPayPicker__control, .hrEmpCombo.is-open .hrEmpCombo__control) {
+  border-color: var(--popup-accent) !important;
+  background: var(--popup-control-surface) !important;
+  box-shadow: var(--popup-focus-ring) !important;
+}
+
+:where(.hrEmpCombo--compact .hrEmpCombo__control):focus-within,
+:where(.hrEmpCombo--compact.is-open .hrEmpCombo__control) {
+  border-color: var(--popup-accent) !important;
+  background: var(--popup-control-surface) !important;
+  box-shadow: var(--popup-focus-ring) !important;
+}
+
+:where(.hrPayPicker__input, .hrEmpCombo__input) {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 100% !important;
+  min-height: 50px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--popup-ink) !important;
+  padding: 0 96px 0 18px !important;
+  box-shadow: none !important;
+}
+
+:where(.hrEmpCombo--compact .hrEmpCombo__input, .hrPayPicker--compact .hrPayPicker__input) {
+  min-height: 44px !important;
+  background: transparent !important;
+  padding: 12px 96px 12px 14px !important;
+}
+
+:where(.hrPayPicker__input, .hrEmpCombo__input)::placeholder {
+  color: var(--app-placeholder) !important;
+}
+
+:where(.hrPayPicker__input, .hrEmpCombo__input):focus {
+  outline: none !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+:where(
+  .largePopup__body input[aria-invalid='true'],
+  .largePopup__body select[aria-invalid='true'],
+  .largePopup__body textarea[aria-invalid='true'],
+  .modal input[aria-invalid='true'],
+  .modal select[aria-invalid='true'],
+  .modal textarea[aria-invalid='true'],
+  .dashModal input[aria-invalid='true'],
+  .dashModal textarea[aria-invalid='true'],
+  .dashTwoFactorSetup__field input[aria-invalid='true'],
+  .dashPasswordForm__inputWrap input[aria-invalid='true'],
+  .payModal input[aria-invalid='true'],
+  .payModal select[aria-invalid='true'],
+  .payModal textarea[aria-invalid='true'],
+  .hrEmpField input[aria-invalid='true'],
+  .hrEmpField select[aria-invalid='true'],
+  .hrEmpField textarea[aria-invalid='true'],
+  .hrPayModal input[aria-invalid='true'],
+  .hrPayModal select[aria-invalid='true'],
+  .hrPayModal textarea[aria-invalid='true'],
+  .hrApprForm__row input[aria-invalid='true'],
+  .hrApprForm__row textarea[aria-invalid='true'],
+  .aReviewPayModal__grid input[aria-invalid='true']
+) {
+  border-color: var(--popup-danger-border) !important;
+  background: var(--popup-danger-surface) !important;
+  box-shadow: var(--popup-danger-ring) !important;
+}
+
+.sensitiveAccessModal__inputWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.sensitiveAccessModal__inputWrap input {
+  padding-right: 46px !important;
+}
+
+.sensitiveAccessModal__toggle {
+  position: absolute;
+  right: 12px;
+  border: 0;
+  background: transparent;
+  color: var(--popup-copy);
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+}
+
+.sensitiveAccessModal__toggle:hover:not(:disabled) {
+  color: var(--popup-ink);
+}
+
+.sensitiveAccessModal__toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sensitiveAccessModal__toggle svg {
+  display: block;
+  font-size: 18px;
+}
+
+:where(
+  .fileUploadField__panel[aria-invalid='true'],
+  .hrPayPicker__control[aria-invalid='true'],
+  .hrEmpCombo__control[aria-invalid='true']
+) {
+  border-color: var(--popup-danger-border) !important;
+  background: var(--popup-danger-control-surface) !important;
+  box-shadow: var(--popup-danger-ring) !important;
+}
+
+:where(.hrPayPicker__clear, .hrEmpCombo__clear, .hrPayPicker__toggle, .hrEmpCombo__toggle) {
+  position: absolute !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 34px !important;
+  min-width: 34px !important;
+  height: 34px !important;
+  min-height: 34px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  background: transparent !important;
+  color: var(--popup-accent-dark) !important;
+  display: grid !important;
+  place-items: center !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+  transition: background 160ms ease, color 160ms ease !important;
+}
+
+:where(.hrPayPicker__clear, .hrEmpCombo__clear) {
+  right: 48px !important;
+  color: var(--popup-copy) !important;
+}
+
+:where(.hrPayPicker__toggle, .hrEmpCombo__toggle) {
+  right: 10px !important;
+}
+
+:where(.hrPayPicker__clear, .hrEmpCombo__clear, .hrPayPicker__toggle, .hrEmpCombo__toggle):hover:not(:disabled) {
+  background: var(--popup-soft-fill) !important;
+}
+
+:where(.hrPayPicker__clear, .hrEmpCombo__clear, .hrPayPicker__toggle, .hrEmpCombo__toggle):disabled,
+:where(.hrPayPicker__input:disabled, .hrEmpCombo__input:disabled) {
+  cursor: not-allowed !important;
+  opacity: 0.6 !important;
+}
+
+:where(.hrPayPicker__clear, .hrEmpCombo__clear, .hrPayPicker__toggle, .hrEmpCombo__toggle) svg {
+  display: block !important;
+  font-size: 16px !important;
+  transition: transform 0.18s ease !important;
+}
+
+:where(.hrPayPicker.is-open .hrPayPicker__toggle, .hrEmpCombo.is-open .hrEmpCombo__toggle) {
+  border: 0 !important;
+  background: var(--popup-soft-fill) !important;
+}
+
+:where(.hrPayPicker.is-open .hrPayPicker__toggle svg, .hrEmpCombo.is-open .hrEmpCombo__toggle svg) {
+  transform: rotate(180deg) !important;
+}
+
+:where(.hrPayPicker__menu, .hrEmpCombo__menu) {
+  position: absolute !important;
+  top: calc(100% + 8px) !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 30 !important;
+  display: grid !important;
+  gap: 6px !important;
+  max-height: 240px !important;
+  overflow-y: auto !important;
+  padding: 8px !important;
+  border: 1px solid var(--popup-border) !important;
+  border-radius: 18px !important;
+  background: var(--popup-menu-surface) !important;
+  box-shadow: 0 22px 40px rgba(30, 18, 49, 0.18) !important;
+}
+
+:where(.hrPayPicker__option, .hrEmpCombo__option) {
+  width: 100% !important;
+  padding: 12px 14px !important;
+  border: 1px solid transparent !important;
+  border-radius: 14px !important;
+  background: transparent !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  gap: 4px !important;
+  text-align: left !important;
+  cursor: pointer !important;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease !important;
+}
+
+:where(.hrPayPicker__option, .hrEmpCombo__option):hover,
+:where(.hrPayPicker__option, .hrEmpCombo__option).is-selected {
+  background: var(--popup-soft-fill) !important;
+  border-color: var(--popup-border) !important;
+  transform: translateY(-1px) !important;
+}
+
+:where(.hrPayPicker__empty, .hrEmpCombo__empty) {
+  color: var(--popup-copy) !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 1.4 !important;
+  padding: 12px 14px !important;
+  border-radius: 14px !important;
+  background: var(--popup-soft-fill) !important;
+}

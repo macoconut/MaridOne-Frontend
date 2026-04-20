@@ -15,41 +15,10 @@ import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { useUnsavedChangesPrompt } from '../../../hooks/useUnsavedChangesPrompt';
+import { toMoneyString, toOptionalMoneyString, toOptionalText } from '../../../lib/formatters';
+import type { EmployeeDetails } from '../../../lib/types/employee';
+import type { PayrollDisputeRow as DisputeRow, PayrollItemReference as PayrollItemRow } from '../../../lib/types/payroll';
 import './Payslip.css';
-
-type EmployeeDetails = {
-  firstName?: string;
-  middleName?: string;
-  lastName?: string;
-  position?: string;
-  department?: string;
-  email?: string;
-  taxNumber?: string;
-  tinNumber?: string;
-  address?: {
-    permanentAddress?: string;
-    temporaryAddress?: string;
-    city?: string;
-    state?: string;
-    country?: string;
-    zipCode?: string;
-  };
-};
-
-type PayrollItemRow = {
-  id?: number;
-  itemId?: number;
-  runDetails?: {
-    periodStart?: string;
-    periodEnd?: string;
-    paymentDate?: string;
-  };
-};
-
-type DisputeRow = {
-  itemId?: number;
-  status?: string;
-};
 
 type DocumentRow = {
   pathId?: number;
@@ -75,22 +44,6 @@ const moneyFormatter = new Intl.NumberFormat('en-US', {
 });
 const DISPUTE_UPLOAD_SUBDIR = 'dispute-request';
 const MARID_LOGO_URL = '/images/marid-logo-transparent.png';
-
-function toMoneyString(value: unknown) {
-  if (typeof value === 'number' && Number.isFinite(value)) return value.toFixed(2);
-  if (typeof value === 'string' && value.trim().length > 0) return value;
-  return '0.00';
-}
-
-function toOptionalMoneyString(value: unknown) {
-  if (typeof value === 'number' && Number.isFinite(value)) return value.toFixed(2);
-  if (typeof value === 'string' && value.trim().length > 0) return value;
-  return undefined;
-}
-
-function toOptionalText(value: unknown) {
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
-}
 
 function formatAdjustmentTimestamp(value?: string) {
   if (!value) return '-';

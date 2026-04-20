@@ -14,6 +14,9 @@ import { extractAttachmentReference, openDocumentAttachment } from '../../../lib
 import { getManilaNow } from '../../../lib/manilaTime';
 import { getUserEmail } from '../../../lib/session';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
+import { formatDate, formatDateTime } from '../../../lib/formatters';
+import type { LeaveApprovalRow as LeaveRow, OvertimeApprovalRow as OvertimeRow } from '../../../lib/types/approval';
+import type { PayrollDisputeRow as DisputeRow, PayrollItemReference as PayrollItemRow } from '../../../lib/types/payroll';
 import './Approval.css';
 
 type ApprovalSource = 'leave' | 'overtime' | 'dispute';
@@ -50,66 +53,6 @@ type ApprovalItem = {
 type ApprovalTypeFilter = 'all' | 'Leave' | 'Overtime' | 'Payslip Dispute';
 type ApprovalStatusFilter = 'all' | 'Pending' | 'Approved' | 'Denied' | 'Cancelled';
 
-type LeaveRow = {
-  requestId?: number;
-  startDateTime?: string;
-  endDateTime?: string;
-  requestStatus?: string;
-  reason?: string;
-  leaveType?: string;
-  approver?: string;
-  approverReason?: string;
-  approvedAt?: string;
-  paid?: boolean;
-  isPaid?: boolean;
-  managerApprover?: string;
-  managerApproverReason?: string;
-  managerApprovedAt?: string;
-};
-
-type OvertimeRow = {
-  overtimeId?: number;
-  requestAt?: string;
-  workDate?: string;
-  startTime?: string;
-  endTime?: string;
-  approvedAt?: string;
-  requestStatus?: string;
-  approver?: string;
-  reason?: string;
-  approveReason?: string;
-  overtimeType?: string;
-  paid?: boolean;
-  managerApprover?: string;
-  managerApproveReason?: string;
-  managerApprovedAt?: string;
-};
-
-type DisputeRow = {
-  id?: number;
-  subject?: string;
-  reason?: string;
-  status?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  statusReason?: string;
-  approver?: string;
-  approverName?: string;
-  reviewedBy?: string;
-  handledBy?: string;
-  decidedBy?: string;
-  itemId?: number;
-};
-
-type PayrollItemRow = {
-  id?: number;
-  itemId?: number;
-  runDetails?: {
-    periodStart?: string;
-    periodEnd?: string;
-  };
-};
-
 function resolveDisputeApprover(row: DisputeRow) {
   const directApprover =
     row.approver?.trim() ||
@@ -119,32 +62,6 @@ function resolveDisputeApprover(row: DisputeRow) {
     row.decidedBy?.trim();
 
   return directApprover || '-';
-}
-
-function formatDateTime(value?: string) {
-  if (!value) return '-';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? value
-    : date.toLocaleString(undefined, {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-      });
-}
-
-function formatDate(value?: string) {
-  if (!value) return '-';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? value
-    : date.toLocaleDateString(undefined, {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
 }
 
 function formatTime(value?: string) {
@@ -202,8 +119,8 @@ function buildDisputeDetail(subject?: string) {
 
 function buildPayrollPeriodLabel(start?: string, end?: string) {
   if (!start && !end) return 'Payroll period unavailable';
-  const startLabel = formatDate(start);
-  const endLabel = formatDate(end);
+  const startLabel = formatDate(start, '-');
+  const endLabel = formatDate(end, '-');
   return startLabel === endLabel ? startLabel : `${startLabel} to ${endLabel}`;
 }
 
@@ -275,7 +192,7 @@ function approvalStatusTone(status: ApprovalStatus) {
 
 function displayRequestDate(item: ApprovalItem) {
   return item.requestType === 'Overtime' || item.requestType === 'Payslip Dispute'
-    ? formatDate(item.dateOfRequest)
+    ? formatDate(item.dateOfRequest, '-')
     : item.dateOfRequest;
 }
 
@@ -395,8 +312,8 @@ export default function Approval() {
         const status = mapApprovalStatus(row.requestStatus);
         const requestStamp = row.startDateTime ? Date.parse(row.startDateTime) || 0 : 0;
         const requestId = row.requestId ?? index;
-        const startDateStr = formatDate(row.startDateTime);
-        const endDateStr = formatDate(row.endDateTime);
+        const startDateStr = formatDate(row.startDateTime, '-');
+        const endDateStr = formatDate(row.endDateTime, '-');
         const requestTarget = startDateStr === endDateStr ? startDateStr : `${startDateStr} to ${endDateStr}`;
         const attachment = extractAttachmentReference(row.reason);
 
@@ -422,7 +339,7 @@ export default function Approval() {
           source: 'leave' as const,
           sourceId: requestId,
           sortStamp: requestStamp,
-          dateOfRequest: formatDate(row.startDateTime),
+          dateOfRequest: formatDate(row.startDateTime, '-'),
           requestType: 'Leave',
           requestDetail: buildLeaveDetail(row.leaveType, row.paid ?? row.isPaid),
           requestTarget,
@@ -431,10 +348,10 @@ export default function Approval() {
           approvedBy: status.startsWith('Pending') ? '-' : status === 'Cancelled' ? '-' : row.approver?.trim() || '-',
           requestReason: attachment.cleanText || '-',
           decisionReason: finalDecisionReason,
-          decisionDate: formatDateTime(row.approvedAt),
+          decisionDate: formatDateTime(row.approvedAt, '-'),
           managerApprover: row.managerApprover,
           managerDecisionReason: managerNote,
-          managerDecisionDate: formatDateTime(row.managerApprovedAt),
+          managerDecisionDate: formatDateTime(row.managerApprovedAt, '-'),
           attachmentPathId: attachment.attachmentPathId ?? undefined,
         };
       });
@@ -442,7 +359,7 @@ export default function Approval() {
       const overtimeItems = toArray<OvertimeRow>(otResponse).map((row, index) => {
         const status = mapApprovalStatus(row.requestStatus);
         const overtimeId = row.overtimeId ?? index;
-        const workDateStr = formatDate(row.workDate);
+        const workDateStr = formatDate(row.workDate, '-');
         const attachment = extractAttachmentReference(row.reason);
 
         const managerNote = (row.managerApproveReason || '').trim();
@@ -467,7 +384,7 @@ export default function Approval() {
           source: 'overtime' as const,
           sourceId: overtimeId,
           sortStamp: row.requestAt ? Date.parse(row.requestAt) || 0 : 0,
-          dateOfRequest: formatDate(row.requestAt),
+          dateOfRequest: formatDate(row.requestAt, '-'),
           requestType: 'Overtime',
           requestDetail: buildOvertimeDetail(row.overtimeType, row.paid),
           requestTarget: workDateStr,
@@ -478,10 +395,10 @@ export default function Approval() {
           approvedBy: status.startsWith('Pending') ? '-' : status === 'Cancelled' ? '-' : row.approver ?? '-',
           requestReason: attachment.cleanText || '-',
           decisionReason: finalDecisionReason,
-          decisionDate: formatDateTime(row.approvedAt),
+          decisionDate: formatDateTime(row.approvedAt, '-'),
           managerApprover: row.managerApprover,
           managerDecisionReason: managerNote,
-          managerDecisionDate: formatDateTime(row.managerApprovedAt),
+          managerDecisionDate: formatDateTime(row.managerApprovedAt, '-'),
           attachmentPathId: attachment.attachmentPathId ?? undefined,
         };
       });
@@ -508,7 +425,7 @@ export default function Approval() {
           source: 'dispute' as const,
           sourceId: disputeId,
           sortStamp: row.createdAt ? Date.parse(row.createdAt) || 0 : 0,
-          dateOfRequest: formatDate(row.createdAt),
+          dateOfRequest: formatDate(row.createdAt, '-'),
           requestType: 'Payslip Dispute',
           requestDetail: buildDisputeDetail(row.subject),
           requestTarget:
@@ -519,7 +436,7 @@ export default function Approval() {
           approvedBy: status.startsWith('Pending') ? '-' : status === 'Cancelled' ? '-' : resolveDisputeApprover(row),
           requestReason: attachment.cleanText || '-',
           decisionReason: finalDecisionReason,
-          decisionDate: formatDateTime(row.updatedAt),
+          decisionDate: formatDateTime(row.updatedAt, '-'),
           attachmentPathId: attachment.attachmentPathId ?? undefined,
         };
       });

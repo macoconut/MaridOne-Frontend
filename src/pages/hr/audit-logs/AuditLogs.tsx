@@ -6,6 +6,8 @@ import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
+import { formatDate, formatDateTime } from '../../../lib/formatters';
+import type { PayrollRunRow } from '../../../lib/types/payroll';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './AuditLogs.css';
 
@@ -28,14 +30,6 @@ type ActivityPage = {
     totalElements?: number;
     totalPages?: number;
   };
-};
-
-type PayrollRunRow = {
-  payId?: number;
-  periodStart?: string;
-  periodEnd?: string;
-  periodDescription?: string;
-  runType?: string;
 };
 
 type EmployeeDirectoryRow = {
@@ -135,30 +129,6 @@ function normalizeSearch(value?: string) {
 
 function isChangeType(value?: string): value is ChangeType {
   return CHANGE_TYPES.includes((value ?? '').toUpperCase() as ChangeType);
-}
-
-function formatDate(value?: string) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-}
-
-function formatDateTime(value?: string) {
-  if (!value) return 'Unknown time';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(undefined, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
 }
 
 function activityLabel(activityType: ChangeType) {
@@ -278,8 +248,7 @@ function actorPresentation(username: string | undefined, directory: EmployeeDire
     return {
       actorName: fullName,
       actorUsername: cleanedUsername || fullName,
-      actorSubtitle:
-        cleanedUsername && normalizeSearch(fullName) !== normalizedUsername ? `@${cleanedUsername}` : null,
+      actorSubtitle: cleanedUsername ? `@${cleanedUsername}` : null,
     };
   }
 
@@ -364,8 +333,8 @@ function resolveEmployeeName(employeeId: string, directory: EmployeeDirectory) {
 }
 
 function formatPayrollPeriod(periodStart?: string, periodEnd?: string) {
-  const start = formatDate(periodStart);
-  const end = formatDate(periodEnd);
+  const start = formatDate(periodStart, '');
+  const end = formatDate(periodEnd, '');
   if (start && end) return `${start} to ${end}`;
   return start || end || 'an unavailable payroll period';
 }
@@ -758,24 +727,33 @@ function toAuditEntry(
   const copy = buildFriendlyCopy(row, normalizedType, directory, payrollRunsById);
   const timestampValue = row.timestamp ? Date.parse(row.timestamp) || 0 : 0;
 
+  const detailValues = readDetailPayloadValues(row.detailPayload);
+  const payloadName = normalizeWhitespace(detailValues.get('name') ?? detailValues.get('actor') ?? '');
+  const nameLooksLikeUsername =
+    !actor.actorSubtitle && normalizeSearch(actor.actorName) === normalizeSearch(actor.actorUsername);
+  const resolvedActorName = nameLooksLikeUsername && payloadName ? payloadName : actor.actorName;
+  const resolvedActorSubtitle =
+    actor.actorSubtitle ??
+    (nameLooksLikeUsername && payloadName && actor.actorUsername ? `@${actor.actorUsername}` : null);
+
   return {
     id: String(row.activityId ?? `${row.timestamp ?? 'row'}-${index}`),
-    actorName: actor.actorName,
+    actorName: resolvedActorName,
     actorUsername: actor.actorUsername,
-    actorSubtitle: actor.actorSubtitle,
+    actorSubtitle: resolvedActorSubtitle,
     activityType: normalizedType,
     activityLabel: activityLabel(normalizedType),
     tone: activityTone(normalizedType),
     title: copy.title,
     detail: copy.detail,
     area: copy.area,
-    recordedAt: formatDateTime(row.timestamp),
+    recordedAt: formatDateTime(row.timestamp, 'Unknown time'),
     timestampValue,
     endpoint,
     detailPayload: row.detailPayload ?? null,
     searchIndex: toSearchIndex([
       row.activityId,
-      actor.actorName,
+      resolvedActorName,
       actor.actorUsername,
       copy.title,
       copy.detail,

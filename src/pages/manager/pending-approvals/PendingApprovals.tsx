@@ -10,6 +10,7 @@ import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { extractAttachmentReference, openDocumentAttachment } from '../../../lib/documentAttachments';
+import { formatDateTime } from '../../../lib/formatters';
 import {
   buildRequestSummaryMessage,
   formatLeaveDurationLabel,
@@ -17,6 +18,7 @@ import {
   formatRequestTimeRangeLabel,
   formatRequestTypeLabel,
 } from '../../../lib/requestPresentation';
+import type { LeaveApprovalRow as LeaveDto, OvertimeApprovalRow as OvertimeDto } from '../../../lib/types/approval';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import '../../self-service/approvals/Approval.css';
 import './PendingApprovals.css';
@@ -25,41 +27,6 @@ import '../../hr/approvals/Approvals.css';
 type EmployeeRow = {
   id: number;
   name: string;
-};
-
-type LeaveDto = {
-  requestId?: number;
-  empId?: number;
-  startDateTime?: string;
-  endDateTime?: string;
-  requestAt?: string;
-  requestStatus?: string;
-  reason?: string;
-  paid?: boolean;
-  suggestedPaid?: boolean;
-  leaveType?: string;
-  approverReason?: string;
-  managerApprover?: string;
-  managerApproverReason?: string;
-  managerApprovedAt?: string;
-};
-
-type OvertimeDto = {
-  overtimeId?: number;
-  employeeId?: number;
-  requestStatus?: string;
-  requestAt?: string;
-  workDate?: string;
-  startTime?: string;
-  endTime?: string;
-  overtimeType?: string;
-  reason?: string;
-  approveReason?: string;
-  paid?: boolean;
-  suggestedPaid?: boolean;
-  managerApprover?: string;
-  managerApproveReason?: string;
-  managerApprovedAt?: string;
 };
 
 type RequestType = 'Leave' | 'Overtime';
@@ -95,19 +62,6 @@ type ManagerRequest = {
   overtimeId?: number;
   attachmentPathId?: number;
 };
-
-function formatDateTime(value?: string) {
-  if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(undefined, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
 
 function employeeLabel(employeeById: Map<number, EmployeeRow>, employeeId?: number) {
   if (typeof employeeId !== 'number') return 'Employee unavailable';
@@ -249,7 +203,7 @@ export default function ManagerPendingApprovals() {
           requestId: item.requestId,
           employee: employeeLabel(employeeById, item.empId),
           message: buildRequestSummaryMessage('leave', leaveTypeLabel, item.paid),
-          submittedAt: formatDateTime(item.requestAt ?? item.startDateTime),
+          submittedAt: formatDateTime(item.requestAt ?? item.startDateTime, '-'),
           type: 'Leave' as const,
           source: 'leave' as const,
           status: item.requestStatus || 'PENDING_MANAGER',
@@ -264,7 +218,7 @@ export default function ManagerPendingApprovals() {
           decisionSummary: item.approverReason || '',
           managerDecisionSummary: item.managerApproverReason || '',
           managerReviewer: item.managerApprover || '',
-          managerReviewedAt: formatDateTime(item.managerApprovedAt),
+          managerReviewedAt: formatDateTime(item.managerApprovedAt, '-'),
           sortStamp:
             item.requestAt ? Date.parse(item.requestAt) || 0 : item.startDateTime ? Date.parse(item.startDateTime) || 0 : 0,
           leaveType: item.leaveType,
@@ -283,13 +237,13 @@ export default function ManagerPendingApprovals() {
           overtimeId: item.overtimeId,
           employee: employeeLabel(employeeById, item.employeeId),
           message: buildRequestSummaryMessage('overtime', overtimeTypeLabel, item.paid),
-          submittedAt: formatDateTime(item.requestAt),
+          submittedAt: formatDateTime(item.requestAt, '-'),
           type: 'Overtime' as const,
           source: 'overtime' as const,
           status: item.requestStatus || 'PENDING_MANAGER',
           reason: attachment.cleanText,
           referenceLabel: 'Work Window',
-          referenceValue: `${formatDateTime(item.startTime)} to ${formatDateTime(item.endTime)}`,
+          referenceValue: `${formatDateTime(item.startTime, '-')} to ${formatDateTime(item.endTime, '-')}`,
           requestLabel: 'Overtime Request',
           requestKind: `${overtimeTypeLabel} - ${payLabel}`,
           requestDate: formatRequestPeriodLabel('overtime', item.startTime, item.endTime, item.workDate),
@@ -298,7 +252,7 @@ export default function ManagerPendingApprovals() {
           decisionSummary: item.approveReason || '',
           managerDecisionSummary: item.managerApproveReason || '',
           managerReviewer: item.managerApprover || '',
-          managerReviewedAt: formatDateTime(item.managerApprovedAt),
+          managerReviewedAt: formatDateTime(item.managerApprovedAt, '-'),
           sortStamp: item.requestAt ? Date.parse(item.requestAt) || 0 : 0,
           attachmentPathId: attachment.attachmentPathId ?? undefined,
         };

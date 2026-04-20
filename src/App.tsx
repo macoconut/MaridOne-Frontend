@@ -48,7 +48,12 @@ import {
   applyUiPreferences,
   subscribeToUiPreferencesChange,
 } from './lib/uiPreferences';
-import './styles/popupForms.css';
+import './styles/tokens.css';
+import './styles/modals.css';
+import './styles/forms.css';
+import './styles/request-popup.css';
+import './styles/buttons.css';
+import './styles/tables.css';
 import './styles/universal-ui.css';
 import './styles/spinner.css';
 

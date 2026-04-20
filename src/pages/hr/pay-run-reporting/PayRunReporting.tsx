@@ -17,60 +17,24 @@ import { useSensitiveAccessPrompt } from '../../../hooks/useSensitiveAccessPromp
 import { apiFetchJson, toArray } from '../../../lib/api';
 import { compareEmployees, type EmployeeSortKey } from '../../../lib/employeeSort';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
+import {
+  formatDate,
+  formatDateTime,
+  toMoneyString,
+  toOptionalMoneyString,
+  toOptionalText,
+} from '../../../lib/formatters';
+import type {
+  EmployeeDirectoryEntry,
+  EmployeeReportRow,
+  PayTypeSummaryRow,
+  PayrollBreakdownLine,
+  PayrollItemRow,
+  PayrollRunRow,
+} from '../../../lib/types/payroll';
 import './PayRunReporting.css';
 
 type ReportView = 'employee' | 'payType';
-
-type PayrollRunRow = {
-  payId?: number;
-  periodStart?: string;
-  periodEnd?: string;
-  paymentDate?: string;
-  periodDescription?: string;
-  payrollStatus?: string;
-  runType?: string;
-  itemCount?: number;
-};
-
-type PayrollItemRow = {
-  empId?: number;
-  firstName?: string;
-  lastName?: string;
-  itemId?: number;
-  grossPay?: number | string;
-  netPay?: number | string;
-};
-
-type EmployeeDirectoryEntry = {
-  id: number;
-  role: string;
-  department: string;
-};
-
-type EmployeeReportRow = PayrollItemRow & {
-  role: string;
-  department: string;
-};
-
-type PayrollBreakdownLine = {
-  key: string;
-  lineId: number;
-  lineType: 'EARNING' | 'DEDUCTION';
-  label: string;
-  amount: string;
-  originalAmount?: string;
-  adjustedBy?: string;
-  adjustedAt?: string;
-};
-
-type AdjustmentKind = 'EARNING' | 'DEDUCTION';
-
-type PayTypeSummaryRow = {
-  payType?: string;
-  adjustment?: AdjustmentKind;
-  adjustmentKind?: AdjustmentKind;
-  total?: number | string;
-};
 
 type EmployeeReportExportRow = {
   employeeId: string;
@@ -179,30 +143,6 @@ function toAmount(value: unknown) {
   return 0;
 }
 
-function formatDate(value?: string) {
-  if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-}
-
-function formatDateTime(value?: string) {
-  if (!value) return 'Not available';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(undefined, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
-
 function formatEmployeeName(row: PayrollItemRow) {
   const fullName = [row.firstName, row.lastName]
     .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
@@ -226,22 +166,6 @@ function buildEmployeeDirectory(response: unknown) {
       } satisfies EmployeeDirectoryEntry;
     })
     .filter((entry): entry is EmployeeDirectoryEntry => entry !== null);
-}
-
-function toMoneyString(value: unknown) {
-  if (typeof value === 'number' && Number.isFinite(value)) return value.toFixed(2);
-  if (typeof value === 'string' && value.trim().length > 0) return value;
-  return '0.00';
-}
-
-function toOptionalMoneyString(value: unknown) {
-  if (typeof value === 'number' && Number.isFinite(value)) return value.toFixed(2);
-  if (typeof value === 'string' && value.trim().length > 0) return value;
-  return undefined;
-}
-
-function toOptionalText(value: unknown) {
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 }
 
 function formatSummaryLabel(value?: string) {
@@ -409,6 +333,7 @@ function getEmptyRunMessage(run: PayrollRunRow | null, view: ReportView, availab
 
 export default function HrPayRunReporting() {
   const sensitiveAccess = useSensitiveAccessPrompt();
+  const handleSensitiveAccessError = sensitiveAccess.handleProtectedError;
   const [view, setView] = useState<ReportView>('employee');
   const [filterValue, setFilterValue] = useState('');
   const [employeeSort, setEmployeeSort] = useState<EmployeeSortKey>('id');
@@ -525,7 +450,7 @@ export default function HrPayRunReporting() {
       } catch (error) {
         if (cancelled) return;
         if (
-          sensitiveAccess.handleProtectedError(
+          handleSensitiveAccessError(
             error,
             loadReportDetails,
             'Verify access before opening payroll report details and employee totals.'
@@ -551,7 +476,7 @@ export default function HrPayRunReporting() {
     return () => {
       cancelled = true;
     };
-  }, [fromDate, refreshTick, sensitiveAccess.handleProtectedError, toDate]);
+  }, [fromDate, refreshTick, handleSensitiveAccessError, toDate]);
 
   const selectedRun = useMemo(() => {
     if (!fromDate || !toDate) return null;
@@ -682,7 +607,7 @@ export default function HrPayRunReporting() {
 
   const reportLabel = useMemo(() => {
     if (!fromDate || !toDate) return 'Pay Run Report';
-    return `Report from ${formatDate(fromDate)} to ${formatDate(toDate)}`;
+    return `Report from ${formatDate(fromDate, '-')} to ${formatDate(toDate, '-')}`;
   }, [fromDate, toDate]);
 
   const reportFileStem = useMemo(() => {

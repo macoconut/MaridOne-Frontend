@@ -1,631 +1,84 @@
 import { useLoading } from '../../../context/useLoading';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  FiCheckCircle,
-  FiChevronDown,
-  FiChevronLeft,
-  FiChevronRight,
-  FiEye,
-  FiEdit2,
-  FiFilter,
-  FiPlus,
-  FiSearch,
-  FiX,
-  FiXCircle,
-} from 'react-icons/fi';
 import { ApiError, apiFetchJson, toArray } from '../../../lib/api';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
-import LargePopup from '../../../components/dialog/LargePopup';
 import SensitiveAccessIndicator from '../../../components/security/SensitiveAccessIndicator';
 import SensitiveAccessModal from '../../../components/security/SensitiveAccessModal';
 import { useUiDialog } from '../../../components/dialog/useUiDialog';
-import EmployeeSortMenu from '../../../components/layout/EmployeeSortMenu';
 import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { useSensitiveAccessPrompt } from '../../../hooks/useSensitiveAccessPrompt';
 import { useUnsavedChangesPrompt } from '../../../hooks/useUnsavedChangesPrompt';
-import { compareEmployees, type EmployeeSortKey } from '../../../lib/employeeSort';
-import { formatPayrollRunTypeLabel, formatPayrollStatusLabel, hasBonusEarning } from '../../../lib/payrollRunLabels';
-import { extractAttachmentReference, openDocumentAttachment } from '../../../lib/documentAttachments';
+import { compareEmployees } from '../../../lib/employeeSort';
+import { hasBonusEarning } from '../../../lib/payrollRunLabels';
+import { openDocumentAttachment } from '../../../lib/documentAttachments';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
-import { getManilaNow } from '../../../lib/manilaTime';
+import { formatDate } from '../../../lib/formatters';
+import type { EmployeeOption } from '../../../lib/types/employee';
+import type { PayrollRunRow as PayrollRunDto } from '../../../lib/types/payroll';
+import { usePayslipFilters } from './hooks/usePayslipFilters';
+import {
+  buildCorrectionIntent,
+  buildEmployeeOptions,
+  clearStoredRun,
+  compareRunsDescending,
+  createDefaultManualLineForm,
+  createDefaultRunForm,
+  createWaitingDisputeRow,
+  describeAdjustmentRun,
+  describeRun,
+  EMPLOYEE_OPTIONS_TIMEOUT_MS,
+  formatRunType,
+  getStandardPaymentDate,
+  getTodayIsoDate,
+  isFutureIsoDate,
+  mapCorrectionLine,
+  mapCorrectionLines,
+  mapDisputeRows,
+  mapDisputeType,
+  mapPayrollItemSummaryRows,
+  normalizeRunType,
+  normalizeText,
+  persistRunSelection,
+  pickCurrentRun,
+  readStoredRun,
+  reconcileWaitingDisputes,
+  removeWaitingDispute,
+  summarizePayrollItemLines,
+  toAmount,
+  upsertWaitingDispute,
+} from './payslipsShared';
+import PayslipDisputesPanel from './sections/PayslipDisputesPanel';
+import {
+  PayslipCorrectionModal,
+  PayslipManualLineModal,
+  PayslipPostRunModal,
+  PayslipRunModal,
+} from './sections/PayslipActionModals';
+import PayslipRunPanel from './sections/PayslipRunPanel';
+import { PayslipBreakdownModal, PayslipDisputeModal } from './sections/PayslipReviewModals';
+import type {
+  CorrectionIntent,
+  CorrectionLine,
+  CorrectionSourceItem,
+  DisputeRow,
+  ManualLineFormState,
+  PayrollItemSummaryRow,
+  RunFormState,
+  RunItemViewRow,
+} from './types';
 import '../approvals/Approvals.css';
 import '../../manager/pending-approvals/PendingApprovals.css';
 import './Payslips.css';
-
-type DisputeDto = {
-  id?: number;
-  subject?: string;
-  reason?: string;
-  status?: string;
-  createdAt?: string;
-  itemId?: number;
-  employeeId?: number;
-  employeeName?: string;
-  statusReason?: string;
-};
-
-type PayrollRunDto = {
-  payId?: number;
-  periodStart?: string;
-  periodEnd?: string;
-  paymentDate?: string;
-  periodDescription?: string;
-  payrollStatus?: string;
-  runType?: string;
-  itemCount?: number;
-};
-
-type PayrollItemSummaryDto = {
-  empId?: number;
-  firstName?: string;
-  lastName?: string;
-  itemId?: number;
-  grossPay?: number | string;
-  netPay?: number | string;
-};
-
-type PayrollItemSummaryRow = {
-  itemId: number;
-  empId?: number;
-  employee: string;
-  grossPay: number;
-  deductions: number;
-  netPay: number;
-};
-
-type EmployeeOption = {
-  id: number;
-  name: string;
-  status: string;
-  position: string;
-  department: string;
-};
-
-type RunItemViewRow = PayrollItemSummaryRow & {
-  role: string;
-  department: string;
-};
-
-type ManualLineFormState = {
-  empId: string;
-  lineType: 'EARNING' | 'BONUS' | 'DEDUCTION';
-  amount: string;
-};
-
-type DisputeStatusCode = 'PENDING' | 'WAITING_ADJUSTMENT' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
-type DisputeStatusFilter = 'all' | DisputeStatusCode;
-type DisputeTypeFilter = 'all' | 'Overtime' | 'Attendance Issue' | 'Absent Deduction' | 'General' | 'Other';
-
-type DisputeRow = {
-  id: number;
-  itemId?: number;
-  employeeId?: number;
-  employeeName?: string;
-  employee: string;
-  payrollPeriod: string;
-  submittedAt: string;
-  sortStamp: number;
-  statusCode: DisputeStatusCode;
-  statusLabel: string;
-  statusTone: 'pending' | 'waiting-adjustment' | 'approved' | 'rejected' | 'cancelled';
-  subject: string;
-  reason: string;
-  decisionSummary?: string;
-  attachmentPathId?: number;
-};
-
-type RunFormState = {
-  periodStart: string;
-  periodEnd: string;
-  paymentDate: string;
-  runType: 'REGULAR' | 'ADJUSTMENT';
-};
-
-type CorrectionIntent = {
-  disputeId: number;
-  itemId: number;
-  employee: string;
-  message: string;
-  disputeReason: string;
-  decisionReason: string;
-};
-
-type CorrectionSourceItem = {
-  itemId?: number;
-  empId?: number;
-  firstName?: string;
-  lastName?: string;
-  grossPay?: number | string;
-  netPay?: number | string;
-  runDetails?: {
-    id?: number;
-    periodStart?: string;
-    periodEnd?: string;
-    payrollStatus?: string;
-    runType?: string;
-  };
-};
-
-type CorrectionLine = {
-  key: string;
-  lineId: number;
-  lineType: 'EARNING' | 'DEDUCTION';
-  label: string;
-  amount: string;
-  originalAmount?: string;
-  adjustedBy?: string;
-  adjustedAt?: string;
-};
-
-const PAYROLL_RUN_STORAGE_KEY = 'maridone.hr.latestPayrollRun';
-const WAITING_DISPUTE_STORAGE_KEY = 'maridone.hr.waitingDisputes';
-const EMPLOYEE_OPTIONS_TIMEOUT_MS = 10000;
-
-function normalizeText(value?: string) {
-  return typeof value === 'string' ? value.trim().toLowerCase() : '';
-}
-
-function mapDisputeType(subject?: string): Exclude<DisputeTypeFilter, 'all'> {
-  const normalized = normalizeText(subject);
-  if (normalized.includes('overtime')) return 'Overtime';
-  if (normalized.includes('late') || normalized.includes('attendance')) return 'Attendance Issue';
-  if (normalized.includes('absent')) return 'Absent Deduction';
-  if (normalized.includes('general')) return 'General';
-  return 'Other';
-}
-
-function formatDate(value?: string) {
-  if (!value) return 'Not available';
-  const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? value
-    : date.toLocaleDateString(undefined, {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-}
-
-function formatDateTime(value?: string) {
-  if (!value) return 'Not available';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(undefined, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
-
-function toAmount(value: unknown) {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value === 'string' && value.trim().length > 0) {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-  return 0;
-}
-
-function formatCurrency(value: unknown) {
-  return `P${toAmount(value).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
-function toMoneyString(value: unknown) {
-  if (typeof value === 'number' && Number.isFinite(value)) return value.toFixed(2);
-  if (typeof value === 'string' && value.trim().length > 0) return value;
-  return '0.00';
-}
-
-function toOptionalMoneyString(value: unknown) {
-  if (typeof value === 'number' && Number.isFinite(value)) return value.toFixed(2);
-  if (typeof value === 'string' && value.trim().length > 0) return value;
-  return undefined;
-}
-
-function toOptionalText(value: unknown) {
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
-}
-
-function mapCorrectionLine(
-  row: Record<string, unknown>,
-  idx: number,
-  lineType: CorrectionLine['lineType']
-): CorrectionLine | null {
-  const lineId = Number(row.earningsId ?? row.deductionsId);
-  if (!Number.isFinite(lineId) || lineId <= 0) return null;
-
-  return {
-    key: `${lineType}-${String(row.earningsId ?? row.deductionsId ?? idx + 1)}`,
-    lineId,
-    lineType,
-    label:
-      lineType === 'EARNING'
-        ? String(row.description ?? `Earning ${idx + 1}`)
-        : String(row.description ?? row.deductionType ?? `Deduction ${idx + 1}`),
-    amount: toMoneyString(row.amount),
-    originalAmount: toOptionalMoneyString(row.originalAmount),
-    adjustedBy: toOptionalText(row.adjustedBy),
-    adjustedAt: toOptionalText(row.adjustedAt),
-  };
-}
-
-function summarizePayrollItemLines(
-  earnings: CorrectionLine[],
-  deductions: CorrectionLine[],
-  fallback?: PayrollItemSummaryRow | null
-) {
-  const hasDetailedLines = earnings.length > 0 || deductions.length > 0;
-  const grossPay =
-    earnings.length > 0 ? earnings.reduce((sum, line) => sum + toAmount(line.amount), 0) : toAmount(fallback?.grossPay);
-  const totalDeductions =
-    deductions.length > 0
-      ? deductions.reduce((sum, line) => sum + toAmount(line.amount), 0)
-      : toAmount(fallback?.deductions);
-  const netPay = hasDetailedLines ? grossPay - totalDeductions : toAmount(fallback?.netPay);
-
-  return {
-    grossPay,
-    deductions: totalDeductions,
-    netPay,
-  };
-}
-
-function employeeLabel(employeeName?: string, employeeId?: number) {
-  const trimmedName = typeof employeeName === 'string' ? employeeName.trim() : '';
-  if (trimmedName) return trimmedName;
-  return typeof employeeId === 'number' ? `Employee #${employeeId}` : 'Employee unavailable';
-}
-
-function employeeLabelFromParts(firstName?: string, lastName?: string, employeeId?: number) {
-  const fullName = [firstName, lastName]
-    .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
-    .join(' ')
-    .trim();
-
-  if (fullName) return fullName;
-  if (typeof employeeId === 'number') return `EMP ID ${employeeId}`;
-  return 'Employee unavailable';
-}
-
-function getStandardPaymentDate(startIso: string, endIso: string): string | null {
-  if (!startIso || !endIso) return null;
-  const [startYear, startMonth, startDay] = startIso.split('-').map(Number);
-  const [endYear, endMonth, endDay] = endIso.split('-').map(Number);
-
-  // 11th to 25th of the same month -> Payout on 30th
-  if (startDay === 11 && endDay === 25 && startYear === endYear && startMonth === endMonth) {
-    const daysInMonth = new Date(startYear, startMonth, 0).getDate();
-    const payDay = Math.min(30, daysInMonth);
-    return `${startYear}-${String(startMonth).padStart(2, '0')}-${String(payDay).padStart(2, '0')}`;
-  }
-
-  // 26th to 10th of next month -> Payout on 15th
-  const isNextMonth =
-    (startMonth === 12 && endMonth === 1 && endYear === startYear + 1) ||
-    (endMonth === startMonth + 1 && endYear === startYear);
-
-  if (startDay === 26 && endDay === 10 && isNextMonth) {
-    return `${endYear}-${String(endMonth).padStart(2, '0')}-15`;
-  }
-
-  return null;
-}
-
-function createDefaultRunForm(): RunFormState {
-  const manila = getManilaNow();
-  const todayIso = manila.dateKey;
-  const start = `${manila.year}-${String(manila.month).padStart(2, '0')}-01`;
-
-  return {
-    periodStart: start,
-    periodEnd: todayIso,
-    paymentDate: todayIso,
-    runType: 'REGULAR',
-  };
-}
-
-function createDefaultManualLineForm(): ManualLineFormState {
-  return {
-    empId: '',
-    lineType: 'EARNING',
-    amount: '',
-  };
-}
-
-function buildEmployeeOptions(response: unknown) {
-  return toArray<Record<string, unknown>>(response)
-    .map((item, index) => {
-      const id = Number(item.employeeId ?? item.id ?? index + 1);
-      if (!Number.isFinite(id) || id <= 0) return null;
-
-      const explicitName = typeof item.name === 'string' ? item.name.trim() : '';
-      const fallbackName = [item.firstName, item.middleName, item.lastName]
-        .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
-        .join(' ')
-        .trim();
-
-      return {
-        id,
-        name: explicitName || fallbackName || `Employee #${id}`,
-        status: String(item.status ?? item.employmentStatus ?? ''),
-        position: String(item.position ?? ''),
-        department: typeof item.department === 'string' ? item.department.trim() : '',
-      } satisfies EmployeeOption;
-    })
-    .filter((option): option is EmployeeOption => option !== null)
-    .sort((left, right) => left.name.localeCompare(right.name));
-}
-
-function describeRun(periodStart: string, periodEnd: string) {
-  return `Payroll run ${periodStart} to ${periodEnd}`;
-}
-
-function describeAdjustmentRun(periodStart: string, periodEnd: string) {
-  return `Payroll adjustment ${periodStart} to ${periodEnd}`;
-}
-
-function formatRunType(value?: string) {
-  return formatPayrollRunTypeLabel(value);
-}
-
-function normalizeRunType(value?: string): RunFormState['runType'] {
-  return value === 'ADJUSTMENT' ? 'ADJUSTMENT' : 'REGULAR';
-}
-
-function getTodayIsoDate() {
-  return getManilaNow().dateKey;
-}
-
-function isFutureIsoDate(value: string, todayIsoDate: string) {
-  return Boolean(value) && value > todayIsoDate;
-}
-
-function readStoredRun() {
-  try {
-    const raw = window.localStorage.getItem(PAYROLL_RUN_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as PayrollRunDto;
-    if (!parsed || typeof parsed !== 'object') return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function persistRunSelection(run: PayrollRunDto | null) {
-  try {
-    if (run) {
-      window.localStorage.setItem(PAYROLL_RUN_STORAGE_KEY, JSON.stringify(run));
-    } else {
-      window.localStorage.removeItem(PAYROLL_RUN_STORAGE_KEY);
-    }
-  } catch {
-    // ignore storage write failures
-  }
-}
-
-function clearStoredRun() {
-  try {
-    window.localStorage.removeItem(PAYROLL_RUN_STORAGE_KEY);
-  } catch {
-    // ignore storage write failures
-  }
-}
-
-function toSortStamp(value?: string) {
-  if (!value) return 0;
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? 0 : parsed;
-}
-
-function compareRunsDescending(a: PayrollRunDto, b: PayrollRunDto) {
-  const endDiff = toSortStamp(b.periodEnd) - toSortStamp(a.periodEnd);
-  if (endDiff !== 0) return endDiff;
-
-  const startDiff = toSortStamp(b.periodStart) - toSortStamp(a.periodStart);
-  if (startDiff !== 0) return startDiff;
-
-  return (b.payId ?? 0) - (a.payId ?? 0);
-}
-
-function pickCurrentRun(runs: PayrollRunDto[], preferredPayId?: number | null) {
-  const preferredRun =
-    preferredPayId != null ? runs.find((run) => run.payId === preferredPayId) ?? null : null;
-  const latestInProgressRun = runs.find((run) => run.payrollStatus === 'IN_PROGRESS') ?? null;
-  const latestRunWithItems = runs.find((run) => (run.itemCount ?? 0) > 0) ?? null;
-
-  return (
-    (preferredRun && preferredRun.payrollStatus !== 'POSTED' ? preferredRun : null) ??
-    latestInProgressRun ??
-    preferredRun ??
-    latestRunWithItems ??
-    runs[0] ??
-    null
-  );
-}
-
-function toDisputeStatusCode(value?: string): DisputeStatusCode {
-  const normalized = String(value ?? 'PENDING').trim().toUpperCase();
-  if (normalized === 'WAITING_ADJUSTMENT') return 'WAITING_ADJUSTMENT';
-  if (normalized === 'APPROVED') return 'APPROVED';
-  if (normalized === 'REJECTED') return 'REJECTED';
-  if (normalized === 'CANCELLED') return 'CANCELLED';
-  return 'PENDING';
-}
-
-function formatDisputeStatusLabel(status: DisputeStatusCode) {
-  if (status === 'WAITING_ADJUSTMENT') return 'Waiting for Adjustment';
-  if (status === 'APPROVED') return 'Approved';
-  if (status === 'REJECTED') return 'Denied';
-  if (status === 'CANCELLED') return 'Cancelled';
-  return 'Pending';
-}
-
-function toDisputeStatusTone(status: DisputeStatusCode): DisputeRow['statusTone'] {
-  if (status === 'WAITING_ADJUSTMENT') return 'waiting-adjustment';
-  if (status === 'APPROVED') return 'approved';
-  if (status === 'REJECTED') return 'rejected';
-  if (status === 'CANCELLED') return 'cancelled';
-  return 'pending';
-}
-
-function toDisputeRow(item: DisputeDto, idx: number): DisputeRow {
-  const attachment = extractAttachmentReference(item.reason);
-  const statusCode = toDisputeStatusCode(item.status);
-  return {
-    id: item.id ?? idx + 1,
-    itemId: item.itemId,
-    employeeId: item.employeeId,
-    employeeName: item.employeeName,
-    employee: employeeLabel(item.employeeName, item.employeeId),
-    payrollPeriod: item.createdAt ? formatDate(item.createdAt) : 'No date',
-    submittedAt: formatDateTime(item.createdAt),
-    sortStamp: toSortStamp(item.createdAt),
-    statusCode,
-    statusLabel: formatDisputeStatusLabel(statusCode),
-    statusTone: toDisputeStatusTone(statusCode),
-    subject: item.subject || 'Payroll dispute',
-    reason: attachment.cleanText,
-    decisionSummary: item.statusReason || '',
-    attachmentPathId: attachment.attachmentPathId ?? undefined,
-  };
-}
-
-function createWaitingDisputeRow(row: DisputeRow, decisionSummary: string): DisputeRow {
-  return {
-    ...row,
-    sortStamp: row.sortStamp || Date.now(),
-    statusCode: 'WAITING_ADJUSTMENT',
-    statusLabel: formatDisputeStatusLabel('WAITING_ADJUSTMENT'),
-    statusTone: toDisputeStatusTone('WAITING_ADJUSTMENT'),
-    decisionSummary,
-    attachmentPathId: row.attachmentPathId,
-  };
-}
-
-function readWaitingDisputes() {
-  try {
-    const raw = window.localStorage.getItem(WAITING_DISPUTE_STORAGE_KEY);
-    if (!raw) return [] as DisputeRow[];
-
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed
-      .map((entry, idx) => {
-        if (!entry || typeof entry !== 'object') return null;
-        const row = entry as Partial<DisputeRow>;
-        const id = typeof row.id === 'number' ? row.id : idx + 1;
-        return createWaitingDisputeRow(
-          {
-            id,
-            itemId: typeof row.itemId === 'number' ? row.itemId : undefined,
-            employeeId: typeof row.employeeId === 'number' ? row.employeeId : undefined,
-            employeeName: typeof row.employeeName === 'string' ? row.employeeName : undefined,
-            employee: typeof row.employee === 'string' && row.employee.trim().length > 0 ? row.employee : 'Employee unavailable',
-            payrollPeriod: typeof row.payrollPeriod === 'string' && row.payrollPeriod.trim().length > 0 ? row.payrollPeriod : 'No date',
-            submittedAt: typeof row.submittedAt === 'string' && row.submittedAt.trim().length > 0 ? row.submittedAt : 'Not available',
-            sortStamp: typeof row.sortStamp === 'number' && Number.isFinite(row.sortStamp) ? row.sortStamp : 0,
-            statusCode: 'WAITING_ADJUSTMENT',
-            statusLabel: formatDisputeStatusLabel('WAITING_ADJUSTMENT'),
-            statusTone: toDisputeStatusTone('WAITING_ADJUSTMENT'),
-            subject: typeof row.subject === 'string' && row.subject.trim().length > 0 ? row.subject : 'Payroll dispute',
-            reason: typeof row.reason === 'string' ? row.reason : '',
-            decisionSummary: typeof row.decisionSummary === 'string' ? row.decisionSummary : '',
-            attachmentPathId: typeof row.attachmentPathId === 'number' ? row.attachmentPathId : undefined,
-          },
-          typeof row.decisionSummary === 'string' ? row.decisionSummary : ''
-        );
-      })
-      .filter((row): row is DisputeRow => row !== null);
-  } catch {
-    return [];
-  }
-}
-
-function writeWaitingDisputes(rows: DisputeRow[]) {
-  try {
-    if (rows.length > 0) {
-      window.localStorage.setItem(WAITING_DISPUTE_STORAGE_KEY, JSON.stringify(rows));
-    } else {
-      window.localStorage.removeItem(WAITING_DISPUTE_STORAGE_KEY);
-    }
-  } catch {
-    // ignore storage write failures
-  }
-}
-
-function upsertWaitingDispute(row: DisputeRow) {
-  const existing = readWaitingDisputes();
-  const next = [...existing.filter((entry) => entry.id !== row.id), createWaitingDisputeRow(row, row.decisionSummary || '')]
-    .sort((left, right) => right.sortStamp - left.sortStamp || left.employee.localeCompare(right.employee));
-  writeWaitingDisputes(next);
-}
-
-function removeWaitingDispute(disputeId: number) {
-  const next = readWaitingDisputes().filter((entry) => entry.id !== disputeId);
-  writeWaitingDisputes(next);
-}
-
-async function reconcileWaitingDisputes() {
-  const cached = readWaitingDisputes();
-  if (cached.length === 0) return cached;
-
-  const validIds = new Set<number>();
-
-  try {
-    const uniqueIds = [...new Set(cached.map((row) => row.id).filter((id) => Number.isFinite(id) && id > 0))];
-
-    await Promise.all(
-      uniqueIds.map(async (id) => {
-        try {
-          await apiFetchJson<unknown>(`/api/payroll/item/dispute/details/${id}`);
-          validIds.add(id);
-        } catch (error) {
-          if (error instanceof ApiError && error.status === 404) {
-            return;
-          }
-          throw error;
-        }
-      })
-    );
-  } catch {
-    return cached;
-  }
-
-  const next = cached.filter((row) => validIds.has(row.id));
-  if (next.length !== cached.length) {
-    writeWaitingDisputes(next);
-  }
-
-  return next;
-}
-
-function buildCorrectionIntent(row: DisputeRow): CorrectionIntent | null {
-  if (typeof row.itemId !== 'number') return null;
-  return {
-    disputeId: row.id,
-    itemId: row.itemId,
-    employee: row.employee,
-    message: row.subject,
-    disputeReason: row.reason,
-    decisionReason: row.decisionSummary || '',
-  };
-}
 
 export default function HrPayslips() {
   const { showLoading, hideLoading } = useLoading();
 
   const { showSuccess } = useUiDialog();
   const sensitiveAccess = useSensitiveAccessPrompt();
+  const handleSensitiveAccessError = sensitiveAccess.handleProtectedError;
   const [disputes, setDisputes] = useState<DisputeRow[]>([]);
   const [selectedDispute, setSelectedDispute] = useState<DisputeRow | null>(null);
   const [runItems, setRunItems] = useState<PayrollItemSummaryRow[]>([]);
@@ -667,10 +120,28 @@ export default function HrPayslips() {
   const [runError, setRunError] = useState('');
   const [payrollRuns, setPayrollRuns] = useState<PayrollRunDto[]>([]);
   const [currentRun, setCurrentRun] = useState<PayrollRunDto | null>(null);
-  const [runItemFilterOpen, setRunItemFilterOpen] = useState(false);
-  const [runItemSortOpen, setRunItemSortOpen] = useState(false);
-  const [runItemRoleFilter, setRunItemRoleFilter] = useState('all');
-  const [runItemDepartmentFilter, setRunItemDepartmentFilter] = useState('all');
+  const {
+    clearDisputeFilters,
+    clearRunItemFilters,
+    disputeFilterOpen,
+    disputeSearchValue,
+    disputeStatusFilter,
+    disputeTypeFilter,
+    runItemDepartmentFilter,
+    runItemFilterOpen,
+    runItemRoleFilter,
+    runItemSort,
+    runItemSortOpen,
+    setDisputeFilterOpen,
+    setDisputeSearchValue,
+    setDisputeStatusFilter,
+    setDisputeTypeFilter,
+    setRunItemDepartmentFilter,
+    setRunItemFilterOpen,
+    setRunItemRoleFilter,
+    setRunItemSort,
+    setRunItemSortOpen,
+  } = usePayslipFilters();
   const [correctionOpen, setCorrectionOpen] = useState(false);
   const [correctionIntent, setCorrectionIntent] = useState<CorrectionIntent | null>(null);
   const [correctionSource, setCorrectionSource] = useState<CorrectionSourceItem | null>(null);
@@ -685,11 +156,6 @@ export default function HrPayslips() {
   const [pendingDisputeDecision, setPendingDisputeDecision] = useState<'APPROVED' | 'REJECTED' | null>(null);
   const [confirmDisputeDecisionOpen, setConfirmDisputeDecisionOpen] = useState(false);
   const [disputeDecisionSubmitAttempted, setDisputeDecisionSubmitAttempted] = useState(false);
-  const [disputeSearchValue, setDisputeSearchValue] = useState('');
-  const [disputeFilterOpen, setDisputeFilterOpen] = useState(false);
-  const [disputeStatusFilter, setDisputeStatusFilter] = useState<DisputeStatusFilter>('all');
-  const [disputeTypeFilter, setDisputeTypeFilter] = useState<DisputeTypeFilter>('all');
-  const [runItemSort, setRunItemSort] = useState<EmployeeSortKey>('name');
   const [attachmentError, setAttachmentError] = useState('');
   const [openingAttachmentId, setOpeningAttachmentId] = useState<number | null>(null);
   const manualEmployeePickerRef = useRef<HTMLDivElement | null>(null);
@@ -924,7 +390,7 @@ export default function HrPayslips() {
     try {
       setLoadError('');
       const response = await apiFetchJson<unknown>('/api/payroll/item/dispute/all?page=0&size=100');
-      const pendingDisputes = toArray<DisputeDto>(response).map((item, idx) => toDisputeRow(item, idx));
+      const pendingDisputes = mapDisputeRows(response);
       const merged = [...pendingDisputes, ...waitingDisputes]
         .filter((row, idx, rows) => rows.findIndex((entry) => entry.id === row.id) === idx)
         .sort((left, right) => right.sortStamp - left.sortStamp || left.employee.localeCompare(right.employee));
@@ -972,27 +438,14 @@ export default function HrPayslips() {
         const response = await apiFetchJson<unknown>(`/api/payroll/run/${payId}/items?page=0&size=500`);
         if (cancelled) return;
 
-        const mapped = toArray<PayrollItemSummaryDto>(response)
-          .map((row, idx) => {
-            const grossPay = toAmount(row.grossPay);
-            const netPay = toAmount(row.netPay);
-            return {
-              itemId: row.itemId ?? idx + 1,
-              empId: row.empId,
-              employee: employeeLabelFromParts(row.firstName, row.lastName, row.empId),
-              grossPay,
-              deductions: Math.max(grossPay - netPay, 0),
-              netPay,
-            } satisfies PayrollItemSummaryRow;
-          })
-          .sort((left, right) => left.employee.localeCompare(right.employee) || left.itemId - right.itemId);
+        const mapped = mapPayrollItemSummaryRows(response);
 
         loadedRunItemsPayIdRef.current = payId;
         setRunItems(mapped);
       } catch (error) {
         if (!cancelled) {
           if (
-            sensitiveAccess.handleProtectedError(
+            handleSensitiveAccessError(
               error,
               loadRunItems,
               'Verify access before loading payroll run items for this payslip run.'
@@ -1016,7 +469,7 @@ export default function HrPayslips() {
     return () => {
       cancelled = true;
     };
-  }, [currentRun?.payId, currentRun?.payrollStatus, refreshTick]);
+  }, [currentRun?.payId, currentRun?.payrollStatus, refreshTick, handleSensitiveAccessError]);
 
   const displayedPeriodStart = currentRun?.periodStart ?? runForm.periodStart;
   const displayedPeriodEnd = currentRun?.periodEnd ?? runForm.periodEnd;
@@ -1202,16 +655,6 @@ export default function HrPayslips() {
     correctionSubmitAttempted && Boolean(selectedCorrectionLine) && correctedAmount.trim().length === 0;
   const isDisputeRemarksInvalid = disputeDecisionSubmitAttempted && remarks.trim().length < 5;
 
-  function clearDisputeFilters() {
-    setDisputeStatusFilter('all');
-    setDisputeTypeFilter('all');
-  }
-
-  function clearRunItemFilters() {
-    setRunItemRoleFilter('all');
-    setRunItemDepartmentFilter('all');
-  }
-
   function showAdjacentInProgressRun(direction: -1 | 1) {
     if (currentInProgressRunIndex < 0) return;
 
@@ -1225,6 +668,42 @@ export default function HrPayslips() {
   function closeRunModal() {
     setRunModalOpen(false);
     setRunSubmitAttempted(false);
+  }
+
+  function openRunModal() {
+    setRunError('');
+    setRunSubmitAttempted(false);
+    setInitialRunForm(runForm);
+    setRunModalOpen(true);
+  }
+
+  function handleRunPeriodStartChange(nextStart: string) {
+    setRunForm((prev) => {
+      const next = { ...prev, periodStart: nextStart };
+      const standard = getStandardPaymentDate(next.periodStart, next.periodEnd);
+      if (standard) next.paymentDate = standard;
+      return next;
+    });
+  }
+
+  function handleRunPeriodEndChange(nextEnd: string) {
+    setRunForm((prev) => {
+      const next = { ...prev, periodEnd: nextEnd };
+      const standard = getStandardPaymentDate(next.periodStart, next.periodEnd);
+      if (standard) next.paymentDate = standard;
+      return next;
+    });
+  }
+
+  function handleRunPaymentDateChange(nextPaymentDate: string) {
+    setRunForm((prev) => ({ ...prev, paymentDate: nextPaymentDate }));
+  }
+
+  function handleRunTypeChange(nextRunType: RunFormState['runType']) {
+    setRunForm((prev) => ({
+      ...prev,
+      runType: nextRunType,
+    }));
   }
 
   function resetCorrectionState() {
@@ -1291,10 +770,21 @@ export default function HrPayslips() {
     setManualLineError('');
   }
 
-  function mapCorrectionLines(response: unknown, lineType: CorrectionLine['lineType']) {
-    return toArray<Record<string, unknown>>(response)
-      .map((row, idx) => mapCorrectionLine(row, idx, lineType))
-      .filter((line): line is CorrectionLine => line !== null);
+  function handleManualEmployeeSearchChange(nextValue: string) {
+    setManualEmployeeSearch(nextValue);
+    setManualEmployeePickerOpen(true);
+    setManualLineError('');
+    if (normalizeText(selectedManualEmployee?.name ?? '') !== normalizeText(nextValue)) {
+      setManualLineForm((prev) => ({ ...prev, empId: '' }));
+    }
+  }
+
+  function openManualEmployeePicker() {
+    setManualEmployeePickerOpen(true);
+  }
+
+  function toggleManualEmployeePicker() {
+    setManualEmployeePickerOpen((prev) => !prev);
   }
 
   async function openPayrollItemDetail(row: PayrollItemSummaryRow) {
@@ -1695,7 +1185,7 @@ export default function HrPayslips() {
     setActionError('');
     try {
       const activeDispute = selectedDispute;
-      await apiFetchJson<DisputeDto>(`/api/payroll/item/dispute/update/${activeDispute.id}`, {
+      await apiFetchJson<unknown>(`/api/payroll/item/dispute/update/${activeDispute.id}`, {
         method: 'PATCH',
         body: JSON.stringify({
           status,
@@ -1913,1152 +1403,187 @@ export default function HrPayslips() {
         />
       </div>
 
-      <section className="hrPayPeriod">
-        <div className="hrPayPeriod__copy">
-          <h2>
-            Current Pay Period: <span>{currentPayPeriod}</span>
-          </h2>
-          <p>
-            <strong>Period from:</strong> {formatDate(displayedPeriodStart)} - {formatDate(displayedPeriodEnd)}
-          </p>
-        </div>
+      <PayslipRunPanel
+        activeRunItemFilterCount={activeRunItemFilterCount}
+        canAddManualAdjustmentLine={canAddManualAdjustmentLine}
+        canPostCurrentRun={canPostCurrentRun}
+        canViewNextInProgressRun={canViewNextInProgressRun}
+        canViewPreviousInProgressRun={canViewPreviousInProgressRun}
+        currentInProgressRunIndex={currentInProgressRunIndex}
+        currentPayPeriod={currentPayPeriod}
+        currentRun={currentRun}
+        displayedPeriodEnd={displayedPeriodEnd}
+        displayedPeriodStart={displayedPeriodStart}
+        emptyRunHint={emptyRunHint}
+        hasMultipleInProgressRuns={hasMultipleInProgressRuns}
+        inProgressRunCount={inProgressRuns.length}
+        isCurrentRunInProgress={isCurrentRunInProgress}
+        isLoadingRunItems={isLoadingRunItems}
+        isPostingRun={isPostingRun}
+        isSubmittingManualLine={isSubmittingManualLine}
+        onClearRunItemFilters={clearRunItemFilters}
+        onOpenManualLineModal={() => openManualLineModal()}
+        onOpenPayrollItemDetail={openPayrollItemDetail}
+        onOpenPostModal={() => setPostModalOpen(true)}
+        onOpenRunModal={openRunModal}
+        onRunItemDepartmentFilterChange={setRunItemDepartmentFilter}
+        onRunItemRoleFilterChange={setRunItemRoleFilter}
+        onRunItemSortChange={setRunItemSort}
+        onRunItemSortOpenChange={(open) => {
+          setRunItemSortOpen(open);
+          if (open) {
+            setRunItemFilterOpen(false);
+          }
+        }}
+        onShowNextRun={() => showAdjacentInProgressRun(1)}
+        onShowPreviousRun={() => showAdjacentInProgressRun(-1)}
+        onToggleRunItemFilter={() =>
+          setRunItemFilterOpen((open) => {
+            const nextOpen = !open;
+            if (nextOpen) {
+              setRunItemSortOpen(false);
+            }
+            return nextOpen;
+          })
+        }
+        runItemDepartmentFilter={runItemDepartmentFilter}
+        runItemDepartmentOptions={runItemDepartmentOptions}
+        runItemFilterOpen={runItemFilterOpen}
+        runItemRoleFilter={runItemRoleFilter}
+        runItemRoleOptions={runItemRoleOptions}
+        runItemSort={runItemSort}
+        runItemSortOpen={runItemSortOpen}
+        runItemsCount={runItems.length}
+        visibleRunItems={visibleRunItems}
+      />
 
-        <div className="hrPayPeriod__actions">
-          {canPostCurrentRun && (
-            <button
-              type="button"
-              className="hrPay__runBtn hrPay__runBtn--secondary"
-              onClick={() => setPostModalOpen(true)}
-              disabled={isPostingRun}
-            >
-              <FiCheckCircle />
-              <span>{isPostingRun ? 'Posting...' : 'Post Payroll Run'}</span>
-            </button>
-          )}
-          <button
-            type="button"
-            className="hrPay__runBtn"
-            onClick={() => {
-              setRunError('');
-              setRunSubmitAttempted(false);
-              setInitialRunForm(runForm);
-              setRunModalOpen(true);
-            }}
-          >
-            <FiPlus />
-            <span>Create New Payroll Run</span>
-          </button>
-        </div>
-      </section>
-      {emptyRunHint && <p className="hrPay__message">{emptyRunHint}</p>}
+      <PayslipDisputesPanel
+        activeDisputeFilterCount={activeDisputeFilterCount}
+        disputeFilterOpen={disputeFilterOpen}
+        disputeSearchValue={disputeSearchValue}
+        disputeStatusFilter={disputeStatusFilter}
+        disputeTypeFilter={disputeTypeFilter}
+        disputesCount={disputes.length}
+        onClearDisputeFilters={clearDisputeFilters}
+        onClearDisputeSearch={() => setDisputeSearchValue('')}
+        onDisputeSearchChange={setDisputeSearchValue}
+        onDisputeStatusFilterChange={(value) => setDisputeStatusFilter(value)}
+        onDisputeTypeFilterChange={(value) => setDisputeTypeFilter(value)}
+        onOpenDisputeRow={openDisputeRow}
+        onToggleDisputeFilter={() => setDisputeFilterOpen((open) => !open)}
+        visibleDisputes={visibleDisputes}
+      />
 
-      {isCurrentRunInProgress && currentRun && (
-        <section className="hrPayPanel hrPayPanel--runProgress">
-          <div className="hrPayPanel__headRow hrPayPanel__headRow--centered">
-            {hasMultipleInProgressRuns ? (
-              <div className="hrPayPanel__runPager" aria-label="In-progress payroll run navigation">
-                <button
-                  type="button"
-                  className="hrPayPanel__runPagerBtn"
-                  onClick={() => showAdjacentInProgressRun(-1)}
-                  disabled={!canViewPreviousInProgressRun}
-                  aria-label="Show previous in-progress payroll run"
-                >
-                  <FiChevronLeft aria-hidden="true" />
-                </button>
-                <span className="hrPayPanel__runPagerLabel">
-                  {currentInProgressRunIndex + 1} of {inProgressRuns.length}
-                </span>
-                <button
-                  type="button"
-                  className="hrPayPanel__runPagerBtn"
-                  onClick={() => showAdjacentInProgressRun(1)}
-                  disabled={!canViewNextInProgressRun}
-                  aria-label="Show next in-progress payroll run"
-                >
-                  <FiChevronRight aria-hidden="true" />
-                </button>
-              </div>
-            ) : null}
-            <header className="hrPayPanel__head">Payroll Run in Progress</header>
-            <div className="hrPayPanel__tools">
-              {canAddManualAdjustmentLine && (
-                <button
-                  type="button"
-                  className="hrPay__runBtn"
-                  onClick={() => openManualLineModal()}
-                  disabled={isSubmittingManualLine}
-                >
-                  <FiPlus />
-                  <span>Add Manual Line</span>
-                </button>
-              )}
-              <EmployeeSortMenu
-                value={runItemSort}
-                onChange={setRunItemSort}
-                open={runItemSortOpen}
-                onOpenChange={(open) => {
-                  setRunItemSortOpen(open);
-                  if (open) {
-                    setRunItemFilterOpen(false);
-                  }
-                }}
-              />
-              <div className="uFilter">
-                <button
-                  type="button"
-                  className={`uFilter__toggle ${runItemFilterOpen ? 'is-open' : ''} ${
-                    activeRunItemFilterCount > 0 ? 'is-active' : ''
-                  }`}
-                  onClick={() =>
-                    setRunItemFilterOpen((open) => {
-                      const nextOpen = !open;
-                      if (nextOpen) {
-                        setRunItemSortOpen(false);
-                      }
-                      return nextOpen;
-                    })
-                  }
-                >
-                  <FiFilter />
-                  <span>Filter</span>
-                </button>
+      <PayslipRunModal
+        isRunPeriodEndInvalid={isRunPeriodEndInvalid}
+        isRunPeriodStartInvalid={isRunPeriodStartInvalid}
+        isSubmittingRun={isSubmittingRun}
+        onClose={runUnsavedPrompt.requestClose}
+        onPaymentDateChange={handleRunPaymentDateChange}
+        onPeriodEndChange={handleRunPeriodEndChange}
+        onPeriodStartChange={handleRunPeriodStartChange}
+        onRequestSubmit={requestPayrollRunConfirmation}
+        onRunTypeChange={handleRunTypeChange}
+        open={runModalOpen}
+        runForm={runForm}
+        runModalTitle={runModalTitle}
+        runSubmitLabel={runSubmitLabel}
+        todayIsoDate={todayIsoDate}
+      />
 
-                {runItemFilterOpen ? (
-                  <div className="uFilter__panel">
-                    <label className="uFilter__field">
-                      <span>Role</span>
-                      <select value={runItemRoleFilter} onChange={(event) => setRunItemRoleFilter(event.target.value)}>
-                        <option value="all">All Roles</option>
-                        {runItemRoleOptions.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+      <PayslipManualLineModal
+        canClearManualEmployeePicker={canClearManualEmployeePicker}
+        filteredEmployeeOptions={filteredEmployeeOptions}
+        isLoadingEmployeeOptions={isLoadingEmployeeOptions}
+        isManualAmountInvalid={isManualAmountInvalid}
+        isManualEmployeeInvalid={isManualEmployeeInvalid}
+        isSubmittingManualLine={isSubmittingManualLine}
+        manualEmployeePickerOpen={manualEmployeePickerOpen}
+        manualEmployeePickerRef={manualEmployeePickerRef}
+        manualEmployeeSearch={manualEmployeeSearch}
+        manualLineError={manualLineError}
+        manualLineForm={manualLineForm}
+        onAmountChange={(value) => setManualLineForm((prev) => ({ ...prev, amount: value }))}
+        onClearManualEmployeeSelection={clearManualEmployeeSelection}
+        onClose={manualLineUnsavedPrompt.requestClose}
+        onLineTypeChange={(value) => setManualLineForm((prev) => ({ ...prev, lineType: value }))}
+        onManualEmployeeSearchChange={handleManualEmployeeSearchChange}
+        onOpenManualEmployeePicker={openManualEmployeePicker}
+        onSelectManualEmployee={selectManualEmployee}
+        onSubmit={submitManualLine}
+        onToggleManualEmployeePicker={toggleManualEmployeePicker}
+        open={manualLineModalOpen && Boolean(currentRun)}
+        selectedEmployeeId={manualLineForm.empId}
+      />
 
-                    <label className="uFilter__field">
-                      <span>Department</span>
-                      <select
-                        value={runItemDepartmentFilter}
-                        onChange={(event) => setRunItemDepartmentFilter(event.target.value)}
-                      >
-                        <option value="all">All Departments</option>
-                        {runItemDepartmentOptions.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+      <PayslipPostRunModal
+        currentRunId={currentRun?.payId}
+        currentRunPeriodEnd={currentRun?.periodEnd}
+        currentRunPeriodStart={currentRun?.periodStart}
+        currentRunType={currentRun?.runType}
+        isPostingRun={isPostingRun}
+        onClose={() => setPostModalOpen(false)}
+        onSubmit={postCurrentRun}
+        open={postModalOpen && Boolean(currentRun)}
+      />
 
-                    <div className="uFilter__actions">
-                      <button type="button" onClick={clearRunItemFilters}>
-                        Reset Filters
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </div>
+      <PayslipCorrectionModal
+        adjustmentRunId={adjustmentRunId}
+        correctedAmount={correctedAmount}
+        correctionIntent={correctionIntent}
+        correctionLines={correctionLines}
+        correctionSource={correctionSource}
+        isCorrectionAmountInvalid={isCorrectionAmountInvalid}
+        isLoadingCorrection={isLoadingCorrection}
+        isSubmittingCorrection={isSubmittingCorrection}
+        onClose={correctionUnsavedPrompt.requestClose}
+        onCorrectedAmountChange={setCorrectedAmount}
+        onSelectCorrectionKey={setSelectedCorrectionKey}
+        onSubmit={submitCorrection}
+        open={correctionOpen}
+        selectedCorrectionKey={selectedCorrectionKey}
+        selectedCorrectionLine={selectedCorrectionLine}
+      />
 
-          <div className="hrPayRunSummary">
-            <article className="hrPayRunSummary__card">
-              <span>Payment Date</span>
-              <strong>{formatDate(currentRun.paymentDate)}</strong>
-            </article>
-            <article className="hrPayRunSummary__card">
-              <span>Coverage</span>
-              <strong>{formatDate(currentRun.periodStart)} - {formatDate(currentRun.periodEnd)}</strong>
-            </article>
-            <article className="hrPayRunSummary__card">
-              <span>Run Type</span>
-              <strong>{formatRunType(currentRun.runType)}</strong>
-            </article>
-            <article className="hrPayRunSummary__card">
-              <span>Payslips Generated</span>
-              <strong>{currentRun.itemCount ?? 0}</strong>
-            </article>
-          </div>
+      <PayslipBreakdownModal
+        canEditSelectedPayrollItem={canEditSelectedPayrollItem}
+        currentRun={currentRun}
+        editingPayrollLineKey={editingPayrollLineKey}
+        isLoadingPayrollItem={isLoadingPayrollItem}
+        isSavingPayrollLine={isSavingPayrollLine}
+        onCancelPayrollLineEdit={cancelPayrollLineEdit}
+        onClose={() => setSelectedPayrollItem(null)}
+        onPayrollLineDraftAmountChange={setPayrollLineDraftAmount}
+        onSavePayrollLineAmount={savePayrollLineAmount}
+        onStartPayrollLineEdit={startPayrollLineEdit}
+        open={Boolean(selectedPayrollItem)}
+        payrollLineDraftAmount={payrollLineDraftAmount}
+        selectedPayrollDeductions={selectedPayrollDeductions}
+        selectedPayrollGross={selectedPayrollGross}
+        selectedPayrollIsBonusPayout={selectedPayrollIsBonusPayout}
+        selectedPayrollItem={selectedPayrollItem}
+        selectedPayrollItemDeductions={selectedPayrollItemDeductions}
+        selectedPayrollItemEarnings={selectedPayrollItemEarnings}
+        selectedPayrollNet={selectedPayrollNet}
+      />
 
-          <div className="hrPayTableShell mgrPendTable">
-            {isLoadingRunItems ? (
-              <div className="mgrPendTable__empty">
-                <span>Loading payroll item summaries.</span>
-                <span>Checking the current run now.</span>
-              </div>
-            ) : visibleRunItems.length > 0 ? (
-              <>
-                <div className="hrPayRunTable__head hrPayRunTable__head--reporting" role="row">
-                  <span>EMP ID</span>
-                  <span>NAME</span>
-                  <span>Gross Pay</span>
-                  <span>Deductions</span>
-                  <span>Net Pay</span>
-                  <span className="hrPayRunTable__headCell--peek" aria-hidden="true" />
-                </div>
-
-                <div className="mgrPendTable__body">
-                  {visibleRunItems.map((row) => (
-                    <button
-                      key={row.itemId}
-                      type="button"
-                      className="hrPayRunTable__row hrPayRunTable__row--reporting"
-                      onClick={() => void openPayrollItemDetail(row)}
-                    >
-                      <span className="mgrPendTable__cell">{row.empId ?? '-'}</span>
-                      <span className="mgrPendTable__cell mgrPendTable__cell--name">
-                        {row.employee}
-                      </span>
-                      <span className="mgrPendTable__cell">{formatCurrency(row.grossPay)}</span>
-                      <span className="mgrPendTable__cell">{formatCurrency(row.deductions)}</span>
-                      <span className="mgrPendTable__cell">{formatCurrency(row.netPay)}</span>
-                      <span className="mgrPendTable__cell hrPayRunTable__cell--peek" aria-hidden="true">
-                        <FiEye className="hrPayRunTable__peekIcon" />
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div className="uEmptyState">
-                {runItems.length > 0
-                  ? 'No payroll items matched the selected role or department filters. Try clearing the filters to show more employees.'
-                  : canAddManualAdjustmentLine
-                    ? 'No payroll items yet for this in-progress run. Add a manual adjustment line to create the first payroll item.'
-                    : 'No payroll items yet for this in-progress run. Process the payroll period or add adjustment items first.'}
-              </div>
-            )}
-          </div>
-        </section>
-      )}
-
-      <section className="hrPayPanel">
-        <header className="hrPayPanel__head">Payroll Dispute from Employees</header>
-
-        <div className="hrPayToolbar">
-          <label className="uSearch" aria-label="Search payroll disputes">
-            <FiSearch />
-            <input
-              value={disputeSearchValue}
-              onChange={(event) => setDisputeSearchValue(event.target.value)}
-              placeholder="Search employee, dispute type, reason, or status"
-            />
-            {disputeSearchValue && (
-              <button type="button" aria-label="Clear search" onClick={() => setDisputeSearchValue('')}>
-                <FiXCircle />
-              </button>
-            )}
-          </label>
-
-          <div className="uFilter">
-            <button
-              type="button"
-              className={`uFilter__toggle ${disputeFilterOpen ? 'is-open' : ''} ${
-                activeDisputeFilterCount > 0 ? 'is-active' : ''
-              }`}
-              onClick={() => setDisputeFilterOpen((open) => !open)}
-            >
-              <FiFilter />
-              <span>Filter</span>
-            </button>
-
-            {disputeFilterOpen && (
-              <div className="uFilter__panel">
-                <label className="uFilter__field">
-                  <span>Dispute Type</span>
-                  <select
-                    value={disputeTypeFilter}
-                    onChange={(event) => setDisputeTypeFilter(event.target.value as DisputeTypeFilter)}
-                  >
-                    <option value="all">All Types</option>
-                    <option value="Overtime">Overtime</option>
-                    <option value="Attendance Issue">Attendance Issue</option>
-                    <option value="Absent Deduction">Absent Deduction</option>
-                    <option value="General">General</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </label>
-
-                <label className="uFilter__field">
-                  <span>Status</span>
-                  <select
-                    value={disputeStatusFilter}
-                    onChange={(event) => setDisputeStatusFilter(event.target.value as DisputeStatusFilter)}
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="PENDING">Pending</option>
-                    <option value="WAITING_ADJUSTMENT">Waiting for Adjustment</option>
-                  </select>
-                </label>
-
-                <div className="uFilter__actions">
-                  <button type="button" onClick={clearDisputeFilters}>
-                    Clear Filters
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="hrPayTableShell mgrPendTable">
-          {visibleDisputes.length > 0 ? (
-            <>
-              <div className="mgrPendTable__head hrPayDisputeTable__head" role="row">
-                <span>Name</span>
-                <span>Request</span>
-                <span>Specific Type</span>
-                <span>Payroll Period</span>
-                <span>Submitted At</span>
-                <span className="mgrPendTable__headCell--status">Status</span>
-              </div>
-
-              <div className="mgrPendTable__body">
-                {visibleDisputes.map((row) => (
-                  <button
-                    key={row.id}
-                    type="button"
-                    className={`mgrPendTable__row mgrPendTable__row--${row.statusTone}`}
-                    onClick={() => openDisputeRow(row)}
-                  >
-                    <span className="mgrPendTable__cell mgrPendTable__cell--name">{row.employee}</span>
-                    <span className="mgrPendTable__cell">Payroll Dispute</span>
-                    <span className="mgrPendTable__cell">{row.subject}</span>
-                    <span className="mgrPendTable__cell">{row.payrollPeriod}</span>
-                    <span className="mgrPendTable__cell">{row.submittedAt}</span>
-                    <span className="mgrPendTable__cell mgrPendTable__cell--status">
-                      <span className={`hrApprRow__status hrApprRow__status--${row.statusTone}`}>{row.statusLabel}</span>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className="uEmptyState">
-              {disputes.length > 0
-                ? 'No matching disputes found for your search or filters.'
-                : 'No payroll disputes have been submitted yet. New employee disputes will show up here.'}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {runModalOpen && (
-        <LargePopup
-          open
-          ariaLabel={runModalTitle}
-          title={runModalTitle}
-          subtitle="Set the payroll coverage window and run type before starting this payroll process."
-          size="lg"
-          className="hrPayPopup hrPayPopup--runSetup"
-          onClose={runUnsavedPrompt.requestClose}
-          closeDisabled={isSubmittingRun}
-          footer={(
-            <>
-              <button
-                type="button"
-                className="btn btn--ghost"
-                onClick={runUnsavedPrompt.requestClose}
-                disabled={isSubmittingRun}
-              >
-                Cancel
-              </button>
-              <button type="button" className="btn" onClick={requestPayrollRunConfirmation} disabled={isSubmittingRun}>
-                {isSubmittingRun ? 'Submitting...' : runSubmitLabel}
-              </button>
-            </>
-          )}
-        >
-          <div className="hrPayModal hrPayModal--run">
-            <div className="hrPayModal__grid hrPayModal__grid--compact">
-              <label>
-                <span>Period Start:</span>
-                <input
-                  type="date"
-                  value={runForm.periodStart}
-                  aria-invalid={isRunPeriodStartInvalid ? 'true' : undefined}
-                  onChange={(event) => {
-                    const nextStart = event.target.value;
-                    setRunForm((prev) => {
-                      const next = { ...prev, periodStart: nextStart };
-                      const standard = getStandardPaymentDate(next.periodStart, next.periodEnd);
-                      if (standard) next.paymentDate = standard;
-                      return next;
-                    });
-                  }}
-                  max={runForm.periodEnd || todayIsoDate}
-                />
-              </label>
-              <label>
-                <span>Period End:</span>
-                <input
-                  type="date"
-                  value={runForm.periodEnd}
-                  aria-invalid={isRunPeriodEndInvalid ? 'true' : undefined}
-                  onChange={(event) => {
-                    const nextEnd = event.target.value;
-                    setRunForm((prev) => {
-                      const next = { ...prev, periodEnd: nextEnd };
-                      const standard = getStandardPaymentDate(next.periodStart, next.periodEnd);
-                      if (standard) next.paymentDate = standard;
-                      return next;
-                    });
-                  }}
-                  min={runForm.periodStart || undefined}
-                  max={todayIsoDate}
-                />
-              </label>
-              <label>
-                <span>
-                  Payment Date:
-                  {getStandardPaymentDate(runForm.periodStart, runForm.periodEnd) === runForm.paymentDate && (
-                    <small style={{ color: 'var(--hr-primary)', marginLeft: '6px', fontWeight: 'bold' }}>
-                      (Standard)
-                    </small>
-                  )}
-                </span>
-                <input
-                  type="date"
-                  value={runForm.paymentDate}
-                  onChange={(event) => setRunForm((prev) => ({ ...prev, paymentDate: event.target.value }))}
-                  min={runForm.periodEnd || undefined}
-                />
-              </label>
-              <label>
-                <span>Run Type:</span>
-                <select
-                  value={runForm.runType}
-                  onChange={(event) =>
-                    setRunForm((prev) => ({
-                      ...prev,
-                      runType: event.target.value as RunFormState['runType'],
-                    }))
-                  }
-                >
-                  <option value="REGULAR">Regular Payroll</option>
-                  <option value="ADJUSTMENT">Adjustment Payroll</option>
-                </select>
-              </label>
-            </div>
-          </div>
-        </LargePopup>
-      )}
-
-      {manualLineModalOpen && currentRun && (
-        <LargePopup
-          open
-          ariaLabel="Add manual adjustment line"
-          title="Add Manual Adjustment Line"
-          subtitle="Choose an employee, select whether this is an earning or deduction, and enter the amount to add it to the active adjustment run."
-          size="xl"
-          className="hrPayPopup hrPayPopup--manualLine"
-          onClose={manualLineUnsavedPrompt.requestClose}
-          closeDisabled={isSubmittingManualLine}
-          footer={(
-            <>
-              <button
-                type="button"
-                className="btn btn--ghost"
-                onClick={manualLineUnsavedPrompt.requestClose}
-                disabled={isSubmittingManualLine}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => void submitManualLine()}
-                disabled={isLoadingEmployeeOptions || isSubmittingManualLine}
-              >
-                {isSubmittingManualLine ? 'Adding...' : 'Add Line'}
-              </button>
-            </>
-          )}
-        >
-          <div className="hrPayModal hrPayModal--run">
-            <div className="hrPayModal__grid hrPayModal__grid--compact hrPayModal__grid--manualLine">
-              <label className="hrPayModal__gridItem--full">
-                <span>Employee:</span>
-                <div className={`hrPayPicker ${manualEmployeePickerOpen ? 'is-open' : ''}`} ref={manualEmployeePickerRef}>
-                  <div className="hrPayPicker__control" aria-invalid={isManualEmployeeInvalid ? 'true' : undefined}>
-                    <input
-                      type="text"
-                      className="hrPayPicker__input"
-                      role="combobox"
-                      aria-autocomplete="list"
-                      aria-controls="manual-employee-options"
-                      aria-expanded={manualEmployeePickerOpen}
-                      aria-haspopup="listbox"
-                      aria-invalid={isManualEmployeeInvalid ? 'true' : undefined}
-                      value={manualEmployeeSearch}
-                      onFocus={() => setManualEmployeePickerOpen(true)}
-                      onChange={(event) => {
-                        const nextValue = event.target.value;
-                        setManualEmployeeSearch(nextValue);
-                        setManualEmployeePickerOpen(true);
-                        setManualLineError('');
-                        if (normalizeText(selectedManualEmployee?.name ?? '') !== normalizeText(nextValue)) {
-                          setManualLineForm((prev) => ({ ...prev, empId: '' }));
-                        }
-                      }}
-                      placeholder={isLoadingEmployeeOptions ? 'Loading employees...' : 'Search or choose an employee'}
-                      disabled={isLoadingEmployeeOptions || isSubmittingManualLine}
-                    />
-                    {canClearManualEmployeePicker ? (
-                      <button
-                        type="button"
-                        className="hrPayPicker__clear"
-                        onClick={clearManualEmployeeSelection}
-                        disabled={isLoadingEmployeeOptions || isSubmittingManualLine}
-                        aria-label="Clear employee selection"
-                      >
-                        <FiX />
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      className="hrPayPicker__toggle"
-                      onClick={() => setManualEmployeePickerOpen((prev) => !prev)}
-                      disabled={isLoadingEmployeeOptions || isSubmittingManualLine}
-                      aria-label={manualEmployeePickerOpen ? 'Close employee list' : 'Open employee list'}
-                    >
-                      <FiChevronDown />
-                    </button>
-                  </div>
-                  {manualEmployeePickerOpen && (
-                    <div className="hrPayPicker__menu" id="manual-employee-options" role="listbox">
-                      {isLoadingEmployeeOptions ? (
-                        <div className="hrPayPicker__empty">Loading employees...</div>
-                      ) : filteredEmployeeOptions.length > 0 ? (
-                        filteredEmployeeOptions.map((option) => {
-                          const isSelected = option.id === Number(manualLineForm.empId);
-                          return (
-                            <button
-                              key={option.id}
-                              type="button"
-                              role="option"
-                              aria-selected={isSelected}
-                              className={`hrPayPicker__option ${isSelected ? 'is-selected' : ''}`}
-                              onClick={() => selectManualEmployee(option)}
-                            >
-                              {option.name}
-                            </button>
-                          );
-                        })
-                      ) : (
-                        <div className="hrPayPicker__empty">No employees match that search.</div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </label>
-              <label>
-                <span>Line Type:</span>
-                <select
-                  value={manualLineForm.lineType}
-                  onChange={(event) =>
-                    setManualLineForm((prev) => ({
-                      ...prev,
-                      lineType: event.target.value as ManualLineFormState['lineType'],
-                    }))
-                  }
-                  disabled={isSubmittingManualLine}
-                >
-                  <option value="EARNING">Manual Earning</option>
-                  <option value="BONUS">Bonus</option>
-                  <option value="DEDUCTION">Manual Deduction</option>
-                </select>
-              </label>
-              <label>
-                <span>Amount:</span>
-                <input
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={manualLineForm.amount}
-                  aria-invalid={isManualAmountInvalid ? 'true' : undefined}
-                  onChange={(event) => setManualLineForm((prev) => ({ ...prev, amount: event.target.value }))}
-                  placeholder="0.00"
-                  disabled={isSubmittingManualLine}
-                />
-              </label>
-            </div>
-            {manualLineError && <p className="hrPay__message">{manualLineError}</p>}
-          </div>
-        </LargePopup>
-      )}
-
-      {postModalOpen && currentRun && (
-        <LargePopup
-          open
-          ariaLabel="Post payroll run"
-          title="Post Payroll Run"
-          subtitle="Review the payroll run summary carefully before confirming the final posting step."
-          size="lg"
-          className="hrPayPopup hrPayPopup--postRun"
-          onClose={() => setPostModalOpen(false)}
-          closeDisabled={isPostingRun}
-          footer={(
-            <>
-              <button type="button" className="btn btn--ghost" onClick={() => setPostModalOpen(false)} disabled={isPostingRun}>
-                Cancel
-              </button>
-              <button type="button" className="btn" onClick={() => void postCurrentRun()} disabled={isPostingRun}>
-                {isPostingRun ? 'Posting...' : 'Confirm Post'}
-              </button>
-            </>
-          )}
-        >
-          <div className="hrPayModal hrPayModal--run">
-            <div className="hrPayModal__summary">
-              <div className="hrPayModal__summaryRow">
-                <span>Run ID</span>
-                <strong>#{currentRun.payId ?? '-'}</strong>
-              </div>
-              <div className="hrPayModal__summaryRow">
-                <span>Type</span>
-                <strong>{formatRunType(currentRun.runType)}</strong>
-              </div>
-              <div className="hrPayModal__summaryRow">
-                <span>Period</span>
-                <strong>{formatDate(currentRun.periodStart)} - {formatDate(currentRun.periodEnd)}</strong>
-              </div>
-            </div>
-          </div>
-        </LargePopup>
-      )}
-
-      {correctionOpen && (
-        <LargePopup
-          open
-          ariaLabel="Stage payroll correction"
-          title="Stage Approved Dispute Correction"
-          subtitle="Review the approved dispute, choose the matching payroll line, and stage the corrected amount into the active adjustment run."
-          size="xl"
-          className="hrPayPopup hrPayPopup--correction"
-          onClose={correctionUnsavedPrompt.requestClose}
-          closeDisabled={isSubmittingCorrection}
-          footer={(
-            <>
-              <button
-                type="button"
-                className="btn btn--ghost"
-                onClick={correctionUnsavedPrompt.requestClose}
-                disabled={isSubmittingCorrection}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => void submitCorrection()}
-                disabled={isLoadingCorrection || isSubmittingCorrection || !selectedCorrectionLine}
-              >
-                {isSubmittingCorrection ? 'Staging...' : 'Stage Correction'}
-              </button>
-            </>
-          )}
-        >
-          <div className="hrPayModal">
-            {isLoadingCorrection ? (
-              <p className="hrPayModal__intro">
-                Loading the disputed payslip item, its earnings and deductions, and the adjustment run to use for this
-                correction.
-              </p>
-            ) : (
-              <>
-                <div className="hrPayCorrectionSummary">
-                  <div className="hrPayCorrectionSummary__row">
-                    <span className="hrPayCorrectionSummary__label">Employee</span>
-                    <div className="hrPayCorrectionSummary__value">{correctionIntent?.employee ?? '-'}</div>
-                  </div>
-                  <div className="hrPayCorrectionSummary__row">
-                    <span className="hrPayCorrectionSummary__label">Source Item</span>
-                    <div className="hrPayCorrectionSummary__value">
-                      #{correctionSource?.itemId ?? correctionIntent?.itemId ?? '-'}
-                    </div>
-                  </div>
-                  <div className="hrPayCorrectionSummary__row">
-                    <span className="hrPayCorrectionSummary__label">Source Period</span>
-                    <div className="hrPayCorrectionSummary__value">
-                      {formatDate(correctionSource?.runDetails?.periodStart)} - {formatDate(correctionSource?.runDetails?.periodEnd)}
-                    </div>
-                  </div>
-                  <div className="hrPayCorrectionSummary__row">
-                    <span className="hrPayCorrectionSummary__label">Adjustment Run</span>
-                    <div className="hrPayCorrectionSummary__value">#{adjustmentRunId ?? '-'}</div>
-                  </div>
-                </div>
-
-                <label className="hrPayModal__area">
-                  <span>Dispute Message:</span>
-                  <textarea value={correctionIntent?.message ?? 'No dispute message provided.'} readOnly />
-                </label>
-
-                <label className="hrPayModal__area">
-                  <span>Employee Reason:</span>
-                  <textarea value={correctionIntent?.disputeReason ?? 'No employee reason provided.'} readOnly />
-                </label>
-
-                <label className="hrPayModal__area">
-                  <span>HR Decision Note:</span>
-                  <textarea value={correctionIntent?.decisionReason ?? '-'} readOnly />
-                </label>
-
-                <div className="hrPayCorrectionPicker">
-                  <div className="hrPayCorrectionPicker__head">
-                    <div className="hrPayCorrectionPicker__heading">
-                      <span className="hrPayCorrectionPicker__stepText">Step 1</span>
-                      <strong>Select the exact line to correct</strong>
-                      <p>
-                        Click the matching payroll line below to select it. The line name is filled in automatically,
-                        so you only need to type the corrected amount afterward.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="hrPayCorrectionPicker__list">
-                    {correctionLines.map((line) => (
-                      <button
-                        key={line.key}
-                        type="button"
-                        className={`hrPayCorrectionLine${line.key === selectedCorrectionKey ? ' is-selected' : ''}`}
-                        onClick={() => setSelectedCorrectionKey(line.key)}
-                        aria-pressed={line.key === selectedCorrectionKey}
-                      >
-                        <div className="hrPayCorrectionLine__main">
-                          <div className="hrPayCorrectionLine__identity">
-                            <span className="hrPayCorrectionLine__type">
-                              {line.lineType === 'EARNING' ? 'Earning' : 'Deduction'}
-                            </span>
-                            <strong>{line.label}</strong>
-                          </div>
-                          <span className="hrPayCorrectionLine__amount">{formatCurrency(line.amount)}</span>
-                        </div>
-                        <div className="hrPayCorrectionLine__meta">
-                          {line.originalAmount && <span>Original posted amount: {formatCurrency(line.originalAmount)}</span>}
-                          {line.adjustedBy && <span>Last adjusted by {line.adjustedBy}</span>}
-                          {line.adjustedAt && <span>{formatDateTime(line.adjustedAt)}</span>}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="hrPayCorrectionAction">
-                  <div className="hrPayCorrectionAction__card">
-                    <span>Step 2</span>
-                    <strong>
-                      {selectedCorrectionLine
-                        ? `${selectedCorrectionLine.lineType === 'EARNING' ? 'Earning' : 'Deduction'} - ${selectedCorrectionLine.label}`
-                        : 'No payroll line selected yet'}
-                    </strong>
-                    <p>
-                      {selectedCorrectionLine
-                        ? 'Enter the corrected amount for the selected payroll line.'
-                        : 'Click one payroll line above to lock in the exact line before the corrected amount field becomes available.'}
-                    </p>
-                  </div>
-                  <label className="hrPayCorrectionAction__card hrPayCorrectionAction__card--form">
-                    <span>Corrected Amount</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={correctedAmount}
-                      aria-invalid={isCorrectionAmountInvalid ? 'true' : undefined}
-                      onChange={(event) => setCorrectedAmount(event.target.value)}
-                      placeholder={selectedCorrectionLine ? `Current amount: ${selectedCorrectionLine.amount}` : 'Choose a line first'}
-                      disabled={!selectedCorrectionLine || isSubmittingCorrection}
-                    />
-                    {!selectedCorrectionLine && <small>Pick the exact payroll line above to enable amount entry.</small>}
-                  </label>
-                </div>
-
-              </>
-            )}
-
-          </div>
-        </LargePopup>
-      )}
-
-      {selectedPayrollItem && (
-        <LargePopup
-          open
-          ariaLabel="Payroll item breakdown"
-          title={`${selectedPayrollItem.employee} - Payslip Breakdown`}
-          subtitle="Review the current earnings, deductions, and totals, and edit line amounts while this payroll item is still in progress."
-          size="xl"
-          className="hrPayPopup hrPayPopup--breakdown"
-          onClose={() => setSelectedPayrollItem(null)}
-        >
-          <div className="hrPayModal">
-            <div className="hrPayModal__grid">
-              <label>
-                <span>Payroll Item:</span>
-                <input value={`#${selectedPayrollItem.itemId}`} readOnly />
-              </label>
-              <label>
-                <span>Run Status:</span>
-                <input value={formatPayrollStatusLabel(currentRun?.payrollStatus ?? 'IN_PROGRESS')} readOnly />
-              </label>
-              <label>
-                <span>Pay Period:</span>
-                <input value={`${formatDate(currentRun?.periodStart)} - ${formatDate(currentRun?.periodEnd)}`} readOnly />
-              </label>
-              <label>
-                <span>Run Type:</span>
-                <input
-                  value={formatPayrollRunTypeLabel(currentRun?.runType, {
-                    bonusPayout: selectedPayrollIsBonusPayout,
-                  })}
-                  readOnly
-                />
-              </label>
-            </div>
-
-            <div className="hrPayBreakdownTotals">
-              <div className="hrPayBreakdownTotals__card">
-                <span>Gross Pay</span>
-                <strong>{formatCurrency(selectedPayrollGross)}</strong>
-              </div>
-              <div className="hrPayBreakdownTotals__card">
-                <span>Total Deductions</span>
-                <strong>{formatCurrency(selectedPayrollDeductions)}</strong>
-              </div>
-              <div className="hrPayBreakdownTotals__card">
-                <span>Net Pay</span>
-                <strong>{formatCurrency(selectedPayrollNet)}</strong>
-              </div>
-            </div>
-
-            {isLoadingPayrollItem ? (
-              <p className="hrPayModal__intro">
-                Loading the payroll lines for this employee so the full payslip breakdown can be reviewed.
-              </p>
-            ) : (
-              <>
-                <div className="hrPayBreakdown">
-                  <section className="hrPayBreakdown__section">
-                    <div className="hrPayBreakdown__head">
-                      <h4>Earnings</h4>
-                      <span>{selectedPayrollItemEarnings.length} line(s)</span>
-                    </div>
-                    <div className="hrPayBreakdown__list">
-                      {selectedPayrollItemEarnings.length > 0 ? (
-                        selectedPayrollItemEarnings.map((line) => (
-                          <div key={line.key} className="hrPayBreakdown__row">
-                            <div>
-                              <strong>{line.label}</strong>
-                              {(line.adjustedBy || line.adjustedAt) && (
-                                <span>
-                                  {line.adjustedBy ? `Adjusted by ${line.adjustedBy}` : 'Adjusted'}{' '}
-                                  {line.adjustedAt ? `on ${formatDateTime(line.adjustedAt)}` : ''}
-                                </span>
-                              )}
-                            </div>
-                            <div className="hrPayBreakdown__amounts">
-                              {line.originalAmount && <small>Original: {formatCurrency(line.originalAmount)}</small>}
-                              {editingPayrollLineKey === line.key ? (
-                                <div className="hrPayBreakdown__editor">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    value={payrollLineDraftAmount}
-                                    onChange={(event) => setPayrollLineDraftAmount(event.target.value)}
-                                    aria-label={`Edit amount for ${line.label}`}
-                                  />
-                                  <div className="hrPayBreakdown__editorActions">
-                                    <button
-                                      type="button"
-                                      className="hrPayBreakdown__editorBtn is-muted"
-                                      onClick={cancelPayrollLineEdit}
-                                      disabled={isSavingPayrollLine}
-                                    >
-                                      Cancel
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="hrPayBreakdown__editorBtn"
-                                      onClick={() => void savePayrollLineAmount(line)}
-                                      disabled={isSavingPayrollLine}
-                                    >
-                                      {isSavingPayrollLine ? 'Saving...' : 'Save'}
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="hrPayBreakdown__valueRow">
-                                  <strong>{formatCurrency(line.amount)}</strong>
-                                  {canEditSelectedPayrollItem && (
-                                    <button
-                                      type="button"
-                                      className="hrPayBreakdown__editBtn"
-                                      onClick={() => startPayrollLineEdit(line)}
-                                      disabled={isSavingPayrollLine}
-                                      aria-label={`Edit amount for ${line.label}`}
-                                      title={`Edit amount for ${line.label}`}
-                                    >
-                                      <FiEdit2 />
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="hrPayBreakdown__empty">No earnings were returned for this payroll item.</div>
-                      )}
-                    </div>
-                  </section>
-
-                  <section className="hrPayBreakdown__section">
-                    <div className="hrPayBreakdown__head">
-                      <h4>Deductions</h4>
-                      <span>{selectedPayrollItemDeductions.length} line(s)</span>
-                    </div>
-                    <div className="hrPayBreakdown__list">
-                      {selectedPayrollItemDeductions.length > 0 ? (
-                        selectedPayrollItemDeductions.map((line) => (
-                          <div key={line.key} className="hrPayBreakdown__row">
-                            <div>
-                              <strong>{line.label}</strong>
-                              {(line.adjustedBy || line.adjustedAt) && (
-                                <span>
-                                  {line.adjustedBy ? `Adjusted by ${line.adjustedBy}` : 'Adjusted'}{' '}
-                                  {line.adjustedAt ? `on ${formatDateTime(line.adjustedAt)}` : ''}
-                                </span>
-                              )}
-                            </div>
-                            <div className="hrPayBreakdown__amounts">
-                              {line.originalAmount && <small>Original: {formatCurrency(line.originalAmount)}</small>}
-                              {editingPayrollLineKey === line.key ? (
-                                <div className="hrPayBreakdown__editor">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    value={payrollLineDraftAmount}
-                                    onChange={(event) => setPayrollLineDraftAmount(event.target.value)}
-                                    aria-label={`Edit amount for ${line.label}`}
-                                  />
-                                  <div className="hrPayBreakdown__editorActions">
-                                    <button
-                                      type="button"
-                                      className="hrPayBreakdown__editorBtn is-muted"
-                                      onClick={cancelPayrollLineEdit}
-                                      disabled={isSavingPayrollLine}
-                                    >
-                                      Cancel
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="hrPayBreakdown__editorBtn"
-                                      onClick={() => void savePayrollLineAmount(line)}
-                                      disabled={isSavingPayrollLine}
-                                    >
-                                      {isSavingPayrollLine ? 'Saving...' : 'Save'}
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="hrPayBreakdown__valueRow">
-                                  <strong>{formatCurrency(line.amount)}</strong>
-                                  {canEditSelectedPayrollItem && (
-                                    <button
-                                      type="button"
-                                      className="hrPayBreakdown__editBtn"
-                                      onClick={() => startPayrollLineEdit(line)}
-                                      disabled={isSavingPayrollLine}
-                                      aria-label={`Edit amount for ${line.label}`}
-                                      title={`Edit amount for ${line.label}`}
-                                    >
-                                      <FiEdit2 />
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="hrPayBreakdown__empty">No deductions were returned for this payroll item.</div>
-                      )}
-                    </div>
-                  </section>
-                </div>
-              </>
-            )}
-          </div>
-        </LargePopup>
-      )}
-
-      {selectedDispute && (
-        <LargePopup
-          open
-          ariaLabel="Payslip dispute review"
-          title={`${selectedDispute.employee} - Payslip Dispute`}
-          subtitle="Review the employee dispute, decide whether it should be denied or moved to waiting for adjustment, and reopen it later when you are ready to stage the correction."
-          size="xl"
-          className="hrPayPopup hrPayPopup--dispute"
-          onClose={disputeReviewUnsavedPrompt.requestClose}
-          footer={(
-            <>
-              <button
-                type="button"
-                className="btn btn--ghost"
-                onClick={disputeReviewUnsavedPrompt.requestClose}
-                disabled={isSaving}
-              >
-                {canReviewSelectedDispute || canStageSelectedDisputeCorrection ? 'Cancel' : 'Close'}
-              </button>
-              {canReviewSelectedDispute ? (
-                <button type="button" className="btn" onClick={requestDisputeDecisionConfirmation} disabled={isSaving || !pendingDisputeDecision}>
-                  {isSaving
-                    ? 'Saving...'
-                    : pendingDisputeDecision === 'APPROVED'
-                      ? 'Move to Waiting Adjustment'
-                      : pendingDisputeDecision === 'REJECTED'
-                        ? 'Confirm Denial'
-                        : 'Confirm Decision'}
-                </button>
-              ) : canStageSelectedDisputeCorrection ? (
-                <button type="button" className="btn" onClick={openSelectedDisputeCorrection}>
-                  Open Adjustment Workspace
-                </button>
-              ) : (
-                <button type="button" className="btn" onClick={disputeReviewUnsavedPrompt.requestClose} disabled={isSaving}>
-                  Close
-                </button>
-              )}
-            </>
-          )}
-        >
-          <div className="hrPayModal">
-            <div className="hrPayModal__grid">
-              <label>
-                <span>Status:</span>
-                <input value={selectedDispute.statusLabel} readOnly />
-              </label>
-              <label>
-                <span>Submitted At:</span>
-                <input value={selectedDispute.submittedAt} readOnly />
-              </label>
-              <label>
-                <span>Payroll Period:</span>
-                <input value={selectedDispute.payrollPeriod} readOnly />
-              </label>
-              <label>
-                <span>Dispute Type:</span>
-                <input value={selectedDispute.subject} readOnly />
-              </label>
-            </div>
-
-            <label className="hrPayModal__area">
-              <span>Reason for Dispute:</span>
-              <textarea value={selectedDispute.reason || 'No reason provided.'} readOnly />
-            </label>
-
-            <div className="hrApprAttachment hrApprAttachment--payroll">
-              <div className="hrApprAttachment__copy">
-                <span>Attachment:</span>
-                <p>
-                  {typeof selectedDispute.attachmentPathId === 'number'
-                    ? 'A supporting file was uploaded with this dispute.'
-                    : 'No attachment was uploaded with this dispute.'}
-                </p>
-              </div>
-              {typeof selectedDispute.attachmentPathId === 'number' && (
-                <button
-                  type="button"
-                  className="hrApprAttachment__button"
-                  onClick={() => void handleOpenAttachment(selectedDispute.attachmentPathId!)}
-                  disabled={openingAttachmentId === selectedDispute.attachmentPathId}
-                >
-                  {openingAttachmentId === selectedDispute.attachmentPathId ? 'Opening...' : 'View Attachment'}
-                </button>
-              )}
-            </div>
-
-            {selectedDispute.decisionSummary && (
-              <label className="hrPayModal__area">
-                <span>Latest Decision Note:</span>
-                <textarea value={selectedDispute.decisionSummary} readOnly />
-              </label>
-            )}
-
-            {canReviewSelectedDispute && (
-              <>
-                <div className="hrPayModal__area">
-                  <span>Administrative Decision:</span>
-                  <div className="decisionPicker">
-                    <div className="decisionPicker__actions">
-                      <button
-                        type="button"
-                        className={`decisionPicker__button ${pendingDisputeDecision === 'APPROVED' ? 'is-selected' : ''}`}
-                        disabled={isSaving}
-                        onClick={() => setPendingDisputeDecision('APPROVED')}
-                      >
-                        Approve
-                      </button>
-                      <button
-                        type="button"
-                        className={`decisionPicker__button ${pendingDisputeDecision === 'REJECTED' ? 'is-selected' : ''}`}
-                        disabled={isSaving}
-                        onClick={() => setPendingDisputeDecision('REJECTED')}
-                      >
-                        Deny
-                      </button>
-                    </div>
-                    <p className="decisionPicker__note">
-                      Approving this dispute will move it to <strong>Waiting for Adjustment</strong> so you can stage
-                      the payroll fix later instead of being redirected immediately.
-                    </p>
-                  </div>
-                </div>
-
-                <label className="hrPayModal__area">
-                  <span>Reason for Approval / Denial:</span>
-                  <textarea
-                    placeholder="Type at least 5 characters explaining the decision"
-                    value={remarks}
-                    aria-invalid={isDisputeRemarksInvalid ? 'true' : undefined}
-                    onChange={(event) => setRemarks(event.target.value)}
-                  />
-                </label>
-              </>
-            )}
-
-            {canStageSelectedDisputeCorrection && (
-              <div className="hrPayModal__callout">
-                <strong>This dispute is waiting for adjustment.</strong>
-                <span>
-                  The approval is already saved. Open the correction workspace whenever you are ready to edit the
-                  payroll line and stage the adjustment entry.
-                </span>
-              </div>
-            )}
-
-            {selectedDispute.statusCode === 'APPROVED' && (
-              <p className="hrPay__message hrPay__message--ok">
-                This dispute is already settled. Any correction that was needed has been staged or finalized.
-              </p>
-            )}
-
-            {selectedDispute.statusCode === 'REJECTED' && (
-              <p className="hrPay__message">This dispute was denied and no payroll adjustment will be staged from it.</p>
-            )}
-
-            {selectedDispute.statusCode === 'CANCELLED' && (
-              <p className="hrPay__message">The employee cancelled this dispute before it was fully processed.</p>
-            )}
-          </div>
-        </LargePopup>
-      )}
+      <PayslipDisputeModal
+        canReviewSelectedDispute={canReviewSelectedDispute}
+        canStageSelectedDisputeCorrection={canStageSelectedDisputeCorrection}
+        isDisputeRemarksInvalid={isDisputeRemarksInvalid}
+        isSaving={isSaving}
+        onClose={disputeReviewUnsavedPrompt.requestClose}
+        onOpenAttachment={handleOpenAttachment}
+        onOpenSelectedDisputeCorrection={openSelectedDisputeCorrection}
+        onPendingDisputeDecisionChange={(value) => setPendingDisputeDecision(value)}
+        onRemarksChange={setRemarks}
+        onRequestDisputeDecisionConfirmation={requestDisputeDecisionConfirmation}
+        open={Boolean(selectedDispute)}
+        openingAttachmentId={openingAttachmentId}
+        pendingDisputeDecision={pendingDisputeDecision}
+        remarks={remarks}
+        selectedDispute={selectedDispute}
+      />
       <ConfirmDialog
         open={confirmRunOpen}
         title={confirmRunTitle}

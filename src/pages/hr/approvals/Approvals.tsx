@@ -17,62 +17,17 @@ import {
   formatRequestTimeRangeLabel,
   formatRequestTypeLabel,
 } from '../../../lib/requestPresentation';
+import type {
+  ApprovalEmployeeDirectoryRow as EmployeeDirectoryRow,
+  LeaveApprovalRow as LeaveDto,
+  OvertimeApprovalRow as OvertimeDto,
+} from '../../../lib/types/approval';
+import type { LeaveBalanceRow } from '../../../lib/types/employee';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
+import { employeeLabel, formatDateTime } from '../../../lib/formatters';
 import '../../self-service/approvals/Approval.css';
 import './Approvals.css';
 import '../../manager/pending-approvals/PendingApprovals.css';
-
-type OvertimeDto = {
-  overtimeId?: number;
-  employeeId?: number;
-  requestStatus?: string;
-  requestAt?: string;
-  workDate?: string;
-  startTime?: string;
-  endTime?: string;
-  overtimeType?: string;
-  reason?: string;
-  approveReason?: string;
-  paid?: boolean;
-  suggestedPaid?: boolean;
-  paidOverrideReason?: string;
-  managerApprover?: string;
-  managerApproveReason?: string;
-  managerApprovedAt?: string;
-};
-
-type LeaveDto = {
-  requestId?: number;
-  empId?: number;
-  firstName?: string;
-  lastName?: string;
-  startDateTime?: string;
-  endDateTime?: string;
-  requestAt?: string;
-  requestStatus?: string;
-  reason?: string;
-  leaveType?: string;
-  approverReason?: string;
-  paid?: boolean;
-  suggestedPaid?: boolean;
-  paidOverrideReason?: string;
-  managerApprover?: string;
-  managerApproverReason?: string;
-  managerApprovedAt?: string;
-};
-
-type LeaveBalanceRow = {
-  leaveType?: string;
-  balanceHours?: number | string;
-};
-
-type EmployeeDirectoryRow = {
-  employeeId?: number;
-  id?: number;
-  firstName?: string;
-  middleName?: string;
-  lastName?: string;
-};
 
 type RequestType = 'Overtime' | 'Leave';
 type SourceType = 'overtime' | 'leave';
@@ -120,25 +75,6 @@ type HrRequest = {
   attachmentPathId?: number;
   sortStamp: number;
 };
-
-function formatDateTime(value?: string) {
-  if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(undefined, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
-
-function employeeLabel(employeeName?: string, employeeId?: number) {
-  const trimmedName = typeof employeeName === 'string' ? employeeName.trim() : '';
-  if (trimmedName) return trimmedName;
-  return typeof employeeId === 'number' ? `Employee #${employeeId}` : 'Employee unavailable';
-}
 
 function employeeDirectoryLabel(row?: EmployeeDirectoryRow) {
   if (!row) return '';
@@ -343,7 +279,7 @@ export default function HrApprovals() {
           employeeId: item.employeeId,
           employee: resolvedEmployeeLabel(employeeNameById, item.employeeId),
           message: buildRequestSummaryMessage('overtime', overtimeTypeLabel, item.paid),
-          submittedAt: formatDateTime(item.requestAt),
+          submittedAt: formatDateTime(item.requestAt, '-'),
           type: 'Overtime' as const,
           source: 'overtime' as const,
           status: item.requestStatus || 'PENDING_MANAGER',
@@ -362,7 +298,7 @@ export default function HrApprovals() {
           paidOverrideReason: item.paidOverrideReason,
           managerApprover: item.managerApprover,
           managerDecisionSummary: item.managerApproveReason || '',
-          managerReviewedAt: formatDateTime(item.managerApprovedAt),
+          managerReviewedAt: formatDateTime(item.managerApprovedAt, '-'),
           attachmentPathId: attachment.attachmentPathId ?? undefined,
           sortStamp: item.requestAt ? Date.parse(item.requestAt) || 0 : 0,
         };
@@ -378,7 +314,7 @@ export default function HrApprovals() {
           employeeId: item.empId,
           employee: resolvedEmployeeLabel(employeeNameById, item.empId, leaveEmployeeLabel(item)),
           message: buildRequestSummaryMessage('leave', leaveTypeLabel, item.paid),
-          submittedAt: formatDateTime(item.requestAt ?? item.startDateTime),
+          submittedAt: formatDateTime(item.requestAt ?? item.startDateTime, '-'),
           type: 'Leave' as const,
           source: 'leave' as const,
           status: item.requestStatus || 'PENDING_MANAGER',
@@ -396,7 +332,7 @@ export default function HrApprovals() {
           paidOverrideReason: item.paidOverrideReason,
           managerApprover: item.managerApprover,
           managerDecisionSummary: item.managerApproverReason || '',
-          managerReviewedAt: formatDateTime(item.managerApprovedAt),
+          managerReviewedAt: formatDateTime(item.managerApprovedAt, '-'),
           leaveType: item.leaveType,
           attachmentPathId: attachment.attachmentPathId ?? undefined,
           sortStamp:

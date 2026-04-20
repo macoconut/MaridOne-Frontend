@@ -15,60 +15,23 @@ import { apiFetchJson, toArray } from '../../../lib/api';
 import { compareEmployees, type EmployeeSortKey } from '../../../lib/employeeSort';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import { getManilaNow } from '../../../lib/manilaTime';
+import {
+  formatDateTime,
+  toMoneyString,
+  toOptionalMoneyString,
+  toOptionalText,
+} from '../../../lib/formatters';
+import type {
+  EmployeeDirectoryEntry,
+  EmployeeReportRow,
+  PayTypeSummaryRow,
+  PayrollBreakdownLine,
+  PayrollItemRow,
+  PayrollRunRow,
+} from '../../../lib/types/payroll';
 import './PayrollReview.css';
 
 type ReportView = 'employee' | 'payType';
-
-type PayrollRunRow = {
-  payId?: number;
-  periodStart?: string;
-  periodEnd?: string;
-  paymentDate?: string;
-  periodDescription?: string;
-  payrollStatus?: string;
-  runType?: string;
-  itemCount?: number;
-};
-
-type PayrollItemRow = {
-  empId?: number;
-  firstName?: string;
-  lastName?: string;
-  itemId?: number;
-  grossPay?: number | string;
-  netPay?: number | string;
-};
-
-type EmployeeDirectoryEntry = {
-  id: number;
-  role: string;
-  department: string;
-};
-
-type EmployeeReportRow = PayrollItemRow & {
-  role: string;
-  department: string;
-};
-
-type PayrollBreakdownLine = {
-  key: string;
-  lineId: number;
-  lineType: 'EARNING' | 'DEDUCTION';
-  label: string;
-  amount: string;
-  originalAmount?: string;
-  adjustedBy?: string;
-  adjustedAt?: string;
-};
-
-type AdjustmentKind = 'EARNING' | 'DEDUCTION';
-
-type PayTypeSummaryRow = {
-  payType?: string;
-  adjustment?: AdjustmentKind;
-  adjustmentKind?: AdjustmentKind;
-  total?: number | string;
-};
 
 type PayTypeSortKey = 'name' | 'amount';
 
@@ -131,19 +94,6 @@ function toAmount(value: unknown) {
   return 0;
 }
 
-function formatDateTime(value?: string) {
-  if (!value) return 'Not available';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(undefined, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
-
 function formatEmployeeName(row: PayrollItemRow) {
   const fullName = [row.firstName, row.lastName]
     .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
@@ -167,22 +117,6 @@ function buildEmployeeDirectory(response: unknown) {
       } satisfies EmployeeDirectoryEntry;
     })
     .filter((entry): entry is EmployeeDirectoryEntry => entry !== null);
-}
-
-function toMoneyString(value: unknown) {
-  if (typeof value === 'number' && Number.isFinite(value)) return value.toFixed(2);
-  if (typeof value === 'string' && value.trim().length > 0) return value;
-  return '0.00';
-}
-
-function toOptionalMoneyString(value: unknown) {
-  if (typeof value === 'number' && Number.isFinite(value)) return value.toFixed(2);
-  if (typeof value === 'string' && value.trim().length > 0) return value;
-  return undefined;
-}
-
-function toOptionalText(value: unknown) {
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 }
 
 function formatSummaryLabel(value?: string) {

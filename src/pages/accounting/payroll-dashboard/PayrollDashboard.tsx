@@ -1,35 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import PageHeader from '../../../components/layout/PageHeader';
+import SensitiveAccessIndicator from '../../../components/security/SensitiveAccessIndicator';
+import SensitiveAccessModal from '../../../components/security/SensitiveAccessModal';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
+import { useSensitiveAccessPrompt } from '../../../hooks/useSensitiveAccessPrompt';
 import { apiFetchJson, toArray } from '../../../lib/api';
+import { formatDate } from '../../../lib/formatters';
+import type { PayTypeSummaryRow, PayrollItemRow, PayrollRunRow } from '../../../lib/types/payroll';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './PayrollDashboard.css';
-
-type PayrollRunRow = {
-  payId?: number;
-  periodStart?: string;
-  periodEnd?: string;
-  periodDescription?: string;
-  payrollStatus?: string;
-  runType?: string;
-  itemCount?: number;
-};
-
-type PayrollItemRow = {
-  empId?: number;
-  firstName?: string;
-  lastName?: string;
-  itemId?: number;
-  grossPay?: number | string;
-  netPay?: number | string;
-};
-
-type PayTypeSummaryRow = {
-  payType?: string;
-  total?: number | string;
-};
 
 type HistoryPoint = {
   payId: number;
@@ -43,6 +24,10 @@ type BreakdownPoint = {
   total: number;
   share: number;
   tone: 't1' | 't2' | 't3' | 't4' | 't5' | 't6';
+};
+
+type AccountingPayrollDashboardProps = {
+  showSensitiveAccessIndicator?: boolean;
 };
 
 const BREAKDOWN_COLORS: Record<BreakdownPoint['tone'], string> = {
@@ -77,21 +62,10 @@ function formatShareLabel(share: number) {
   return `${percentage.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')}%`;
 }
 
-function formatDate(value?: string) {
-  if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-}
-
 function describeRun(run: PayrollRunRow | null) {
   if (!run) return 'No payroll run selected';
   if (run.periodStart || run.periodEnd) {
-    return `${formatDate(run.periodStart)} to ${formatDate(run.periodEnd)}`;
+    return `${formatDate(run.periodStart, '-')} to ${formatDate(run.periodEnd, '-')}`;
   }
   if (run.periodDescription?.trim()) return run.periodDescription.trim();
   return 'Payroll period unavailable';
@@ -188,7 +162,9 @@ function buildDonutBackground(points: BreakdownPoint[]) {
   ].join(', ');
 }
 
-export default function AccountingPayrollDashboard() {
+export default function AccountingPayrollDashboard({
+  showSensitiveAccessIndicator = false,
+}: AccountingPayrollDashboardProps) {
   const [runs, setRuns] = useState<PayrollRunRow[]>([]);
   const [selectedPayId, setSelectedPayId] = useState<number | null>(null);
   const [selectedItems, setSelectedItems] = useState<PayrollItemRow[]>([]);
@@ -201,6 +177,8 @@ export default function AccountingPayrollDashboard() {
   const [canScrollHistoryLeft, setCanScrollHistoryLeft] = useState(false);
   const [canScrollHistoryRight, setCanScrollHistoryRight] = useState(false);
   const silentRefreshRef = useRef(false);
+  const sensitiveAccess = useSensitiveAccessPrompt();
+  const handleSensitiveAccessError = sensitiveAccess.handleProtectedError;
   useErrorDialogEffect(loadError, 'Payroll dashboard could not be loaded');
   const handlePageRefresh = useCallback(() => {
     silentRefreshRef.current = true;
@@ -236,6 +214,15 @@ export default function AccountingPayrollDashboard() {
         });
       } catch (error) {
         if (cancelled) return;
+        if (
+          handleSensitiveAccessError(
+            error,
+            loadRuns,
+            'Verify access before opening the payroll dashboard.'
+          )
+        ) {
+          return;
+        }
         if (!isSilentRefresh) {
           setRuns([]);
           setSelectedPayId(null);
@@ -254,7 +241,7 @@ export default function AccountingPayrollDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [refreshTick]);
+  }, [refreshTick, handleSensitiveAccessError]);
 
   useEffect(() => {
     if (runs.length === 0 || selectedPayId == null) {
@@ -314,6 +301,15 @@ export default function AccountingPayrollDashboard() {
         setLoadError('');
       } catch (error) {
         if (cancelled) return;
+        if (
+          handleSensitiveAccessError(
+            error,
+            loadDashboardData,
+            'Verify access before opening payroll dashboard details.'
+          )
+        ) {
+          return;
+        }
         if (!isSilentRefresh) {
           setSelectedItems([]);
           setSelectedSummary([]);
@@ -332,7 +328,7 @@ export default function AccountingPayrollDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [runs, selectedPayId]);
+  }, [runs, selectedPayId, handleSensitiveAccessError]);
 
   const selectedRun = useMemo(
     () => runs.find((run) => run.payId === selectedPayId) ?? null,
@@ -440,6 +436,16 @@ export default function AccountingPayrollDashboard() {
         <PageHeader
           title="Overall Payroll Costs"
           description="Compare payroll cost trends, pay-type breakdowns, and the current run at a glance."
+          titleMeta={showSensitiveAccessIndicator ? (
+            <SensitiveAccessIndicator
+              onActivate={() =>
+                sensitiveAccess.requestVerification(
+                  async () => Promise.resolve(),
+                  'Enter your password to unlock payroll dashboard access.'
+                )
+              }
+            />
+          ) : null}
         />
 
         <div className="aDashPay__controls">
@@ -604,6 +610,13 @@ export default function AccountingPayrollDashboard() {
           </div>
         </article>
       </section>
+
+      <SensitiveAccessModal
+        open={sensitiveAccess.open}
+        onClose={sensitiveAccess.close}
+        onVerified={sensitiveAccess.handleVerified}
+        notice={sensitiveAccess.notice}
+      />
     </section>
   );
 }

@@ -1,0 +1,69 @@
+:where(
+  .hrEmpRow,
+  .hrRunEmployee,
+  .hrApprRow,
+  .hrAuditRow,
+  .hrAttRow,
+  .hrPayRunRow,
+  .hrPayRow,
+  .mgrPendRow,
+  .payTableRow,
+  .apprTableRow
+) {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s ease !important;
+}
+
+:where(
+  .hrEmpRow,
+  .hrRunEmployee,
+  .hrApprRow,
+  .hrAuditRow,
+  .hrAttRow,
+  .hrPayRunRow,
+  .hrPayRow,
+  .mgrPendRow,
+  .payTableRow,
+  .apprTableRow
+):hover:not(:disabled) {
+  transform: translateX(4px) scale(1.002) !important;
+  z-index: 1 !important;
+}
+
+:where(
+  .apprTable__head,
+  .payTable__head,
+  .hrEmpTable__head,
+  .hrApprRequestTable__head,
+  .mgrPendTable__head,
+  .hrPayRunTable__head,
+  .hrPayTable__head,
+  .aReviewPayTable__head,
+  .aReviewRunTable__head,
+  .hrRunTable__head,
+  .mRunTable__head
+) {
+  border: 1px solid rgba(95, 65, 122, 0.28) !important;
+  border-radius: 12px 12px 0 0 !important;
+  background: var(--app-table-head-bg) !important;
+  box-shadow: none !important;
+}
+
+:where(
+  .apprTable__head div,
+  .payTable__head div,
+  .hrEmpTable__head > div,
+  .hrApprRequestTable__head span,
+  .mgrPendTable__head span,
+  .hrPayRunTable__head span,
+  .hrPayTable__head > div,
+  .aReviewPayTable__head > div,
+  .aReviewRunTable__head span,
+  .hrRunTable__head span,
+  .mRunTable__head span
+) {
+  color: var(--app-table-head-text) !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+}
