@@ -8,7 +8,6 @@ import FileUploadField from '../../../components/form/FileUploadField';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import LargePopup from '../../../components/dialog/LargePopup';
 import { useUiDialog } from '../../../components/dialog/useUiDialog';
-import PageHeader from '../../../components/layout/PageHeader';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { useUnsavedChangesPrompt } from '../../../hooks/useUnsavedChangesPrompt';
@@ -18,6 +17,17 @@ import { sanitizeFileNamePart } from '../../../lib/fileNames';
 import { getUserEmail, getUserRole } from '../../../lib/session';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import { getManilaNow } from '../../../lib/manilaTime';
+import { useAttendanceRequestForm } from './hooks/useAttendanceRequestForm';
+import AttendanceHeader from './sections/AttendanceHeader';
+import AttendanceSummary from './sections/AttendanceSummary';
+import type {
+  AttendanceLeaveRequest as LeaveRequestRow,
+  AttendanceLog,
+  AttendanceOvertimeRequest as OvertimeRequestRow,
+  DailyShift as DailyShiftRow,
+  ShiftSchedule as ShiftScheduleRow,
+} from '../../../lib/types/attendance';
+import type { EmployeeDetails, LeaveBalanceRow } from '../../../lib/types/employee';
 
 type LeaveType =
   | 'SICK_LEAVE'
@@ -43,61 +53,11 @@ type RequestEntry = {
   endTime?: string;
 };
 
-type LeaveRequestRow = {
-  requestId?: number;
-  startDateTime?: string;
-  endDateTime?: string;
-  requestStatus?: string;
-  reason?: string;
-  leaveType?: string;
-  paid?: boolean;
-};
-
-type OvertimeRequestRow = {
-  overtimeId?: number;
-  workDate?: string;
-  startTime?: string;
-  endTime?: string;
-  requestStatus?: string;
-  reason?: string;
-  overtimeType?: string;
-};
-
-type ShiftScheduleRow = {
-  shiftId?: number;
-  startTime?: string;
-  endTime?: string;
-  dayOfWeek?: string;
-};
-
-type DailyShiftRow = {
-  dailyShiftId?: number;
-  workDate?: string;
-  startDateTime?: string;
-  endDateTime?: string;
-  dayOff?: boolean;
-};
-
 type DayCell = {
   day: number | null;
   statusNotes?: string[];
   detailNotes?: string[];
   variant?: 'leave' | 'ot';
-};
-
-type AttendanceLog = {
-  attendanceId?: number;
-  timestamp?: string;
-  direction?: string;
-};
-
-type EmployeeDetails = {
-  firstName?: string;
-  middleName?: string;
-  lastName?: string;
-  position?: string;
-  department?: string;
-  managerName?: string;
 };
 
 type TimecardMode = 'calendar' | 'timecard';
@@ -134,12 +94,6 @@ type AttendanceHistory = {
 };
 
 const MAX_VISIBLE_CALENDAR_LOGS = 3;
-
-type LeaveBalanceRow = {
-  leaveId?: number;
-  balanceHours?: number | string | null;
-  leaveType?: LeaveType | string;
-};
 
 type LeaveShiftWindow = {
   start: Date;
@@ -771,8 +725,20 @@ export default function Attendance() {
     );
   }, [year]);
 
-  // Leave modal state
-  const [leaveOpen, setLeaveOpen] = useState(false);
+  const {
+    confirmClockAction,
+    confirmLeaveSubmit,
+    confirmOtSubmit,
+    leaveOpen,
+    otOpen,
+    scheduleOpen,
+    setConfirmClockAction,
+    setConfirmLeaveSubmit,
+    setConfirmOtSubmit,
+    setLeaveOpen,
+    setOtOpen,
+    setScheduleOpen,
+  } = useAttendanceRequestForm();
 
   const [leaveType, setLeaveType] = useState<LeaveType>('SICK_LEAVE');
   const [startDate, setStartDate] = useState<string>('');
@@ -812,7 +778,6 @@ export default function Attendance() {
   const [timecardFromDate, setTimecardFromDate] = useState(initialTimecardRange.from);
   const [timecardToDate, setTimecardToDate] = useState(initialTimecardRange.to);
   const [timecardActionError, setTimecardActionError] = useState('');
-  const [otOpen, setOtOpen] = useState(false);
   const [otStartDate, setOtStartDate] = useState<string>('');
   const [otEndDate, setOtEndDate] = useState<string>('');
   const [otStartTime, setOtStartTime] = useState<string>('17:00');
@@ -831,12 +796,8 @@ export default function Attendance() {
   });
   const [otSubmitError, setOtSubmitError] = useState('');
   const [otSubmitAttempted, setOtSubmitAttempted] = useState(false);
-  const [scheduleOpen, setScheduleOpen] = useState(false);
   const [isClocking, setIsClocking] = useState(false);
   const [clockError, setClockError] = useState('');
-  const [confirmClockAction, setConfirmClockAction] = useState<'TIME_IN' | 'TIME_OUT' | null>(null);
-  const [confirmLeaveSubmit, setConfirmLeaveSubmit] = useState(false);
-  const [confirmOtSubmit, setConfirmOtSubmit] = useState(false);
   const [latestAttendanceDirection, setLatestAttendanceDirection] = useState<'IN' | 'OUT' | null>(null);
   const currentScheduleWeekStart = useMemo(() => startOfWeekSunday(todayKey), [todayKey]);
   const [selectedScheduleWeekStart, setSelectedScheduleWeekStart] = useState(currentScheduleWeekStart);
@@ -2155,68 +2116,19 @@ export default function Attendance() {
 
   return (
     <div className="att">
-      {/* Title row */}
-      <div className="att__head">
-        <PageHeader
-          title="Attendance"
-          description="Review your work logs through the monthly calendar or a downloadable timecard."
-        />
-        <div className="att__controls">
-          <label className="attModeSelect attModeSelect--view" aria-label="Attendance view">
-            <select value={timecardMode} onChange={(event) => setTimecardMode(event.target.value as TimecardMode)}>
-              <option value="calendar">By Calendar</option>
-              <option value="timecard">By Timecard</option>
-            </select>
-          </label>
-          <button className="attClockBtn attClockBtn--schedule" type="button" onClick={openSchedule} title="View My Schedule">
-            <span>My Schedule</span>
-            <span className="attClockBtn__icon">
-              <FiCalendar />
-            </span>
-          </button>
-          <button
-            className="attClockBtn"
-            type="button"
-            onClick={requestAttendanceConfirmation}
-            disabled={isClocking}
-            title={isClocking ? 'Submitting attendance' : isClockOutAction ? 'Time Out' : 'Time In'}
-          >
-            <span>{isClocking ? 'Submitting...' : isClockOutAction ? 'Time Out' : 'Time In'}</span>
-            <span className="attClockBtn__icon">
-              <FiPlusSquare />
-            </span>
-          </button>
-        </div>
-      </div>
-      <section className="attBalanceCard" aria-labelledby="att-leave-balances-title">
-        <div className="attBalanceCard__header">
-          <div className="attBalanceCard__copy">
-            <h2 className="attBalanceCard__title" id="att-leave-balances-title">
-              Leave Balances
-            </h2>
-          </div>
-        </div>
-
-        {leaveBalanceStatus === 'loading' ? (
-          <p className="attBalanceCard__loading">Loading leave balances...</p>
-        ) : leaveBalanceStatus === 'unavailable' ? (
-          <p className="attBalanceCard__loading">Your leave balances are unavailable right now.</p>
-        ) : (
-          <div className="attBalanceGrid">
-            {orderedLeaveBalances.map((item) => (
-              <div
-                key={item.key}
-                className={`attBalancePill${item.balance ? '' : ' attBalancePill--empty'}`}
-              >
-                <span className="attBalancePill__label">{item.label}</span>
-                <strong className="attBalancePill__value">
-                  {item.balance ? formatBalanceHoursLabel(item.balance.balanceHours) : 'Not assigned'}
-                </strong>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+      <AttendanceHeader
+        isClockOutAction={isClockOutAction}
+        isClocking={isClocking}
+        onOpenSchedule={openSchedule}
+        onRequestAttendanceConfirmation={requestAttendanceConfirmation}
+        onTimecardModeChange={(value) => setTimecardMode(value as TimecardMode)}
+        timecardMode={timecardMode}
+      />
+      <AttendanceSummary
+        formatBalanceHoursLabel={formatBalanceHoursLabel}
+        leaveBalanceStatus={leaveBalanceStatus}
+        orderedLeaveBalances={orderedLeaveBalances}
+      />
 
       {timecardMode === 'calendar' ? (
         <>

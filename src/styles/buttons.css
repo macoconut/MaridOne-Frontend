@@ -1,0 +1,42 @@
+:where(
+  .actionBtnX,
+  .handbookBtn,
+  .miniFolder__btn,
+  .infoCardX__edit,
+  .cardX__manageBtn,
+  .dashSecurityBtn,
+  .verifyEmailBtn,
+  .mRunFilters__refresh
+) {
+  min-height: 44px !important;
+  border-radius: 999px !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.01em !important;
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease !important;
+}
+
+:where(
+  .actionBtnX,
+  .handbookBtn,
+  .miniFolder__btn,
+  .infoCardX__edit,
+  .cardX__manageBtn,
+  .dashSecurityBtn,
+  .verifyEmailBtn,
+  .mRunFilters__refresh
+):hover:not(:disabled) {
+  transform: scale(1.02) !important;
+}
+
+:where(
+  .actionBtnX,
+  .handbookBtn,
+  .miniFolder__btn,
+  .infoCardX__edit,
+  .cardX__manageBtn,
+  .dashSecurityBtn,
+  .verifyEmailBtn
+) {
+  box-shadow: var(--ui-shadow-soft) !important;
+}

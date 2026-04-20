@@ -72,76 +72,88 @@ function parseJsonSafely(text: string): unknown {
   }
 }
 
-function extractErrorMessage(data: unknown, fallbackStatus: number, rawText: string): string {
+function fallbackRequestMessage(fallbackStatus: number) {
+  return fallbackStatus > 0 ? `Request failed (${fallbackStatus})` : 'Something went wrong';
+}
+
+function toDisplayErrorFromPayload(data: unknown, fallbackStatus: number, rawText = ''): {
+  message: string;
+  details: string[];
+} {
+  const details: string[] = [];
+
   if (data && typeof data === 'object') {
     const obj = data as Record<string, unknown>;
 
     if (typeof obj.message === 'string' && obj.message.trim().length > 0) {
-      return obj.message;
+      details.push(obj.message.trim());
     }
 
     if (typeof obj.error === 'string' && obj.error.trim().length > 0) {
-      return obj.error;
+      details.push(obj.error.trim());
     }
 
     if (Array.isArray(obj.errors) && obj.errors.length > 0) {
-      const first = obj.errors[0];
-      if (typeof first === 'string' && first.trim().length > 0) return first;
-      if (first && typeof first === 'object') {
-        const firstObj = first as Record<string, unknown>;
-        if (typeof firstObj.defaultMessage === 'string' && firstObj.defaultMessage.trim().length > 0) {
-          return firstObj.defaultMessage;
+      for (const item of obj.errors) {
+        if (typeof item === 'string' && item.trim().length > 0) {
+          details.push(item.trim());
+          continue;
+        }
+
+        if (item && typeof item === 'object') {
+          const entry = item as Record<string, unknown>;
+          if (typeof entry.defaultMessage === 'string' && entry.defaultMessage.trim().length > 0) {
+            details.push(entry.defaultMessage.trim());
+          }
         }
       }
     }
+  }
+
+  const uniqueDetails = [...new Set(details)];
+  const message = uniqueDetails[0];
+
+  if (message) {
+    return { message, details: uniqueDetails };
   }
 
   if (rawText && !data) {
-    return rawText.length > 250 ? `Request failed (${fallbackStatus})` : rawText;
-  }
-
-  return `Request failed (${fallbackStatus})`;
-}
-
-function extractErrorDetails(data: unknown): string[] {
-  if (!data || typeof data !== 'object') return [];
-
-  const obj = data as Record<string, unknown>;
-  const details: string[] = [];
-
-  if (typeof obj.message === 'string' && obj.message.trim().length > 0) {
-    details.push(obj.message.trim());
-  }
-
-  if (typeof obj.error === 'string' && obj.error.trim().length > 0) {
-    details.push(obj.error.trim());
-  }
-
-  if (Array.isArray(obj.errors)) {
-    for (const item of obj.errors) {
-      if (typeof item === 'string' && item.trim().length > 0) {
-        details.push(item.trim());
-        continue;
-      }
-
-      if (item && typeof item === 'object') {
-        const entry = item as Record<string, unknown>;
-        if (typeof entry.defaultMessage === 'string' && entry.defaultMessage.trim().length > 0) {
-          details.push(entry.defaultMessage.trim());
-        }
-      }
+    const trimmedRawText = rawText.trim();
+    if (trimmedRawText.length > 0 && trimmedRawText.length <= 250) {
+      return { message: trimmedRawText, details: [] };
     }
   }
 
-  return [...new Set(details)];
+  return { message: fallbackRequestMessage(fallbackStatus), details: [] };
+}
+
+export function toDisplayError(error: unknown, fallbackStatus = 0): {
+  message: string;
+  details: string[];
+} {
+  if (error instanceof ApiError) {
+    const message = error.message?.trim() || error.rawMessage?.trim() || fallbackRequestMessage(error.status || fallbackStatus);
+    const details = error.details.length > 0 ? [...new Set(error.details)] : [];
+    return { message, details };
+  }
+
+  if (error instanceof Error) {
+    const message = error.message?.trim() || fallbackRequestMessage(fallbackStatus);
+    return { message, details: [] };
+  }
+
+  if (typeof error === 'string' && error.trim().length > 0) {
+    return { message: error.trim(), details: [] };
+  }
+
+  return toDisplayErrorFromPayload(error, fallbackStatus);
 }
 
 function throwApiErrorIfNeeded(response: Response, text: string) {
   if (response.ok) return;
 
   const data = parseJsonSafely(text);
-  const message = extractErrorMessage(data, response.status, text);
-  const details = extractErrorDetails(data);
+  const { message, details } = toDisplayErrorFromPayload(data, response.status, text);
   throw new ApiError(response.status, message, message, details);
 }
 
