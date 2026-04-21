@@ -40,3 +40,31 @@
 ) {
   box-shadow: var(--ui-shadow-soft) !important;
 }
+
+/* Small-phone tier: make primary CTAs full-width so they're thumb-reachable
+ * and don't leave awkward gaps on 360px devices. Desktop keeps pill shape. */
+@media (max-width: 380px) {
+  :where(
+    .primaryBtn,
+    .secondaryBtn,
+    .ghostBtn,
+    .actionBtnX,
+    .handbookBtn,
+    .verifyEmailBtn,
+    .dashSecurityBtn
+  ) {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+}
+
+@media (max-width: 560px) {
+  :where(
+    .btnGroup,
+    .formActions,
+    .pageHeader__actions
+  ) {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+}

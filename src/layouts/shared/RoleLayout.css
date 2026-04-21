@@ -1101,6 +1101,42 @@ body.modal-open :where(
   }
 }
 
+@media (max-width: 380px){
+  .eTop{
+    padding: 0 10px;
+    min-height: 50px;
+  }
+
+  .eTop__ham{
+    width: 38px;
+    height: 38px;
+  }
+
+  .eTop__bell{
+    width: 34px;
+    height: 34px;
+    font-size: 20px;
+  }
+
+  .eTop__actions{
+    gap: 6px;
+  }
+
+  .eContent{
+    padding: 8px 10px 24px;
+  }
+
+  .eSide{
+    width: min(92vw, 320px);
+    padding: 24px 16px;
+  }
+
+  .notifPanel{
+    width: calc(100vw - 12px);
+    right: -6px;
+  }
+}
+
 /* =========================
    Notifications (Figma-like)
    ========================= */

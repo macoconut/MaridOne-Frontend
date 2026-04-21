@@ -1,3 +1,12 @@
+/*
+ * Responsive breakpoint tiers — all new mobile rules snap to these.
+ *   @media (max-width: 1024px)  Tablet   — shell swaps to drawer + mobile header.
+ *   @media (max-width: 768px)   Handheld — 2-col collapses to 2, filter toolbars wrap.
+ *   @media (max-width: 560px)   Phone    — grids 1-col, tables scroll, modals full-screen.
+ *   @media (max-width: 380px)   Small    — buttons full-width, tightened padding.
+ * Desktop (>=1025px) visual output is frozen.
+ */
+
 :root {
   --font-body: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   --font-heading: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;

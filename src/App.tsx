@@ -56,6 +56,7 @@ import './styles/buttons.css';
 import './styles/tables.css';
 import './styles/universal-ui.css';
 import './styles/spinner.css';
+import './styles/mobile.css';
 
 function roleHome(role: UserRole) {
   return getRoleHomePath(role);

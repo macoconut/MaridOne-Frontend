@@ -902,4 +902,50 @@
   .aReviewRunGroup__head {
     grid-template-columns: 1fr;
   }
+
+  .aReviewRunTable__head {
+    font-size: 14px;
+    padding: 10px 12px;
+  }
+
+  .aReviewRunTable__body {
+    padding: 0 12px;
+  }
+
+  .aReviewRunTable__head--employee > span:first-child,
+  .aReviewRunEmployee > *:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: inherit;
+  }
+
+  .aReviewRunEmployee {
+    background: #fff;
+  }
+
+  .aReviewRunEmployee--interactive:hover > *:first-child {
+    background: #f8f3fc;
+  }
+
+  .aReviewRunEmployee__name {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 380px) {
+  .aReviewRunTable__head,
+  .aReviewRunEmployee {
+    padding: 10px;
+  }
+
+  .aReviewRunTable__head--employee,
+  .aReviewRunEmployee {
+    width: max(100%, 720px);
+    grid-template-columns: 96px minmax(160px, 1fr) minmax(100px, 0.9fr) minmax(100px, 0.9fr) minmax(110px, 120px);
+  }
+
+  .aReviewRunEmployee__id {
+    font-size: 13px;
+  }
 }

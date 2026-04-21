@@ -1417,3 +1417,47 @@
     aspect-ratio: 1;
   }
 }
+
+@media (max-width: 380px){
+  .infoCardX{
+    padding: 12px;
+  }
+
+  .infoCardX__name{
+    font-size: 22px;
+  }
+
+  .actionBtnX{
+    font-size: 14px;
+    padding: 0 16px;
+    min-height: 52px !important;
+    height: 52px;
+  }
+
+  .cardX__title{
+    font-size: 15px;
+    padding: 10px 12px;
+  }
+
+  .miniFolder__name,
+  .handbookRow__name{
+    font-size: 16px;
+  }
+
+  .dashModal__btn,
+  .dashModal__btn--ghost{
+    width: 100%;
+  }
+
+  .dashModal__actions{
+    flex-direction: column-reverse;
+  }
+
+  .leaveSplitLayout__next{
+    padding: 20px 14px;
+  }
+
+  .leaveSplitLayout__bars{
+    padding: 16px 14px;
+  }
+}

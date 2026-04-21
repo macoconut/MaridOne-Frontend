@@ -557,3 +557,35 @@
   }
 }
 
+@media (max-width: 380px) {
+  .aDashPay__top h1 {
+    font-size: 20px;
+  }
+
+  .aDashPaySummaryCard h3 {
+    font-size: 15px;
+  }
+
+  .aDashPaySummaryCard__value {
+    font-size: 26px;
+    margin-top: 10px;
+  }
+
+  .aDashPaySummaryCard p {
+    font-size: 14px;
+  }
+
+  .aDashPayPanel__head {
+    font-size: 15px;
+  }
+
+  .aDashPayHistoryCard {
+    width: min(200px, calc(100vw - 48px));
+    flex-basis: min(200px, calc(100vw - 48px));
+  }
+
+  .aDashPayDonutBlock {
+    --donut-size: min(200px, 72vw);
+  }
+}
+

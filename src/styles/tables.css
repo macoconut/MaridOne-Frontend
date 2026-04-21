@@ -67,3 +67,41 @@
   letter-spacing: 0.1em !important;
   text-transform: uppercase !important;
 }
+
+/*
+ * Mobile scroll wrapper for wide CSS-grid tables.
+ * Opt-in: wrap the outer container (the one holding head + rows) with
+ *   class="tableScroll"          -> horizontal scroll below 768px
+ *   class="tableScroll tableScroll--stickyFirst" -> sticky first column below 560px
+ * Set --tableScroll-min on the inner head/row element if columns must
+ * keep their desktop widths; defaults to max-content so rows can't squeeze.
+ */
+.tableScroll {
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .tableScroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .tableScroll > * {
+    min-width: var(--tableScroll-min, max-content);
+  }
+}
+
+@media (max-width: 560px) {
+  .tableScroll--stickyFirst > * > *:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--tableScroll-sticky-bg, #ffffff);
+    box-shadow: 4px 0 6px -4px rgba(32, 21, 49, 0.12);
+  }
+
+  .tableScroll--stickyFirst :where(.hrEmpTable__head, .hrAuditTable__head, .apprTable__head, .payTable__head, .hrPayRunTable__head, .aReviewPayTable__head, .aReviewRunTable__head, .hrRunTable__head, .mRunTable__head, .hrApprRequestTable__head, .mgrPendTable__head) > *:first-child {
+    background: var(--app-table-head-bg, #f3ecfa);
+  }
+}

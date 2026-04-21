@@ -909,3 +909,38 @@
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 380px) {
+  .hrDash__title {
+    font-size: 19px;
+  }
+
+  .hrDash__subtitle {
+    font-size: 14px;
+  }
+
+  .hrDash__dateLabel strong {
+    font-size: 13px;
+  }
+
+  .hrStatCard {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .hrStatCard__label {
+    font-size: 15px;
+  }
+
+  .hrPerson {
+    padding: 10px 12px;
+  }
+
+  .hrListPanel {
+    height: 280px;
+  }
+
+  .hrFeedPanel {
+    height: 320px;
+  }
+}

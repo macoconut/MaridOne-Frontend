@@ -1237,3 +1237,56 @@
     align-self: flex-end;
   }
 }
+
+@media (max-width: 560px) {
+  .hrEmp__title {
+    font-size: 20px;
+  }
+
+  .hrEmpToolbar {
+    padding: 12px;
+  }
+
+  .hrEmpTable__head,
+  .hrEmpRow {
+    padding: 10px 12px;
+    font-size: 14px;
+    gap: 8px;
+  }
+
+  .hrEmpTable__head > div:first-child,
+  .hrEmpRow > div:first-child {
+    position: sticky;
+    left: 0;
+    background: inherit;
+    z-index: 1;
+  }
+
+  .hrEmpRow > div:first-child {
+    background: var(--hr-emp-row-surface, #fff);
+  }
+
+  .hrEmpRow__actions {
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .hrEmp__title {
+    font-size: 19px;
+  }
+
+  .hrEmpTable__head,
+  .hrEmpRow {
+    width: max(100%, 560px);
+    grid-template-columns: 70px minmax(150px, 1.2fr) minmax(140px, 0.9fr) 96px;
+    padding: 10px;
+    font-size: 13px;
+  }
+
+  .hrEmpTable__actionBtn {
+    width: 100%;
+  }
+}

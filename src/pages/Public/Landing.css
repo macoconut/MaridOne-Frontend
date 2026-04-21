@@ -576,6 +576,48 @@ html {
   }
 }
 
+@media (max-width: 380px) {
+  :root {
+    --landing-logo-size:38px;
+    --landing-brand-gap:10px;
+  }
+
+  .landing__header,
+  .landing__main,
+  .aboutSection {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .brand__name {
+    font-size: 22px;
+  }
+
+  .hero__title {
+    font-size: 30px;
+  }
+
+  .hero__desc {
+    font-size: 15px;
+  }
+
+  .nav-actions {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .nav-btn {
+    padding: 8px 10px;
+    font-size: 15px;
+  }
+
+  .aboutFeature__icon {
+    width: 64px;
+    height: 64px;
+    font-size: 26px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .launchScreen,
   .launchScreen__card,

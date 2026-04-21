@@ -307,3 +307,85 @@
   }
 }
 
+@media (max-width: 560px) {
+  .mAtt__top h1 {
+    font-size: 20px;
+  }
+
+  .mAtt__top p {
+    font-size: 15px;
+  }
+
+  .mAtt__exportBtn {
+    max-width: none;
+    width: 100%;
+  }
+
+  .mAtt__stats {
+    grid-template-columns: 1fr;
+  }
+
+  .mAtt__statCard {
+    min-height: 56px;
+    padding: 10px 12px;
+    gap: 12px;
+  }
+
+  .mAtt__statIcon {
+    width: 42px;
+    height: 42px;
+  }
+
+  .mAtt__statLabel,
+  .mAtt__statValue {
+    font-size: 15px;
+  }
+
+  .mAtt__deptBody {
+    padding: 10px 6px 4px;
+    gap: 6px;
+  }
+
+  .mAtt__legend {
+    justify-content: flex-start;
+    gap: 8px 12px;
+    padding: 2px 10px 12px;
+  }
+
+  .mAtt__legendItem {
+    font-size: 14px;
+  }
+
+  .mAtt__list,
+  .mAtt__feedList {
+    padding: 6px 10px 8px;
+  }
+
+  .mAtt__smallMeta {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 380px) {
+  .mAtt__top h1 {
+    font-size: 19px;
+  }
+
+  .mAtt__cardHeader {
+    font-size: 15px;
+  }
+
+  .mAtt__personName,
+  .mAtt__personMeta {
+    font-size: 14px;
+  }
+
+  .mAtt__personRight {
+    font-size: 14px;
+  }
+
+  .mAtt__legendItem {
+    font-size: 13px;
+  }
+}
+

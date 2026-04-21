@@ -1109,6 +1109,119 @@ body.modal-open :where(.largePopupBackdrop, .largePopup) {
   }
 }
 
+/* Phone tier: modals become near-full-screen with zero padding around so
+ * the form area uses every available pixel on a handheld. Desktop/tablet
+ * keep the centered pill-radius card. */
+@media (max-width: 560px) {
+  .largePopupBackdrop,
+  :where(
+    .modalBackdrop,
+    .dashModalBackdrop,
+    .payModalBackdrop,
+    .apprModalBackdrop,
+    .hrEmpModalBackdrop,
+    .sensitiveAccessModalBackdrop,
+    .hrAuditModalBackdrop,
+    .hrAttModalBackdrop,
+    .hrPayModalBackdrop,
+    .hrApprModalBackdrop,
+    .aReviewPayModalBackdrop,
+    .settingsModalBackdrop,
+    .hrRunModalBackdrop,
+    .aReviewRunModalBackdrop
+  ) {
+    padding: 0 !important;
+    align-items: stretch !important;
+    place-items: stretch !important;
+  }
+
+  .largePopup,
+  .largePopup--md,
+  .largePopup--lg,
+  .largePopup--xl {
+    width: 100vw;
+    max-width: none;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    padding: 18px 18px 22px;
+  }
+
+  :where(
+    .modal,
+    .dashModal,
+    .payModal,
+    .apprModal,
+    .hrEmpModal,
+    .sensitiveAccessModal,
+    .hrAuditModal,
+    .hrAttModal,
+    .hrPayModal,
+    .hrApprModal,
+    .aReviewPayModal,
+    .settingsModal,
+    .hrRunModal,
+    .aReviewRunModal
+  ) {
+    width: 100vw !important;
+    max-width: none !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+    padding: 18px 18px 22px !important;
+  }
+
+  .confirmDialog__card,
+  .alertDialog__card {
+    width: min(420px, 94vw) !important;
+    margin: auto !important;
+  }
+
+  :where(
+    .largePopup__title,
+    .modal__title,
+    .dashModal__title,
+    .payModal__title,
+    .apprModal__title,
+    .hrAttModal__title,
+    .hrApprModal__title,
+    .settingsModal__title,
+    .hrRunModal__title,
+    .aReviewRunModal__title,
+    .hrEmpModal h2,
+    .hrPayModal h3,
+    .aReviewPayModal h2
+  ) {
+    font-size: clamp(22px, 5vw, 26px) !important;
+  }
+
+  :where(
+    .uiCloseButton,
+    .modal__close,
+    .dashModal__close,
+    .payModal__close,
+    .apprModal__close,
+    .hrEmpModal__close,
+    .hrAttModal__close,
+    .hrPayModal__close,
+    .hrApprModal__close,
+    .hrRunModal__close,
+    .hrEmpDetailsDialog__close,
+    .aReviewPayModal__close,
+    .aReviewRunModal__close,
+    .largePopup__close
+  ) {
+    width: 40px !important;
+    min-width: 40px !important;
+    height: 40px !important;
+    border-radius: 12px !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .largePopupBackdrop,
   .largePopup {

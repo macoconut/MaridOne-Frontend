@@ -1,0 +1,88 @@
+/*
+ * Generic mobile utility classes. Use sparingly inside page JSX when
+ * a local tweak is needed and a dedicated CSS rule would be overkill.
+ * For repeatable patterns (tables, forms, modals, buttons, filters)
+ * prefer the rules in tables.css / forms.css / buttons.css / modals.css /
+ * universal-ui.css so behavior stays consistent across pages.
+ */
+
+@media (max-width: 1024px) {
+  .tabletHide {
+    display: none !important;
+  }
+}
+
+@media (min-width: 1025px) {
+  .tabletOnly {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .handheldHide {
+    display: none !important;
+  }
+
+  .handheldStack {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .mobileHide {
+    display: none !important;
+  }
+
+  .mobileStack {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+
+  .mobileGridOne {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .mobileFull {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .mobileWrap {
+    flex-wrap: wrap !important;
+  }
+
+  .mobileScrollX {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: thin !important;
+  }
+
+  .mobileScrollX > * {
+    min-width: max-content;
+  }
+
+  .mobilePadTight {
+    padding: 12px !important;
+  }
+}
+
+@media (min-width: 561px) {
+  .mobileOnly {
+    display: none !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .smallPhoneHide {
+    display: none !important;
+  }
+
+  .smallPhoneStack {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+}

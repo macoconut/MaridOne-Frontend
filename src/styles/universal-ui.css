@@ -663,22 +663,9 @@ body {
     line-height: 1.5 !important;
   }
 
-  :where(
-    .dashModal,
-    .payModal,
-    .apprModal,
-    .hrEmpModal,
-    .hrAttModal,
-    .hrPayModal,
-    .hrApprModal,
-    .aReviewPayModal,
-    .hrRunModal,
-    .aReviewRunModal
-  ) {
-    padding: 14px !important;
-    border-radius: 16px !important;
-  }
-
+  /* Phone-tier modals go full-screen (see styles/modals.css for the
+   * width/height rules); keep the modal top row wrapping so long titles
+   * and close button don't collide. */
   :where(
     .dashModal__top,
     .payModal__top,
@@ -696,5 +683,37 @@ body {
 
   :where(.uiEmployeeSort, .uiEmployeeSort__toggle) {
     width: 100% !important;
+  }
+
+  :where(
+    .apprSearch,
+    .hrApprSearch,
+    .hrAttSearch,
+    .hrEmpSearch,
+    .hrPaySearch,
+    .hrAuditSearch,
+    .aReviewRunSearch,
+    .hrRunSearch,
+    .mRunFilters__search,
+    .uSearch
+  ) {
+    flex: 1 1 100% !important;
+    min-width: 0 !important;
+  }
+
+  :where(
+    .apprFilter__panel,
+    .hrApprFilter__panel,
+    .hrAttFilter__panel,
+    .hrEmpFilter__panel,
+    .hrPayFilter__panel,
+    .hrRunFilter__panel,
+    .hrAuditFilter__panel,
+    .uiEmployeeSort__panel,
+    .uFilter__panel
+  ) {
+    right: auto !important;
+    left: 0 !important;
+    width: min(92vw, 320px) !important;
   }
 }

@@ -284,3 +284,41 @@
   border-radius: 14px !important;
   background: var(--popup-soft-fill) !important;
 }
+
+/* Phone tier: collapse two/three-column form grids to a single column
+ * and ensure inputs/selects meet the 44px tap-target minimum. Desktop
+ * layouts are preserved. */
+@media (max-width: 560px) {
+  :where(
+    .popupForm__grid,
+    .formGrid,
+    .hrEmpForm__grid,
+    .hrPayModal__grid,
+    .hrRunModal__grid,
+    .aReviewPayModal__grid,
+    .aReviewRunModal__grid,
+    .hrApprForm__grid,
+    .announcementModal__grid,
+    .dashPasswordForm__grid,
+    .dashTwoFactorSetup__grid
+  ) {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .largePopup__body :where(
+    input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='hidden']),
+    select,
+    textarea
+  ) {
+    font-size: 16px;
+    padding: 14px 16px;
+  }
+
+  :where(.hrPayPicker__input, .hrEmpCombo__input) {
+    font-size: 16px !important;
+  }
+
+  :where(.hrEmpCombo--compact .hrEmpCombo__input, .hrPayPicker--compact .hrPayPicker__input) {
+    font-size: 16px !important;
+  }
+}
