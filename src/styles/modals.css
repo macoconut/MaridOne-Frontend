@@ -182,6 +182,7 @@ body.modal-open :where(.largePopupBackdrop, .largePopup) {
   gap: 20px;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding-right: 4px;
 }
 
@@ -509,6 +510,7 @@ body.modal-open :where(.largePopupBackdrop, .largePopup) {
 ) {
   max-height: min(84vh, 780px) !important;
   overflow-y: auto !important;
+  overflow-x: hidden !important;
   border-radius: 24px !important;
   border: 1px solid var(--popup-border) !important;
   background: var(--popup-surface) !important;
@@ -1109,9 +1111,10 @@ body.modal-open :where(.largePopupBackdrop, .largePopup) {
   }
 }
 
-/* Phone tier: modals become near-full-screen with zero padding around so
- * the form area uses every available pixel on a handheld. Desktop/tablet
- * keep the centered pill-radius card. */
+/* Phone tier: keep modals as centered cards with a little backdrop
+ * visible around them, matching desktop behavior. Just tighten the
+ * backdrop padding and shrink title/close sizing so the card still
+ * fits comfortably on small screens. */
 @media (max-width: 560px) {
   .largePopupBackdrop,
   :where(
@@ -1130,22 +1133,13 @@ body.modal-open :where(.largePopupBackdrop, .largePopup) {
     .hrRunModalBackdrop,
     .aReviewRunModalBackdrop
   ) {
-    padding: 0 !important;
-    align-items: stretch !important;
-    place-items: stretch !important;
+    padding: 12px !important;
   }
 
   .largePopup,
   .largePopup--md,
   .largePopup--lg,
   .largePopup--xl {
-    width: 100vw;
-    max-width: none;
-    height: 100dvh;
-    max-height: 100dvh;
-    border-radius: 0;
-    border-left: 0;
-    border-right: 0;
     padding: 18px 18px 22px;
   }
 
@@ -1165,13 +1159,6 @@ body.modal-open :where(.largePopupBackdrop, .largePopup) {
     .hrRunModal,
     .aReviewRunModal
   ) {
-    width: 100vw !important;
-    max-width: none !important;
-    height: 100dvh !important;
-    max-height: 100dvh !important;
-    border-radius: 0 !important;
-    border-left: 0 !important;
-    border-right: 0 !important;
     padding: 18px 18px 22px !important;
   }
 

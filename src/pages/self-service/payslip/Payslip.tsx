@@ -726,6 +726,7 @@ export default function Payslip() {
         </div>
       </div>
 
+      <div className="payCardScroll">
       <section className="payCard">
         <div className="payCard__header">
             <div className="payCard__company">
@@ -894,6 +895,7 @@ export default function Payslip() {
           </div>
         </div>
       </section>
+      </div>
 
       <div className="payActions">
         <ActionButton
@@ -904,7 +906,11 @@ export default function Payslip() {
           onClick={() => void handleDownload()}
           disabled={printingPayslip || !selectedItemId}
         >
-          {printingPayslip ? 'Preparing Payslip...' : 'Download Payslip'}
+          {printingPayslip ? (
+            <>Preparing<span className="payBtn__longWord"> Payslip</span>...</>
+          ) : (
+            <>Download<span className="payBtn__longWord"> Payslip</span></>
+          )}
         </ActionButton>
         <ActionButton
           className="payBtn"
@@ -914,7 +920,11 @@ export default function Payslip() {
           onClick={() => void handlePrintPayslip()}
           disabled={printingPayslip || !selectedItemId}
         >
-          {printingPayslip ? 'Opening Payslip...' : 'Print Payslip'}
+          {printingPayslip ? (
+            <>Opening<span className="payBtn__longWord"> Payslip</span>...</>
+          ) : (
+            <>Print<span className="payBtn__longWord"> Payslip</span></>
+          )}
         </ActionButton>
         <ActionButton
           className="payBtn"

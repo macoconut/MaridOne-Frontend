@@ -47,12 +47,31 @@
   color: #2b2036;
 }
 
+.payCardScroll{
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(123, 74, 143, 0.3) transparent;
+}
+
+.payCardScroll::-webkit-scrollbar{
+  height: 10px;
+}
+
+.payCardScroll::-webkit-scrollbar-thumb{
+  background: rgba(123, 74, 143, 0.24);
+  border-radius: 999px;
+}
+
 .payCard{
   background:#fff;
   border:2px solid #3b2257;
   border-radius:8px;
   box-shadow: 0 10px 26px rgba(0,0,0,0.08);
   padding: 16px 18px 18px;
+  min-width: 820px;
 }
 
 .payCard__header{
@@ -488,55 +507,9 @@
 }
 
 @media (max-width: 1100px){
-  .payTables{ grid-template-columns:1fr; }
-  .payNetRow{ grid-template-columns:1fr; }
-  .payNetRow .payNet{ grid-column:auto; }
-  .paySign{ grid-template-columns:1fr; }
   .payActions{ flex-wrap:wrap; }
 }
 
-@media (max-width: 700px){
-  .payCard__header,
-  .payCard__brand{
-    flex-direction:column;
-  }
-
-  .payCard__logo{
-    width: 52px;
-    height: 52px;
-  }
-
-  .payInfo{
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-
-  .payInfo__row{
-    grid-template-columns: 96px 1fr;
-    gap:8px;
-  }
-
-  .payTable__row{
-    grid-template-columns: 1fr;
-    gap:6px;
-  }
-
-  .pay .payTable__head,
-  .payTable__total,
-  .payNet{
-    grid-template-columns: 1fr;
-    gap:6px;
-  }
-
-  .payTable__amount{
-    align-items:flex-start;
-    text-align:left;
-  }
-
-  .payNet span:last-child{
-    text-align:left;
-  }
-}
 
 .payModal__row{
   display: grid;
@@ -602,24 +575,30 @@
   font-weight: 700;
 }
 
-@media (max-width: 560px) {
-  .payBtn {
+@media (max-width: 1024px) {
+  .payActions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 12px 0 6px;
+  }
+
+  .payActions .payBtn {
     width: 100%;
     min-width: 0;
     min-height: 44px;
   }
 
-  .payInfo__row {
-    grid-template-columns: 88px 1fr;
+  .payActions .payBtn:nth-child(3) {
+    grid-column: 1 / -1;
   }
 
-  .payTable__head,
-  .payTable__row,
-  .payTable__total,
-  .payNet {
-    font-size: 13px;
+  .payBtn__longWord {
+    display: none;
   }
+}
 
+@media (max-width: 560px) {
   .payModal__row {
     grid-template-columns: 1fr;
     gap: 6px;
@@ -637,22 +616,6 @@
 }
 
 @media (max-width: 380px) {
-  .payInfo__row {
-    grid-template-columns: 1fr;
-  }
-
-  .payCard__logo {
-    width: 44px;
-    height: 44px;
-  }
-
-  .payTable__head,
-  .payTable__row,
-  .payTable__total,
-  .payNet {
-    font-size: 12px;
-  }
-
   .payModal__upload,
   .payModal__sigBtn {
     font-size: 13px;

@@ -47,6 +47,13 @@
   font-weight: 700;
 }
 
+@media (max-width: 1024px) {
+  .pageHeader {
+    margin-top: 18px;
+    padding-left: 10px;
+  }
+}
+
 @media (max-width: 768px) {
   .pageHeader .pageHeader__title {
     font-size: 28px;

@@ -25,6 +25,24 @@ body.landing-page {
   background:
     radial-gradient(120% 120% at 18% 14%, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 45%),
     linear-gradient(180deg, var(--landing-purple-1) 0%, var(--landing-purple-2) 38%, var(--landing-purple-3) 70%, var(--landing-purple-4) 100%);
+  scrollbar-color: rgba(255, 255, 255, 0.28) transparent;
+}
+
+body.landing-page::-webkit-scrollbar-track,
+body.landing-page *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+body.landing-page::-webkit-scrollbar-thumb,
+body.landing-page *::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.28);
+  background-clip: padding-box;
+}
+
+body.landing-page::-webkit-scrollbar-thumb:hover,
+body.landing-page *::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.45);
+  background-clip: padding-box;
 }
 
 body.landing-page-launch {
@@ -503,25 +521,54 @@ html {
     --landing-content-columns:1fr;
   }
 
+  .landing__header {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
   .landing__main {
     align-items: flex-start;
   }
 
+  .hero {
+    justify-items: center;
+    text-align: center;
+  }
+
+  .hero__left {
+    align-items: center;
+    text-align: center;
+    padding-left: 0;
+  }
+
+  .hero__desc {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
   .hero__image{
-    justify-self: start;
+    justify-self: center;
     margin-top: 24px;
+    margin-left: auto;
+    margin-right: auto;
     max-width: 360px;
     max-height: 420px;
   }
 
   .landing__nav {
-    grid-template-columns: 1fr;
-    gap: 18px;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .brand__name {
+    display: none;
   }
 
   .nav-actions {
-    width: 100%;
-    justify-content: center;
+    width: auto;
+    justify-content: flex-end;
+    justify-self: end;
   }
 
   .aboutSection__grid {

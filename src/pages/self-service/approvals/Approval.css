@@ -536,22 +536,54 @@
 
 @media (max-width: 980px){
   .appr__toolbar{
-    align-items:stretch;
+    align-items:center;
+    flex-wrap:nowrap;
+    gap:8px;
+  }
+
+  .apprSearch{
+    flex:1 1 auto;
+    min-width:0;
   }
 
   .apprFilter{
-    width:100%;
+    width:auto;
+    flex:0 0 auto;
   }
 
   .apprFilter__toggle{
-    width:100%;
+    width:44px;
+    height:44px;
+    min-width:0;
+    padding:0;
     justify-content:center;
+    position:relative;
+    gap:0;
+  }
+
+  .apprFilter__toggle > span:not(.apprFilter__count){
+    display:none;
+  }
+
+  .apprFilter__toggle svg{
+    font-size:22px;
+  }
+
+  .apprFilter__count{
+    position:absolute;
+    top:-6px;
+    right:-6px;
+    min-width:18px;
+    height:18px;
+    font-size:10px;
+    padding:0 5px;
+    border:2px solid #fff;
   }
 
   .apprFilter__panel{
-    left:0;
+    left:auto;
     right:0;
-    min-width:0;
+    min-width:240px;
   }
 
   .apprTable__head,
@@ -564,6 +596,12 @@
   .apprTable__head div:nth-child(n+5),
   .apprRow div:nth-child(n+5){
     display:none;
+  }
+
+  .apprRow{
+    padding:20px 18px;
+    font-size:15px;
+    min-height:64px;
   }
 
   .apprModal__tilesRow{
@@ -605,7 +643,11 @@
 
   .apprTable__head,
   .apprRow {
-    padding: 10px 12px;
+    padding: 12px 14px;
+  }
+
+  .apprRow{
+    min-height:60px;
   }
 
   .apprTable__head > :first-child,
@@ -617,7 +659,7 @@
   }
 
   .apprRow > div {
-    font-size: 13px;
+    font-size: 14px;
   }
 
   .apprModal__tile {
@@ -637,12 +679,16 @@
   .apprTable__head,
   .apprRow {
     width: max(100%, 420px);
-    padding: 9px 10px;
+    padding: 12px 10px;
     gap: 8px;
   }
 
+  .apprRow{
+    min-height:58px;
+  }
+
   .apprRow > div {
-    font-size: 12px;
+    font-size: 13px;
   }
 
   .apprModal__tile {

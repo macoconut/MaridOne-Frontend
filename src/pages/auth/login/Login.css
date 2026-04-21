@@ -321,6 +321,10 @@
     grid-template-columns: 1fr;
   }
 
+  .elogin__left {
+    padding-top: 84px;
+  }
+
   .elogin__right {
     min-height: 320px;
     border-top-left-radius: 80px;
@@ -334,7 +338,7 @@
 
 @media (max-width: 560px) {
   .elogin__left {
-    padding: 28px 16px 32px;
+    padding: 70px 16px 32px;
   }
 
   .elogin__right {

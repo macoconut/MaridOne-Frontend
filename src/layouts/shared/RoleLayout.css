@@ -944,13 +944,13 @@ body.modal-open :where(
 
 @media (max-width: 1440px){
   .eTop{
-    padding:24px 24px 8px;
+    padding:24px 32px 8px;
     max-width:100%;
   }
 
   .eContent{
     max-width:100%;
-    padding:8px 24px 36px;
+    padding:8px 32px 36px;
   }
 
   .eFooter{
@@ -984,11 +984,19 @@ body.modal-open :where(
     gap: 24px;
     max-width: 100%;
   }
+  .eFooter__brand{ display: contents; }
   .eFooter__brandRow{ margin-bottom: 10px; }
   .eFooter__logo{ width: 36px; height: 36px; flex-shrink: 0; }
   .eFooter__brandTitle{ font-size: 22px; line-height: 1.1; }
   .eFooter__slogan{ font-size: 14px; }
-  .eFooter__copy{ margin-top: 16px; font-size: 13px; }
+  .eFooter__copy{
+    order: 1;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(255,255,255,.18);
+    text-align: center;
+    font-size: 13px;
+  }
   .eFooter__col h4{ font-size: 17px; margin-bottom: 8px; }
   .eFooter__col p{ font-size: 14px; line-height: 1.55; }
   .eFooter__contact{ text-align: left; margin-top: 16px; font-size: 14px; }

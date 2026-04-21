@@ -160,7 +160,7 @@
 /* ================== ACTION BUTTONS ================== */
 .actionRowX{
   display:grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   padding-inline: 2px;
 }
@@ -172,14 +172,23 @@
   border-radius: 18px !important;
   min-height: 58px !important;
   height: 58px;
+  min-width: 0;
   padding: 0 22px;
   display:flex;
   align-items:center;
   justify-content:space-between;
+  gap: 10px;
   box-shadow: 0 8px 16px rgba(123,74,143,.28);
   cursor:pointer;
   font-weight:700;
   font-size: 15px;
+  text-align: left;
+}
+
+.actionBtnX > span:first-child{
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.2;
 }
 
 .actionBtnX__arrow{
@@ -1307,7 +1316,7 @@
   .dashSecurityCard--full{ grid-column: auto; }
   .dashTwoFactorSetup__media{ grid-template-columns: 1fr; }
   .infoCardX__headerActions{ flex-wrap: wrap; justify-content:flex-end; }
-  .actionRowX{ grid-template-columns: 1fr 1fr; }
+  .actionRowX{ grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .miniFolders{ grid-template-columns: 1fr; }
   .infoCardX__grid{ grid-template-columns: 1fr; }
   .infoCardX__divider{ display:none; }
@@ -1325,7 +1334,7 @@
 }
 
 @media (max-width: 700px){
-  .actionRowX{ grid-template-columns: 1fr; }
+  .actionRowX{ grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .dashPasswordForm__grid{ grid-template-columns: 1fr; }
   .calendarGrid{ grid-template-rows: 22px repeat(var(--calendar-week-rows, 6), 56px); }
   .calCell{
@@ -1359,7 +1368,6 @@
     flex-direction: column;
   }
 
-  .infoCardX__edit,
   .cardX__manageBtn{
     width: 100%;
     justify-content: center;

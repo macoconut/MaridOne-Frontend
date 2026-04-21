@@ -1,16 +1,17 @@
 import { useLoading } from '../../../context/useLoading';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import { useUiDialog } from '../../../components/dialog/useUiDialog';
 import { apiFetchText } from '../../../lib/api';
-import './ForgotPassword.css';
+import '../login/Login.css';
 
 export default function ForgotPassword() {
   const { showLoading, hideLoading } = useLoading();
 
   const navigate = useNavigate();
   const { showError, showInfo, showSuccess } = useUiDialog();
+  const codeInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const [username, setUsername] = useState('');
   const [code, setCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -98,122 +99,226 @@ export default function ForgotPassword() {
     }
   }
 
+  function updateCode(next: string) {
+    setCode(next.replace(/\D/g, '').slice(0, 6));
+  }
+
+  function handleDigitChange(index: number, rawValue: string) {
+    const digit = rawValue.replace(/\D/g, '').slice(-1);
+    const nextDigits = Array.from({ length: 6 }, (_, currentIndex) => code[currentIndex] ?? '');
+    nextDigits[index] = digit;
+    updateCode(nextDigits.join(''));
+
+    if (digit && index < 5) {
+      codeInputRefs.current[index + 1]?.focus();
+      codeInputRefs.current[index + 1]?.select();
+    }
+  }
+
+  function handleKeyDown(index: number, event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === 'Backspace' && !code[index] && index > 0) {
+      codeInputRefs.current[index - 1]?.focus();
+      return;
+    }
+
+    if (event.key === 'ArrowLeft' && index > 0) {
+      event.preventDefault();
+      codeInputRefs.current[index - 1]?.focus();
+    }
+
+    if (event.key === 'ArrowRight' && index < 5) {
+      event.preventDefault();
+      codeInputRefs.current[index + 1]?.focus();
+    }
+  }
+
+  function handlePaste(event: React.ClipboardEvent<HTMLInputElement>) {
+    event.preventDefault();
+    const pasted = event.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (!pasted) return;
+
+    updateCode(pasted);
+    const focusIndex = Math.min(pasted.length, 6) - 1;
+    if (focusIndex >= 0) {
+      codeInputRefs.current[focusIndex]?.focus();
+      codeInputRefs.current[focusIndex]?.select();
+    }
+  }
+
   return (
-    <div className="forgotPasswordPage">
-      <div className="forgotPasswordCard">
-        <div className="forgotPasswordIntro">
-          <p className="forgotPasswordEyebrow">Forgot your password?</p>
-          <h1>Reset it through your email</h1>
-          <p>
-            Enter your username, request the reset code, then type the 6-digit code from your email before setting a
-            new password with at least 8 characters.
-          </p>
-        </div>
+    <div className="elogin">
+      <div className="elogin__left">
+        <button
+          className="eloginBack"
+          type="button"
+          onClick={() => navigate('/login')}
+          aria-label="Back to login"
+        >
+          <span className="eloginBack__arrow" aria-hidden="true" />
+        </button>
 
-        <form className="forgotPasswordForm" onSubmit={codeSent ? handleResetPassword : handleSendCode}>
-          <label className="forgotPasswordField">
-            <span>Username</span>
-            <input
-              type="text"
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              disabled={isSubmitting || codeSent}
-              autoComplete="username"
-            />
-          </label>
+        <div className="eloginCard">
+          <form className="eloginForm" onSubmit={codeSent ? handleResetPassword : handleSendCode}>
+            <div className="eloginHint">
+              <strong>Forgot your password?</strong>
+              <span>
+                Enter your username to receive a 6-digit reset code by email, then set a new password with at
+                least 8 characters.
+              </span>
+            </div>
 
-          {codeSent && (
-            <>
-              <label className="forgotPasswordField">
-                <span>Email Reset Code</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={code}
-                  onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                  disabled={isSubmitting}
-                />
+            <div className="field">
+              <label className="field__label" htmlFor="fp-username">
+                Username
               </label>
+              <input
+                id="fp-username"
+                className="field__input"
+                type="text"
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+                disabled={isSubmitting || codeSent}
+                autoComplete="username"
+              />
+            </div>
 
-              <label className="forgotPasswordField">
-                <span>New Password</span>
-                <div className="forgotPasswordInputWrap">
-                  <input
-                    type={showNewPassword ? 'text' : 'password'}
-                    value={newPassword}
-                    onChange={(event) => setNewPassword(event.target.value)}
-                    disabled={isSubmitting}
-                    autoComplete="new-password"
-                  />
+            {codeSent && (
+              <>
+                <div className="field">
+                  <label className="field__label">Email Reset Code</label>
+                  <div className="otpGroup" role="group" aria-label="6-digit email reset code">
+                    {Array.from({ length: 6 }).map((_, index) => (
+                      <input
+                        key={index}
+                        ref={(element) => {
+                          codeInputRefs.current[index] = element;
+                        }}
+                        className="otpInput"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete={index === 0 ? 'one-time-code' : 'off'}
+                        maxLength={1}
+                        value={code[index] ?? ''}
+                        onChange={(event) => handleDigitChange(index, event.target.value)}
+                        onKeyDown={(event) => handleKeyDown(index, event)}
+                        onFocus={(event) => event.target.select()}
+                        onPaste={handlePaste}
+                        aria-label={`Code digit ${index + 1}`}
+                        disabled={isSubmitting}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="field">
+                  <label className="field__label" htmlFor="fp-new-password">
+                    New Password
+                  </label>
+                  <div className="passwordWrap">
+                    <input
+                      id="fp-new-password"
+                      className="field__input passwordWrap__input"
+                      type={showNewPassword ? 'text' : 'password'}
+                      value={newPassword}
+                      onChange={(event) => setNewPassword(event.target.value)}
+                      disabled={isSubmitting}
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      className="eyeBtn"
+                      aria-label={showNewPassword ? 'Hide new password' : 'Show new password'}
+                      onClick={() => setShowNewPassword((value) => !value)}
+                    >
+                      {showNewPassword ? <FiEyeOff aria-hidden="true" /> : <FiEye aria-hidden="true" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="field">
+                  <label className="field__label" htmlFor="fp-confirm-password">
+                    Confirm New Password
+                  </label>
+                  <div className="passwordWrap">
+                    <input
+                      id="fp-confirm-password"
+                      className="field__input passwordWrap__input"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(event) => setConfirmPassword(event.target.value)}
+                      disabled={isSubmitting}
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      className="eyeBtn"
+                      aria-label={showConfirmPassword ? 'Hide confirmation password' : 'Show confirmation password'}
+                      onClick={() => setShowConfirmPassword((value) => !value)}
+                    >
+                      {showConfirmPassword ? <FiEyeOff aria-hidden="true" /> : <FiEye aria-hidden="true" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="eloginTwoFactorAction">
                   <button
                     type="button"
-                    className="forgotPasswordToggle"
-                    onClick={() => setShowNewPassword((value) => !value)}
-                    aria-label={showNewPassword ? 'Hide new password' : 'Show new password'}
-                  >
-                    {showNewPassword ? <FiEyeOff /> : <FiEye />}
-                  </button>
-                </div>
-              </label>
-
-              <label className="forgotPasswordField">
-                <span>Confirm New Password</span>
-                <div className="forgotPasswordInputWrap">
-                  <input
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    value={confirmPassword}
-                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    className="eloginTwoFactorSwitch"
+                    onClick={() => {
+                      setCodeSent(false);
+                      setCode('');
+                      setNewPassword('');
+                      setConfirmPassword('');
+                    }}
                     disabled={isSubmitting}
-                    autoComplete="new-password"
-                  />
-                  <button
-                    type="button"
-                    className="forgotPasswordToggle"
-                    onClick={() => setShowConfirmPassword((value) => !value)}
-                    aria-label={showConfirmPassword ? 'Hide confirmation password' : 'Show confirmation password'}
                   >
-                    {showConfirmPassword ? <FiEyeOff /> : <FiEye />}
+                    Use a different username
                   </button>
                 </div>
-              </label>
+              </>
+            )}
 
+            <div className="eloginRow">
               <button
                 type="button"
-                className="forgotPasswordLinkButton"
-                onClick={() => {
-                  setCodeSent(false);
-                  setCode('');
-                  setNewPassword('');
-                  setConfirmPassword('');
-                }}
+                className="submitBtn submitBtn--ghost"
+                onClick={() => navigate('/login')}
                 disabled={isSubmitting}
               >
-                Use a different username
+                Back to Login
               </button>
-            </>
-          )}
 
-          <div className="forgotPasswordActions">
-            <button
-              type="button"
-              className="forgotPasswordSecondary"
-              onClick={() => navigate('/login')}
-              disabled={isSubmitting}
-            >
-              Back to Login
-            </button>
-            <button type="submit" className="forgotPasswordPrimary" disabled={isSubmitting}>
-              {isSubmitting
-                ? codeSent
-                  ? 'Resetting...'
-                  : 'Sending...'
-                : codeSent
-                  ? 'Reset Password'
-                  : 'Send Reset Code'}
-            </button>
+              <button className="submitBtn" type="submit" disabled={isSubmitting}>
+                {isSubmitting
+                  ? codeSent
+                    ? 'Resetting...'
+                    : 'Sending...'
+                  : codeSent
+                    ? 'Reset Password'
+                    : 'Send Reset Code'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div className="elogin__right">
+        <div className="eloginHero">
+          <img
+            className="eloginHero__img"
+            src="/images/product-login-page.png"
+            alt="Marid Industries product display"
+          />
+          <div className="eloginHero__shade" aria-hidden="true" />
+
+          <div className="eloginHero__brand">
+            <img
+              className="eloginHero__icon"
+              src="/images/marid-logo-transparent.png"
+              alt="MaridOne logo"
+            />
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

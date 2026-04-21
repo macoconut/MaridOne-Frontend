@@ -682,8 +682,15 @@
 
   .att__controls {
     width: 100%;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
     align-items: stretch;
+  }
+
+  .att__controls > .attModeSelect--view,
+  .att__controls > .att__monthSelectWrap {
+    grid-column: 1 / -1;
   }
 
   .att__monthSelectWrap {
@@ -692,6 +699,7 @@
 
   .attClockBtn {
     width: 100%;
+    min-width: 0;
   }
 
   .attScheduleCard__selectWrap {
@@ -1450,7 +1458,8 @@ input[type='time'] {
   }
 
   .attBalanceGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
 
   .attScheduleModal {
@@ -1462,11 +1471,17 @@ input[type='time'] {
   }
 
   .attBalancePill {
-    padding: 12px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    gap: 2px;
+  }
+
+  .attBalancePill__label {
+    font-size: 10px;
   }
 
   .attBalancePill__value {
-    font-size: 22px;
+    font-size: 14px;
   }
 
   .attClockBtn {
@@ -1497,15 +1512,15 @@ input[type='time'] {
   }
 
   .attBalancePill {
-    padding: 10px;
+    padding: 8px 10px;
   }
 
   .attBalancePill__label {
-    font-size: 12px;
+    font-size: 9px;
   }
 
   .attBalancePill__value {
-    font-size: 20px;
+    font-size: 13px;
   }
 
   .attScheduleCard__select {
