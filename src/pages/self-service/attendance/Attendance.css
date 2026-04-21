@@ -1426,3 +1426,99 @@ input[type='time'] {
   color: #4a2e63;
   font-weight: 600;
 }
+
+@media (max-width: 560px) {
+  .att__title {
+    font-size: 24px;
+  }
+
+  .att__subtitle {
+    font-size: 13px;
+  }
+
+  .attCalendarShell {
+    padding: 12px;
+    overflow-x: auto;
+  }
+
+  .attCalendarShell__top {
+    flex-wrap: wrap;
+  }
+
+  .cal {
+    min-width: 620px;
+  }
+
+  .attBalanceGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .attScheduleModal {
+    padding: 14px;
+  }
+
+  .attBalanceCard {
+    padding: 14px;
+  }
+
+  .attBalancePill {
+    padding: 12px;
+  }
+
+  .attBalancePill__value {
+    font-size: 22px;
+  }
+
+  .attClockBtn {
+    min-height: 48px;
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 380px) {
+  .att__title {
+    font-size: 21px;
+  }
+
+  .att__subtitle {
+    font-size: 12px;
+  }
+
+  .attCalendarShell {
+    padding: 10px;
+  }
+
+  .cal {
+    min-width: 560px;
+  }
+
+  .attBalanceCard {
+    padding: 12px;
+  }
+
+  .attBalancePill {
+    padding: 10px;
+  }
+
+  .attBalancePill__label {
+    font-size: 12px;
+  }
+
+  .attBalancePill__value {
+    font-size: 20px;
+  }
+
+  .attScheduleCard__select {
+    font-size: 14px;
+  }
+
+  .attTimecardTable__row,
+  .attTimecardTable__total {
+    font-size: 13px;
+  }
+
+  .attClockBtn {
+    font-size: 14px;
+  }
+}
+

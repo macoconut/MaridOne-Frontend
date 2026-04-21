@@ -111,3 +111,63 @@
     width: max(100%, 800px);
   }
 }
+
+@media (max-width: 560px) {
+  .mgrPendTable__head,
+  .mgrPendTable__row {
+    width: max(100%, 720px);
+  }
+
+  .mgrPendTable__head {
+    padding: 12px 14px;
+  }
+
+  .mgrPendTable__row {
+    padding: 14px;
+  }
+
+  .mgrPendTable__head > :first-child,
+  .mgrPendTable__row > :first-child {
+    position: sticky;
+    left: 0;
+    background: inherit;
+    z-index: 1;
+  }
+
+  .mgrPendTable__cell {
+    font-size: 13px;
+  }
+
+  .mgrPendTable__cell--name {
+    font-size: 14px;
+  }
+
+  .mgrPendTable__empty {
+    font-size: 14px;
+    padding: 18px 14px;
+  }
+}
+
+@media (max-width: 380px) {
+  .mgrPendTable__head,
+  .mgrPendTable__row {
+    width: max(100%, 640px);
+  }
+
+  .mgrPendTable__head {
+    padding: 10px 12px;
+  }
+
+  .mgrPendTable__row {
+    padding: 12px;
+  }
+
+  .mgrPendTable__cell {
+    font-size: 12px;
+  }
+
+  .mgrPendTable__cell--name {
+    font-size: 13px;
+  }
+}
+

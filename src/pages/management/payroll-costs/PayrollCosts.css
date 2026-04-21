@@ -234,3 +234,108 @@
   }
 }
 
+@media (max-width: 560px) {
+  .mPay__top h1 {
+    font-size: 20px;
+  }
+
+  .mPay__dateSelect {
+    width: 100%;
+  }
+
+  .mPay__exportBtn {
+    width: 100%;
+    min-width: 0;
+    height: 44px;
+  }
+
+  .mPaySummaryCard {
+    padding: 12px 14px;
+  }
+
+  .mPaySummaryCard h3 {
+    font-size: 15px;
+  }
+
+  .mPaySummaryCard__value {
+    font-size: 26px;
+    margin-top: 10px;
+  }
+
+  .mPaySummaryCard p {
+    font-size: 14px;
+  }
+
+  .mPayPanel__head {
+    font-size: 15px;
+    padding: 9px 12px;
+  }
+
+  .mPayHistory {
+    height: 200px;
+    margin: 10px;
+    padding: 16px 10px 10px;
+    grid-template-columns: repeat(6, minmax(26px, 1fr));
+    overflow-x: auto;
+  }
+
+  .mPayHistory__barWrap span {
+    font-size: 13px;
+  }
+
+  .mPayDonut {
+    width: 160px;
+    height: 160px;
+    background:
+      radial-gradient(circle at center, #fff 0 52px, transparent 54px),
+      conic-gradient(
+        #b83573 0 55%,
+        #f06f9b 55% 73%,
+        #ef9aa8 73% 89%,
+        #f3b6c3 89% 100%
+      );
+  }
+
+  .mPayLegend__item span {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 380px) {
+  .mPay__top h1 {
+    font-size: 18px;
+  }
+
+  .mPaySummaryCard h3 {
+    font-size: 14px;
+  }
+
+  .mPaySummaryCard__value {
+    font-size: 22px;
+  }
+
+  .mPaySummaryCard p {
+    font-size: 13px;
+  }
+
+  .mPayPanel__head {
+    font-size: 14px;
+  }
+
+  .mPayDonut {
+    width: 140px;
+    height: 140px;
+    background:
+      radial-gradient(circle at center, #fff 0 46px, transparent 48px),
+      conic-gradient(
+        #b83573 0 55%,
+        #f06f9b 55% 73%,
+        #ef9aa8 73% 89%,
+        #f3b6c3 89% 100%
+      );
+  }
+
+  .mPayLegend__item span {
+    font-size: 13px;
+  }
+}

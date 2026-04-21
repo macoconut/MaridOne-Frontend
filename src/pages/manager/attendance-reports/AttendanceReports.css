@@ -300,3 +300,85 @@
   }
 }
 
+@media (max-width: 560px) {
+  .mgrRpt h1 {
+    font-size: 22px;
+  }
+
+  .mgrRpt__action {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .mgrRpt__search,
+  .mgrRpt__month {
+    width: 100%;
+  }
+
+  .mgrRptCard {
+    padding: 12px;
+    overflow-x: auto;
+  }
+
+  .mgrRptCard__grid {
+    min-width: 560px;
+  }
+
+  .mgrRptCard__cell {
+    min-height: 80px;
+    padding: 6px;
+  }
+
+  .mgrRptSummary {
+    gap: 10px;
+  }
+
+  .mgrRptSummary article {
+    padding: 12px;
+  }
+
+  .mgrRptBreakdown {
+    padding: 12px;
+  }
+
+  .mgrRptRow {
+    padding: 10px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 380px) {
+  .mgrRpt h1 {
+    font-size: 20px;
+  }
+
+  .mgrRptCard {
+    padding: 10px;
+  }
+
+  .mgrRptCard__grid {
+    min-width: 500px;
+  }
+
+  .mgrRptCard__cell {
+    min-height: 68px;
+    padding: 5px;
+    font-size: 12px;
+  }
+
+  .mgrRptSummary article {
+    padding: 10px;
+  }
+
+  .mgrRptRow {
+    font-size: 13px;
+  }
+
+  .mgrRpt p,
+  .mgrRpt__hint,
+  .mgrRpt__error,
+  .mgrRptRow__meta,
+  .mgrRptRows__empty {
+    font-size: 13px;
+  }
+}

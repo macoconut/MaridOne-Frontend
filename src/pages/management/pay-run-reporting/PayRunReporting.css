@@ -206,3 +206,67 @@
   }
 }
 
+@media (max-width: 560px) {
+  .mRun__top h1 {
+    font-size: 20px;
+  }
+
+  .mRun__top select,
+  .mRunFilters__field select,
+  .mRunFilters__search {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .mRunFilters__field {
+    width: 100%;
+  }
+
+  .mRunTable__head {
+    font-size: 14px;
+    padding: 9px 10px;
+  }
+
+  .mRunRow {
+    padding: 9px 0 7px;
+  }
+
+  .mRunRow__name,
+  .mRunRow__value,
+  .mRunRow__meta,
+  .mRunTypeRow {
+    font-size: 14px;
+  }
+
+  .mRunActions {
+    gap: 10px;
+  }
+
+  .mRunActions button {
+    width: 100%;
+    min-width: 0;
+    height: 44px;
+  }
+}
+
+@media (max-width: 380px) {
+  .mRun__top h1 {
+    font-size: 18px;
+  }
+
+  .mRunTable__head,
+  .mRunRow__name,
+  .mRunRow__value,
+  .mRunRow__meta,
+  .mRunTypeRow {
+    font-size: 13px;
+  }
+
+  .mRunFilters__field label {
+    font-size: 13px;
+  }
+
+  .mRunTable__body {
+    padding: 6px 8px 0;
+  }
+}

@@ -235,3 +235,58 @@
   }
 }
 
+@media (max-width: 560px) {
+  .mgrAtt h1 {
+    font-size: 22px;
+  }
+
+  .mgrAtt__btn {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .mgrAttStats article,
+  .mgrAttDay,
+  .mgrAttPanel,
+  .mgrAttLeader {
+    padding: 12px;
+  }
+
+  .mgrAttLeader strong {
+    font-size: 18px;
+  }
+
+  .mgrAttPanel__head {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 380px) {
+  .mgrAtt h1 {
+    font-size: 20px;
+  }
+
+  .mgrAtt p,
+  .mgrAtt__hint,
+  .mgrAtt__error,
+  .mgrAttRow__meta,
+  .mgrAttRow__time,
+  .mgrAttList__empty {
+    font-size: 13px;
+  }
+
+  .mgrAttStats article,
+  .mgrAttDay,
+  .mgrAttPanel,
+  .mgrAttLeader {
+    padding: 10px;
+  }
+
+  .mgrAttLeader strong {
+    font-size: 16px;
+  }
+
+  .mgrAtt__btn {
+    font-size: 13px;
+  }
+}

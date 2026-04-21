@@ -493,4 +493,87 @@
   }
 }
 
+@media (max-width: 560px) {
+  .hrAppr__title {
+    font-size: 22px;
+  }
+
+  .hrAppr__summary {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .hrApprCard {
+    padding: 12px;
+  }
+
+  .hrApprCard__value {
+    font-size: 20px;
+  }
+
+  .hrApprRequestTable__head,
+  .hrApprRequestTable__row {
+    width: max(100%, 720px);
+    font-size: 13px;
+  }
+
+  .hrApprRequestTable__head > :first-child,
+  .hrApprRequestTable__row > :first-child {
+    position: sticky;
+    left: 0;
+    background: inherit;
+    z-index: 1;
+  }
+
+  .hrApprRow {
+    padding: 12px;
+  }
+
+  .hrApprRow__employee {
+    font-size: 15px;
+  }
+
+  .hrApprRow__message {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 380px) {
+  .hrAppr__title {
+    font-size: 20px;
+  }
+
+  .hrApprCard {
+    padding: 10px;
+  }
+
+  .hrApprCard__value {
+    font-size: 18px;
+  }
+
+  .hrApprCard__label {
+    font-size: 12px;
+  }
+
+  .hrApprRequestTable__head,
+  .hrApprRequestTable__row {
+    width: max(100%, 640px);
+    font-size: 12px;
+  }
+
+  .hrApprRow {
+    padding: 10px;
+  }
+
+  .hrApprRow__employee {
+    font-size: 14px;
+  }
+
+  .hrApprRow__message,
+  .hrApprRow__meta,
+  .hrApprRow__time {
+    font-size: 12px;
+  }
+}
+
 

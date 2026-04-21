@@ -774,3 +774,95 @@
   }
 }
 
+@media (max-width: 560px) {
+  .hrRun__top h1 {
+    font-size: 20px;
+  }
+
+  .hrRun__topActions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .hrRunActions__btn {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .hrRunTable__head--employee,
+  .hrRunEmployee {
+    width: max(100%, 680px);
+    grid-template-columns: 96px minmax(160px, 1fr) minmax(100px, 1fr) minmax(100px, 1fr) minmax(112px, 124px);
+    font-size: 14px;
+    padding: 10px 12px;
+  }
+
+  .hrRunTable__head--employee > :first-child,
+  .hrRunEmployee > :first-child {
+    position: sticky;
+    left: 0;
+    background: inherit;
+    z-index: 1;
+  }
+
+  .hrRunTable__head--payType,
+  .hrRunTypeRow--table {
+    font-size: 14px;
+    padding: 10px 12px;
+  }
+
+  .hrRunModal__heading {
+    font-size: 16px;
+  }
+
+  .hrRunBreakdownTotals__card {
+    padding: 12px;
+  }
+
+  .hrRunGroup__title {
+    font-size: 15px;
+  }
+
+  .hrRunGroup__total {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 380px) {
+  .hrRun__top h1 {
+    font-size: 18px;
+  }
+
+  .hrRunTable__head--employee,
+  .hrRunEmployee {
+    width: max(100%, 620px);
+    font-size: 13px;
+  }
+
+  .hrRunEmployee__id,
+  .hrRunEmployee__name,
+  .hrRunEmployee__gross,
+  .hrRunEmployee__value,
+  .hrRunTypeRow {
+    font-size: 13px;
+  }
+
+  .hrRunTable__head {
+    font-size: 13px;
+  }
+
+  .hrRunSelect select {
+    font-size: 14px;
+  }
+
+  .hrRunMenu__toggle,
+  .hrRunActions__btn {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  .hrRunFilters__field label {
+    font-size: 13px;
+  }
+}

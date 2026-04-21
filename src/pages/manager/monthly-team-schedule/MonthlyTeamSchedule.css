@@ -1138,3 +1138,46 @@
     padding: 14px;
   }
 }
+
+@media (max-width: 380px) {
+  .mgrMonth__calendarPanel.hrAttCalendarShell,
+  .mgrMonth__editorPanel {
+    padding: 10px;
+  }
+
+  .mgrMonth__calendarGridWrap .hrCal {
+    min-width: 560px;
+    gap: 4px;
+  }
+
+  .mgrMonth__calendarGridWrap .hrCal__cell {
+    padding: 6px;
+  }
+
+  .mgrMonth__toolbarBtn.actionBtnX {
+    padding: 0 10px;
+  }
+
+  .mgrMonth__toolbarBtnLabel {
+    font-size: 12px;
+  }
+
+  .mgrMonth__detailCard,
+  .mgrMonth__dayOffToggle {
+    padding: 10px 12px;
+  }
+
+  .mgrMonth__templateApplyHead h2 {
+    font-size: 16px;
+  }
+
+  .mgrMonth__templateTimeHead h2 {
+    font-size: 15px;
+  }
+
+  .mgrMonth__templateDay {
+    min-height: 66px;
+    padding: 12px;
+  }
+}
+

@@ -602,3 +602,62 @@
   font-weight: 700;
 }
 
+@media (max-width: 560px) {
+  .payBtn {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+  }
+
+  .payInfo__row {
+    grid-template-columns: 88px 1fr;
+  }
+
+  .payTable__head,
+  .payTable__row,
+  .payTable__total,
+  .payNet {
+    font-size: 13px;
+  }
+
+  .payModal__row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .payModal__actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .payModal__actions .uiActionBtn {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 380px) {
+  .payInfo__row {
+    grid-template-columns: 1fr;
+  }
+
+  .payCard__logo {
+    width: 44px;
+    height: 44px;
+  }
+
+  .payTable__head,
+  .payTable__row,
+  .payTable__total,
+  .payNet {
+    font-size: 12px;
+  }
+
+  .payModal__upload,
+  .payModal__sigBtn {
+    font-size: 13px;
+    padding: 8px 10px;
+  }
+}
+
+

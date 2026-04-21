@@ -1261,3 +1261,89 @@
   }
 }
 
+@media (max-width: 560px) {
+  .hrPay__title {
+    font-size: 22px;
+  }
+
+  .hrPay__runBtn {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .hrPayPeriod,
+  .hrPayPanel {
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .hrPayPeriod h2 {
+    font-size: 17px;
+  }
+
+  .hrPayPanel__head {
+    font-size: 15px;
+  }
+
+  .hrPayRunSummary__card {
+    padding: 12px;
+  }
+
+  .hrPayRunSummary__card strong {
+    font-size: 20px;
+  }
+
+  .hrPayRunTable__head,
+  .hrPayRunTable__row {
+    font-size: 13px;
+  }
+
+  .hrPayPanel__runPagerLabel {
+    font-size: 13px;
+  }
+
+  .hrPayPanel__runPagerBtn {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+@media (max-width: 380px) {
+  .hrPay__title {
+    font-size: 20px;
+  }
+
+  .hrPayPeriod,
+  .hrPayPanel {
+    padding: 12px;
+  }
+
+  .hrPayPeriod h2 {
+    font-size: 15px;
+  }
+
+  .hrPayPeriod p {
+    font-size: 13px;
+  }
+
+  .hrPayPanel__head {
+    font-size: 14px;
+  }
+
+  .hrPayRunSummary__card {
+    padding: 10px;
+  }
+
+  .hrPayRunSummary__card span {
+    font-size: 12px;
+  }
+
+  .hrPayRunSummary__card strong {
+    font-size: 18px;
+  }
+
+  .hrPayRunTable__head,
+  .hrPayRunTable__row {
+    font-size: 12px;
+  }
+}

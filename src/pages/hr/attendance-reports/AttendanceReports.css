@@ -1313,4 +1313,62 @@
   }
 }
 
+@media (max-width: 380px) {
+  .hrAtt__title {
+    font-size: 21px;
+  }
 
+  .hrAtt__subtitle {
+    font-size: 13px;
+  }
+
+  .hrAttSummary__card {
+    padding: 9px;
+  }
+
+  .hrAttSummary__card span {
+    font-size: 10px;
+  }
+
+  .hrAttSummary__card strong {
+    font-size: 16px;
+  }
+
+  .hrAttCalendarShell {
+    padding: 10px;
+  }
+
+  .hrAttCalendarShell__focus {
+    padding: 10px;
+  }
+
+  .hrAttCalendarShell__month {
+    font-size: 15px;
+  }
+
+  .hrAttCalendarShell__navBtn {
+    width: 34px;
+    height: 34px;
+  }
+
+  .hrCal {
+    min-width: 560px;
+  }
+
+  .hrAttPerson__logList {
+    grid-template-columns: 1fr;
+  }
+
+  .hrAttPerson__name {
+    font-size: 15px;
+  }
+
+  .hrAttPerson__meta {
+    font-size: 12px;
+  }
+
+  .hrAtt__actionBtn {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+}
