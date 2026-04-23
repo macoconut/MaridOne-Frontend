@@ -3,6 +3,7 @@ import { FiEdit2 } from 'react-icons/fi';
 import {
   formatAddress,
   formatDashboardDate,
+  formatTenure,
   type UserDetails,
 } from '../dashboardShared';
 
@@ -25,6 +26,9 @@ export default function EmployeeSummaryCard({
   savingEdit,
   onEdit,
 }: EmployeeSummaryCardProps) {
+  const joinDate = employee?.employmentDateStart || employee?.employmentDate || employee?.dateHired;
+  const tenureLabel = formatTenure(joinDate);
+
   return (
     <section className="infoCardX">
       <button
@@ -44,8 +48,11 @@ export default function EmployeeSummaryCard({
           <div className="infoCardX__bio">
             <div className="infoCardX__name">{employeeName}</div>
             <div className="statBlock__sub">
-              Joined {formatDashboardDate(employee?.employmentDateStart || employee?.employmentDate || employee?.dateHired)}
+              Joined {formatDashboardDate(joinDate)}
             </div>
+            {tenureLabel ? (
+              <div className="statBlock__sub">{tenureLabel} of service</div>
+            ) : null}
           </div>
         </div>
 

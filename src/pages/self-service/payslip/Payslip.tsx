@@ -907,9 +907,9 @@ export default function Payslip() {
           disabled={printingPayslip || !selectedItemId}
         >
           {printingPayslip ? (
-            <>Preparing<span className="payBtn__longWord"> Payslip</span>...</>
+            <>Preparing...</>
           ) : (
-            <>Download<span className="payBtn__longWord"> Payslip</span></>
+            <>Download</>
           )}
         </ActionButton>
         <ActionButton
@@ -921,9 +921,9 @@ export default function Payslip() {
           disabled={printingPayslip || !selectedItemId}
         >
           {printingPayslip ? (
-            <>Opening<span className="payBtn__longWord"> Payslip</span>...</>
+            <>Opening...</>
           ) : (
-            <>Print<span className="payBtn__longWord"> Payslip</span></>
+            <>Print</>
           )}
         </ActionButton>
         <ActionButton

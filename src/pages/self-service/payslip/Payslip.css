@@ -593,9 +593,6 @@
     grid-column: 1 / -1;
   }
 
-  .payBtn__longWord {
-    display: none;
-  }
 }
 
 @media (max-width: 560px) {

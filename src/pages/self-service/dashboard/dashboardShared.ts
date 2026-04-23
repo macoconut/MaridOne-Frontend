@@ -188,6 +188,31 @@ export function formatDashboardDate(value?: string) {
   });
 }
 
+export function formatTenure(value?: string): string {
+  if (!value) return '';
+  const start = new Date(value);
+  if (Number.isNaN(start.getTime())) return '';
+
+  const now = new Date();
+  if (start > now) return '';
+
+  let years = now.getFullYear() - start.getFullYear();
+  let months = now.getMonth() - start.getMonth();
+  if (now.getDate() < start.getDate()) months -= 1;
+  if (months < 0) {
+    years -= 1;
+    months += 12;
+  }
+  if (years < 0) return '';
+
+  if (years === 0 && months === 0) return 'Less than a month';
+
+  const parts: string[] = [];
+  if (years > 0) parts.push(`${years} ${years === 1 ? 'year' : 'years'}`);
+  if (months > 0) parts.push(`${months} ${months === 1 ? 'month' : 'months'}`);
+  return parts.join(' ');
+}
+
 export function formatDashboardDateTime(value?: string) {
   if (!value) return 'Not available';
 
