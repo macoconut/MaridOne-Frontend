@@ -1,4 +1,4 @@
-import { apiFetchJson, apiFetchText } from './api';
+import { ApiError, apiFetchJson, apiFetchText, getApiBaseUrl } from './api';
 
 export type TwoFactorSetupResponse = {
   qrCodeImageUri?: string;
@@ -41,10 +41,22 @@ export function changeOwnPassword(currentPassword: string, newPassword: string) 
   });
 }
 
-export function verifyEmailToken(token: string) {
-  return apiFetchText('/api/auth/verify-email', {
+export function verifyEmailToken(token: string, init: RequestInit = {}) {
+  const headers = new Headers(init.headers ?? {});
+  headers.set('Content-Type', 'text/plain');
+
+  return fetch(`${getApiBaseUrl()}/api/auth/verify-email`, {
+    ...init,
     method: 'POST',
-    headers: { 'Content-Type': 'text/plain' },
+    headers,
     body: token.trim(),
+  }).then(async (response) => {
+    const text = await response.text();
+
+    if (!response.ok) {
+      throw new ApiError(response.status, text || `Request failed (${response.status})`, text || '');
+    }
+
+    return text;
   });
 }

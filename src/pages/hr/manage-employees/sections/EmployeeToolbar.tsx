@@ -63,7 +63,7 @@ export default function EmployeeToolbar({
         <input
           value={searchValue}
           onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Search by employee name, ID, username, email, phone, role, or department"
+          placeholder="Search by employee name, ID, username, company or personal email, phone, role, or department"
         />
         {searchValue ? (
           <button type="button" aria-label="Clear employee search" onClick={onClearSearch}>

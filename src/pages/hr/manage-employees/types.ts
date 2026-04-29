@@ -25,6 +25,7 @@ export type EmployeeRow = {
   username: string;
   status: string;
   email: string;
+  personalEmail: string;
   phone: string;
   position: string;
   department: string;
@@ -133,7 +134,8 @@ export type FormState = {
   exemptionStatus: string;
   employmentDateStart: string;
   employmentDateEnd: string;
-  email: string;
+  companyEmail: string;
+  personalEmail: string;
   phoneNumber: string;
   position: string;
   department: string;

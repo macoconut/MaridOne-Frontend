@@ -45,7 +45,8 @@ export const emptyForm: FormState = {
   exemptionStatus: 'NON_EXEMPT',
   employmentDateStart: '',
   employmentDateEnd: '',
-  email: '',
+  companyEmail: '',
+  personalEmail: '',
   phoneNumber: '',
   position: 'EMPLOYEE',
   department: '',
@@ -153,7 +154,7 @@ export function isLongSeparationNote(value?: string | null) {
 
 export function buildEmployeeSearchIndex(row: Omit<EmployeeRow, 'searchIndex'>) {
   return normalizeText(
-    [row.id, row.name, row.username, row.status, row.email, row.phone, row.position, row.department].join(' ')
+    [row.id, row.name, row.username, row.status, row.email, row.personalEmail, row.phone, row.position, row.department].join(' ')
   );
 }
 
@@ -265,7 +266,8 @@ export function mergeRowWithDetails(row: EmployeeRow, details: EmployeeDetails):
     name: row.name,
     username: details.userAccountName?.trim() ? details.userAccountName : row.username,
     status: details.employmentStatus?.trim() ? details.employmentStatus : row.status,
-    email: details.email?.trim() ? details.email : row.email,
+    email: details.companyEmail?.trim() ? details.companyEmail : row.email,
+    personalEmail: details.personalEmail?.trim() ? details.personalEmail : row.personalEmail,
     phone: details.phoneNumber?.trim() ? details.phoneNumber : row.phone,
     position: details.position?.trim() ? details.position : row.position,
     department: details.department?.trim() ? details.department : row.department,

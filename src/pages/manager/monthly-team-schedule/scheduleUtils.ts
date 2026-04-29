@@ -304,7 +304,7 @@ export function buildWeekOverrideDrafts(
 ): Record<string, DailyOverrideDraft> {
   const dailyShiftMap = groupDailyShiftsByWorkDate(dailyShifts);
 
-  return DAY_ORDER.reduce<Record<string, DailyOverrideDraft>>((next, day, index) => {
+  return DAY_ORDER.reduce<Record<string, DailyOverrideDraft>>((next, _day, index) => {
     const workDate = addDays(weekStart, index);
     next[workDate] = buildDailyOverrideDraft(employee, workDate, dailyShiftMap.get(workDate) ?? []);
 

@@ -9,7 +9,36 @@ import {
   setRefreshToken,
 } from './session';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
+type ApiLocation = Pick<Location, 'origin' | 'protocol' | 'hostname' | 'port'>;
+
+function normalizeBaseUrl(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? '';
+  return trimmed.replace(/\/+$/, '');
+}
+
+export function resolveApiBaseUrl(
+  configuredBaseUrl = import.meta.env.VITE_API_BASE_URL,
+  location: ApiLocation | null = typeof window !== 'undefined' ? window.location : null
+) {
+  const explicitBaseUrl = normalizeBaseUrl(configuredBaseUrl);
+  if (explicitBaseUrl) {
+    return explicitBaseUrl;
+  }
+
+  if (!location) {
+    return 'http://localhost:8080';
+  }
+
+  // Keep the current hostname in local Vite sessions so emailed links also work off-LAN.
+  if (location.port === '5173' || location.port === '4173') {
+    return `${location.protocol}//${location.hostname}:8080`;
+  }
+
+  const sameOriginBaseUrl = normalizeBaseUrl(location.origin);
+  return sameOriginBaseUrl || 'http://localhost:8080';
+}
+
+const API_BASE_URL = resolveApiBaseUrl();
 let refreshPromise: Promise<boolean> | null = null;
 const inflightGetRequests = new Map<string, Promise<Response>>();
 

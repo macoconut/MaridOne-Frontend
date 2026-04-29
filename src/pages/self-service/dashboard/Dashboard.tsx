@@ -77,7 +77,8 @@ export default function Dashboard() {
   const [deletingAnnouncementId, setDeletingAnnouncementId] = useState<number | null>(null);
   const [announcementDraft, setAnnouncementDraft] = useState<AnnouncementDraft>(() => createAnnouncementDraft());
   const [editDraft, setEditDraft] = useState({
-    email: '',
+    companyEmail: '',
+    personalEmail: '',
     phoneNumber: '',
     permanentAddress: '',
     temporaryAddress: '',
@@ -267,8 +268,8 @@ export default function Dashboard() {
     location.pathname.startsWith('/hr/') || location.pathname.startsWith('/management/');
   const canDeleteSingleAnnouncement =
     canManageAnnouncements && typeof announcementHeaderEvent?.calendarId === 'number';
-  const savedEmailNormalized = employee?.email?.trim().toLowerCase() ?? '';
-  const draftEmailNormalized = editDraft.email.trim().toLowerCase();
+  const savedEmailNormalized = employee?.personalEmail?.trim().toLowerCase() ?? '';
+  const draftEmailNormalized = editDraft.personalEmail.trim().toLowerCase();
   const emailChanged = Boolean(draftEmailNormalized && draftEmailNormalized !== savedEmailNormalized);
   const emailVerified = isEmailVerified(employee);
   const emailVerificationWillReset = emailVerified && emailChanged;
@@ -528,7 +529,7 @@ export default function Dashboard() {
       await apiFetchJson(`/api/employees/${employeeId}`, {
         method: 'PATCH',
         body: JSON.stringify({
-          email: editDraft.email.trim() || undefined,
+          personalEmail: editDraft.personalEmail.trim() || undefined,
           phoneNumber: editDraft.phoneNumber.trim() || undefined,
           sssNumber: editDraft.sssNumber.trim() || undefined,
           philhealthNumber: editDraft.philhealthNumber.trim() || undefined,
@@ -554,8 +555,8 @@ export default function Dashboard() {
       if (emailChanged) {
         showSuccess(
           emailVerified
-            ? 'Profile updated. Your email now needs a fresh verification link from Settings because the saved address changed.'
-            : 'Profile updated. If you want to verify this saved email, you can do that from Settings.',
+            ? 'Profile updated. Your personal email now needs a fresh verification link from Settings because the saved address changed.'
+            : 'Profile updated. If you want to verify this saved personal email, you can do that from Settings.',
           'Profile Updated'
         );
       }
@@ -651,8 +652,8 @@ export default function Dashboard() {
 
       <ConfirmDialog
         open={confirmEmailChangeOpen}
-        title="Confirm Email Change"
-        message="Changing your verified email will remove its verified status until you verify the new address again. Do you want to continue saving this profile update?"
+        title="Confirm Personal Email Change"
+        message="Changing your verified personal email will remove its verified status until you verify the new address again. Do you want to continue saving this profile update?"
         confirmLabel="Continue Saving"
         cancelLabel="Go Back"
         isBusy={savingEdit}

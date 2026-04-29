@@ -2,12 +2,13 @@ import LargePopup from '../../../../components/dialog/LargePopup';
 
 type EditDraft = {
   city: string;
+  companyEmail: string;
   country: string;
-  email: string;
   emergencyContactName: string;
   emergencyContactNumber: string;
   emergencyContactRelationship: string;
   pagibigNumber: string;
+  personalEmail: string;
   permanentAddress: string;
   philhealthNumber: string;
   phoneNumber: string;
@@ -57,11 +58,21 @@ export default function EditInfoModal({
     >
       <div className="dashModal__grid">
         <label className="dashModal__field">
-          <span>Email</span>
+          <span>Company Email</span>
           <input
-            value={editDraft.email}
-            placeholder="Optional email address"
-            onChange={(event) => onSetField('email', event.target.value)}
+            value={editDraft.companyEmail}
+            placeholder="Company email is managed by HR"
+            disabled
+            readOnly
+          />
+        </label>
+        <label className="dashModal__field">
+          <span>Personal Email</span>
+          <input
+            type="email"
+            value={editDraft.personalEmail}
+            placeholder="Add your personal email"
+            onChange={(event) => onSetField('personalEmail', event.target.value)}
           />
         </label>
         <label className="dashModal__field">
@@ -160,7 +171,7 @@ export default function EditInfoModal({
 
       {emailVerificationWillReset ? (
         <div className="dashModal__helper dashModal__helper--warning">
-          Changing this verified email will reset its verification status until the new address is verified.
+          Changing this verified personal email will reset its verification status until the new address is verified.
         </div>
       ) : null}
     </LargePopup>

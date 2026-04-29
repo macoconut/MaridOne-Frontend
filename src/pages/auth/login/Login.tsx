@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import { useUiDialog } from '../../../components/dialog/useUiDialog';
+import { getApiBaseUrl } from '../../../lib/api';
 import { clearSession, setSession } from '../../../lib/session';
 import { getRoleHomePath } from '../../../lib/roleRoutes';
 import './Login.css';
@@ -17,7 +18,7 @@ type TwoFactorChallenge = {
 
 type TwoFactorMode = 'authenticator' | 'email-otp';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080';
+const API_BASE_URL = getApiBaseUrl();
 
 function mapRoleToRoute(role: UserRole) {
   return getRoleHomePath(role);

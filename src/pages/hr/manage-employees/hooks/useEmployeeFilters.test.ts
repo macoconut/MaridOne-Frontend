@@ -9,6 +9,7 @@ const rows = [
     username: 'alice',
     status: 'REGULAR',
     email: 'alice@example.com',
+    personalEmail: 'alice.personal@example.com',
     phone: '09171234567',
     position: 'EMPLOYEE',
     department: 'People Operations Department',

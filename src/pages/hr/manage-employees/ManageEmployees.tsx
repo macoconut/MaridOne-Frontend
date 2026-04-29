@@ -46,6 +46,7 @@ type EmployeeRow = {
   username: string;
   status: string;
   email: string;
+  personalEmail: string;
   phone: string;
   position: string;
   department: string;
@@ -154,7 +155,8 @@ type FormState = {
   exemptionStatus: string;
   employmentDateStart: string;
   employmentDateEnd: string;
-  email: string;
+  companyEmail: string;
+  personalEmail: string;
   phoneNumber: string;
   position: string;
   department: string;
@@ -218,7 +220,8 @@ const emptyForm: FormState = {
   exemptionStatus: 'NON_EXEMPT',
   employmentDateStart: '',
   employmentDateEnd: '',
-  email: '',
+  companyEmail: '',
+  personalEmail: '',
   phoneNumber: '',
   position: 'EMPLOYEE',
   department: '',
@@ -318,7 +321,7 @@ function isLongSeparationNote(value?: string | null) {
 
 function buildEmployeeSearchIndex(row: Omit<EmployeeRow, 'searchIndex'>) {
   return normalizeText(
-    [row.id, row.name, row.username, row.status, row.email, row.phone, row.position, row.department].join(' ')
+    [row.id, row.name, row.username, row.status, row.email, row.personalEmail, row.phone, row.position, row.department].join(' ')
   );
 }
 
@@ -453,7 +456,8 @@ function mergeRowWithDetails(row: EmployeeRow, details: EmployeeDetails): Employ
     name: row.name,
     username: details.userAccountName?.trim() ? details.userAccountName : row.username,
     status: details.employmentStatus?.trim() ? details.employmentStatus : row.status,
-    email: details.email?.trim() ? details.email : row.email,
+    email: details.companyEmail?.trim() ? details.companyEmail : row.email,
+    personalEmail: details.personalEmail?.trim() ? details.personalEmail : row.personalEmail,
     phone: details.phoneNumber?.trim() ? details.phoneNumber : row.phone,
     position: details.position?.trim() ? details.position : row.position,
     department: details.department?.trim() ? details.department : row.department,
@@ -615,7 +619,7 @@ export default function HrManageEmp() {
   const firstNameMissing = shouldHighlightRequiredFields && form.firstName.trim().length === 0;
   const lastNameMissing = shouldHighlightRequiredFields && form.lastName.trim().length === 0;
   const birthDateMissing = shouldHighlightRequiredFields && form.birthDate.trim().length === 0;
-  const emailMissing = shouldHighlightRequiredFields && form.email.trim().length === 0;
+  const companyEmailMissing = shouldHighlightRequiredFields && form.companyEmail.trim().length === 0;
   const phoneMissing = shouldHighlightRequiredFields && modal === 'add' && form.phoneNumber.trim().length === 0;
   const managerSelectionMissing =
     shouldHighlightRequiredFields && showManagerPicker && managerSearch.trim().length > 0 && !form.managerId.trim();
@@ -738,7 +742,8 @@ export default function HrManageEmp() {
               .join(' ') || `Employee #${item.employeeId ?? item.id ?? index + 1}`,
           username: String(item.userAccountName ?? item.username ?? '-'),
           status: String(item.employmentStatus ?? '-'),
-          email: String(item.email ?? '-'),
+          email: String(item.companyEmail ?? item.email ?? '-'),
+          personalEmail: String(item.personalEmail ?? '-'),
           phone: String(item.phoneNumber ?? '-'),
           position: String(item.position ?? '-'),
           department: String(item.department ?? '-'),
@@ -802,9 +807,9 @@ export default function HrManageEmp() {
     if (visibleEmployeeRows.length === 0) return;
 
     const rows = [
-      ['Employee ID', 'Name', 'Username', 'Status', 'Email', 'Phone', 'Position', 'Department'],
+      ['Employee ID', 'Name', 'Username', 'Status', 'Company Email', 'Personal Email', 'Phone', 'Position', 'Department'],
       ...visibleEmployeeRows
-        .map((row) => [row.id, row.name, row.username, row.status, row.email, row.phone, row.position, row.department]),
+        .map((row) => [row.id, row.name, row.username, row.status, row.email, row.personalEmail, row.phone, row.position, row.department]),
     ];
 
     const csvContent = buildCsvContent(rows);
@@ -1212,7 +1217,8 @@ export default function HrManageEmp() {
         exemptionStatus: payload.exemptionStatus ?? getDefaultExemptionStatus(payload.position ?? 'EMPLOYEE'),
         employmentDateStart: payload.employmentDateStart ?? '',
         employmentDateEnd: payload.employmentDateEnd ?? '',
-        email: payload.email ?? '',
+        companyEmail: payload.companyEmail ?? '',
+        personalEmail: payload.personalEmail ?? '',
         phoneNumber: sanitizePhoneNumber(payload.phoneNumber ?? ''),
         position: payload.position ?? 'EMPLOYEE',
         department: payload.department ?? '',
@@ -1301,8 +1307,8 @@ export default function HrManageEmp() {
   }
 
   function validateRequiredEmployeeFields(mode: 'add' | 'edit') {
-    if (!form.firstName.trim() || !form.lastName.trim() || !form.birthDate || !form.email.trim()) {
-      setSubmitError('First name, last name, birth date, and email are required.');
+    if (!form.firstName.trim() || !form.lastName.trim() || !form.birthDate || !form.companyEmail.trim()) {
+      setSubmitError('First name, last name, birth date, and company email are required.');
       return false;
     }
 
@@ -1341,8 +1347,8 @@ export default function HrManageEmp() {
   }
 
   function buildEmployeePayload(isCreate: boolean) {
-    if (!form.firstName.trim() || !form.lastName.trim() || !form.birthDate || !form.email.trim()) {
-      throw new Error('First name, last name, birth date, and email are required.');
+    if (!form.firstName.trim() || !form.lastName.trim() || !form.birthDate || !form.companyEmail.trim()) {
+      throw new Error('First name, last name, birth date, and company email are required.');
     }
 
     if (showManagerPicker && managerSearch.trim() && !form.managerId.trim()) {
@@ -1365,7 +1371,8 @@ export default function HrManageEmp() {
       exemptionStatus: form.exemptionStatus || undefined,
       employmentDateStart: form.employmentDateStart || undefined,
       employmentDateEnd: form.employmentDateEnd || (shouldDefaultEmploymentEndDate ? todayDateValue() : undefined),
-      email: form.email.trim(),
+      companyEmail: form.companyEmail.trim(),
+      personalEmail: form.personalEmail.trim() || undefined,
       phoneNumber: isCreate || form.phoneNumber.trim() ? validatePhoneNumber(form.phoneNumber) : undefined,
       position: form.position || undefined,
       department: showDepartmentPicker ? form.department.trim() || undefined : undefined,
@@ -1809,8 +1816,12 @@ export default function HrManageEmp() {
                 <strong>{displayValue(username)}</strong>
               </div>
               <div className="hrEmpDetails__item">
-                <span>Email</span>
-                <strong>{displayValue(details.email)}</strong>
+                <span>Company Email</span>
+                <strong>{displayValue(details.companyEmail)}</strong>
+              </div>
+              <div className="hrEmpDetails__item">
+                <span>Personal Email</span>
+                <strong>{displayValue(details.personalEmail)}</strong>
               </div>
               <div className="hrEmpDetails__item">
                 <span>Phone Number</span>
@@ -2663,12 +2674,22 @@ export default function HrManageEmp() {
                           </div>
 
                       <div className="hrEmpField">
-                        <label>Email</label>
+                        <label>Company Email</label>
                         <input
                           type="email"
-                          value={form.email}
-                          aria-invalid={emailMissing ? 'true' : undefined}
-                          onChange={(event) => setField('email', event.target.value)}
+                          value={form.companyEmail}
+                          aria-invalid={companyEmailMissing ? 'true' : undefined}
+                          onChange={(event) => setField('companyEmail', event.target.value)}
+                        />
+                      </div>
+
+                      <div className="hrEmpField">
+                        <label>Personal Email</label>
+                        <input
+                          type="email"
+                          value={form.personalEmail}
+                          placeholder="Optional personal email"
+                          onChange={(event) => setField('personalEmail', event.target.value)}
                         />
                       </div>
 

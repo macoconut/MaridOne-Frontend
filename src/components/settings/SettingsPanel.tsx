@@ -4,6 +4,7 @@ import {
   FiSidebar,
 } from 'react-icons/fi';
 import AccountSecuritySection from '../account/AccountSecuritySection';
+import { useUiDialog } from '../dialog/useUiDialog';
 import {
   beginTwoFactorSetup,
   changeOwnPassword,
@@ -35,6 +36,8 @@ type UserDetails = {
 
 type EmployeeProfile = {
   employeeId?: number;
+  companyEmail?: string;
+  personalEmail?: string;
   email?: string;
   isVerified?: boolean | string;
 };
@@ -68,6 +71,7 @@ function formatDisplayDateTime(value?: string) {
 }
 
 export default function SettingsPanel() {
+  const { showSuccess } = useUiDialog();
   const [sidebarCollapsed, setSidebarCollapsedState] = useState(getStoredSidebarCollapsed);
   const [reduceMotion, setReduceMotionState] = useState(getStoredReduceMotion);
   const [profile, setProfile] = useState<UserDetails | null>(null);
@@ -154,7 +158,7 @@ export default function SettingsPanel() {
   }, []);
 
   const emailVerified = isEmailVerified(employee);
-  const savedEmail = employee?.email ?? '';
+  const savedEmail = employee?.personalEmail ?? '';
   const canChangePasswordNow = profile?.canChangePasswordNow !== false;
   const passwordChangeAvailableAtLabel = useMemo(
     () => (profile?.passwordChangeAvailableAt ? formatDisplayDateTime(profile.passwordChangeAvailableAt) : 'Not available'),
@@ -212,7 +216,8 @@ export default function SettingsPanel() {
 
     try {
       await sendEmailVerification();
-      setSecurityMessage('Verification email sent. Check your inbox and follow the link to finish.');
+      const message = 'Verification email sent. Check your inbox and follow the link to finish.';
+      showSuccess(message, 'Verification Email Sent');
     } catch (error) {
       setSecurityError(getFriendlyErrorMessage(error, 'generic'));
     } finally {
@@ -249,10 +254,11 @@ export default function SettingsPanel() {
 
     try {
       const message = await confirmTwoFactorSetup(code);
+      const successMessage = message || 'Two-factor authentication is now enabled.';
       setTwoFactorSetup(null);
       setTwoFactorCode('');
       setProfile((current) => (current ? { ...current, twoFactorEnabled: true } : current));
-      setSecurityMessage(message || 'Two-factor authentication is now enabled.');
+      showSuccess(successMessage, 'Two-Factor Authentication Enabled');
     } catch (error) {
       setSecurityError(getFriendlyErrorMessage(error, 'generic'));
     } finally {
@@ -385,9 +391,9 @@ export default function SettingsPanel() {
           <div className="settingsCard__top">
             <div>
               <div className="settingsCard__eyebrow">Security</div>
-              <h3 className="settingsCard__title">Email verification, 2FA, and password control</h3>
+              <h3 className="settingsCard__title">Personal email verification, 2FA, and password control</h3>
               <p className="settingsCard__copy">
-                Protect the current account without leaving the page. Your email verification, authenticator setup, and password update are all here.
+                Protect the current account without leaving the page. Your personal email verification, authenticator setup, and password update are all here.
               </p>
             </div>
           </div>

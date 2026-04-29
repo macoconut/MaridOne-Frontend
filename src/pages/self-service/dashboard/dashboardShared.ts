@@ -16,6 +16,8 @@ export type UserDetails = {
     middleName?: string;
     contactNumber?: string;
     phoneNumber?: string;
+    companyEmail?: string;
+    personalEmail?: string;
     email?: string;
     isVerified?: boolean | string;
     address?: string | Record<string, unknown>;
@@ -120,7 +122,13 @@ export function createEditDraft(source: UserDetails['employee'] | null | undefin
       : {};
 
   return {
-    email: typeof source?.email === 'string' ? source.email : '',
+    companyEmail:
+      typeof source?.companyEmail === 'string'
+        ? source.companyEmail
+        : typeof source?.email === 'string'
+          ? source.email
+          : '',
+    personalEmail: typeof source?.personalEmail === 'string' ? source.personalEmail : '',
     phoneNumber:
       typeof source?.phoneNumber === 'string'
         ? source.phoneNumber
@@ -304,7 +312,7 @@ export function formatAnnouncementMeta(employeeName?: string, createdAt?: string
 
   return createdLabel === 'Created date not available'
     ? `Posted by ${author}`
-    : `Posted by ${author} â€¢ ${createdLabel}`;
+    : `Posted by ${author} | ${createdLabel}`;
 }
 
 export function formatAnnouncementEventDuration(startDate?: string, endDate?: string) {

@@ -22,7 +22,8 @@ export type EmployeeDetails = {
   employmentDate?: string
   dateHired?: string
   yearlySalary?: number | string
-  email?: string
+  companyEmail?: string
+  personalEmail?: string
   contactNumber?: string
   phoneNumber?: string
   position?: string

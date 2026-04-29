@@ -74,7 +74,7 @@ export default function AccountSecuritySection({
       ? 'is-success'
       : 'is-warning';
   const emailStatusLabel = !savedEmail.trim()
-    ? 'No Email'
+    ? 'No Personal Email'
     : emailVerified
       ? 'Verified'
       : 'Not Verified';
@@ -109,23 +109,23 @@ export default function AccountSecuritySection({
         <article className="dashSecurityCard">
           <div className="dashSecurityCard__head">
             <div>
-              <h3>Email Verification</h3>
-              <p>{savedEmail || 'No saved email yet.'}</p>
+              <h3>Personal Email Verification</h3>
+              <p>{savedEmail || 'No saved personal email yet.'}</p>
             </div>
             <span className={`dashSecurityPill ${emailStatusClass}`}>{emailStatusLabel}</span>
           </div>
 
           <p className="dashSecurityCard__copy">
             {!savedEmail.trim()
-              ? 'Add and save an email address first so we know where to send the verification link.'
+              ? 'Add and save a personal email first so we know where to send the verification link.'
               : emailVerified
-                ? 'This email address is already verified. If you change it later, the new address will need to be verified again.'
-                : 'This email address is not verified yet. We can send a verification link to your currently saved address.'}
+                ? 'This personal email is already verified. If you change it later, the new address will need to be verified again.'
+                : 'This personal email is not verified yet. We can send a verification link to your currently saved address.'}
           </p>
 
           {emailDirty && (
             <p className="dashSecurityCard__note">
-              Save your email changes first so the verification link goes to the right inbox.
+              Save your personal email changes first so the verification link goes to the right inbox.
             </p>
           )}
 
