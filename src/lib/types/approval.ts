@@ -47,6 +47,7 @@ export type LeaveApprovalRow = {
 export type ApprovalEmployeeDirectoryRow = {
   employeeId?: number
   id?: number
+  managerId?: number
   firstName?: string
   middleName?: string
   lastName?: string

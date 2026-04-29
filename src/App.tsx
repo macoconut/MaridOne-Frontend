@@ -34,6 +34,7 @@ import ManagementLayout from './layouts/management/ManagementLayout';
 import ManagementAttendance from './pages/management/attendance/Attendance';
 import ManagementPayrollCosts from './pages/management/payroll-costs/PayrollCosts';
 import ManagementPayRunReporting from './pages/management/pay-run-reporting/PayRunReporting';
+import ManagementPendingApprovals from './pages/management/pending-approvals/PendingApprovals';
 import ManagerLayout from './layouts/manager/ManagerLayout';
 import ManagerAttendanceDashboard from './pages/manager/attendance-dashboard/AttendanceDashboard';
 import ManagerAttendanceReports from './pages/manager/attendance-reports/AttendanceReports';
@@ -225,6 +226,7 @@ export default function App() {
               <Route path="attendance" element={<ManagementAttendance />} />
               <Route path="payroll-dashboard" element={<ManagementPayrollCosts />} />
               <Route path="pay-run-reporting" element={<ManagementPayRunReporting />} />
+              <Route path="pending-approvals" element={<ManagementPendingApprovals />} />
               <Route path="payroll-costs" element={<ManagementPayrollCosts />} />
               <Route path="self-service">
                 <Route index element={<Navigate to="dashboard" replace />} />

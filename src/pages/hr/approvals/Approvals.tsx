@@ -207,15 +207,16 @@ export default function HrApprovals() {
   const selectedSuggestedPaid = Boolean(selected?.suggestedPaid ?? selected?.paid ?? true);
   const selectedStatusTone = selected ? approvalStatusTone(selected.status) : 'pending';
   const selectedRequestKind = splitRequestKind(selected?.requestKind);
+  const defaultPendingDecision = canReviewSelected ? 'APPROVED' : null;
 
   const isDirty = useMemo(() => {
     if (!selected || !canReviewSelected) return false;
-    if (pendingDecision !== null) return true;
+    if (pendingDecision !== defaultPendingDecision) return true;
     if (decisionReason.trim() !== '') return true;
     if (pendingPaidDecision !== (selected.paid ?? selected.suggestedPaid ?? true)) return true;
     if (paidOverrideReason.trim() !== (selected.paidOverrideReason ?? '')) return true;
     return false;
-  }, [selected, canReviewSelected, pendingDecision, decisionReason, pendingPaidDecision, paidOverrideReason]);
+  }, [selected, canReviewSelected, defaultPendingDecision, pendingDecision, decisionReason, pendingPaidDecision, paidOverrideReason]);
 
   function requestCloseModal() {
     if (isDirty) {
@@ -436,7 +437,7 @@ export default function HrApprovals() {
     setLeaveBalanceLabel('Not available');
     setDecisionSubmitAttempted(false);
     setSubmitError('');
-    setPendingDecision(null);
+    setPendingDecision(selected && String(selected.status).toUpperCase() === 'PENDING_HR' ? 'APPROVED' : null);
     setConfirmDecisionOpen(false);
   }, [selected]);
 
@@ -504,8 +505,9 @@ export default function HrApprovals() {
   async function submitDecision() {
     if (!selected) return;
     setDecisionSubmitAttempted(true);
-    if (!pendingDecision) {
-      setSubmitError('Choose approve or deny before confirming the decision.');
+    const decision = pendingDecision ?? (String(selected.status).toUpperCase() === 'PENDING_HR' ? 'APPROVED' : null);
+    if (decision !== 'APPROVED') {
+      setSubmitError('This request can only be finalized as approved.');
       return;
     }
     const trimmedReason = decisionReason.trim();
@@ -514,7 +516,7 @@ export default function HrApprovals() {
       return;
     }
 
-    if (pendingDecision === 'APPROVED' && (selected.source === 'leave' || selected.source === 'overtime')) {
+    if (selected.source === 'leave' || selected.source === 'overtime') {
       if (pendingPaidDecision == null) {
         setSubmitError('Choose whether this approved request should be treated as paid or unpaid.');
         return;
@@ -535,11 +537,11 @@ export default function HrApprovals() {
           method: 'PATCH',
           body: JSON.stringify({
             leaveType: selected.leaveType,
-            requestStatus: pendingDecision,
+            requestStatus: decision,
             approverReason: trimmedReason,
-            paid: pendingDecision === 'APPROVED' ? pendingPaidDecision : undefined,
+            paid: pendingPaidDecision,
             paidOverrideReason:
-              pendingDecision === 'APPROVED' && pendingPaidDecision !== selectedSuggestedPaid
+              pendingPaidDecision !== selectedSuggestedPaid
                 ? paidOverrideReason.trim()
                 : undefined,
           }),
@@ -550,11 +552,11 @@ export default function HrApprovals() {
           method: 'PATCH',
           body: JSON.stringify({
             overtimeId,
-            updateStatus: pendingDecision,
+            updateStatus: decision,
             approveReason: trimmedReason,
-            paid: pendingDecision === 'APPROVED' ? pendingPaidDecision : undefined,
+            paid: pendingPaidDecision,
             paidOverrideReason:
-              pendingDecision === 'APPROVED' && pendingPaidDecision !== selectedSuggestedPaid
+              pendingPaidDecision !== selectedSuggestedPaid
                 ? paidOverrideReason.trim()
                 : undefined,
           }),
@@ -574,8 +576,9 @@ export default function HrApprovals() {
   function requestDecisionConfirmation() {
     if (!selected) return;
     setDecisionSubmitAttempted(true);
-    if (!pendingDecision) {
-      setSubmitError('Choose approve or deny before confirming the decision.');
+    const decision = pendingDecision ?? (String(selected.status).toUpperCase() === 'PENDING_HR' ? 'APPROVED' : null);
+    if (decision !== 'APPROVED') {
+      setSubmitError('This request can only be finalized as approved.');
       return;
     }
     const trimmedReason = decisionReason.trim();
@@ -583,7 +586,7 @@ export default function HrApprovals() {
       setSubmitError('Please enter at least 5 characters explaining the decision.');
       return;
     }
-    if (pendingDecision === 'APPROVED' && (selected.source === 'leave' || selected.source === 'overtime')) {
+    if (selected.source === 'leave' || selected.source === 'overtime') {
       if (pendingPaidDecision == null) {
         setSubmitError('Choose whether this approved request should be treated as paid or unpaid.');
         return;
@@ -664,7 +667,6 @@ export default function HrApprovals() {
                     <option value="all">All Statuses</option>
                     <option value="PENDING">Pending</option>
                     <option value="APPROVED">Approved</option>
-                    <option value="REJECTED">Denied</option>
                     <option value="CANCELLED">Cancelled</option>
                   </select>
                 </label>
@@ -763,7 +765,7 @@ export default function HrApprovals() {
         title={selected ? `${selected.employee} - ${selected.type}` : 'Approval details'}
         subtitle={
           canReviewSelected
-            ? 'Review the manager recommendation, confirm the paid or unpaid treatment when needed, and record the final HR decision here.'
+            ? 'Review the manager recommendation, confirm the paid or unpaid treatment when needed, and record the finalization note here.'
             : 'Review the submitted details, supporting documents, manager recommendation, and recorded final decision.'
         }
         size="lg"
@@ -776,13 +778,7 @@ export default function HrApprovals() {
                 Cancel
               </button>
               <button type="button" className="btn" onClick={requestDecisionConfirmation} disabled={isSaving || !pendingDecision}>
-                {isSaving
-                  ? 'Saving...'
-                  : pendingDecision === 'APPROVED'
-                    ? 'Confirm Approval'
-                    : pendingDecision === 'REJECTED'
-                      ? 'Confirm Denial'
-                      : 'Confirm Decision'}
+                {isSaving ? 'Saving...' : 'Finalize'}
               </button>
             </>
           ) : (
@@ -959,34 +955,13 @@ export default function HrApprovals() {
                 )}
 
                 <div className="apprModal__panel">
-                  <p className="apprModal__panelTitle">HR Final Decision</p>
-
-                  <div className="decisionPicker">
-                    <div className="decisionPicker__actions">
-                      <button
-                        type="button"
-                        className={`decisionPicker__button ${pendingDecision === 'APPROVED' ? 'is-selected' : ''}`}
-                        disabled={isSaving}
-                        onClick={() => setPendingDecision('APPROVED')}
-                      >
-                        Approve
-                      </button>
-                      <button
-                        type="button"
-                        className={`decisionPicker__button ${pendingDecision === 'REJECTED' ? 'is-selected' : ''}`}
-                        disabled={isSaving}
-                        onClick={() => setPendingDecision('REJECTED')}
-                      >
-                        Deny
-                      </button>
-                    </div>
-                  </div>
+                  <p className="apprModal__panelTitle">HR Finalization Note</p>
 
                   <label>
                     <textarea
                       value={decisionReason}
                       onChange={(e) => setDecisionReason(e.target.value)}
-                      placeholder="Type the reason for approving or denying this request"
+                      placeholder="Type the note for finalizing this request"
                       aria-invalid={decisionSubmitAttempted && decisionReason.trim().length < 5 ? 'true' : undefined}
                     />
                   </label>
@@ -1009,15 +984,9 @@ export default function HrApprovals() {
       />
       <ConfirmDialog
         open={confirmDecisionOpen}
-        title={pendingDecision === 'REJECTED' ? 'Confirm Denial' : 'Confirm Approval'}
-        message={
-          selected
-            ? pendingDecision === 'REJECTED'
-              ? `Deny ${selected.employee}'s ${selected.type.toLowerCase()} request now?`
-              : `Finalize ${selected.employee}'s ${selected.type.toLowerCase()} request as ${pendingPaidDecision === false ? 'unpaid' : 'paid'} and approve it?`
-            : 'Confirm this approval decision?'
-        }
-        confirmLabel={pendingDecision === 'REJECTED' ? 'Confirm Denial' : 'Confirm Approval'}
+        title="Confirm Finalization"
+        message="This will finalize the request as approved with the selected pay treatment."
+        confirmLabel="Finalize"
         cancelLabel="Go Back"
         isBusy={isSaving}
         onConfirm={() => {
