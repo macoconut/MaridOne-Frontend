@@ -249,7 +249,6 @@ export function MonthlyScheduleBoard({
   const [employeePickerOpen, setEmployeePickerOpen] = useState(false);
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [selectedMonthStart, setSelectedMonthStart] = useState(() => initialMonthStart);
-  const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [dailyShifts, setDailyShifts] = useState<DailyShift[]>([]);
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -277,14 +276,12 @@ export function MonthlyScheduleBoard({
   const employeePickerRef = useRef<HTMLDivElement | null>(null);
   const employeeSearchInputRef = useRef<HTMLInputElement | null>(null);
   const templateFilterRef = useRef<HTMLDivElement | null>(null);
-  const monthPickerRef = useRef<HTMLDivElement | null>(null);
 
   useErrorDialogEffect(loadError, 'Schedule calendar could not be loaded');
   useErrorDialogEffect(saveError, 'Schedule calendar could not be saved');
   useEscapeDismiss(editorOpen, closeEditor, 10);
   useEscapeDismiss(templateEditorOpen, closeTemplateEditor, 11);
   useEscapeDismiss(templateFilterOpen, () => setTemplateFilterOpen(false), 14);
-  useEscapeDismiss(monthPickerOpen, () => setMonthPickerOpen(false), 15);
 
   const todayKey = useMemo(() => toIsoDate(new Date()), []);
   const monthOptions = useMemo(() => {
@@ -663,21 +660,6 @@ export function MonthlyScheduleBoard({
     document.addEventListener('mousedown', handlePointerDown);
     return () => document.removeEventListener('mousedown', handlePointerDown);
   }, [employeePickerOpen, closeEmployeePicker]);
-
-  useEffect(() => {
-    if (!monthPickerOpen) return;
-
-    function handlePointerDown(event: MouseEvent) {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (!monthPickerRef.current?.contains(target)) {
-        setMonthPickerOpen(false);
-      }
-    }
-
-    document.addEventListener('mousedown', handlePointerDown);
-    return () => document.removeEventListener('mousedown', handlePointerDown);
-  }, [monthPickerOpen]);
 
   function selectDate(workDate: string) {
     setSelectedDateKey(workDate);
@@ -1287,41 +1269,20 @@ export function MonthlyScheduleBoard({
             <button type="button" className="hrAttCalendarShell__navBtn" onClick={() => shiftMonth(-1)} aria-label="Previous month">
               <FiChevronLeft />
             </button>
-            <div className={`mgrMonth__monthPicker ${monthPickerOpen ? 'is-open' : ''}`} ref={monthPickerRef}>
-              <button
-                type="button"
-                className="mgrMonth__monthPickerButton"
-                aria-haspopup="listbox"
-                aria-expanded={monthPickerOpen}
+            <div className="uCalendarMonthPicker uCalendarMonthPicker--minimal">
+              <span>{formatMonthLabel(selectedMonthStart)}</span>
+              <FiChevronRight style={{ transform: 'rotate(90deg)' }} />
+              <select
+                value={selectedMonthStart}
                 aria-label="Select month"
-                onClick={() => setMonthPickerOpen((current) => !current)}
+                onChange={(event) => setSelectedMonthStart(event.target.value)}
               >
-                <span>{formatMonthLabel(selectedMonthStart)}</span>
-                <FiChevronDown />
-              </button>
-
-              {monthPickerOpen ? (
-                <div className="mgrMonth__monthPickerMenu" role="listbox" aria-label="Month options">
-                  {monthOptions.map((option) => {
-                    const isSelected = option.value === selectedMonthStart;
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        role="option"
-                        aria-selected={isSelected}
-                        className={`mgrMonth__monthPickerOption ${isSelected ? 'is-selected' : ''}`}
-                        onClick={() => {
-                          setSelectedMonthStart(option.value);
-                          setMonthPickerOpen(false);
-                        }}
-                      >
-                        {option.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
+                {monthOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </div>
             <button type="button" className="hrAttCalendarShell__navBtn" onClick={() => shiftMonth(1)} aria-label="Next month">
               <FiChevronRight />

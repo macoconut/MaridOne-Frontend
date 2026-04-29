@@ -135,17 +135,27 @@ export function getStandardPaymentDate(startIso: string, endIso: string): string
   return null;
 }
 
+export function applyStandardPaymentDate(runForm: RunFormState): RunFormState {
+  const standardPaymentDate = getStandardPaymentDate(runForm.periodStart, runForm.periodEnd);
+  if (!standardPaymentDate) return runForm;
+
+  return {
+    ...runForm,
+    paymentDate: standardPaymentDate,
+  };
+}
+
 export function createDefaultRunForm(): RunFormState {
   const manila = getManilaNow();
   const todayIso = manila.dateKey;
   const start = `${manila.year}-${String(manila.month).padStart(2, '0')}-01`;
 
-  return {
+  return applyStandardPaymentDate({
     periodStart: start,
     periodEnd: todayIso,
     paymentDate: todayIso,
     runType: 'REGULAR',
-  };
+  });
 }
 
 export function createDefaultManualLineForm(): ManualLineFormState {

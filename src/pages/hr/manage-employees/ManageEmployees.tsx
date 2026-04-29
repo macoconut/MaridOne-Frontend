@@ -252,6 +252,9 @@ const emptyLeaveBalanceCreateForm: LeaveBalanceCreateForm = {
   balanceHours: '',
 };
 
+const LOCKED_PAGE_MESSAGE =
+  'Verify your access first by clicking the lock button beside the page title to view this data.';
+
 function normalizeText(value: string) {
   return value.trim().toLowerCase();
 }
@@ -473,7 +476,9 @@ function mergeRowWithDetails(row: EmployeeRow, details: EmployeeDetails): Employ
 export default function HrManageEmp() {
   const { showLoading, hideLoading } = useLoading();
   const { showSuccess } = useUiDialog();
-  const sensitiveAccess = useSensitiveAccessPrompt();
+  const sensitiveAccess = useSensitiveAccessPrompt({
+    entryNotice: 'Enter your password to verify before viewing employee management.',
+  });
   const [modal, setModal] = useState<ModalType>(null);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [employeeRows, setEmployeeRows] = useState<EmployeeRow[]>([]);
@@ -674,7 +679,7 @@ export default function HrManageEmp() {
   useEscapeDismiss(Boolean(confirmAction) && !isSaving, () => setConfirmAction(null), 50);
   useAutoRefreshingPage(handlePageRefresh, {
     intervalMs: 15000,
-    enabled: !modal && !detailsDialogEmployeeId && !confirmAction && !isSaving,
+    enabled: sensitiveAccess.isVerified && !modal && !detailsDialogEmployeeId && !confirmAction && !isSaving,
   });
 
   useEffect(() => {
@@ -685,9 +690,23 @@ export default function HrManageEmp() {
   }, [detailsDialogEmployeeId, modal]);
 
   useEffect(() => {
+    if (!sensitiveAccess.isVerified) {
+      setEmployeeRows([]);
+      setEmployeeOptions([]);
+      setEmployeeDetailsById({});
+      setDetailLoadingIds({});
+      setDetailErrors({});
+      setEmployeeComplianceById({});
+      setComplianceLoadingIds({});
+      setComplianceErrors({});
+      setDetailsDialogEmployeeId(null);
+      setLoadMessage('');
+      return;
+    }
+
     void loadEmployees();
     void loadEmployeeOptions();
-  }, [refreshTick]);
+  }, [refreshTick, sensitiveAccess.isVerified]);
 
   useEffect(() => {
     if (!managerPickerOpen) {
@@ -767,6 +786,15 @@ export default function HrManageEmp() {
       setLoadMessage(mapped.length === 0 ? 'No employees found.' : '');
 
     } catch (error) {
+      if (
+        sensitiveAccess.handleProtectedError(
+          error,
+          loadEmployees,
+          'Verify access before opening protected employee records, identifiers, and separation history.'
+        )
+      ) {
+        return;
+      }
       setEmployeeRows([]);
       setEmployeeDetailsById({});
       setDetailLoadingIds({});
@@ -789,6 +817,15 @@ export default function HrManageEmp() {
       const response = await apiFetchJson<unknown>('/api/employees/options');
       setEmployeeOptions(buildEmployeeOptions(response));
     } catch (error) {
+      if (
+        sensitiveAccess.handleProtectedError(
+          error,
+          loadEmployeeOptions,
+          'Verify access before opening protected employee records, identifiers, and separation history.'
+        )
+      ) {
+        return;
+      }
       setEmployeeOptionsError(getFriendlyErrorMessage(error, 'employee-load'));
     } finally {
       setIsLoadingEmployeeOptions(false);
@@ -2208,7 +2245,9 @@ export default function HrManageEmp() {
   }
 
   const emptyStateMessage =
-    employeeRows.length === 0
+    !sensitiveAccess.isVerified
+      ? LOCKED_PAGE_MESSAGE
+      : employeeRows.length === 0
       ? rosterLoadError
         ? 'Waiting for the employee roster.'
         : loadMessage || 'Waiting for backend data.'

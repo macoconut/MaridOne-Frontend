@@ -30,6 +30,9 @@ type AccountingPayrollDashboardProps = {
   showSensitiveAccessIndicator?: boolean;
 };
 
+const LOCKED_PAGE_MESSAGE =
+  'Verify your access first by clicking the lock button beside the page title to view this data.';
+
 const BREAKDOWN_COLORS: Record<BreakdownPoint['tone'], string> = {
   t1: '#b83573',
   t2: '#f06f9b',
@@ -177,7 +180,9 @@ export default function AccountingPayrollDashboard({
   const [canScrollHistoryLeft, setCanScrollHistoryLeft] = useState(false);
   const [canScrollHistoryRight, setCanScrollHistoryRight] = useState(false);
   const silentRefreshRef = useRef(false);
-  const sensitiveAccess = useSensitiveAccessPrompt();
+  const sensitiveAccess = useSensitiveAccessPrompt({
+    entryNotice: 'Enter your password to verify before viewing the payroll dashboard.',
+  });
   const handleSensitiveAccessError = sensitiveAccess.handleProtectedError;
   useErrorDialogEffect(loadError, 'Payroll dashboard could not be loaded');
   const handlePageRefresh = useCallback(() => {
@@ -185,9 +190,24 @@ export default function AccountingPayrollDashboard({
     setRefreshTick((tick) => tick + 1);
   }, []);
 
-  useAutoRefreshingPage(handlePageRefresh, { intervalMs: 15000 });
+  useAutoRefreshingPage(handlePageRefresh, {
+    intervalMs: 15000,
+    enabled: sensitiveAccess.isVerified && !sensitiveAccess.open,
+  });
 
   useEffect(() => {
+    if (!sensitiveAccess.isVerified) {
+      setRuns([]);
+      setSelectedPayId(null);
+      setSelectedItems([]);
+      setSelectedSummary([]);
+      setHistoryPoints([]);
+      setLoadError('');
+      setIsLoading(false);
+      silentRefreshRef.current = false;
+      return;
+    }
+
     let cancelled = false;
 
     async function loadRuns() {
@@ -241,10 +261,10 @@ export default function AccountingPayrollDashboard({
     return () => {
       cancelled = true;
     };
-  }, [refreshTick, handleSensitiveAccessError]);
+  }, [refreshTick, handleSensitiveAccessError, sensitiveAccess.isVerified]);
 
   useEffect(() => {
-    if (runs.length === 0 || selectedPayId == null) {
+    if (!sensitiveAccess.isVerified || runs.length === 0 || selectedPayId == null) {
       setSelectedItems([]);
       setSelectedSummary([]);
       setHistoryPoints([]);
@@ -328,7 +348,7 @@ export default function AccountingPayrollDashboard({
     return () => {
       cancelled = true;
     };
-  }, [runs, selectedPayId, handleSensitiveAccessError]);
+  }, [runs, selectedPayId, handleSensitiveAccessError, sensitiveAccess.isVerified]);
 
   const selectedRun = useMemo(
     () => runs.find((run) => run.payId === selectedPayId) ?? null,
@@ -436,7 +456,7 @@ export default function AccountingPayrollDashboard({
         <PageHeader
           title="Overall Payroll Costs"
           description="Compare payroll cost trends, pay-type breakdowns, and the current run at a glance."
-          titleMeta={showSensitiveAccessIndicator ? (
+          titleMeta={showSensitiveAccessIndicator || !sensitiveAccess.isVerified ? (
             <SensitiveAccessIndicator
               onActivate={() =>
                 sensitiveAccess.requestVerification(
@@ -567,7 +587,11 @@ export default function AccountingPayrollDashboard({
                 ))
               ) : (
                 <div className="aDashPayHistory__empty">
-                  {isLoading ? 'Loading payroll history...' : 'No payroll totals are available yet.'}
+                  {isLoading
+                    ? 'Loading payroll history...'
+                    : !sensitiveAccess.isVerified
+                      ? LOCKED_PAGE_MESSAGE
+                      : 'No payroll totals are available yet.'}
                 </div>
               )}
             </div>
@@ -603,7 +627,11 @@ export default function AccountingPayrollDashboard({
                 ))
               ) : (
                 <div className="aDashPayLegend__empty">
-                  {isLoading ? 'Loading pay type totals...' : 'No pay type totals are available for this run yet.'}
+                  {isLoading
+                    ? 'Loading pay type totals...'
+                    : !sensitiveAccess.isVerified
+                      ? LOCKED_PAGE_MESSAGE
+                      : 'No pay type totals are available for this run yet.'}
                 </div>
               )}
             </div>

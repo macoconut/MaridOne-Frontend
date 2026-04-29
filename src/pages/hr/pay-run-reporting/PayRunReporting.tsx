@@ -75,6 +75,8 @@ const DEFAULT_DEDUCTION_BREAKDOWN_LABELS = [
   'HMO Upgrade',
 ];
 const EMPTY_POSTED_RUN_LABEL = 'No posted payroll runs are available yet.';
+const LOCKED_PAGE_MESSAGE =
+  'Verify your access first by clicking the lock button beside the page title to view this data.';
 
 type PayTypeSortKey = 'name' | 'amount';
 
@@ -332,7 +334,9 @@ function getEmptyRunMessage(run: PayrollRunRow | null, view: ReportView, availab
 }
 
 export default function HrPayRunReporting() {
-  const sensitiveAccess = useSensitiveAccessPrompt();
+  const sensitiveAccess = useSensitiveAccessPrompt({
+    entryNotice: 'Enter your password to verify before viewing pay run reporting.',
+  });
   const handleSensitiveAccessError = sensitiveAccess.handleProtectedError;
   const [view, setView] = useState<ReportView>('employee');
   const [filterValue, setFilterValue] = useState('');
@@ -371,7 +375,10 @@ export default function HrPayRunReporting() {
 
   const filterLabel = useMemo(() => (view === 'employee' ? 'Employee:' : 'Category:'), [view]);
 
-  useAutoRefreshingPage(handlePageRefresh, { intervalMs: 15000 });
+  useAutoRefreshingPage(handlePageRefresh, {
+    intervalMs: 15000,
+    enabled: sensitiveAccess.isVerified && !selectedBreakdownItem && !sensitiveAccess.open,
+  });
 
   useEffect(() => {
     setSortMenuOpen(false);
@@ -398,6 +405,11 @@ export default function HrPayRunReporting() {
   }, [actionMenuOpen]);
 
   useEffect(() => {
+    if (!sensitiveAccess.isVerified) {
+      setEmployeeDirectory([]);
+      return;
+    }
+
     let cancelled = false;
 
     async function loadEmployeeDirectory() {
@@ -417,10 +429,10 @@ export default function HrPayRunReporting() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [sensitiveAccess.isVerified]);
 
   useEffect(() => {
-    if (!fromDate || !toDate) {
+    if (!sensitiveAccess.isVerified || !fromDate || !toDate) {
       setEmployeeRows([]);
       setPayTypeRows([]);
       setIsLoading(false);
@@ -476,7 +488,7 @@ export default function HrPayRunReporting() {
     return () => {
       cancelled = true;
     };
-  }, [fromDate, refreshTick, handleSensitiveAccessError, toDate]);
+  }, [fromDate, refreshTick, handleSensitiveAccessError, sensitiveAccess.isVerified, toDate]);
 
   const selectedRun = useMemo(() => {
     if (!fromDate || !toDate) return null;
@@ -620,7 +632,9 @@ export default function HrPayRunReporting() {
     (value) => value !== 'all'
   ).length;
   const employeeEmptyMessage =
-    employeeRows.length > 0 && visibleEmployeeRows.length === 0 && (normalizedFilter || activeFilterCount > 0)
+    !sensitiveAccess.isVerified
+      ? LOCKED_PAGE_MESSAGE
+      : employeeRows.length > 0 && visibleEmployeeRows.length === 0 && (normalizedFilter || activeFilterCount > 0)
       ? 'No employee totals matched the current search or filters.'
       : getEmptyRunMessage(selectedRun, 'employee', 0);
 
@@ -1125,7 +1139,11 @@ export default function HrPayRunReporting() {
             <section className="hrRunTable hrRunTable--summaryView" aria-label="Pay type summary table">
               <div className="hrRunTable__body hrRunTable__body--summary">
                 <article className="uEmptyState">
-                  {isLoading ? 'Loading pay type totals...' : getEmptyRunMessage(selectedRun, 'payType', 0)}
+                  {isLoading
+                    ? 'Loading pay type totals...'
+                    : !sensitiveAccess.isVerified
+                      ? LOCKED_PAGE_MESSAGE
+                      : getEmptyRunMessage(selectedRun, 'payType', 0)}
                 </article>
               </div>
             </section>

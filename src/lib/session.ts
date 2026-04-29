@@ -8,6 +8,13 @@ const AUTH_KEYS = [
   'maridone.sensitiveAccessExpiresAt',
 ] as const;
 
+export const SENSITIVE_ACCESS_CHANGE_EVENT = 'maridone:sensitive-access-change';
+
+function emitSensitiveAccessChange() {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event(SENSITIVE_ACCESS_CHANGE_EVENT));
+}
+
 export type UserRole = 'employee' | 'hr' | 'manager' | 'management' | 'accounting';
 
 export function setSession(
@@ -64,6 +71,7 @@ function clearSensitiveAccessState() {
   localStorage.removeItem('maridone.sensitiveAccessExpiresAt');
   sessionStorage.removeItem('maridone.sensitiveAccessToken');
   sessionStorage.removeItem('maridone.sensitiveAccessExpiresAt');
+  emitSensitiveAccessChange();
 }
 
 function setValueOnActiveStorage(key: (typeof AUTH_KEYS)[number], value: string) {
@@ -97,6 +105,7 @@ export function setSensitiveAccessToken(token: string, expiresAt?: string) {
   if (expiresAt) {
     setValueOnActiveStorage('maridone.sensitiveAccessExpiresAt', expiresAt);
   }
+  emitSensitiveAccessChange();
 }
 
 export function clearSensitiveAccessToken() {

@@ -20,6 +20,7 @@ import type { EmployeeOption } from '../../../lib/types/employee';
 import type { PayrollRunRow as PayrollRunDto } from '../../../lib/types/payroll';
 import { usePayslipFilters } from './hooks/usePayslipFilters';
 import {
+  applyStandardPaymentDate,
   buildCorrectionIntent,
   buildEmployeeOptions,
   clearStoredRun,
@@ -77,7 +78,9 @@ export default function HrPayslips() {
   const { showLoading, hideLoading } = useLoading();
 
   const { showSuccess } = useUiDialog();
-  const sensitiveAccess = useSensitiveAccessPrompt();
+  const sensitiveAccess = useSensitiveAccessPrompt({
+    entryNotice: 'Enter your password to verify before viewing payslip management.',
+  });
   const handleSensitiveAccessError = sensitiveAccess.handleProtectedError;
   const [disputes, setDisputes] = useState<DisputeRow[]>([]);
   const [selectedDispute, setSelectedDispute] = useState<DisputeRow | null>(null);
@@ -233,6 +236,7 @@ export default function HrPayslips() {
   useAutoRefreshingPage(handlePageRefresh, {
     intervalMs: 15000,
     enabled:
+      sensitiveAccess.isVerified &&
       !sensitiveAccess.open &&
       !selectedDispute &&
       !selectedPayrollItem &&
@@ -269,10 +273,21 @@ export default function HrPayslips() {
       setCurrentRun(nextRun);
       if (nextRun) syncRunForm(nextRun);
     } catch (error) {
+      if (
+        handleSensitiveAccessError(
+          error,
+          async () => {
+            await loadCurrentRun(preferredPayId);
+          },
+          'Verify access before opening payslip management.'
+        )
+      ) {
+        return;
+      }
       setPayrollRuns([]);
       setRunError(getFriendlyErrorMessage(error, 'payroll-run'));
     }
-  }, [syncRunForm]);
+  }, [handleSensitiveAccessError, syncRunForm]);
 
   useEffect(() => {
     if (selectedDispute || selectedPayrollItem || runModalOpen || postModalOpen || manualLineModalOpen || correctionOpen) {
@@ -377,9 +392,18 @@ export default function HrPayslips() {
   }, [manualEmployeePickerOpen]);
 
   useEffect(() => {
+    if (!sensitiveAccess.isVerified) {
+      setPayrollRuns([]);
+      setCurrentRun(null);
+      setRunItems([]);
+      setRunItemsError('');
+      setIsLoadingRunItems(false);
+      return;
+    }
+
     const storedRun = readStoredRun();
     void loadCurrentRun(storedRun?.payId);
-  }, [loadCurrentRun, refreshTick]);
+  }, [loadCurrentRun, refreshTick, sensitiveAccess.isVerified]);
 
   useEffect(() => {
     persistRunSelection(currentRun);
@@ -397,6 +421,17 @@ export default function HrPayslips() {
       setDisputes(merged);
       return merged;
     } catch (error) {
+      if (
+        handleSensitiveAccessError(
+          error,
+          async () => {
+            await loadDisputes();
+          },
+          'Verify access before opening payslip disputes and payroll runs.'
+        )
+      ) {
+        return waitingDisputes;
+      }
       setDisputes(waitingDisputes);
       setLoadError(getFriendlyErrorMessage(error, 'payroll-dispute'));
       return waitingDisputes;
@@ -404,11 +439,17 @@ export default function HrPayslips() {
   }
 
   useEffect(() => {
+    if (!sensitiveAccess.isVerified) {
+      setDisputes([]);
+      setLoadError('');
+      return;
+    }
+
     void loadDisputes();
-  }, [refreshTick]);
+  }, [refreshTick, sensitiveAccess.isVerified]);
 
   useEffect(() => {
-    if (!currentRun?.payId || currentRun.payrollStatus !== 'IN_PROGRESS') {
+    if (!sensitiveAccess.isVerified || !currentRun?.payId || currentRun.payrollStatus !== 'IN_PROGRESS') {
       loadedRunItemsPayIdRef.current = null;
       setRunItems([]);
       setRunItemsError('');
@@ -469,7 +510,7 @@ export default function HrPayslips() {
     return () => {
       cancelled = true;
     };
-  }, [currentRun?.payId, currentRun?.payrollStatus, refreshTick, handleSensitiveAccessError]);
+  }, [currentRun?.payId, currentRun?.payrollStatus, refreshTick, handleSensitiveAccessError, sensitiveAccess.isVerified]);
 
   const displayedPeriodStart = currentRun?.periodStart ?? runForm.periodStart;
   const displayedPeriodEnd = currentRun?.periodEnd ?? runForm.periodEnd;
@@ -673,7 +714,9 @@ export default function HrPayslips() {
   function openRunModal() {
     setRunError('');
     setRunSubmitAttempted(false);
-    setInitialRunForm(runForm);
+    const nextRunForm = applyStandardPaymentDate(runForm);
+    setRunForm(nextRunForm);
+    setInitialRunForm(nextRunForm);
     setRunModalOpen(true);
   }
 
