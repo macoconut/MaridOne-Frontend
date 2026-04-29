@@ -191,6 +191,99 @@
   margin-left: auto;
 }
 
+.mgrMonth__calendarPanel .hrAttCalendarShell__top {
+  display: grid;
+  grid-template-columns: 34px minmax(0, auto) 34px;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+}
+
+.mgrMonth__monthPicker {
+  position: relative;
+  z-index: 18;
+  display: flex;
+  justify-content: center;
+}
+
+.mgrMonth__monthPickerButton {
+  min-width: 210px;
+  min-height: 44px;
+  border: 1px solid rgba(123, 74, 143, 0.14);
+  border-radius: 18px;
+  padding: 0 16px 0 18px;
+  background: linear-gradient(180deg, #f7effb 0%, #f0e6f7 100%);
+  color: #38274f;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 16px;
+  font-weight: 900;
+  box-shadow: 0 10px 22px rgba(71, 38, 106, 0.08);
+  cursor: pointer;
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+
+.mgrMonth__monthPickerButton:hover {
+  transform: translateY(-1px);
+  border-color: rgba(123, 74, 143, 0.24);
+  box-shadow: 0 14px 28px rgba(71, 38, 106, 0.12);
+}
+
+.mgrMonth__monthPickerButton svg {
+  width: 16px;
+  height: 16px;
+  color: #6b4596;
+}
+
+.mgrMonth__monthPicker.is-open .mgrMonth__monthPickerButton {
+  border-color: rgba(123, 74, 143, 0.3);
+  box-shadow: 0 14px 28px rgba(71, 38, 106, 0.14);
+}
+
+.mgrMonth__monthPickerMenu {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 220px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid rgba(123, 74, 143, 0.14);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(191, 154, 223, 0.14), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 242, 252, 0.98) 100%);
+  box-shadow: 0 24px 48px rgba(44, 22, 66, 0.18);
+}
+
+.mgrMonth__monthPickerOption {
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: transparent;
+  color: #2f2041;
+  text-align: left;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease, transform 140ms ease;
+}
+
+.mgrMonth__monthPickerOption:hover {
+  background: rgba(123, 74, 143, 0.08);
+  transform: translateX(1px);
+}
+
+.mgrMonth__monthPickerOption.is-selected {
+  background: linear-gradient(180deg, #7b4a8f 0%, #69407d 100%);
+  color: #ffffff;
+  box-shadow: 0 10px 20px rgba(88, 51, 111, 0.22);
+}
+
 .mgrMonth__toolbarBtn.actionBtnX {
   min-width: min(280px, 100%);
   min-height: 44px !important;
@@ -252,6 +345,10 @@
   gap: 8px;
 }
 
+.mgrMonth__field.is-invalid span {
+  color: #b33a3a;
+}
+
 .mgrMonth__field span {
   display: inline-flex;
   align-items: center;
@@ -274,6 +371,15 @@
   font-weight: 700;
   color: #2b2036;
   box-shadow: 0 10px 20px rgba(28, 19, 42, 0.06);
+}
+
+.mgrMonth__field.is-invalid input,
+.mgrMonth__field.is-invalid select {
+  border-color: rgba(179, 58, 58, 0.55);
+  background: linear-gradient(180deg, #fff8f8 0%, #ffffff 100%);
+  box-shadow:
+    0 0 0 1px rgba(179, 58, 58, 0.08),
+    0 10px 20px rgba(179, 58, 58, 0.08);
 }
 
 .mgrMonth__field input:disabled,
@@ -356,8 +462,41 @@
   line-height: 1.35;
 }
 
+.mgrMonth__summaryTimeList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-content: flex-start;
+  max-height: 124px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.mgrMonth__summaryTimeChip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  max-width: 100%;
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f7f0fb 0%, #ffffff 100%);
+  border: 1px solid rgba(123, 74, 143, 0.12);
+  color: #2b2036;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
 .mgrMonth__editorSection {
   margin-top: 0;
+}
+
+.mgrMonth__fieldError {
+  color: #b33a3a;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .mgrMonth__modalActions {
@@ -840,6 +979,29 @@
   gap: 12px;
 }
 
+.mgrMonth__segmentList {
+  display: grid;
+  gap: 12px;
+}
+
+.mgrMonth__segmentRow {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(123, 74, 143, 0.12);
+  border-radius: 16px;
+  padding: 14px;
+  background: linear-gradient(180deg, #fbf8ff 0%, #ffffff 100%);
+}
+
+.mgrMonth__segmentRemove {
+  justify-self: flex-end;
+}
+
+.mgrMonth__segmentActions {
+  display: flex;
+  justify-content: flex-start;
+}
+
 .mgrMonth__detailCard {
   display: grid;
   gap: 6px;
@@ -943,6 +1105,10 @@
 
   .mgrMonth__toolbarBtn.actionBtnX {
     width: 100%;
+    min-width: 0;
+  }
+
+  .mgrMonth__monthPickerButton {
     min-width: 0;
   }
 }

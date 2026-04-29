@@ -11,21 +11,23 @@ import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import '../../hr/attendance-reports/AttendanceReports.css';
 import {
+  buildDailyOverrideDraft,
   buildTemplateDrafts,
   DAY_ORDER,
   addMonths,
+  formatShiftSegmentsLabel,
   formatDayLabel,
   formatMonthLabel,
   formatSpecificDateLabel,
   getMonthDates,
+  groupDailyShiftsByWorkDate,
   normalizeMonthStart,
   parseDailyShifts,
   parseIsoDate,
   parseTeamEmployees,
-  timeFromDateTime,
   toIsoDate,
 } from './scheduleUtils';
-import type { DailyShift, TeamEmployee } from './scheduleUtils';
+import type { DailyShift, DailyShiftSegmentDraft, TeamEmployee } from './scheduleUtils';
 import './MonthlyTeamSchedule.css';
 
 const CALENDAR_DAYS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
@@ -38,13 +40,16 @@ const HR_SCHEDULE_ROLE_FILTERS = [
 ] as const;
 
 type EditorDraft = {
-  startTime: string;
-  endTime: string;
+  segments: DailyShiftSegmentDraft[];
   dayOff: boolean;
   isOverride: boolean;
   hasTemplate: boolean;
-  templateStartTime: string;
-  templateEndTime: string;
+  templateSegments: DailyShiftSegmentDraft[];
+};
+
+type SegmentFieldErrors = {
+  startTime?: string;
+  endTime?: string;
 };
 
 type HolidayLookupResponse = {
@@ -82,6 +87,21 @@ function formatTimeLabel(value: string) {
   const meridiem = safeHours >= 12 ? 'PM' : 'AM';
   const normalizedHour = safeHours % 12 === 0 ? 12 : safeHours % 12;
   return `${normalizedHour}:${String(safeMinutes).padStart(2, '0')} ${meridiem}`;
+}
+
+function toShiftSegmentRange(segment: Pick<DailyShiftSegmentDraft, 'startTime' | 'endTime'>) {
+  const [startHour = '0', startMinute = '0'] = segment.startTime.split(':');
+  const [endHour = '0', endMinute = '0'] = segment.endTime.split(':');
+  const start = Number(startHour) * 60 + Number(startMinute);
+  let end = Number(endHour) * 60 + Number(endMinute);
+  if (end <= start) {
+    end += 24 * 60;
+  }
+  return { start, end };
+}
+
+function createEmptySegment(): DailyShiftSegmentDraft {
+  return { startTime: '00:00', endTime: '00:00' };
 }
 
 function normalizeSearchText(value: string) {
@@ -180,46 +200,33 @@ function parseHolidayLookup(payload: unknown) {
   return { holidayDates, regularHolidayDates };
 }
 
-function resolveTemplateTimes(employee: TeamEmployee | null, workDate: string) {
-  const dayName = parseIsoDate(workDate).toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
-  const template = employee?.shiftSchedules.find((item) => String(item.dayOfWeek ?? '').toUpperCase() === dayName);
-
-  return {
-    hasTemplate: Boolean(template),
-    startTime: template?.startTime?.slice(0, 5) || '',
-    endTime: template?.endTime?.slice(0, 5) || '',
-  };
-}
-
 function buildEditorDraft(
   employee: TeamEmployee | null,
   workDate: string,
-  shiftMap: Map<string, DailyShift>
+  dailyShiftsForDate: DailyShift[]
 ): EditorDraft {
-  const template = resolveTemplateTimes(employee, workDate);
-  const override = shiftMap.get(workDate);
+  const baseDraft = buildDailyOverrideDraft(employee, workDate, dailyShiftsForDate);
+  const templateDraft = buildDailyOverrideDraft(employee, workDate, []);
 
   return {
-    startTime: override && !override.dayOff ? timeFromDateTime(override.startDateTime) || template.startTime : template.startTime,
-    endTime: override && !override.dayOff ? timeFromDateTime(override.endDateTime) || template.endTime : template.endTime,
-    dayOff: override ? Boolean(override?.dayOff) : !template.hasTemplate,
-    isOverride: Boolean(override?.dailyShiftId),
-    hasTemplate: template.hasTemplate,
-    templateStartTime: template.startTime,
-    templateEndTime: template.endTime,
+    segments: baseDraft.segments.map((segment) => ({ ...segment })),
+    dayOff: baseDraft.dayOff,
+    isOverride: baseDraft.isOverride,
+    hasTemplate: baseDraft.hasTemplate,
+    templateSegments: templateDraft.segments.map((segment) => ({ ...segment })),
   };
 }
 
 function buildLockedDayDrafts(
   employee: TeamEmployee | null,
   monthStart: string,
-  shiftMap: Map<string, DailyShift>,
+  dailyShiftsByDate: Map<string, DailyShift[]>,
   todayKey: string
 ) {
   return getMonthDates(monthStart)
     .filter((workDate) => workDate <= todayKey)
     .reduce<Record<string, EditorDraft>>((next, workDate) => {
-      next[workDate] = buildEditorDraft(employee, workDate, shiftMap);
+      next[workDate] = buildEditorDraft(employee, workDate, dailyShiftsByDate.get(workDate) ?? []);
       return next;
     }, {});
 }
@@ -242,11 +249,13 @@ export function MonthlyScheduleBoard({
   const [employeePickerOpen, setEmployeePickerOpen] = useState(false);
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [selectedMonthStart, setSelectedMonthStart] = useState(() => initialMonthStart);
+  const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [dailyShifts, setDailyShifts] = useState<DailyShift[]>([]);
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
   const [editorDraft, setEditorDraft] = useState<EditorDraft | null>(null);
+  const [editorSegmentErrors, setEditorSegmentErrors] = useState<Record<number, SegmentFieldErrors>>({});
   const [templateTargetEmployeeIds, setTemplateTargetEmployeeIds] = useState<number[]>([]);
   const [templateTargetSearch, setTemplateTargetSearch] = useState('');
   const [selectedTemplateDays, setSelectedTemplateDays] = useState<string[]>([]);
@@ -268,12 +277,14 @@ export function MonthlyScheduleBoard({
   const employeePickerRef = useRef<HTMLDivElement | null>(null);
   const employeeSearchInputRef = useRef<HTMLInputElement | null>(null);
   const templateFilterRef = useRef<HTMLDivElement | null>(null);
+  const monthPickerRef = useRef<HTMLDivElement | null>(null);
 
   useErrorDialogEffect(loadError, 'Schedule calendar could not be loaded');
   useErrorDialogEffect(saveError, 'Schedule calendar could not be saved');
   useEscapeDismiss(editorOpen, closeEditor, 10);
   useEscapeDismiss(templateEditorOpen, closeTemplateEditor, 11);
   useEscapeDismiss(templateFilterOpen, () => setTemplateFilterOpen(false), 14);
+  useEscapeDismiss(monthPickerOpen, () => setMonthPickerOpen(false), 15);
 
   const todayKey = useMemo(() => toIsoDate(new Date()), []);
   const monthOptions = useMemo(() => {
@@ -369,15 +380,7 @@ export function MonthlyScheduleBoard({
     [calendarCells.length]
   );
 
-  const shiftMap = useMemo(
-    () =>
-      new Map(
-        dailyShifts
-          .filter((shift): shift is DailyShift & { workDate: string } => Boolean(shift.workDate))
-          .map((shift) => [shift.workDate, shift])
-      ),
-    [dailyShifts]
-  );
+  const dailyShiftsByDate = useMemo(() => groupDailyShiftsByWorkDate(dailyShifts), [dailyShifts]);
   const holidayDateSet = useMemo(() => new Set(holidayDateKeys), [holidayDateKeys]);
   const regularHolidayDateSet = useMemo(() => new Set(regularHolidayDateKeys), [regularHolidayDateKeys]);
   const selectedDateIsLocked = Boolean(selectedDateKey && selectedDateKey <= todayKey);
@@ -389,9 +392,14 @@ export function MonthlyScheduleBoard({
         ? 'Regular holiday'
         : 'Special holiday'
       : 'Regular workday';
-  const selectedDateSavedTimeLabel = !editorDraft || editorDraft.dayOff || !editorDraft.startTime || !editorDraft.endTime
+  const selectedDateSavedTimeLabel = !editorDraft || editorDraft.dayOff
     ? 'Day off'
-    : `${formatTimeLabel(editorDraft.startTime)} - ${formatTimeLabel(editorDraft.endTime)}`;
+    : formatShiftSegmentsLabel(editorDraft.segments, formatTimeLabel);
+  const selectedDateSavedTimeSegments = !editorDraft || editorDraft.dayOff
+    ? []
+    : editorDraft.segments.map((segment) => ({
+        label: `${formatTimeLabel(segment.startTime)} - ${formatTimeLabel(segment.endTime)}`,
+      }));
   const canClearEmployeePicker = employeeSearch.trim().length > 0;
   const canClearTemplateTargetSearch = templateTargetSearch.trim().length > 0;
   const canOpenTemplateEditor = defaultTemplateEmployees.length > 0;
@@ -424,9 +432,9 @@ export function MonthlyScheduleBoard({
       if (workDate <= todayKey && lockedDayDrafts[workDate]) {
         return lockedDayDrafts[workDate];
       }
-      return buildEditorDraft(selectedEmployee, workDate, shiftMap);
+      return buildEditorDraft(selectedEmployee, workDate, dailyShiftsByDate.get(workDate) ?? []);
     },
-    [lockedDayDrafts, selectedEmployee, shiftMap, todayKey]
+    [dailyShiftsByDate, lockedDayDrafts, selectedEmployee, todayKey]
   );
 
   const closeEmployeePicker = useCallback(() => {
@@ -438,6 +446,7 @@ export function MonthlyScheduleBoard({
   function closeEditor() {
     setEditorOpen(false);
     setSaveError('');
+    setEditorSegmentErrors({});
   }
 
   function closeTemplateEditor() {
@@ -607,8 +616,8 @@ export function MonthlyScheduleBoard({
       return;
     }
 
-    setLockedDayDrafts(buildLockedDayDrafts(selectedEmployee, selectedMonthStart, shiftMap, todayKey));
-  }, [selectedEmployee, selectedMonthStart, shiftMap, todayKey]);
+    setLockedDayDrafts(buildLockedDayDrafts(selectedEmployee, selectedMonthStart, dailyShiftsByDate, todayKey));
+  }, [dailyShiftsByDate, selectedEmployee, selectedMonthStart, todayKey]);
 
   useEffect(() => {
     if (!selectedEmployee || !selectedDateKey) {
@@ -654,6 +663,21 @@ export function MonthlyScheduleBoard({
     document.addEventListener('mousedown', handlePointerDown);
     return () => document.removeEventListener('mousedown', handlePointerDown);
   }, [employeePickerOpen, closeEmployeePicker]);
+
+  useEffect(() => {
+    if (!monthPickerOpen) return;
+
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (!monthPickerRef.current?.contains(target)) {
+        setMonthPickerOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [monthPickerOpen]);
 
   function selectDate(workDate: string) {
     setSelectedDateKey(workDate);
@@ -764,12 +788,169 @@ export function MonthlyScheduleBoard({
     }
   }
 
-  function updateDraft(key: 'startTime' | 'endTime', value: string) {
-    setEditorDraft((current) => (current ? { ...current, [key]: value } : current));
+  function updateSegment(index: number, key: 'startTime' | 'endTime', value: string) {
+    setEditorSegmentErrors((current) => {
+      if (!current[index]) return current;
+      const next = { ...current };
+      const nextRow = { ...next[index] };
+      delete nextRow[key];
+      if (!nextRow.startTime && !nextRow.endTime) {
+        delete next[index];
+      } else {
+        next[index] = nextRow;
+      }
+      return next;
+    });
+    setEditorDraft((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        segments: current.segments.map((segment, segmentIndex) =>
+          segmentIndex === index ? { ...segment, [key]: value } : segment
+        ),
+      };
+    });
   }
 
   function updateDayOff(value: boolean) {
-    setEditorDraft((current) => (current ? { ...current, dayOff: value } : current));
+    setEditorSegmentErrors({});
+    setEditorDraft((current) =>
+      current
+        ? {
+            ...current,
+            dayOff: value,
+            segments: value ? current.segments : current.segments.length > 0 ? current.segments : current.templateSegments.length > 0 ? current.templateSegments : [createEmptySegment()],
+          }
+        : current
+    );
+  }
+
+  function addSegment() {
+    setEditorDraft((current) =>
+      current
+        ? {
+            ...current,
+            dayOff: false,
+            segments: [...current.segments, createEmptySegment()],
+          }
+        : current
+    );
+  }
+
+  function removeSegment(index: number) {
+    setEditorSegmentErrors((current) => {
+      const next: Record<number, SegmentFieldErrors> = {};
+      Object.entries(current).forEach(([key, value]) => {
+        const numericKey = Number(key);
+        if (numericKey === index) return;
+        next[numericKey > index ? numericKey - 1 : numericKey] = value;
+      });
+      return next;
+    });
+    setEditorDraft((current) => {
+      if (!current) return current;
+      const nextSegments = current.segments.filter((_, segmentIndex) => segmentIndex !== index);
+      return {
+        ...current,
+        segments: nextSegments.length > 0 ? nextSegments : [createEmptySegment()],
+        dayOff: false,
+      };
+    });
+  }
+
+  function validateEditorDraft(draft: EditorDraft) {
+    const nextErrors: Record<number, SegmentFieldErrors> = {};
+    const normalizedSegments = draft.segments
+      .map((segment, index) => ({
+        index,
+        dailyShiftId: segment.dailyShiftId,
+        startTime: segment.startTime.trim(),
+        endTime: segment.endTime.trim(),
+      }))
+      .filter((segment) => segment.startTime || segment.endTime);
+
+    if (!draft.dayOff && normalizedSegments.length === 0) {
+      nextErrors[0] = {
+        startTime: 'Start time is required.',
+        endTime: 'End time is required.',
+      };
+      return {
+        isValid: false,
+        segmentErrors: nextErrors,
+        normalizedSegments,
+      };
+    }
+
+    if (!draft.dayOff) {
+      for (const segment of normalizedSegments) {
+        const rowErrors: SegmentFieldErrors = {};
+        if (!segment.startTime) {
+          rowErrors.startTime = 'Start time is required.';
+        }
+        if (!segment.endTime) {
+          rowErrors.endTime = 'End time is required.';
+        }
+        if (rowErrors.startTime || rowErrors.endTime) {
+          nextErrors[segment.index] = rowErrors;
+        }
+      }
+
+      if (Object.keys(nextErrors).length > 0) {
+        return {
+          isValid: false,
+          segmentErrors: nextErrors,
+          normalizedSegments,
+        };
+      }
+
+      for (const segment of normalizedSegments) {
+        if (segment.startTime === segment.endTime) {
+          nextErrors[segment.index] = {
+            startTime: 'Start and end cannot match.',
+            endTime: 'Start and end cannot match.',
+          };
+        }
+      }
+
+      if (Object.keys(nextErrors).length > 0) {
+        return {
+          isValid: false,
+          segmentErrors: nextErrors,
+          normalizedSegments,
+        };
+      }
+
+      const sortedRanges = normalizedSegments
+        .map((segment) => ({ ...segment, range: toShiftSegmentRange(segment) }))
+        .sort((left, right) => left.range.start - right.range.start);
+
+      for (let index = 1; index < sortedRanges.length; index += 1) {
+        if (sortedRanges[index].range.start < sortedRanges[index - 1].range.end) {
+          nextErrors[sortedRanges[index - 1].index] = {
+            startTime: 'Overlaps another segment.',
+            endTime: 'Overlaps another segment.',
+          };
+          nextErrors[sortedRanges[index].index] = {
+            startTime: 'Overlaps another segment.',
+            endTime: 'Overlaps another segment.',
+          };
+        }
+      }
+
+      if (Object.keys(nextErrors).length > 0) {
+        return {
+          isValid: false,
+          segmentErrors: nextErrors,
+          normalizedSegments,
+        };
+      }
+    }
+
+    return {
+      isValid: true,
+      segmentErrors: nextErrors,
+      normalizedSegments,
+    };
   }
 
   async function saveSelectedDate() {
@@ -780,38 +961,41 @@ export function MonthlyScheduleBoard({
       return;
     }
 
-    if (!editorDraft.dayOff && (!editorDraft.startTime || !editorDraft.endTime)) {
-      setSaveError('Start time and end time are both required unless the date is marked as day off.');
+    const validation = validateEditorDraft(editorDraft);
+    if (!validation.isValid) {
+      setEditorSegmentErrors(validation.segmentErrors);
       return;
     }
 
-    if (!editorDraft.dayOff && editorDraft.startTime === editorDraft.endTime) {
-      setSaveError('Start time and end time cannot be the same unless the date is marked as day off.');
-      return;
-    }
-
+    setEditorSegmentErrors({});
     setSaveError('');
     setSavingDate(true);
 
     try {
-      const payload = await apiFetchJson<DailyShift>('/api/employee/schedule/daily/override', {
+      const payload = await apiFetchJson<DailyShift[]>('/api/employee/schedule/daily/override/batch', {
         method: 'PUT',
         body: JSON.stringify({
           empId: selectedEmployee.id,
           workDate: selectedDateKey,
           dayOff: editorDraft.dayOff,
-          startTime: editorDraft.dayOff ? null : editorDraft.startTime,
-          endTime: editorDraft.dayOff ? null : editorDraft.endTime,
+          segments: editorDraft.dayOff
+            ? []
+            : validation.normalizedSegments.map((segment) => ({
+                startTime: segment.startTime,
+                endTime: segment.endTime,
+              })),
         }),
       });
 
-      const [savedShift] = parseDailyShifts([payload], toArray);
-      if (savedShift) {
-        setDailyShifts((current) => {
-          const next = current.filter((shift) => shift.workDate !== selectedDateKey);
-          return [...next, savedShift].sort((left, right) => String(left.workDate).localeCompare(String(right.workDate)));
+      const savedShifts = parseDailyShifts(payload, toArray);
+      setDailyShifts((current) => {
+        const next = current.filter((shift) => shift.workDate !== selectedDateKey);
+        return [...next, ...savedShifts].sort((left, right) => {
+          const byDate = String(left.workDate).localeCompare(String(right.workDate));
+          if (byDate !== 0) return byDate;
+          return String(left.startDateTime ?? '').localeCompare(String(right.startDateTime ?? ''));
         });
-      }
+      });
 
       showSuccess(
         editorDraft.dayOff
@@ -1103,21 +1287,41 @@ export function MonthlyScheduleBoard({
             <button type="button" className="hrAttCalendarShell__navBtn" onClick={() => shiftMonth(-1)} aria-label="Previous month">
               <FiChevronLeft />
             </button>
-            <div className="uCalendarMonthPicker uCalendarMonthPicker--minimal">
-              <span>{formatMonthLabel(selectedMonthStart)}</span>
-              <FiChevronRight style={{ transform: 'rotate(90deg)' }} />
-              <select
-                className="hrAtt__monthSelect"
-                value={selectedMonthStart}
-                onChange={(event) => setSelectedMonthStart(event.target.value)}
+            <div className={`mgrMonth__monthPicker ${monthPickerOpen ? 'is-open' : ''}`} ref={monthPickerRef}>
+              <button
+                type="button"
+                className="mgrMonth__monthPickerButton"
+                aria-haspopup="listbox"
+                aria-expanded={monthPickerOpen}
                 aria-label="Select month"
+                onClick={() => setMonthPickerOpen((current) => !current)}
               >
-                {monthOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                <span>{formatMonthLabel(selectedMonthStart)}</span>
+                <FiChevronDown />
+              </button>
+
+              {monthPickerOpen ? (
+                <div className="mgrMonth__monthPickerMenu" role="listbox" aria-label="Month options">
+                  {monthOptions.map((option) => {
+                    const isSelected = option.value === selectedMonthStart;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        className={`mgrMonth__monthPickerOption ${isSelected ? 'is-selected' : ''}`}
+                        onClick={() => {
+                          setSelectedMonthStart(option.value);
+                          setMonthPickerOpen(false);
+                        }}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
             <button type="button" className="hrAttCalendarShell__navBtn" onClick={() => shiftMonth(1)} aria-label="Next month">
               <FiChevronRight />
@@ -1157,9 +1361,9 @@ export function MonthlyScheduleBoard({
                     const isToday = cell === todayKey;
                     const isHoliday = holidayDateSet.has(cell);
                     const dayNumber = parseIsoDate(cell).getDate();
-                    const timeLabel = dayDraft.dayOff || isDefaultDayOff || !dayDraft.startTime || !dayDraft.endTime
+                    const timeLabel = dayDraft.dayOff || isDefaultDayOff
                       ? 'Day off'
-                      : `${formatTimeLabel(dayDraft.startTime)} - ${formatTimeLabel(dayDraft.endTime)}`;
+                      : formatShiftSegmentsLabel(dayDraft.segments, formatTimeLabel);
 
                     const cellClass = [
                       'hrCal__cell',
@@ -1256,7 +1460,17 @@ export function MonthlyScheduleBoard({
               </article>
               <article className="hrAttSummary__card">
                 <span>Saved Time</span>
-                <strong>{selectedDateSavedTimeLabel}</strong>
+                {selectedDateSavedTimeSegments.length === 0 ? (
+                  <strong>{selectedDateSavedTimeLabel}</strong>
+                ) : (
+                  <div className="mgrMonth__summaryTimeList" aria-label="Saved time segments">
+                    {selectedDateSavedTimeSegments.map((segment, index) => (
+                      <div className="mgrMonth__summaryTimeChip" key={`saved-time-${index}`}>
+                        {segment.label}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </article>
               <article className="hrAttSummary__card">
                 <span>Day Type</span>
@@ -1280,27 +1494,63 @@ export function MonthlyScheduleBoard({
                 </div>
               </label>
 
-              <div className="mgrMonth__timeGrid">
-                <label className="mgrMonth__field">
-                  <span>Start Time</span>
-                  <input
-                    type="time"
-                    value={editorDraft.startTime}
-                    onChange={(event) => updateDraft('startTime', event.target.value)}
-                    disabled={savingDate || loadingMonth || selectedDateIsLocked || editorDraft.dayOff}
-                  />
-                </label>
+              <div className="mgrMonth__segmentList">
+                {editorDraft.segments.map((segment, index) => (
+                  <div className="mgrMonth__segmentRow" key={`${selectedDateKey}-segment-${index}`}>
+                    <div className="mgrMonth__timeGrid">
+                      <label className={`mgrMonth__field ${editorSegmentErrors[index]?.startTime ? 'is-invalid' : ''}`}>
+                        <span>Start Time</span>
+                        <input
+                          type="time"
+                          value={segment.startTime}
+                          onChange={(event) => updateSegment(index, 'startTime', event.target.value)}
+                          disabled={savingDate || loadingMonth || selectedDateIsLocked || editorDraft.dayOff}
+                        />
+                        {editorSegmentErrors[index]?.startTime ? (
+                          <small className="mgrMonth__fieldError">{editorSegmentErrors[index].startTime}</small>
+                        ) : null}
+                      </label>
 
-                <label className="mgrMonth__field">
-                  <span>End Time</span>
-                  <input
-                    type="time"
-                    value={editorDraft.endTime}
-                    onChange={(event) => updateDraft('endTime', event.target.value)}
-                    disabled={savingDate || loadingMonth || selectedDateIsLocked || editorDraft.dayOff}
-                  />
-                </label>
+                      <label className={`mgrMonth__field ${editorSegmentErrors[index]?.endTime ? 'is-invalid' : ''}`}>
+                        <span>End Time</span>
+                        <input
+                          type="time"
+                          value={segment.endTime}
+                          onChange={(event) => updateSegment(index, 'endTime', event.target.value)}
+                          disabled={savingDate || loadingMonth || selectedDateIsLocked || editorDraft.dayOff}
+                        />
+                        {editorSegmentErrors[index]?.endTime ? (
+                          <small className="mgrMonth__fieldError">{editorSegmentErrors[index].endTime}</small>
+                        ) : null}
+                      </label>
+                    </div>
+
+                    {!selectedDateIsLocked ? (
+                      <button
+                        type="button"
+                        className="btn btn--ghost mgrMonth__segmentRemove"
+                        onClick={() => removeSegment(index)}
+                        disabled={savingDate || loadingMonth || editorDraft.dayOff || editorDraft.segments.length === 1}
+                      >
+                        Remove Segment
+                      </button>
+                    ) : null}
+                  </div>
+                ))}
               </div>
+
+              {!selectedDateIsLocked ? (
+                <div className="mgrMonth__segmentActions">
+                  <button
+                    type="button"
+                    className="btn btn--ghost"
+                    onClick={addSegment}
+                    disabled={savingDate || loadingMonth || editorDraft.dayOff}
+                  >
+                    Add Segment
+                  </button>
+                </div>
+              ) : null}
             </section>
           </div>
         </LargePopup>

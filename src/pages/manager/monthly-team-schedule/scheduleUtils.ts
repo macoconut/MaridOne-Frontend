@@ -30,11 +30,15 @@ export type DailyShift = {
   dayOff?: boolean;
 };
 
-export type DailyOverrideDraft = {
-  workDate: string;
+export type DailyShiftSegmentDraft = {
   startTime: string;
   endTime: string;
   dailyShiftId?: number;
+};
+
+export type DailyOverrideDraft = {
+  workDate: string;
+  segments: DailyShiftSegmentDraft[];
   isOverride: boolean;
   dayOff: boolean;
   hasTemplate: boolean;
@@ -168,6 +172,78 @@ export function timeFromDateTime(value?: string) {
   return timePart.slice(0, 5);
 }
 
+export function groupDailyShiftsByWorkDate(dailyShifts: DailyShift[]) {
+  const grouped = new Map<string, DailyShift[]>();
+
+  for (const shift of dailyShifts) {
+    if (!shift.workDate) continue;
+    const current = grouped.get(shift.workDate) ?? [];
+    current.push(shift);
+    grouped.set(shift.workDate, current);
+  }
+
+  for (const [workDate, shifts] of grouped.entries()) {
+    grouped.set(
+      workDate,
+      [...shifts].sort((left, right) => String(left.startDateTime ?? '').localeCompare(String(right.startDateTime ?? '')))
+    );
+  }
+
+  return grouped;
+}
+
+export function resolveTemplateShiftForDate(employee: TeamEmployee | null, workDate: string) {
+  const dayName = parseIsoDate(workDate).toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
+  const template = employee?.shiftSchedules.find((item) => String(item.dayOfWeek ?? '').toUpperCase() === dayName);
+
+  return {
+    hasTemplate: Boolean(template),
+    segments:
+      template?.startTime && template?.endTime
+        ? [
+            {
+              startTime: template.startTime.slice(0, 5),
+              endTime: template.endTime.slice(0, 5),
+            },
+          ]
+        : [],
+  };
+}
+
+export function toDailyShiftSegments(dailyShifts: DailyShift[]) {
+  return dailyShifts
+    .filter((shift) => !shift.dayOff)
+    .map((shift) => ({
+      dailyShiftId: shift.dailyShiftId,
+      startTime: timeFromDateTime(shift.startDateTime),
+      endTime: timeFromDateTime(shift.endDateTime),
+    }))
+    .filter((segment) => segment.startTime && segment.endTime);
+}
+
+export function buildDailyOverrideDraft(
+  employee: TeamEmployee | null,
+  workDate: string,
+  dailyShiftsForDate: DailyShift[] = []
+): DailyOverrideDraft {
+  const template = resolveTemplateShiftForDate(employee, workDate);
+  const hasDayOffOverride = dailyShiftsForDate.some((shift) => Boolean(shift.dayOff));
+  const overrideSegments = toDailyShiftSegments(dailyShiftsForDate);
+
+  return {
+    workDate,
+    segments: overrideSegments.length > 0 ? overrideSegments : template.segments,
+    isOverride: dailyShiftsForDate.length > 0,
+    dayOff: hasDayOffOverride ? true : !template.hasTemplate && dailyShiftsForDate.length === 0,
+    hasTemplate: template.hasTemplate,
+  };
+}
+
+export function formatShiftSegmentsLabel(segments: DailyShiftSegmentDraft[], formatTimeLabel: (value: string) => string) {
+  if (segments.length === 0) return 'Day off';
+  return segments.map((segment) => `${formatTimeLabel(segment.startTime)} - ${formatTimeLabel(segment.endTime)}`).join(', ');
+}
+
 export function parseTeamEmployees(payload: unknown, toArray: <T>(input: unknown) => T[]): TeamEmployee[] {
   const rows =
     payload && typeof payload === 'object' && !Array.isArray(payload) && 'content' in payload
@@ -226,29 +302,11 @@ export function buildWeekOverrideDrafts(
   weekStart: string,
   dailyShifts: DailyShift[]
 ): Record<string, DailyOverrideDraft> {
-  const dailyShiftMap = new Map(
-    dailyShifts
-      .filter((shift): shift is DailyShift & { workDate: string } => Boolean(shift.workDate))
-      .map((shift) => [shift.workDate, shift])
-  );
+  const dailyShiftMap = groupDailyShiftsByWorkDate(dailyShifts);
 
   return DAY_ORDER.reduce<Record<string, DailyOverrideDraft>>((next, day, index) => {
     const workDate = addDays(weekStart, index);
-    const override = dailyShiftMap.get(workDate);
-    const template = employee?.shiftSchedules.find((item) => String(item.dayOfWeek ?? '').toUpperCase() === day);
-    const hasTemplate = Boolean(template);
-    const templateStartTime = toTimeInputValue(template?.startTime);
-    const templateEndTime = toTimeInputValue(template?.endTime);
-
-    next[workDate] = {
-      workDate,
-      dailyShiftId: override?.dailyShiftId,
-      startTime: override && !override.dayOff ? timeFromDateTime(override.startDateTime) : templateStartTime,
-      endTime: override && !override.dayOff ? timeFromDateTime(override.endDateTime) : templateEndTime,
-      isOverride: Boolean(override),
-      dayOff: override ? Boolean(override?.dayOff) : !hasTemplate,
-      hasTemplate,
-    };
+    next[workDate] = buildDailyOverrideDraft(employee, workDate, dailyShiftMap.get(workDate) ?? []);
 
     return next;
   }, {});
