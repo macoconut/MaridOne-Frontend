@@ -22,7 +22,7 @@ import {
   subscribeToUiPreferencesChange,
 } from '../../lib/uiPreferences';
 import { getFriendlyErrorMessage } from '../../lib/uiErrors';
-import { getUserEmail } from '../../lib/session';
+import { clearSession, getUserEmail } from '../../lib/session';
 import './SettingsPanel.css';
 
 type UserDetails = {
@@ -315,8 +315,8 @@ export default function SettingsPanel() {
 
     try {
       await changeOwnPassword(currentPassword, newPassword);
-      await refreshProfileDetails();
-      setSecurityMessage('Your password has been updated. The next self-service password change unlocks after the 30-day cooldown.');
+      clearSession();
+      window.location.replace('/');
     } catch (error) {
       setSecurityError(getFriendlyErrorMessage(error, 'generic'));
     } finally {
