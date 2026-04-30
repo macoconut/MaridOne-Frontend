@@ -908,12 +908,12 @@ export default function Attendance() {
   const isLeaveStartTimeInvalid = leaveSubmitAttempted && !startTime;
   const isLeaveEndDateInvalid = leaveSubmitAttempted && !endDate;
   const isLeaveEndTimeInvalid = leaveSubmitAttempted && !endTime;
-  const isLeaveReasonInvalid = leaveSubmitAttempted && reason.trim().length < 5;
+  const isLeaveReasonInvalid = leaveSubmitAttempted && reason.trim().length < 20;
   const isOtStartDateInvalid = otSubmitAttempted && !otStartDate;
   const isOtStartTimeInvalid = otSubmitAttempted && !otStartTime;
   const isOtEndDateInvalid = otSubmitAttempted && !otEndDate;
   const isOtEndTimeInvalid = otSubmitAttempted && !otEndTime;
-  const isOtReasonInvalid = otSubmitAttempted && otReason.trim().length < 5;
+  const isOtReasonInvalid = otSubmitAttempted && otReason.trim().length < 20;
   const isLeaveDirty =
     leaveOpen &&
     (leaveType !== leaveInitialDraft.leaveType ||
@@ -1948,8 +1948,8 @@ export default function Attendance() {
       return false;
     }
 
-    if (otReason.trim().length < 5) {
-      setOtSubmitError('Reason must be at least 5 characters.');
+    if (otReason.trim().length < 20) {
+      setOtSubmitError('Reason must be at least 20 characters.');
       return false;
     }
 
@@ -2105,8 +2105,8 @@ export default function Attendance() {
       return false;
     }
 
-    if (reason.trim().length < 5) {
-      setSubmitError('Reason must be at least 5 characters.');
+    if (reason.trim().length < 20) {
+      setSubmitError('Reason must be at least 20 characters.');
       return false;
     }
 

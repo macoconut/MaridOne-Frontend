@@ -511,8 +511,8 @@ export default function HrApprovals() {
       return;
     }
     const trimmedReason = decisionReason.trim();
-    if (trimmedReason.length < 5) {
-      setSubmitError('Please enter at least 5 characters explaining the decision.');
+    if (trimmedReason.length < 20) {
+      setSubmitError('Please enter at least 20 characters explaining the decision.');
       return;
     }
 
@@ -521,7 +521,7 @@ export default function HrApprovals() {
         setSubmitError('Choose whether this approved request should be treated as paid or unpaid.');
         return;
       }
-      if (pendingPaidDecision !== selectedSuggestedPaid && paidOverrideReason.trim().length < 5) {
+      if (pendingPaidDecision !== selectedSuggestedPaid && paidOverrideReason.trim().length < 20) {
         setSubmitError('Please explain why HR is overriding the paid or unpaid treatment.');
         return;
       }
@@ -582,8 +582,8 @@ export default function HrApprovals() {
       return;
     }
     const trimmedReason = decisionReason.trim();
-    if (trimmedReason.length < 5) {
-      setSubmitError('Please enter at least 5 characters explaining the decision.');
+    if (trimmedReason.length < 20) {
+      setSubmitError('Please enter at least 20 characters explaining the decision.');
       return;
     }
     if (selected.source === 'leave' || selected.source === 'overtime') {
@@ -591,7 +591,7 @@ export default function HrApprovals() {
         setSubmitError('Choose whether this approved request should be treated as paid or unpaid.');
         return;
       }
-      if (pendingPaidDecision !== selectedSuggestedPaid && paidOverrideReason.trim().length < 5) {
+      if (pendingPaidDecision !== selectedSuggestedPaid && paidOverrideReason.trim().length < 20) {
         setSubmitError('Please explain why HR is overriding the paid or unpaid treatment.');
         return;
       }

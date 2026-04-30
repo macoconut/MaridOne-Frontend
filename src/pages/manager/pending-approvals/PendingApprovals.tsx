@@ -352,8 +352,8 @@ export default function ManagerPendingApprovals() {
       return;
     }
     const trimmedReason = decisionReason.trim();
-    if (trimmedReason.length < 5) {
-      setSubmitError('Please enter at least 5 characters explaining the decision.');
+    if (trimmedReason.length < 20) {
+      setSubmitError('Please enter at least 20 characters explaining the decision.');
       return;
     }
 
@@ -401,8 +401,8 @@ export default function ManagerPendingApprovals() {
     }
 
     const trimmedReason = decisionReason.trim();
-    if (trimmedReason.length < 5) {
-      setSubmitError('Please enter at least 5 characters explaining the decision.');
+    if (trimmedReason.length < 20) {
+      setSubmitError('Please enter at least 20 characters explaining the decision.');
       return;
     }
 

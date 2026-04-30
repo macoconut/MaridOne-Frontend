@@ -694,7 +694,7 @@ export default function HrPayslips() {
   const isManualAmountInvalid = manualLineSubmitAttempted && manualLineForm.amount.trim().length === 0;
   const isCorrectionAmountInvalid =
     correctionSubmitAttempted && Boolean(selectedCorrectionLine) && correctedAmount.trim().length === 0;
-  const isDisputeRemarksInvalid = disputeDecisionSubmitAttempted && remarks.trim().length < 5;
+  const isDisputeRemarksInvalid = disputeDecisionSubmitAttempted && remarks.trim().length < 20;
 
   function showAdjacentInProgressRun(direction: -1 | 1) {
     if (currentInProgressRunIndex < 0) return;
@@ -1219,8 +1219,8 @@ export default function HrPayslips() {
     if (!selectedDispute) return;
     setDisputeDecisionSubmitAttempted(true);
     const trimmedRemarks = remarks.trim();
-    if (trimmedRemarks.length < 5) {
-      setActionError('Please enter at least 5 characters explaining the approval or denial.');
+    if (trimmedRemarks.length < 20) {
+      setActionError('Please enter at least 20 characters explaining the approval or denial.');
       return;
     }
 
@@ -1303,8 +1303,8 @@ export default function HrPayslips() {
       setActionError('Choose approve or deny before confirming the dispute decision.');
       return;
     }
-    if (remarks.trim().length < 5) {
-      setActionError('Please enter at least 5 characters explaining the approval or denial.');
+    if (remarks.trim().length < 20) {
+      setActionError('Please enter at least 20 characters explaining the approval or denial.');
       return;
     }
     setActionError('');
