@@ -1,6 +1,6 @@
 import { useLoading } from '../../../context/useLoading';
 import type { CSSProperties } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import './Attendance.css';
 import { FiCalendar, FiCheckCircle, FiChevronLeft, FiChevronRight, FiClock, FiDownload, FiInfo, FiPlusSquare, FiPrinter, FiXCircle } from 'react-icons/fi';
 import ActionButton from '../../../components/button/ActionButton';
@@ -135,6 +135,51 @@ const LEAVE_TYPE_OPTIONS: Array<{ label: string; value: LeaveType }> = [
   { label: 'Emergency Leave', value: 'EMERGENCY_LEAVE' },
 ];
 const HOURS_FORMATTER = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });
+const DISPLAY_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
+const MONTH_YEAR_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  month: 'long',
+  year: 'numeric',
+});
+const TIMECARD_ROW_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  weekday: 'short',
+  month: 'long',
+  day: 'numeric',
+});
+const LONG_MONTH_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  month: 'long',
+  day: 'numeric',
+});
+const WEEKDAY_DATE_LABEL_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  weekday: 'long',
+  month: 'short',
+  day: 'numeric',
+});
+const DISPLAY_TIME_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  hour: 'numeric',
+  minute: '2-digit',
+});
+const SESSION_TIME_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  hour: '2-digit',
+  minute: '2-digit',
+});
+const MANILA_DATE_PARTS_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Manila',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+});
+const MANILA_TIME_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  hour: 'numeric',
+  minute: '2-digit',
+  timeZone: 'Asia/Manila',
+});
 
 function pad2(n: number) {
   return String(n).padStart(2, '0');
@@ -165,22 +210,14 @@ function formatDisplayDate(value?: string) {
   if (!value) return '-';
   const date = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T12:00:00`) : new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+  return DISPLAY_DATE_FORMATTER.format(date);
 }
 
 function formatTimecardRowDate(value?: string) {
   if (!value) return '-';
   const date = new Date(`${value}T12:00:00`);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString(undefined, {
-    weekday: 'short',
-    month: 'long',
-    day: 'numeric',
-  });
+  return TIMECARD_ROW_DATE_FORMATTER.format(date);
 }
 
 function formatTimecardPayPeriod(from?: string, to?: string) {
@@ -199,14 +236,12 @@ function formatDisplayTime(value?: string) {
     if (Number.isFinite(hours) && Number.isFinite(minutes)) {
       const date = new Date();
       date.setHours(hours, minutes, 0, 0);
-      return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      return DISPLAY_TIME_FORMATTER.format(date);
     }
   }
 
   const date = new Date(value);
-  return Number.isNaN(date.getTime())
-    ? value
-    : date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return Number.isNaN(date.getTime()) ? value : DISPLAY_TIME_FORMATTER.format(date);
 }
 
 function addDays(dateValue: string, days: number) {
@@ -352,10 +387,7 @@ function resolveDayOfWeek(dateValue: string) {
 function formatLongMonthDate(value: string) {
   const date = new Date(`${value}T12:00:00`);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString(undefined, {
-    month: 'long',
-    day: 'numeric',
-  });
+  return LONG_MONTH_DATE_FORMATTER.format(date);
 }
 
 function formatWeekOptionLabel(weekStart: string, index: number) {
@@ -367,30 +399,22 @@ function formatWeekOptionLabel(weekStart: string, index: number) {
 function formatWeekdayDateLabel(value: string) {
   const date = new Date(`${value}T12:00:00`);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString(undefined, {
-    weekday: 'long',
-    month: 'short',
-    day: 'numeric',
-  });
+  return WEEKDAY_DATE_LABEL_FORMATTER.format(date);
 }
 
 function buildScheduleWeekCacheKey(employeeId: number, weekStart: string) {
   return `${employeeId}:${weekStart}`;
 }
 
+function buildTimecardScheduleCacheKey(employeeId: number, fromDate: string, toDate: string) {
+  return `${employeeId}:${fromDate}:${toDate}`;
+}
+
 function toManilaDateParts(value: Date | string) {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return null;
 
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Manila',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(date);
+  const parts = MANILA_DATE_PARTS_FORMATTER.formatToParts(date);
 
   const year = parts.find((part) => part.type === 'year')?.value;
   const month = parts.find((part) => part.type === 'month')?.value;
@@ -411,11 +435,7 @@ function toManilaDateParts(value: Date | string) {
 }
 
 function formatManilaTime(date: Date) {
-  return date.toLocaleTimeString([], {
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZone: 'Asia/Manila',
-  });
+  return MANILA_TIME_FORMATTER.format(date);
 }
 
 function resolveDefaultTimecardRange(now = getManilaNow()): TimecardRange {
@@ -475,57 +495,83 @@ function calculateWorkedHoursWithinWindow(
   );
 }
 
-function resolveTimecardSessionsForDate(logs: AttendanceLog[], workDate: string) {
-  if (!workDate) return [] as TimecardSession[];
+type ParsedTimecardLog = {
+  date: Date;
+  direction: string;
+  manilaDateKey: string;
+  manilaHour: number;
+  manilaMinute: number;
+};
+
+function parseTimecardLog(log: AttendanceLog): ParsedTimecardLog | null {
+  if (typeof log.timestamp !== 'string') return null;
+
+  const date = new Date(log.timestamp);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const manilaParts = toManilaDateParts(date);
+  if (!manilaParts) return null;
+
+  return {
+    date,
+    direction: String(log.direction ?? '').toUpperCase(),
+    manilaDateKey: manilaParts.dateKey,
+    manilaHour: manilaParts.hour,
+    manilaMinute: manilaParts.minute,
+  };
+}
+
+function isEligibleTimecardClockOut(workDate: string, log: ParsedTimecardLog) {
+  if (log.manilaDateKey === workDate) return true;
 
   const nextDate = addDays(workDate, 1);
-  const relevantLogs = toArray<AttendanceLog>(logs)
-    .map((log) => {
-      if (typeof log.timestamp !== 'string') return null;
-      const date = new Date(log.timestamp);
-      if (Number.isNaN(date.getTime())) return null;
-      const manilaParts = toManilaDateParts(date);
-      if (!manilaParts) return null;
+  if (log.manilaDateKey !== nextDate) return false;
 
-      return {
-        date,
-        direction: String(log.direction ?? '').toUpperCase(),
-        manilaDateKey: manilaParts.dateKey,
-        manilaHour: manilaParts.hour,
-        manilaMinute: manilaParts.minute,
-      };
-    })
-    .filter(
-      (
-        item
-      ): item is { date: Date; direction: string; manilaDateKey: string; manilaHour: number; manilaMinute: number } =>
-        item !== null
-    )
-    .filter((item) => {
-      if (item.manilaDateKey === workDate) return true;
-      if (item.manilaDateKey !== nextDate) return false;
-      return item.manilaHour < 6 || (item.manilaHour === 6 && item.manilaMinute === 0);
-    })
+  return log.manilaHour < 6 || (log.manilaHour === 6 && log.manilaMinute === 0);
+}
+
+function buildTimecardSessionsByWorkDate(logs: AttendanceLog[]) {
+  const parsedLogs = logs
+    .map((log) => parseTimecardLog(log))
+    .filter((log): log is ParsedTimecardLog => log !== null)
     .sort((left, right) => left.date.getTime() - right.date.getTime());
 
-  const sessions: TimecardSession[] = [];
-  let currentIn: Date | null = null;
+  const sessionsByDate = new Map<string, TimecardSession[]>();
+  let currentIn: { date: Date; workDate: string } | null = null;
 
-  for (const log of relevantLogs) {
-    if (log.direction === 'IN') {
-      if (currentIn === null && log.manilaDateKey === workDate) {
-        currentIn = log.date;
+  for (const log of parsedLogs) {
+    if (log.direction.includes('IN')) {
+      if (currentIn === null || !isEligibleTimecardClockOut(currentIn.workDate, log)) {
+        currentIn = { date: log.date, workDate: log.manilaDateKey };
       }
       continue;
     }
 
-    if (log.direction === 'OUT' && currentIn && log.date.getTime() > currentIn.getTime()) {
-      sessions.push({ inAt: currentIn, outAt: log.date });
-      currentIn = null;
+    if (!log.direction.includes('OUT') || currentIn === null) {
+      continue;
     }
+
+    if (log.date.getTime() <= currentIn.date.getTime()) {
+      currentIn = null;
+      continue;
+    }
+
+    if (!isEligibleTimecardClockOut(currentIn.workDate, log)) {
+      currentIn = null;
+      continue;
+    }
+
+    const sessions = sessionsByDate.get(currentIn.workDate);
+    const nextSession = { inAt: currentIn.date, outAt: log.date };
+    if (sessions) {
+      sessions.push(nextSession);
+    } else {
+      sessionsByDate.set(currentIn.workDate, [nextSession]);
+    }
+    currentIn = null;
   }
 
-  return sessions;
+  return sessionsByDate;
 }
 
 function parseContentDispositionFileName(value?: string | null) {
@@ -664,7 +710,7 @@ function buildAttendanceHistory(logs: unknown): AttendanceHistory {
   const latestDirection = parsedLogs[parsedLogs.length - 1]?.direction;
   for (const entry of parsedLogs) {
     const dateKey = `${entry.date.getFullYear()}-${pad2(entry.date.getMonth() + 1)}-${pad2(entry.date.getDate())}`;
-    const timeLabel = entry.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const timeLabel = SESSION_TIME_FORMATTER.format(entry.date);
     const current = next[dateKey] ?? [];
     const lastSession = current[current.length - 1];
 
@@ -705,10 +751,7 @@ export default function Attendance() {
   );
   const [year, setYear] = useState(() => getManilaNow().year);
   const [monthIndex, setMonthIndex] = useState(() => getManilaNow().month - 1);
-  const monthLabel = new Date(year, monthIndex, 1).toLocaleDateString(undefined, {
-    month: 'long',
-    year: 'numeric',
-  });
+  const monthLabel = MONTH_YEAR_FORMATTER.format(new Date(year, monthIndex, 1));
 
   const [monthValue, setMonthValue] = useState(monthLabel);
   const monthOptions = useMemo(() => {
@@ -718,10 +761,7 @@ export default function Attendance() {
     const totalMonths = (endYear - startYear + 1) * 12;
 
     return Array.from({ length: totalMonths }, (_, index) =>
-      new Date(startYear, index, 1).toLocaleDateString(undefined, {
-        month: 'long',
-        year: 'numeric',
-      })
+      MONTH_YEAR_FORMATTER.format(new Date(startYear, index, 1))
     );
   }, [year]);
 
@@ -771,6 +811,7 @@ export default function Attendance() {
   const [dailyShiftSchedule, setDailyShiftSchedule] = useState<DailyShiftRow[]>([]);
   const [leaveDailyShiftSchedule, setLeaveDailyShiftSchedule] = useState<DailyShiftRow[]>([]);
   const [timecardDailyShiftSchedule, setTimecardDailyShiftSchedule] = useState<DailyShiftRow[]>([]);
+  const [timecardScheduleStatus, setTimecardScheduleStatus] = useState<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
   const [scheduleWeekStatus, setScheduleWeekStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [leaveBalances, setLeaveBalances] = useState<LeaveBalanceRow[]>([]);
   const [leaveBalanceStatus, setLeaveBalanceStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
@@ -802,6 +843,7 @@ export default function Attendance() {
   const currentScheduleWeekStart = useMemo(() => startOfWeekSunday(todayKey), [todayKey]);
   const [selectedScheduleWeekStart, setSelectedScheduleWeekStart] = useState(currentScheduleWeekStart);
   const scheduleWeekCacheRef = useRef<Map<string, DailyShiftRow[]>>(new Map());
+  const timecardScheduleCacheRef = useRef<Map<string, DailyShiftRow[]>>(new Map());
   const [overtimeRequests, setOvertimeRequests] = useState<OvertimeRequestRow[]>([]);
   useErrorDialogEffect(clockError, 'Attendance action failed');
   useErrorDialogEffect(otSubmitError, 'Overtime request could not be submitted');
@@ -873,7 +915,9 @@ export default function Attendance() {
     setDailyShiftSchedule([]);
     setLeaveDailyShiftSchedule([]);
     setTimecardDailyShiftSchedule([]);
+    setTimecardScheduleStatus('idle');
     scheduleWeekCacheRef.current.clear();
+    timecardScheduleCacheRef.current.clear();
     setLeaveBalances([]);
     setLatestAttendanceDirection(null);
     setLeaveBalanceStatus('unavailable');
@@ -1161,19 +1205,35 @@ export default function Attendance() {
         timecardToDate < timecardFromDate
       ) {
         setTimecardDailyShiftSchedule([]);
+        setTimecardScheduleStatus('idle');
         return;
       }
+
+      const cacheKey = buildTimecardScheduleCacheKey(employeeId, timecardFromDate, timecardToDate);
+      const cachedRange = timecardScheduleCacheRef.current.get(cacheKey);
+      if (cachedRange) {
+        setTimecardDailyShiftSchedule(cachedRange);
+        setTimecardScheduleStatus('ready');
+        return;
+      }
+
+      setTimecardDailyShiftSchedule([]);
+      setTimecardScheduleStatus('loading');
 
       try {
         const response = await apiFetchJson<unknown>(
           `/api/employee/schedule/daily/${employeeId}?startDate=${timecardFromDate}&endDate=${timecardToDate}`
         );
+        const parsedRows = toArray<DailyShiftRow>(response);
+        timecardScheduleCacheRef.current.set(cacheKey, parsedRows);
 
         if (cancelled) return;
-        setTimecardDailyShiftSchedule(toArray<DailyShiftRow>(response));
+        setTimecardDailyShiftSchedule(parsedRows);
+        setTimecardScheduleStatus('ready');
       } catch {
         if (cancelled) return;
         setTimecardDailyShiftSchedule([]);
+        setTimecardScheduleStatus('unavailable');
       }
     })();
 
@@ -1324,6 +1384,17 @@ export default function Attendance() {
     }
     return next;
   }, [timecardDailyShiftSchedule]);
+  const deferredTimecardMode = useDeferredValue(timecardMode);
+  const timecardSessionsByDate = useMemo(() => buildTimecardSessionsByWorkDate(attendanceLogs), [attendanceLogs]);
+  const deferredTimecardSessionsByDate = useDeferredValue(timecardSessionsByDate);
+  const deferredTimecardDailyShiftScheduleByDate = useDeferredValue(timecardDailyShiftScheduleByDate);
+  const timecardDateKeys = useMemo(() => {
+    if (deferredTimecardMode !== 'timecard' || !timecardFromDate || !timecardToDate || timecardToDate < timecardFromDate) {
+      return [] as string[];
+    }
+
+    return dateKeysBetween(timecardFromDate, timecardToDate);
+  }, [deferredTimecardMode, timecardFromDate, timecardToDate]);
 
   const weekScheduleRows = useMemo(() => {
     return buildWeekDateKeys(selectedScheduleWeekStart).map((dateKey) => {
@@ -1405,12 +1476,12 @@ export default function Attendance() {
             : 'HR has not assigned this leave balance to your account yet.';
 
   const timecardRows = useMemo(() => {
-    if (timecardMode !== 'timecard' || !timecardFromDate || !timecardToDate || timecardToDate < timecardFromDate) {
+    if (deferredTimecardMode !== 'timecard' || timecardDateKeys.length === 0) {
       return [] as TimecardRow[];
     }
 
-    return dateKeysBetween(timecardFromDate, timecardToDate).map((dateKey) => {
-      const sessions = resolveTimecardSessionsForDate(attendanceLogs, dateKey);
+    return timecardDateKeys.map((dateKey) => {
+      const sessions = deferredTimecardSessionsByDate.get(dateKey) ?? [];
       const rawHours = sessions.reduce((sum, session) => sum + calculateSessionHours(session), 0);
       const adjustedRawHours = deductUnpaidLunchHour(rawHours);
       const breakHours = Number(Math.max(0, rawHours - adjustedRawHours).toFixed(2));
@@ -1428,7 +1499,7 @@ export default function Attendance() {
       const effectiveWindows = resolveEffectiveLeaveShiftWindows(
         dateKey,
         shiftScheduleByDayOfWeek,
-        timecardDailyShiftScheduleByDate
+        deferredTimecardDailyShiftScheduleByDate
       );
       const regularRawHours = effectiveWindows.reduce(
         (sum, window) => sum + calculateWorkedHoursWithinWindow(sessions, window.start, window.end),
@@ -1456,7 +1527,14 @@ export default function Attendance() {
         totalHours,
       } satisfies TimecardRow;
     });
-  }, [approvedOvertimeRequestsByDate, attendanceLogs, shiftScheduleByDayOfWeek, timecardDailyShiftScheduleByDate, timecardFromDate, timecardMode, timecardToDate]);
+  }, [
+    approvedOvertimeRequestsByDate,
+    deferredTimecardDailyShiftScheduleByDate,
+    deferredTimecardMode,
+    deferredTimecardSessionsByDate,
+    shiftScheduleByDayOfWeek,
+    timecardDateKeys,
+  ]);
 
   const timecardTotals = useMemo(() => {
     return timecardRows.reduce(
@@ -1499,7 +1577,7 @@ export default function Attendance() {
   const calendarGridStyle = { '--calendar-week-rows': calendarWeekRows } as CSSProperties;
 
   const calendarCells = useMemo(() => {
-    if (timecardMode !== 'calendar') {
+    if (deferredTimecardMode !== 'calendar') {
       return [] as DayCell[];
     }
 
@@ -1545,7 +1623,7 @@ export default function Attendance() {
     while (cells.length % 7 !== 0) cells.push({ day: null });
 
     return cells;
-  }, [attendanceByDate, daysInMonth, monthIndex, requestEntriesByDate, sundayBasedStart, timecardMode, year]);
+  }, [attendanceByDate, daysInMonth, deferredTimecardMode, monthIndex, requestEntriesByDate, sundayBasedStart, year]);
 
   
   const resolveShiftTimes = (dateKey: string) => {
@@ -2130,7 +2208,7 @@ export default function Attendance() {
         orderedLeaveBalances={orderedLeaveBalances}
       />
 
-      {timecardMode === 'calendar' ? (
+      {deferredTimecardMode === 'calendar' ? (
         <>
           <section className="attCard">
             <div className="attCalendarShell" aria-label="Attendance calendar">
@@ -2328,8 +2406,18 @@ export default function Attendance() {
             {isTimecardRangeInvalid && (
               <p className="field__error">Choose a valid date range where the end date is not earlier than the start date.</p>
             )}
+            {!isTimecardRangeInvalid && timecardScheduleStatus === 'loading' && (
+              <p className="attTimecardCard__status" role="status">
+                Loading timecard details...
+              </p>
+            )}
+            {!isTimecardRangeInvalid && timecardScheduleStatus === 'unavailable' && (
+              <p className="attTimecardCard__status attTimecardCard__status--warning" role="status">
+                Daily shift adjustments are unavailable right now. The timecard is using your saved schedule template where possible.
+              </p>
+            )}
 
-            <section className="attTimecardSheet">
+            <section className="attTimecardSheet" aria-busy={timecardScheduleStatus === 'loading' ? 'true' : undefined}>
               <div className="attTimecardSheet__header">
                 <div className="attTimecardSheet__brand">
                   <img className="attTimecardSheet__logo" src="/images/marid-logo-transparent.png" alt="Marid Industries logo" />

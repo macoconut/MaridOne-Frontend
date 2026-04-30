@@ -1029,6 +1029,17 @@ input[type='time'] {
   gap: 16px;
 }
 
+.attTimecardCard__status {
+  margin: -4px 0 0;
+  color: rgba(43, 32, 54, 0.72);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.attTimecardCard__status--warning {
+  color: #92541a;
+}
+
 .attTimecardToolbar {
   display: flex;
   flex-wrap: wrap;
