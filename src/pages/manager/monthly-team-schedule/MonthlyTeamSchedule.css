@@ -385,6 +385,16 @@
   color: rgba(47, 40, 60, 0.78);
 }
 
+.mgrMonth__cell--readonly .hrCal__note--holiday {
+  color: #37457a;
+  background: rgba(120, 134, 192, 0.28);
+}
+
+.mgrMonth__cell--readonly .hrCal__note--ot {
+  color: #492c64;
+  background: rgba(104, 63, 121, 0.24);
+}
+
 .mgrMonth__modal.hrAttModal {
   width: min(820px, 96vw);
 }

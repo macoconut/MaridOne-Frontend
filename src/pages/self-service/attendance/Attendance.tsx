@@ -23,6 +23,7 @@ import AttendanceSummary from './sections/AttendanceSummary';
 import type {
   AttendanceLeaveRequest as LeaveRequestRow,
   AttendanceLog,
+  HolidayLookupPayload,
   AttendanceOvertimeRequest as OvertimeRequestRow,
   DailyShift as DailyShiftRow,
   ShiftSchedule as ShiftScheduleRow,
@@ -55,6 +56,7 @@ type RequestEntry = {
 
 type DayCell = {
   day: number | null;
+  holidayLabel?: string;
   statusNotes?: string[];
   detailNotes?: string[];
   variant?: 'leave' | 'ot';
@@ -400,6 +402,43 @@ function formatWeekdayDateLabel(value: string) {
   const date = new Date(`${value}T12:00:00`);
   if (Number.isNaN(date.getTime())) return value;
   return WEEKDAY_DATE_LABEL_FORMATTER.format(date);
+}
+
+function localDateKey(value?: string) {
+  if (!value) return '';
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  const date = new Date(trimmed);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+}
+
+function parseHolidayLookup(payload: unknown) {
+  const object =
+    payload && typeof payload === 'object'
+      ? (payload as HolidayLookupPayload)
+      : ({} as HolidayLookupPayload);
+
+  const holidayDates = Array.isArray(object.holidayDates)
+    ? [...new Set(object.holidayDates.map((value) => localDateKey(value)).filter(Boolean))]
+    : [];
+  const regularHolidayDates = Array.isArray(object.regularHolidayDates)
+    ? [...new Set(object.regularHolidayDates.map((value) => localDateKey(value)).filter(Boolean))]
+    : [];
+  const holidayNamesByDate =
+    object.holidayNamesByDate && typeof object.holidayNamesByDate === 'object'
+      ? Object.fromEntries(
+          Object.entries(object.holidayNamesByDate).flatMap(([dateKey, name]) => {
+            const normalizedDateKey = localDateKey(dateKey);
+            if (!normalizedDateKey || typeof name !== 'string') return [];
+            const normalizedName = name.trim();
+            if (!normalizedName) return [];
+            return [[normalizedDateKey, normalizedName]];
+          })
+        )
+      : {};
+
+  return { holidayDates, regularHolidayDates, holidayNamesByDate };
 }
 
 function buildScheduleWeekCacheKey(employeeId: number, weekStart: string) {
@@ -815,6 +854,9 @@ export default function Attendance() {
   const [scheduleWeekStatus, setScheduleWeekStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [leaveBalances, setLeaveBalances] = useState<LeaveBalanceRow[]>([]);
   const [leaveBalanceStatus, setLeaveBalanceStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
+  const [holidayDateKeys, setHolidayDateKeys] = useState<string[]>([]);
+  const [regularHolidayDateKeys, setRegularHolidayDateKeys] = useState<string[]>([]);
+  const [holidayNamesByDate, setHolidayNamesByDate] = useState<Record<string, string>>({});
   const [timecardMode, setTimecardMode] = useState<TimecardMode>('calendar');
   const [timecardFromDate, setTimecardFromDate] = useState(initialTimecardRange.from);
   const [timecardToDate, setTimecardToDate] = useState(initialTimecardRange.to);
@@ -919,6 +961,9 @@ export default function Attendance() {
     scheduleWeekCacheRef.current.clear();
     timecardScheduleCacheRef.current.clear();
     setLeaveBalances([]);
+    setHolidayDateKeys([]);
+    setRegularHolidayDateKeys([]);
+    setHolidayNamesByDate({});
     setLatestAttendanceDirection(null);
     setLeaveBalanceStatus('unavailable');
     setScheduleWeekStatus('unavailable');
@@ -972,6 +1017,34 @@ export default function Attendance() {
   useEffect(() => {
     setMonthValue(monthLabel);
   }, [monthLabel, monthIndex]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const monthStart = toISODate(year, monthIndex, 1);
+    const monthEnd = toISODate(year, monthIndex, new Date(year, monthIndex + 1, 0).getDate());
+
+    void (async () => {
+      try {
+        const response = await apiFetchJson<unknown>(
+          `/api/holidays?startDate=${monthStart}&endDate=${monthEnd}`
+        );
+        if (cancelled) return;
+        const parsed = parseHolidayLookup(response);
+        setHolidayDateKeys(parsed.holidayDates);
+        setRegularHolidayDateKeys(parsed.regularHolidayDates);
+        setHolidayNamesByDate(parsed.holidayNamesByDate);
+      } catch {
+        if (cancelled) return;
+        setHolidayDateKeys([]);
+        setRegularHolidayDateKeys([]);
+        setHolidayNamesByDate({});
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [monthIndex, year]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1307,6 +1380,9 @@ export default function Attendance() {
     return next;
   }, [requestEntries]);
 
+  const holidayDateSet = useMemo(() => new Set(holidayDateKeys), [holidayDateKeys]);
+  const regularHolidayDateSet = useMemo(() => new Set(regularHolidayDateKeys), [regularHolidayDateKeys]);
+
   const shiftScheduleByDayOfWeek = useMemo(() => {
     const next = new Map<string, ShiftScheduleRow>();
     for (const schedule of shiftSchedule) {
@@ -1592,6 +1668,9 @@ export default function Attendance() {
       const dayRequests = requestEntriesByDate.get(dateKey) ?? [];
       const approvedDayRequests = dayRequests.filter((entry) => entry.status.toUpperCase() === 'APPROVED');
       const attendance = attendanceByDate[dateKey] ?? [];
+      const isHoliday = holidayDateSet.has(dateKey);
+      const isRegularHoliday = regularHolidayDateSet.has(dateKey);
+      const holidayLabel = holidayNamesByDate[dateKey] ?? (isRegularHoliday ? 'Regular Holiday' : 'Holiday');
       const statusNotes: string[] = [];
       const detailNotes: string[] = [];
       let variant: DayCell['variant'] | undefined;
@@ -1613,6 +1692,7 @@ export default function Attendance() {
 
       cells.push({
         day: d,
+        holidayLabel: isHoliday ? holidayLabel : undefined,
         statusNotes: statusNotes.length > 0 ? statusNotes : undefined,
         detailNotes: detailNotes.length > 0 ? detailNotes : undefined,
         variant,
@@ -1623,7 +1703,18 @@ export default function Attendance() {
     while (cells.length % 7 !== 0) cells.push({ day: null });
 
     return cells;
-  }, [attendanceByDate, daysInMonth, deferredTimecardMode, monthIndex, requestEntriesByDate, sundayBasedStart, year]);
+  }, [
+    attendanceByDate,
+    daysInMonth,
+    deferredTimecardMode,
+    holidayDateSet,
+    holidayNamesByDate,
+    monthIndex,
+    regularHolidayDateSet,
+    requestEntriesByDate,
+    sundayBasedStart,
+    year,
+  ]);
 
   
   const resolveShiftTimes = (dateKey: string) => {
@@ -2254,6 +2345,10 @@ export default function Attendance() {
 
               <div className="attCalendarShell__legend" aria-hidden="true">
                 <span className="attCalendarShell__legendItem">
+                  <span className="attCalendarShell__legendSwatch attCalendarShell__legendSwatch--holiday" />
+                  Holiday
+                </span>
+                <span className="attCalendarShell__legendItem">
                   <span className="attCalendarShell__legendSwatch attCalendarShell__legendSwatch--leave" />
                   Leave
                 </span>
@@ -2275,19 +2370,22 @@ export default function Attendance() {
                 {calendarCells.map((c, idx) => {
                   const dateKey = c.day ? toISODate(year, monthIndex, c.day) : '';
                   const isToday = c.day !== null && dateKey === todayKey;
-                  const hasContent = Boolean((c.statusNotes?.length ?? 0) || (c.detailNotes?.length ?? 0));
+                  const hasContent = Boolean(c.holidayLabel || (c.statusNotes?.length ?? 0) || (c.detailNotes?.length ?? 0));
                   const detailNotes = c.detailNotes ?? [];
                   const visibleDetailNotes =
                     detailNotes.length > MAX_VISIBLE_CALENDAR_LOGS
                       ? detailNotes.slice(-MAX_VISIBLE_CALENDAR_LOGS).reverse()
                       : [...detailNotes].reverse();
                   const hiddenDetailCount = Math.max(0, detailNotes.length - visibleDetailNotes.length);
-                  const cellTitle = [...(c.statusNotes ?? []), ...(c.detailNotes ?? [])].join(' | ');
+                  const cellTitle = [c.holidayLabel, ...(c.statusNotes ?? []), ...(c.detailNotes ?? [])]
+                    .filter(Boolean)
+                    .join(' | ');
                   const cls = [
                     'cal__cell',
                     c.day === null ? 'cal__cell--disabled' : '',
                     hasContent ? 'cal__cell--active' : '',
                     isToday ? 'cal__cell--today' : '',
+                    c.holidayLabel ? 'cal__cell--holiday' : '',
                     c.variant ? `cal__cell--${c.variant}` : '',
                   ]
                     .filter(Boolean)
@@ -2306,6 +2404,9 @@ export default function Attendance() {
                       {c.day ? (
                         <div className="cal__cellTop">
                           <div className="cal__day">{c.day}</div>
+                          {c.holidayLabel ? (
+                            <span className="cal__note cal__note--holiday">{c.holidayLabel}</span>
+                          ) : null}
                         </div>
                       ) : null}
                       {c.statusNotes && (
@@ -2316,7 +2417,7 @@ export default function Attendance() {
                               className={`cal__note ${
                                 line.toLowerCase().includes('leave')
                                   ? 'cal__note--leave'
-                                  : line.toLowerCase().includes('ot')
+                                  : line.toLowerCase().includes('overtime') || line.toLowerCase() === 'ot'
                                     ? 'cal__note--ot'
                                     : ''
                               }`}

@@ -534,8 +534,20 @@ function parseHolidayLookup(payload: unknown) {
   const regularHolidayDates = Array.isArray(object.regularHolidayDates)
     ? [...new Set(object.regularHolidayDates.map((value) => localDateKey(value)).filter(Boolean))]
     : [];
+  const holidayNamesByDate =
+    object.holidayNamesByDate && typeof object.holidayNamesByDate === 'object'
+      ? Object.fromEntries(
+          Object.entries(object.holidayNamesByDate).flatMap(([dateKey, name]) => {
+            const normalizedDateKey = localDateKey(dateKey);
+            if (!normalizedDateKey || typeof name !== 'string') return [];
+            const normalizedName = name.trim();
+            if (!normalizedName) return [];
+            return [[normalizedDateKey, normalizedName]];
+          })
+        )
+      : {};
 
-  return { holidayDates, regularHolidayDates };
+  return { holidayDates, regularHolidayDates, holidayNamesByDate };
 }
 
 function monthCells(year: number, monthIndex: number) {
@@ -1052,6 +1064,7 @@ export function AttendanceReportsBoard({
   const [dailyShifts, setDailyShifts] = useState<DailyShift[]>([]);
   const [holidayDateKeys, setHolidayDateKeys] = useState<string[]>([]);
   const [regularHolidayDateKeys, setRegularHolidayDateKeys] = useState<string[]>([]);
+  const [holidayNamesByDate, setHolidayNamesByDate] = useState<Record<string, string>>({});
   const [hasFullRoster, setHasFullRoster] = useState(false);
   const [rosterMessage, setRosterMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -1272,9 +1285,11 @@ export function AttendanceReportsBoard({
           const parsed = parseHolidayLookup(holidayResult.value);
           setHolidayDateKeys(parsed.holidayDates);
           setRegularHolidayDateKeys(parsed.regularHolidayDates);
+          setHolidayNamesByDate(parsed.holidayNamesByDate);
         } else if (!isSilentRefresh) {
           setHolidayDateKeys([]);
           setRegularHolidayDateKeys([]);
+          setHolidayNamesByDate({});
         }
         setLoadError('');
       } catch (error) {
@@ -1287,6 +1302,7 @@ export function AttendanceReportsBoard({
           setDailyShifts([]);
           setHolidayDateKeys([]);
           setRegularHolidayDateKeys([]);
+          setHolidayNamesByDate({});
           setHasFullRoster(false);
           setRosterMessage('');
           setLoadError(error instanceof Error ? error.message : 'Failed to load attendance data.');
@@ -1356,6 +1372,9 @@ export function AttendanceReportsBoard({
 
   const holidayDateSet = useMemo(() => new Set(holidayDateKeys), [holidayDateKeys]);
   const regularHolidayDateSet = useMemo(() => new Set(regularHolidayDateKeys), [regularHolidayDateKeys]);
+  const selectedHolidayLabel = selectedDateKey
+    ? holidayNamesByDate[selectedDateKey] ?? (regularHolidayDateSet.has(selectedDateKey) ? 'Regular Holiday' : 'Holiday')
+    : '';
 
   const dailyShiftDateKeysByEmployee = useMemo(() => {
     const grouped = new Map<number, Set<string>>();
@@ -1662,6 +1681,7 @@ export function AttendanceReportsBoard({
       const isKnownDayOff = isKnownDayOffOnDate(focusedEmployee, dateKey);
       const isHoliday = holidayDateSet.has(dateKey);
       const isRegularHoliday = regularHolidayDateSet.has(dateKey);
+      const holidayLabel = holidayNamesByDate[dateKey] ?? (isRegularHoliday ? 'Regular Holiday' : 'Holiday');
       const record = focusRecordByDate.get(dateKey);
       const leaveRequests = focusLeavesByDate.get(dateKey) ?? [];
       const overtimeRequests = focusOvertimeByDate.get(dateKey) ?? [];
@@ -1680,7 +1700,7 @@ export function AttendanceReportsBoard({
 
       if (isHoliday) {
         notes.push({
-          label: isRegularHoliday ? 'Regular Holiday' : 'Holiday',
+          label: holidayLabel,
           tone: 'holiday',
         });
         tone ??= 'holiday';
@@ -1735,6 +1755,7 @@ export function AttendanceReportsBoard({
     focusRecordByDate,
     focusedEmployee,
     holidayDateSet,
+    holidayNamesByDate,
     hasScheduledWorkOnDate,
     isKnownDayOffOnDate,
     monthIndex,
@@ -2285,7 +2306,7 @@ export function AttendanceReportsBoard({
   const canImport = audienceLabel === 'HR';
   const importIssues = toArray<AttendanceImportIssue>(importSummary?.issues);
   const selectedDetailSubtitle = selectedIsHoliday
-    ? 'This date is a holiday, so employees without logs are not counted as absent or day off.'
+    ? `This date is ${selectedHolidayLabel || 'a holiday'}, so employees without logs are not counted as absent or day off.`
     : !selectedIsWorkingDay && !selectedHasKnownDayOffs
       ? 'This date has no scheduled work, so absences are not evaluated.'
       : 'Inspect the daily attendance summary, logged employees, and missing logs for the selected date.';
@@ -2457,18 +2478,25 @@ export function AttendanceReportsBoard({
                       >
                         <div className="hrCal__cellTop">
                           <div className="hrCal__day">{cell.day}</div>
+                          {cell.notes?.find((note) => note.tone === 'holiday') ? (
+                            <span className="hrCal__note hrCal__note--holiday">
+                              {cell.notes.find((note) => note.tone === 'holiday')?.label}
+                            </span>
+                          ) : null}
                         </div>
 
-                        {cell.notes && (
+                        {cell.notes?.some((note) => note.tone !== 'holiday') && (
                           <div className="hrCal__statusNotes">
-                            {cell.notes.map((note, noteIndex) => (
-                              <span
-                                key={`${dateKey}-${note.label}-${noteIndex}`}
-                                className={`hrCal__note hrCal__note--${note.tone}`}
-                              >
-                                {note.label}
-                              </span>
-                            ))}
+                            {cell.notes
+                              .filter((note) => note.tone !== 'holiday')
+                              .map((note, noteIndex) => (
+                                <span
+                                  key={`${dateKey}-${note.label}-${noteIndex}`}
+                                  className={`hrCal__note hrCal__note--${note.tone}`}
+                                >
+                                  {note.label}
+                                </span>
+                              ))}
                           </div>
                         )}
 
@@ -2497,9 +2525,10 @@ export function AttendanceReportsBoard({
                     const isToday = dateKey === todayDateKey;
                     const isSelected = dateKey === selectedDateKey;
                     const isHoliday = holidayDateSet.has(dateKey);
+                    const holidayLabel =
+                      holidayNamesByDate[dateKey] ?? (regularHolidayDateSet.has(dateKey) ? 'Regular Holiday' : 'Holiday');
                     const showAttendanceIndicators = !isFutureDate;
                     const showHolidayIndicator = isHoliday;
-                    const showIndicators = showAttendanceIndicators || showHolidayIndicator;
                     const hasAttention =
                       showAttendanceIndicators &&
                       (
@@ -2531,8 +2560,11 @@ export function AttendanceReportsBoard({
                       >
                         <div className="hrCal__cellTop">
                           <div className="hrCal__day">{day}</div>
+                          {showHolidayIndicator && (
+                            <span className="hrCal__note hrCal__note--holiday">{holidayLabel}</span>
+                          )}
                         </div>
-                        {showIndicators && (
+                        {showAttendanceIndicators && (
                           <div className="hrCal__stats">
                             {showAttendanceIndicators && cell.presentCount > 0 && (
                               <div className="hrCal__stat hrCal__stat--present">
@@ -2556,11 +2588,6 @@ export function AttendanceReportsBoard({
                               <div className="hrCal__stat hrCal__stat--outside">
                                 <span>Outside Schedule</span>
                                 <strong>{cell.outsideScheduleCount}</strong>
-                              </div>
-                            )}
-                            {showHolidayIndicator && (
-                              <div className="hrCal__stat hrCal__stat--holiday">
-                                <span>Holiday</span>
                               </div>
                             )}
                             {showAttendanceIndicators && hasFullRoster && (cell.absentCount ?? 0) > 0 && (

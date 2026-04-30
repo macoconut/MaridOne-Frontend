@@ -514,12 +514,16 @@
   background: rgba(123, 74, 143, 0.22);
 }
 
+.attCalendarShell__legendSwatch--holiday {
+  background: #98a4d6;
+}
+
 .attCalendarShell__legendSwatch--leave {
-  background: #8c55ff;
+  background: #6f8f78;
 }
 
 .attCalendarShell__legendSwatch--ot {
-  background: var(--app-accent);
+  background: #9b7358;
 }
 
 /* Calendar grid */
@@ -603,6 +607,10 @@
   box-shadow: 0 0 0 2px rgba(123, 74, 143, 0.18), 0 14px 24px rgba(57, 37, 89, 0.08);
 }
 
+.cal__cell--holiday {
+  border-color: rgba(152, 164, 214, 0.24);
+}
+
 .cal__statusNotes,
 .cal__detailNotes {
   width: 100%;
@@ -653,24 +661,30 @@
 }
 
 .cal__cell--leave {
-  background: linear-gradient(180deg, #f3ebff 0%, #e8dbff 100%);
-  border-color: #d6bfff;
+  background: linear-gradient(180deg, #f3f8f3 0%, #e6efe7 100%);
+  border-color: #bfd0c2;
 }
 
 .cal__cell--ot {
-  background: linear-gradient(180deg, #efe4f4 0%, #e1d0ea 100%);
-  border-color: #caaed8;
+  background: linear-gradient(180deg, #f9f4ef 0%, #efdfd2 100%);
+  border-color: #d6beaa;
+}
+
+.cal__note--holiday {
+  color: #43518c;
+  background: rgba(152, 164, 214, 0.2);
+  font-weight: 800;
 }
 
 .cal__note--leave {
-  color: #6d3db4;
-  background: rgba(140, 85, 255, 0.16);
+  color: #47614e;
+  background: rgba(111, 143, 120, 0.18);
   font-weight: 800;
 }
 
 .cal__note--ot {
-  color: #5c377d;
-  background: rgba(123, 74, 143, 0.16);
+  color: #7a5842;
+  background: rgba(155, 115, 88, 0.18);
   font-weight: 800;
 }
 

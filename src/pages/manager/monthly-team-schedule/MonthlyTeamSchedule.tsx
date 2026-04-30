@@ -55,6 +55,7 @@ type SegmentFieldErrors = {
 type HolidayLookupResponse = {
   holidayDates?: string[];
   regularHolidayDates?: string[];
+  holidayNamesByDate?: Record<string, string>;
 };
 
 type MonthlyScheduleBoardProps = {
@@ -196,8 +197,20 @@ function parseHolidayLookup(payload: unknown) {
         ),
       ]
     : [];
+  const holidayNamesByDate =
+    object.holidayNamesByDate && typeof object.holidayNamesByDate === 'object'
+      ? Object.fromEntries(
+          Object.entries(object.holidayNamesByDate).flatMap(([dateKey, name]) => {
+            if (typeof dateKey !== 'string' || typeof name !== 'string') return [];
+            const normalizedDateKey = dateKey.trim();
+            const normalizedName = name.trim();
+            if (!normalizedDateKey || !normalizedName) return [];
+            return [[normalizedDateKey, normalizedName]];
+          })
+        )
+      : {};
 
-  return { holidayDates, regularHolidayDates };
+  return { holidayDates, regularHolidayDates, holidayNamesByDate };
 }
 
 function buildEditorDraft(
@@ -269,6 +282,7 @@ export function MonthlyScheduleBoard({
   const [loadingMonth, setLoadingMonth] = useState(false);
   const [holidayDateKeys, setHolidayDateKeys] = useState<string[]>([]);
   const [regularHolidayDateKeys, setRegularHolidayDateKeys] = useState<string[]>([]);
+  const [holidayNamesByDate, setHolidayNamesByDate] = useState<Record<string, string>>({});
   const [savingDate, setSavingDate] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [loadError, setLoadError] = useState('');
@@ -382,12 +396,13 @@ export function MonthlyScheduleBoard({
   const regularHolidayDateSet = useMemo(() => new Set(regularHolidayDateKeys), [regularHolidayDateKeys]);
   const selectedDateIsLocked = Boolean(selectedDateKey && selectedDateKey <= todayKey);
   const selectedDateIsHoliday = Boolean(selectedDateKey && holidayDateSet.has(selectedDateKey));
+  const selectedHolidayLabel = selectedDateKey
+    ? holidayNamesByDate[selectedDateKey] ?? (regularHolidayDateSet.has(selectedDateKey) ? 'Regular Holiday' : 'Holiday')
+    : '';
   const selectedDateDayTypeLabel = !selectedDateKey
     ? ''
     : selectedDateIsHoliday
-      ? regularHolidayDateSet.has(selectedDateKey)
-        ? 'Regular holiday'
-        : 'Special holiday'
+      ? selectedHolidayLabel
       : 'Regular workday';
   const selectedDateSavedTimeLabel = !editorDraft || editorDraft.dayOff
     ? 'Day off'
@@ -539,10 +554,12 @@ export function MonthlyScheduleBoard({
         const parsed = parseHolidayLookup(payload);
         setHolidayDateKeys(parsed.holidayDates);
         setRegularHolidayDateKeys(parsed.regularHolidayDates);
+        setHolidayNamesByDate(parsed.holidayNamesByDate);
       } catch (error) {
         if (cancelled) return;
         setHolidayDateKeys([]);
         setRegularHolidayDateKeys([]);
+        setHolidayNamesByDate({});
         setLoadError(getFriendlyErrorMessage(error, 'employee-load'));
       }
     }
@@ -1321,6 +1338,8 @@ export function MonthlyScheduleBoard({
                     const isSelected = cell === selectedDateKey;
                     const isToday = cell === todayKey;
                     const isHoliday = holidayDateSet.has(cell);
+                    const holidayLabel =
+                      holidayNamesByDate[cell] ?? (regularHolidayDateSet.has(cell) ? 'Regular Holiday' : 'Holiday');
                     const dayNumber = parseIsoDate(cell).getDate();
                     const timeLabel = dayDraft.dayOff || isDefaultDayOff
                       ? 'Day off'
@@ -1351,13 +1370,13 @@ export function MonthlyScheduleBoard({
                       >
                         <div className="hrCal__cellTop">
                           <div className="hrCal__day">{dayNumber}</div>
+                          {isHoliday ? <span className="hrCal__note hrCal__note--holiday">{holidayLabel}</span> : null}
                         </div>
 
                         <div className="hrCal__statusNotes">
                           {dayDraft.isOverride && !dayDraft.dayOff ? (
                             <span className="hrCal__note hrCal__note--ot">Custom hours</span>
                           ) : null}
-                          {isHoliday && <span className="hrCal__note hrCal__note--holiday">Holiday</span>}
                         </div>
 
                         <div className="hrCal__detailNotes">

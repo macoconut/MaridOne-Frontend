@@ -59,4 +59,5 @@ export type AttendanceEmployeeRow = {
 export type HolidayLookupPayload = {
   holidayDates?: string[]
   regularHolidayDates?: string[]
+  holidayNamesByDate?: Record<string, string>
 }
