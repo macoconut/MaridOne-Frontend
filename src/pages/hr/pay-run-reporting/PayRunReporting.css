@@ -288,13 +288,20 @@
 
 .hrRunTable__head--employee {
   box-sizing: border-box;
-  width: max(100%, 860px);
-  grid-template-columns: 120px minmax(220px, 1.45fr) minmax(140px, 1fr) minmax(140px, 1fr) 80px;
+  width: max(100%, 1020px);
+  grid-template-columns:
+    120px
+    minmax(220px, 1.45fr)
+    minmax(140px, 1fr)
+    minmax(160px, 1fr)
+    minmax(140px, 1fr)
+    80px;
   gap: 12px;
 }
 
 .hrRunTable__head--employee span:nth-child(3),
-.hrRunTable__head--employee span:nth-child(4) {
+.hrRunTable__head--employee span:nth-child(4),
+.hrRunTable__head--employee span:nth-child(5) {
   text-align: right;
 }
 
@@ -323,11 +330,17 @@
 
 .hrRunEmployee {
   box-sizing: border-box;
-  width: max(100%, 860px);
+  width: max(100%, 1020px);
   padding: 12px 0;
   border-bottom: 1px solid var(--hr-line);
   display: grid;
-  grid-template-columns: 120px minmax(220px, 1.45fr) minmax(140px, 1fr) minmax(140px, 1fr) 80px;
+  grid-template-columns:
+    120px
+    minmax(220px, 1.45fr)
+    minmax(140px, 1fr)
+    minmax(160px, 1fr)
+    minmax(140px, 1fr)
+    80px;
   gap: 12px;
   align-items: center;
 }
@@ -367,6 +380,7 @@
   text-align: left;
 }
 
+.hrRunEmployee__employer,
 .hrRunEmployee__gross,
 .hrRunEmployee__value {
   font-size: 15px;
@@ -543,7 +557,7 @@
 .hrRunBreakdownTotals {
   margin-top: 14px;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -577,7 +591,7 @@
 .hrRunBreakdown {
   margin-top: 14px;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -749,8 +763,14 @@
 
   .hrRunTable__head--employee,
   .hrRunEmployee {
-    width: max(100%, 780px);
-    grid-template-columns: 110px minmax(180px, 1fr) minmax(110px, 1fr) minmax(110px, 1fr) minmax(124px, 136px);
+    width: max(100%, 920px);
+    grid-template-columns:
+      110px
+      minmax(180px, 1fr)
+      minmax(110px, 1fr)
+      minmax(130px, 1fr)
+      minmax(110px, 1fr)
+      minmax(124px, 136px);
     gap: 8px;
   }
 
@@ -792,8 +812,14 @@
 
   .hrRunTable__head--employee,
   .hrRunEmployee {
-    width: max(100%, 680px);
-    grid-template-columns: 96px minmax(160px, 1fr) minmax(100px, 1fr) minmax(100px, 1fr) minmax(112px, 124px);
+    width: max(100%, 820px);
+    grid-template-columns:
+      96px
+      minmax(160px, 1fr)
+      minmax(100px, 1fr)
+      minmax(120px, 1fr)
+      minmax(100px, 1fr)
+      minmax(112px, 124px);
     font-size: 14px;
     padding: 10px 12px;
   }
@@ -836,12 +862,13 @@
 
   .hrRunTable__head--employee,
   .hrRunEmployee {
-    width: max(100%, 620px);
+    width: max(100%, 780px);
     font-size: 13px;
   }
 
   .hrRunEmployee__id,
   .hrRunEmployee__name,
+  .hrRunEmployee__employer,
   .hrRunEmployee__gross,
   .hrRunEmployee__value,
   .hrRunTypeRow {

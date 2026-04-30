@@ -31,6 +31,7 @@ export type PayrollItemRow = PayrollItemReference & {
   employeeName?: string
   grossPay?: number | string
   netPay?: number | string
+  employerContributionTotal?: number | string
 }
 
 export type EmployeeDirectoryEntry = {
@@ -45,11 +46,12 @@ export type EmployeeReportRow = PayrollItemRow & {
 }
 
 export type AdjustmentKind = 'EARNING' | 'DEDUCTION'
+export type SummaryKind = AdjustmentKind | 'EMPLOYER_CONTRIBUTION'
 
 export type PayrollBreakdownLine = {
   key: string
   lineId: number
-  lineType: AdjustmentKind
+  lineType: SummaryKind
   label: string
   amount: string
   originalAmount?: string
@@ -61,6 +63,7 @@ export type PayTypeSummaryRow = {
   payType?: string
   adjustment?: AdjustmentKind
   adjustmentKind?: AdjustmentKind
+  summaryKind?: SummaryKind
   total?: number | string
 }
 

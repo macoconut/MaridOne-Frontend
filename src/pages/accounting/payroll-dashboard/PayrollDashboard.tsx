@@ -16,7 +16,7 @@ type HistoryPoint = {
   payId: number;
   label: string;
   grossTotal: number;
-  netTotal: number;
+  totalPayrollCost: number;
 };
 
 type BreakdownPoint = {
@@ -90,19 +90,27 @@ function compareRunsDescending(a: PayrollRunRow, b: PayrollRunRow) {
   return (b.payId ?? 0) - (a.payId ?? 0);
 }
 
-function formatPayTypeLabel(value?: string) {
+function getSummaryKind(row: PayTypeSummaryRow) {
+  return row.summaryKind ?? row.adjustment ?? row.adjustmentKind;
+}
+
+function formatPayTypeLabel(row: PayTypeSummaryRow) {
+  const value = row.payType;
   const key = String(value ?? '').trim().toUpperCase();
+  const summaryKind = getSummaryKind(row);
   switch (key) {
     case 'BASIC':
       return 'Basic Pay';
     case 'BONUS':
       return 'Bonus';
     case 'SSS':
-      return 'SSS Contribution';
+      return summaryKind === 'EMPLOYER_CONTRIBUTION' ? 'Employer SSS Contribution' : 'SSS Contribution';
     case 'PHILHEALTH':
-      return 'PhilHealth Contribution';
+      return summaryKind === 'EMPLOYER_CONTRIBUTION'
+        ? 'Employer PhilHealth Contribution'
+        : 'PhilHealth Contribution';
     case 'PAGIBIG':
-      return 'Pag-IBIG Contribution';
+      return summaryKind === 'EMPLOYER_CONTRIBUTION' ? 'Employer Pag-IBIG Contribution' : 'Pag-IBIG Contribution';
     case 'SSS_LOAN':
       return 'SSS Loan';
     case 'PAGIBIG_LOAN':
@@ -130,11 +138,6 @@ function formatPayTypeLabel(value?: string) {
         .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
         .join(' ') || 'Unknown pay type';
   }
-}
-
-function isContributionType(value?: string) {
-  const key = String(value ?? '').trim().toUpperCase();
-  return key === 'SSS' || key === 'PHILHEALTH' || key === 'PAGIBIG';
 }
 
 function getDefaultRun(runs: PayrollRunRow[]) {
@@ -298,12 +301,15 @@ export default function AccountingPayrollDashboard({
           const response = await apiFetchJson<unknown>(`/api/payroll/run/${run.payId}/items?page=0&size=1000`);
           const rows = toArray<PayrollItemRow>(response);
           const grossTotal = rows.reduce((sum, row) => sum + toAmount(row.grossPay), 0);
-          const netTotal = rows.reduce((sum, row) => sum + toAmount(row.netPay), 0);
+          const employerContributionTotal = rows.reduce(
+            (sum, row) => sum + toAmount(row.employerContributionTotal),
+            0
+          );
           return {
             payId: run.payId,
             label: describeRun(run),
             grossTotal,
-            netTotal,
+            totalPayrollCost: grossTotal + employerContributionTotal,
           } as HistoryPoint;
         });
 
@@ -365,18 +371,23 @@ export default function AccountingPayrollDashboard({
     [selectedItems]
   );
 
-  const contributionDeductions = useMemo(
-    () =>
-      selectedSummary.reduce(
-        (sum, row) => (isContributionType(row.payType) ? sum + toAmount(row.total) : sum),
-        0
-      ),
-    [selectedSummary]
+  const employerStatutoryCost = useMemo(
+    () => selectedItems.reduce((sum, row) => sum + toAmount(row.employerContributionTotal), 0),
+    [selectedItems]
+  );
+
+  const totalPayrollCost = useMemo(
+    () => totalGrossWages + employerStatutoryCost,
+    [employerStatutoryCost, totalGrossWages]
   );
 
   const breakdownPoints = useMemo<BreakdownPoint[]>(() => {
     const groupedRows = [...selectedSummary].reduce<Map<string, number>>((groups, row) => {
-      const label = formatPayTypeLabel(row.payType);
+      if (getSummaryKind(row) === 'DEDUCTION') {
+        return groups;
+      }
+
+      const label = formatPayTypeLabel(row);
       const total = toAmount(row.total);
       if (total <= 0) return groups;
 
@@ -400,7 +411,7 @@ export default function AccountingPayrollDashboard({
   }, [selectedSummary]);
 
   const historyScale = useMemo(
-    () => Math.max(...historyPoints.flatMap((point) => [point.grossTotal, point.netTotal]), 0),
+    () => Math.max(...historyPoints.flatMap((point) => [point.grossTotal, point.totalPayrollCost]), 0),
     [historyPoints]
   );
 
@@ -502,15 +513,21 @@ export default function AccountingPayrollDashboard({
         </article>
 
         <article className="aDashPaySummaryCard">
-          <h3>Contribution Deductions</h3>
-          <div className="aDashPaySummaryCard__value">{formatCurrency(contributionDeductions)}</div>
-          <p>SSS, PhilHealth, and Pag-IBIG deductions captured in this run.</p>
-        </article>
-
-        <article className="aDashPaySummaryCard">
           <h3>Total Gross Wages</h3>
           <div className="aDashPaySummaryCard__value">{formatCurrency(totalGrossWages)}</div>
           <p>{selectedItems.length} employee record{selectedItems.length === 1 ? '' : 's'} included in this run.</p>
+        </article>
+
+        <article className="aDashPaySummaryCard">
+          <h3>Employer Statutory Cost</h3>
+          <div className="aDashPaySummaryCard__value">{formatCurrency(employerStatutoryCost)}</div>
+          <p>Employer SSS, PhilHealth, and Pag-IBIG costs captured in this run.</p>
+        </article>
+
+        <article className="aDashPaySummaryCard">
+          <h3>Total Payroll Cost</h3>
+          <div className="aDashPaySummaryCard__value">{formatCurrency(totalPayrollCost)}</div>
+          <p>Gross wages plus employer statutory contributions for the selected run.</p>
         </article>
       </section>
 
@@ -548,7 +565,7 @@ export default function AccountingPayrollDashboard({
                       <strong>{item.label}</strong>
                     </div>
 
-                    <div className="aDashPayHistoryCard__bars" aria-label={`Gross and net totals for ${item.label}`}>
+                    <div className="aDashPayHistoryCard__bars" aria-label={`Gross wages and total payroll cost for ${item.label}`}>
                       <div className="aDashPayHistoryMetric">
                         <strong className="aDashPayHistoryMetric__value">{formatCurrency(item.grossTotal)}</strong>
                         <div className="aDashPayHistoryMetric__plot">
@@ -563,24 +580,24 @@ export default function AccountingPayrollDashboard({
                             title={`Gross pay: ${formatCurrency(item.grossTotal)}`}
                           />
                         </div>
-                        <span className="aDashPayHistoryMetric__label">Gross Pay</span>
+                        <span className="aDashPayHistoryMetric__label">Gross Wages</span>
                       </div>
 
                       <div className="aDashPayHistoryMetric">
-                        <strong className="aDashPayHistoryMetric__value">{formatCurrency(item.netTotal)}</strong>
+                        <strong className="aDashPayHistoryMetric__value">{formatCurrency(item.totalPayrollCost)}</strong>
                         <div className="aDashPayHistoryMetric__plot">
                           <div
-                            className="aDashPayHistoryMetric__bar aDashPayHistoryMetric__bar--net"
+                            className="aDashPayHistoryMetric__bar aDashPayHistoryMetric__bar--cost"
                             style={{
                               height:
                                 historyScale > 0
-                                  ? `${Math.max((item.netTotal / historyScale) * 100, item.netTotal > 0 ? 12 : 0)}%`
+                                  ? `${Math.max((item.totalPayrollCost / historyScale) * 100, item.totalPayrollCost > 0 ? 12 : 0)}%`
                                   : '0%',
                             }}
-                            title={`Net pay: ${formatCurrency(item.netTotal)}`}
+                            title={`Total payroll cost: ${formatCurrency(item.totalPayrollCost)}`}
                           />
                         </div>
-                        <span className="aDashPayHistoryMetric__label">Net Pay</span>
+                        <span className="aDashPayHistoryMetric__label">Total Payroll Cost</span>
                       </div>
                     </div>
                   </article>

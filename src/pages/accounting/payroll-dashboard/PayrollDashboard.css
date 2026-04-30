@@ -86,7 +86,7 @@
 
 .aDashPaySummaryGrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 12px;
 }
 
@@ -294,8 +294,8 @@
   background: linear-gradient(180deg, #8c63a7 0%, #5a2f78 100%);
 }
 
-.aDashPayHistoryMetric__bar--net {
-  background: linear-gradient(180deg, #f28aac 0%, #b93f79 100%);
+.aDashPayHistoryMetric__bar--cost {
+  background: linear-gradient(180deg, #f2a94b 0%, #c46916 100%);
 }
 
 .aDashPayHistoryMetric__label {
