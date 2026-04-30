@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import LargePopup from '../../../components/dialog/LargePopup';
 import PageHeader from '../../../components/layout/PageHeader';
 import SensitiveAccessIndicator from '../../../components/security/SensitiveAccessIndicator';
 import SensitiveAccessModal from '../../../components/security/SensitiveAccessModal';
@@ -24,6 +25,20 @@ type BreakdownPoint = {
   total: number;
   share: number;
   tone: 't1' | 't2' | 't3' | 't4' | 't5' | 't6';
+};
+
+type DashboardBreakdownRow = {
+  label: string;
+  value: number;
+  note?: string;
+};
+
+type DashboardBreakdownState = {
+  title: string;
+  subtitle: string;
+  totalLabel: string;
+  totalValue: number;
+  rows: DashboardBreakdownRow[];
 };
 
 type AccountingPayrollDashboardProps = {
@@ -182,6 +197,7 @@ export default function AccountingPayrollDashboard({
   const [refreshTick, setRefreshTick] = useState(0);
   const [canScrollHistoryLeft, setCanScrollHistoryLeft] = useState(false);
   const [canScrollHistoryRight, setCanScrollHistoryRight] = useState(false);
+  const [selectedBreakdown, setSelectedBreakdown] = useState<DashboardBreakdownState | null>(null);
   const silentRefreshRef = useRef(false);
   const sensitiveAccess = useSensitiveAccessPrompt({
     entryNotice: 'Enter your password to verify before viewing the payroll dashboard.',
@@ -410,6 +426,58 @@ export default function AccountingPayrollDashboard({
     }));
   }, [selectedSummary]);
 
+  const netPayoutRows = useMemo<DashboardBreakdownRow[]>(
+    () =>
+      selectedItems
+        .map((row) => ({
+          label: row.employeeName?.trim() || `${row.firstName ?? ''} ${row.lastName ?? ''}`.trim() || `Employee #${row.empId ?? row.employeeId ?? '-'}`,
+          value: toAmount(row.netPay),
+          note: `Gross ${formatCurrency(toAmount(row.grossPay))}`,
+        }))
+        .filter((row) => row.value > 0)
+        .sort((left, right) => right.value - left.value),
+    [selectedItems]
+  );
+
+  const grossWageRows = useMemo<DashboardBreakdownRow[]>(
+    () =>
+      selectedItems
+        .map((row) => ({
+          label: row.employeeName?.trim() || `${row.firstName ?? ''} ${row.lastName ?? ''}`.trim() || `Employee #${row.empId ?? row.employeeId ?? '-'}`,
+          value: toAmount(row.grossPay),
+          note: `Net ${formatCurrency(toAmount(row.netPay))}`,
+        }))
+        .filter((row) => row.value > 0)
+        .sort((left, right) => right.value - left.value),
+    [selectedItems]
+  );
+
+  const employerCostRows = useMemo<DashboardBreakdownRow[]>(
+    () =>
+      selectedSummary
+        .filter((row) => getSummaryKind(row) === 'EMPLOYER_CONTRIBUTION')
+        .map((row) => ({
+          label: formatPayTypeLabel(row),
+          value: toAmount(row.total),
+        }))
+        .filter((row) => row.value > 0)
+        .sort((left, right) => right.value - left.value),
+    [selectedSummary]
+  );
+
+  const totalPayrollCostRows = useMemo<DashboardBreakdownRow[]>(
+    () =>
+      selectedItems
+        .map((row) => ({
+          label: row.employeeName?.trim() || `${row.firstName ?? ''} ${row.lastName ?? ''}`.trim() || `Employee #${row.empId ?? row.employeeId ?? '-'}`,
+          value: toAmount(row.grossPay) + toAmount(row.employerContributionTotal),
+          note: `Gross ${formatCurrency(toAmount(row.grossPay))} + Employer cost ${formatCurrency(toAmount(row.employerContributionTotal))}`,
+        }))
+        .filter((row) => row.value > 0)
+        .sort((left, right) => right.value - left.value),
+    [selectedItems]
+  );
+
   const historyScale = useMemo(
     () => Math.max(...historyPoints.flatMap((point) => [point.grossTotal, point.totalPayrollCost]), 0),
     [historyPoints]
@@ -461,6 +529,64 @@ export default function AccountingPayrollDashboard({
     });
   }, []);
 
+  const openBreakdown = useCallback(
+    (kind: 'net' | 'gross' | 'employer' | 'total') => {
+      if (!selectedRun) return;
+
+      if (kind === 'net') {
+        setSelectedBreakdown({
+          title: 'Final Net Payout Breakdown',
+          subtitle: `${describeRun(selectedRun)} by employee net pay.`,
+          totalLabel: 'Final Net Payout',
+          totalValue: finalNetPayout,
+          rows: netPayoutRows,
+        });
+        return;
+      }
+
+      if (kind === 'gross') {
+        setSelectedBreakdown({
+          title: 'Total Gross Wages Breakdown',
+          subtitle: `${describeRun(selectedRun)} by employee gross pay.`,
+          totalLabel: 'Total Gross Wages',
+          totalValue: totalGrossWages,
+          rows: grossWageRows,
+        });
+        return;
+      }
+
+      if (kind === 'employer') {
+        setSelectedBreakdown({
+          title: 'Employer Statutory Cost Breakdown',
+          subtitle: `${describeRun(selectedRun)} by employer contribution type.`,
+          totalLabel: 'Employer Statutory Cost',
+          totalValue: employerStatutoryCost,
+          rows: employerCostRows,
+        });
+        return;
+      }
+
+      setSelectedBreakdown({
+        title: 'Total Payroll Cost Breakdown',
+        subtitle: `${describeRun(selectedRun)} by employee payroll cost.`,
+        totalLabel: 'Total Payroll Cost',
+        totalValue: totalPayrollCost,
+        rows: totalPayrollCostRows,
+      });
+    },
+    [
+      employerCostRows,
+      employerStatutoryCost,
+      finalNetPayout,
+      grossWageRows,
+      netPayoutRows,
+      selectedRun,
+      totalGrossWages,
+      totalPayrollCost,
+      totalPayrollCostRows,
+    ]
+  );
+
   return (
     <section className="aDashPay">
       <div className="aDashPay__top">
@@ -506,29 +632,29 @@ export default function AccountingPayrollDashboard({
       </div>
 
       <section className="aDashPaySummaryGrid">
-        <article className="aDashPaySummaryCard">
+        <button type="button" className="aDashPaySummaryCard aDashPaySummaryCard--button" onClick={() => openBreakdown('net')} disabled={!selectedRun}>
           <h3>Final Net Payout</h3>
           <div className="aDashPaySummaryCard__value">{formatCurrency(finalNetPayout)}</div>
           <p>{selectedRun ? `${describeRun(selectedRun)} payout` : 'No payroll run selected yet'}</p>
-        </article>
+        </button>
 
-        <article className="aDashPaySummaryCard">
+        <button type="button" className="aDashPaySummaryCard aDashPaySummaryCard--button" onClick={() => openBreakdown('gross')} disabled={!selectedRun}>
           <h3>Total Gross Wages</h3>
           <div className="aDashPaySummaryCard__value">{formatCurrency(totalGrossWages)}</div>
           <p>{selectedItems.length} employee record{selectedItems.length === 1 ? '' : 's'} included in this run.</p>
-        </article>
+        </button>
 
-        <article className="aDashPaySummaryCard">
+        <button type="button" className="aDashPaySummaryCard aDashPaySummaryCard--button" onClick={() => openBreakdown('employer')} disabled={!selectedRun}>
           <h3>Employer Statutory Cost</h3>
           <div className="aDashPaySummaryCard__value">{formatCurrency(employerStatutoryCost)}</div>
           <p>Employer SSS, PhilHealth, and Pag-IBIG costs captured in this run.</p>
-        </article>
+        </button>
 
-        <article className="aDashPaySummaryCard">
+        <button type="button" className="aDashPaySummaryCard aDashPaySummaryCard--button" onClick={() => openBreakdown('total')} disabled={!selectedRun}>
           <h3>Total Payroll Cost</h3>
           <div className="aDashPaySummaryCard__value">{formatCurrency(totalPayrollCost)}</div>
           <p>Gross wages plus employer statutory contributions for the selected run.</p>
-        </article>
+        </button>
       </section>
 
       <section className="aDashPayChartsGrid">
@@ -560,7 +686,12 @@ export default function AccountingPayrollDashboard({
             <div className="aDashPayHistory">
               {historyPoints.length > 0 ? (
                 historyPoints.map((item) => (
-                  <article key={item.payId} className="aDashPayHistoryCard">
+                  <button
+                    type="button"
+                    key={item.payId}
+                    className={`aDashPayHistoryCard aDashPayHistoryCard--button ${item.payId === selectedPayId ? 'is-selected' : ''}`}
+                    onClick={() => setSelectedPayId(item.payId)}
+                  >
                     <div className="aDashPayHistoryCard__period">
                       <strong>{item.label}</strong>
                     </div>
@@ -600,7 +731,7 @@ export default function AccountingPayrollDashboard({
                         <span className="aDashPayHistoryMetric__label">Total Payroll Cost</span>
                       </div>
                     </div>
-                  </article>
+                  </button>
                 ))
               ) : (
                 <div className="aDashPayHistory__empty">
@@ -662,6 +793,47 @@ export default function AccountingPayrollDashboard({
         onVerified={sensitiveAccess.handleVerified}
         notice={sensitiveAccess.notice}
       />
+
+      {selectedBreakdown ? (
+        <LargePopup
+          open
+          ariaLabel="Payroll dashboard breakdown"
+          title={selectedBreakdown.title}
+          subtitle={selectedBreakdown.subtitle}
+          size="lg"
+          onClose={() => setSelectedBreakdown(null)}
+          dismissOnBackdrop
+          className="aDashPayPopup"
+          footer={
+            <button type="button" className="btn" onClick={() => setSelectedBreakdown(null)}>
+              Close
+            </button>
+          }
+        >
+          <div className="aDashPayBreakdown">
+            <div className="aDashPayBreakdown__totalCard">
+              <span>{selectedBreakdown.totalLabel}</span>
+              <strong>{formatCurrency(selectedBreakdown.totalValue)}</strong>
+            </div>
+
+            {selectedBreakdown.rows.length > 0 ? (
+              <div className="aDashPayBreakdown__list" role="list">
+                {selectedBreakdown.rows.map((row) => (
+                  <article key={`${selectedBreakdown.title}-${row.label}`} className="aDashPayBreakdown__row" role="listitem">
+                    <div className="aDashPayBreakdown__rowCopy">
+                      <strong>{row.label}</strong>
+                      {row.note ? <span>{row.note}</span> : null}
+                    </div>
+                    <div className="aDashPayBreakdown__rowValue">{formatCurrency(row.value)}</div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="aDashPayBreakdown__empty">No breakdown data is available for this selection yet.</div>
+            )}
+          </div>
+        </LargePopup>
+      ) : null}
     </section>
   );
 }
