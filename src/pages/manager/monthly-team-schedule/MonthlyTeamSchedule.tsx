@@ -55,7 +55,11 @@ type SegmentFieldErrors = {
 type HolidayLookupResponse = {
   holidayDates?: string[];
   regularHolidayDates?: string[];
-  holidayNamesByDate?: Record<string, string>;
+  holidays?: Array<{
+    date?: string;
+    name?: string;
+    regularHoliday?: boolean;
+  }>;
 };
 
 type MonthlyScheduleBoardProps = {
@@ -197,20 +201,18 @@ function parseHolidayLookup(payload: unknown) {
         ),
       ]
     : [];
-  const holidayNamesByDate =
-    object.holidayNamesByDate && typeof object.holidayNamesByDate === 'object'
-      ? Object.fromEntries(
-          Object.entries(object.holidayNamesByDate).flatMap(([dateKey, name]) => {
-            if (typeof dateKey !== 'string' || typeof name !== 'string') return [];
-            const normalizedDateKey = dateKey.trim();
-            const normalizedName = name.trim();
-            if (!normalizedDateKey || !normalizedName) return [];
-            return [[normalizedDateKey, normalizedName]];
-          })
-        )
-      : {};
+  const holidayNames = Array.isArray(object.holidays)
+    ? object.holidays.reduce<Record<string, string>>((names, holiday) => {
+        if (typeof holiday?.date !== 'string' || typeof holiday?.name !== 'string') return names;
+        const date = holiday.date.trim();
+        const name = holiday.name.trim();
+        if (!date || !name) return names;
+        names[date] = name;
+        return names;
+      }, {})
+    : {};
 
-  return { holidayDates, regularHolidayDates, holidayNamesByDate };
+  return { holidayDates, regularHolidayDates, holidayNames };
 }
 
 function buildEditorDraft(
@@ -262,6 +264,7 @@ export function MonthlyScheduleBoard({
   const [employeePickerOpen, setEmployeePickerOpen] = useState(false);
   const [employeeSearch, setEmployeeSearch] = useState('');
   const [selectedMonthStart, setSelectedMonthStart] = useState(() => initialMonthStart);
+  const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [dailyShifts, setDailyShifts] = useState<DailyShift[]>([]);
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -290,12 +293,14 @@ export function MonthlyScheduleBoard({
   const employeePickerRef = useRef<HTMLDivElement | null>(null);
   const employeeSearchInputRef = useRef<HTMLInputElement | null>(null);
   const templateFilterRef = useRef<HTMLDivElement | null>(null);
+  const monthPickerRef = useRef<HTMLDivElement | null>(null);
 
   useErrorDialogEffect(loadError, 'Schedule calendar could not be loaded');
   useErrorDialogEffect(saveError, 'Schedule calendar could not be saved');
   useEscapeDismiss(editorOpen, closeEditor, 10);
   useEscapeDismiss(templateEditorOpen, closeTemplateEditor, 11);
   useEscapeDismiss(templateFilterOpen, () => setTemplateFilterOpen(false), 14);
+  useEscapeDismiss(monthPickerOpen, () => setMonthPickerOpen(false), 15);
 
   const todayKey = useMemo(() => toIsoDate(new Date()), []);
   const monthOptions = useMemo(() => {
@@ -396,13 +401,11 @@ export function MonthlyScheduleBoard({
   const regularHolidayDateSet = useMemo(() => new Set(regularHolidayDateKeys), [regularHolidayDateKeys]);
   const selectedDateIsLocked = Boolean(selectedDateKey && selectedDateKey <= todayKey);
   const selectedDateIsHoliday = Boolean(selectedDateKey && holidayDateSet.has(selectedDateKey));
-  const selectedHolidayLabel = selectedDateKey
-    ? holidayNamesByDate[selectedDateKey] ?? (regularHolidayDateSet.has(selectedDateKey) ? 'Regular Holiday' : 'Holiday')
-    : '';
+  const selectedHolidayName = selectedDateKey ? holidayNamesByDate[selectedDateKey] ?? '' : '';
   const selectedDateDayTypeLabel = !selectedDateKey
     ? ''
     : selectedDateIsHoliday
-      ? selectedHolidayLabel
+      ? selectedHolidayName || (regularHolidayDateSet.has(selectedDateKey) ? 'Regular holiday' : 'Special holiday')
       : 'Regular workday';
   const selectedDateSavedTimeLabel = !editorDraft || editorDraft.dayOff
     ? 'Day off'
@@ -412,6 +415,15 @@ export function MonthlyScheduleBoard({
     : editorDraft.segments.map((segment) => ({
         label: `${formatTimeLabel(segment.startTime)} - ${formatTimeLabel(segment.endTime)}`,
       }));
+  const selectedDateScheduleSourceLabel = !editorDraft
+    ? ''
+    : editorDraft.isOverride
+      ? editorDraft.dayOff
+        ? 'Date override'
+        : 'Custom date override'
+      : editorDraft.hasTemplate
+        ? 'Template shift'
+        : 'No template shift';
   const canClearEmployeePicker = employeeSearch.trim().length > 0;
   const canClearTemplateTargetSearch = templateTargetSearch.trim().length > 0;
   const canOpenTemplateEditor = defaultTemplateEmployees.length > 0;
@@ -554,7 +566,7 @@ export function MonthlyScheduleBoard({
         const parsed = parseHolidayLookup(payload);
         setHolidayDateKeys(parsed.holidayDates);
         setRegularHolidayDateKeys(parsed.regularHolidayDates);
-        setHolidayNamesByDate(parsed.holidayNamesByDate);
+        setHolidayNamesByDate(parsed.holidayNames);
       } catch (error) {
         if (cancelled) return;
         setHolidayDateKeys([]);
@@ -677,6 +689,21 @@ export function MonthlyScheduleBoard({
     document.addEventListener('mousedown', handlePointerDown);
     return () => document.removeEventListener('mousedown', handlePointerDown);
   }, [employeePickerOpen, closeEmployeePicker]);
+
+  useEffect(() => {
+    if (!monthPickerOpen) return;
+
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (!monthPickerRef.current?.contains(target)) {
+        setMonthPickerOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [monthPickerOpen]);
 
   function selectDate(workDate: string) {
     setSelectedDateKey(workDate);
@@ -999,8 +1026,8 @@ export function MonthlyScheduleBoard({
       showSuccess(
         editorDraft.dayOff
           ? `${selectedEmployee.name} is now marked as day off on ${formatSpecificDateLabel(selectedDateKey)}.`
-          : `${selectedEmployee.name}'s shift was saved for ${formatSpecificDateLabel(selectedDateKey)}.`,
-        editorDraft.dayOff ? 'Day Off Saved' : 'Shift Saved'
+          : `${selectedEmployee.name}'s schedule was saved for ${formatSpecificDateLabel(selectedDateKey)}.`,
+        editorDraft.dayOff ? 'Day Off Saved' : 'Schedule Saved'
       );
       closeEditor();
     } catch (error) {
@@ -1286,20 +1313,41 @@ export function MonthlyScheduleBoard({
             <button type="button" className="hrAttCalendarShell__navBtn" onClick={() => shiftMonth(-1)} aria-label="Previous month">
               <FiChevronLeft />
             </button>
-            <div className="uCalendarMonthPicker uCalendarMonthPicker--minimal">
-              <span>{formatMonthLabel(selectedMonthStart)}</span>
-              <FiChevronRight style={{ transform: 'rotate(90deg)' }} />
-              <select
-                value={selectedMonthStart}
+            <div className={`mgrMonth__monthPicker ${monthPickerOpen ? 'is-open' : ''}`} ref={monthPickerRef}>
+              <button
+                type="button"
+                className="mgrMonth__monthPickerButton"
+                aria-haspopup="listbox"
+                aria-expanded={monthPickerOpen}
                 aria-label="Select month"
-                onChange={(event) => setSelectedMonthStart(event.target.value)}
+                onClick={() => setMonthPickerOpen((current) => !current)}
               >
-                {monthOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                <span>{formatMonthLabel(selectedMonthStart)}</span>
+                <FiChevronDown />
+              </button>
+
+              {monthPickerOpen ? (
+                <div className="mgrMonth__monthPickerMenu" role="listbox" aria-label="Month options">
+                  {monthOptions.map((option) => {
+                    const isSelected = option.value === selectedMonthStart;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        className={`mgrMonth__monthPickerOption ${isSelected ? 'is-selected' : ''}`}
+                        onClick={() => {
+                          setSelectedMonthStart(option.value);
+                          setMonthPickerOpen(false);
+                        }}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
             </div>
             <button type="button" className="hrAttCalendarShell__navBtn" onClick={() => shiftMonth(1)} aria-label="Next month">
               <FiChevronRight />
@@ -1338,8 +1386,7 @@ export function MonthlyScheduleBoard({
                     const isSelected = cell === selectedDateKey;
                     const isToday = cell === todayKey;
                     const isHoliday = holidayDateSet.has(cell);
-                    const holidayLabel =
-                      holidayNamesByDate[cell] ?? (regularHolidayDateSet.has(cell) ? 'Regular Holiday' : 'Holiday');
+                    const holidayName = holidayNamesByDate[cell] ?? 'Holiday';
                     const dayNumber = parseIsoDate(cell).getDate();
                     const timeLabel = dayDraft.dayOff || isDefaultDayOff
                       ? 'Day off'
@@ -1370,13 +1417,13 @@ export function MonthlyScheduleBoard({
                       >
                         <div className="hrCal__cellTop">
                           <div className="hrCal__day">{dayNumber}</div>
-                          {isHoliday ? <span className="hrCal__note hrCal__note--holiday">{holidayLabel}</span> : null}
                         </div>
 
                         <div className="hrCal__statusNotes">
                           {dayDraft.isOverride && !dayDraft.dayOff ? (
                             <span className="hrCal__note hrCal__note--ot">Custom hours</span>
                           ) : null}
+                          {isHoliday && <span className="hrCal__note hrCal__note--holiday">{holidayName}</span>}
                         </div>
 
                         <div className="hrCal__detailNotes">
@@ -1412,8 +1459,8 @@ export function MonthlyScheduleBoard({
           title={formatSpecificDateLabel(selectedDateKey)}
           subtitle={
             selectedDateIsLocked
-              ? 'Review the saved schedule for this date for attendance monitoring.'
-              : 'Review the saved schedule for this date, then adjust the hours or mark it as a day off when needed.'
+              ? 'Review the effective schedule for this date for attendance monitoring.'
+              : 'Review the effective schedule for this date, then adjust the hours or mark it as a day off when needed.'
           }
           size="lg"
           onClose={closeEditor}
@@ -1426,7 +1473,7 @@ export function MonthlyScheduleBoard({
                 </button>
                 <button type="button" className="btn" onClick={() => void saveSelectedDate()} disabled={savingDate || loadingMonth}>
                   <FiSave />
-                  <span>{savingDate ? 'Saving...' : 'Save This Date'}</span>
+                  <span>{savingDate ? 'Saving...' : 'Save Schedule'}</span>
                 </button>
               </>
             ) : undefined
@@ -1439,7 +1486,7 @@ export function MonthlyScheduleBoard({
                 <strong>{selectedEmployee.name}</strong>
               </article>
               <article className="hrAttSummary__card">
-                <span>Saved Time</span>
+                <span>Scheduled Time</span>
                 {selectedDateSavedTimeSegments.length === 0 ? (
                   <strong>{selectedDateSavedTimeLabel}</strong>
                 ) : (
@@ -1455,11 +1502,12 @@ export function MonthlyScheduleBoard({
               <article className="hrAttSummary__card">
                 <span>Day Type</span>
                 <strong>{selectedDateDayTypeLabel}</strong>
+                {selectedDateScheduleSourceLabel ? <small>{selectedDateScheduleSourceLabel}</small> : null}
               </article>
             </div>
 
             <section className="hrAttBreakdown__section mgrMonth__editorSection">
-              <div className="hrAttBreakdown__title">{selectedDateIsLocked ? 'Saved schedule' : 'Edit saved schedule'}</div>
+              <div className="hrAttBreakdown__title">{selectedDateIsLocked ? 'Effective schedule' : 'Edit schedule'}</div>
 
               <label className={`mgrMonth__dayOffToggle ${selectedDateIsLocked ? 'is-disabled' : ''}`}>
                 <input

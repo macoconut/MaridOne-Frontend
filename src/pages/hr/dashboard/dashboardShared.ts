@@ -578,8 +578,17 @@ export function parseHolidayLookup(payload: unknown) {
   const regularHolidayDates = Array.isArray(object.regularHolidayDates)
     ? [...new Set(object.regularHolidayDates.map((value) => localDateKey(value)).filter(Boolean))]
     : [];
+  const holidayNames = Array.isArray(object.holidays)
+    ? object.holidays.reduce<Record<string, string>>((names, holiday) => {
+        const dateKey = localDateKey(holiday?.date);
+        const name = typeof holiday?.name === 'string' ? holiday.name.trim() : '';
+        if (!dateKey || !name) return names;
+        names[dateKey] = name;
+        return names;
+      }, {})
+    : {};
 
-  return { holidayDates, regularHolidayDates };
+  return { holidayDates, regularHolidayDates, holidayNames };
 }
 
 export function directionIndicator(direction?: string): FeedItem['directionLabel'] {

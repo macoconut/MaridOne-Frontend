@@ -20,6 +20,7 @@ type AttendanceStatusPanelsProps = {
   scheduledEmployeeCountSelected: number;
   selectedDateHeading: string;
   selectedDateShortLabel: string;
+  selectedHolidayName: string;
   selectedIsHoliday: boolean;
   isSelectedDateToday: boolean;
 };
@@ -27,10 +28,11 @@ type AttendanceStatusPanelsProps = {
 function AbsentPanelEmptyState({
   scheduledEmployeeCountSelected,
   selectedDateHeading,
+  selectedHolidayName,
   selectedIsHoliday,
 }: Pick<
   AttendanceStatusPanelsProps,
-  'scheduledEmployeeCountSelected' | 'selectedDateHeading' | 'selectedIsHoliday'
+  'scheduledEmployeeCountSelected' | 'selectedDateHeading' | 'selectedHolidayName' | 'selectedIsHoliday'
 >) {
   return (
     <div className="hrEmptyState">
@@ -43,7 +45,7 @@ function AbsentPanelEmptyState({
       </div>
       <div className="hrEmptyState__note">
         {selectedIsHoliday
-          ? `${selectedDateHeading} is treated as a holiday in the dashboard.`
+          ? `${selectedDateHeading} is marked as ${selectedHolidayName} in the dashboard.`
           : scheduledEmployeeCountSelected > 0
             ? `No absences were recorded for ${selectedDateHeading}.`
             : `${selectedDateHeading} is treated as a day off in the dashboard schedule.`}
@@ -59,6 +61,7 @@ export default function AttendanceStatusPanels({
   scheduledEmployeeCountSelected,
   selectedDateHeading,
   selectedDateShortLabel,
+  selectedHolidayName,
   selectedIsHoliday,
   isSelectedDateToday,
 }: AttendanceStatusPanelsProps) {
@@ -84,6 +87,7 @@ export default function AttendanceStatusPanels({
             <AbsentPanelEmptyState
               scheduledEmployeeCountSelected={scheduledEmployeeCountSelected}
               selectedDateHeading={selectedDateHeading}
+              selectedHolidayName={selectedHolidayName}
               selectedIsHoliday={selectedIsHoliday}
             />
           )}

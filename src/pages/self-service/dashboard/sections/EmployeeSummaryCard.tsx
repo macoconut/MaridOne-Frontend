@@ -1,8 +1,9 @@
-import { FiEdit2, FiHome, FiMail, FiPhone } from 'react-icons/fi';
+import { FiEdit2 } from 'react-icons/fi';
 
 import {
   formatAddress,
   formatDashboardDate,
+  formatGenderLabel,
   formatTenure,
   type UserDetails,
 } from '../dashboardShared';
@@ -60,19 +61,19 @@ export default function EmployeeSummaryCard({
 
         <div className="infoCardX__mid">
           <div className="infoRow">
-            <span className="infoRow__icon" aria-hidden="true"><FiMail /></span>
-            <span className="infoRow__link">{employee?.companyEmail || profile?.username || 'Company email not available'}</span>
+            <span className="infoRow__icon">✉</span>
+            <span className="infoRow__link">{employee?.email || profile?.username || 'Email not available'}</span>
           </div>
           <div className="infoRow">
-            <span className="infoRow__icon" aria-hidden="true"><FiMail /></span>
-            <span>{employee?.personalEmail || 'No personal email saved yet'}</span>
-          </div>
-          <div className="infoRow">
-            <span className="infoRow__icon" aria-hidden="true"><FiPhone /></span>
+            <span className="infoRow__icon">☎</span>
             <span>{employee?.phoneNumber || employee?.contactNumber || 'Phone not available'}</span>
           </div>
           <div className="infoRow">
-            <span className="infoRow__icon" aria-hidden="true"><FiHome /></span>
+            <span className="infoRow__icon">◌</span>
+            <span>{formatGenderLabel(employee?.gender)}</span>
+          </div>
+          <div className="infoRow">
+            <span className="infoRow__icon">⌂</span>
             <span>{formatAddress(employee?.address)}</span>
           </div>
         </div>

@@ -7,6 +7,7 @@ type AttendanceFeedPanelProps = {
   feedPanelHeight: number | null;
   items: FeedItem[];
   selectedDateHeading: string;
+  selectedHolidayName: string;
   selectedIsHoliday: boolean;
   showHolidayEmptyState: boolean;
   title: string;
@@ -17,6 +18,7 @@ export default function AttendanceFeedPanel({
   feedPanelHeight,
   items,
   selectedDateHeading,
+  selectedHolidayName,
   selectedIsHoliday,
   showHolidayEmptyState,
   title,
@@ -48,7 +50,7 @@ export default function AttendanceFeedPanel({
             <div className="hrEmptyState__title">No attendance activity yet.</div>
             <div className="hrEmptyState__note">
               {selectedIsHoliday && showHolidayEmptyState
-                ? `${selectedDateHeading} is a holiday, so no logs are expected unless someone worked.`
+                ? `${selectedDateHeading} is ${selectedHolidayName}, so no logs are expected unless someone worked.`
                 : `There are no attendance logs for ${emptyStateLabel}.`}
             </div>
           </div>

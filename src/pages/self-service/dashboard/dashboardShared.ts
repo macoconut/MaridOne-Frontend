@@ -14,6 +14,7 @@ export type UserDetails = {
     firstName?: string;
     lastName?: string;
     middleName?: string;
+    gender?: string;
     contactNumber?: string;
     phoneNumber?: string;
     companyEmail?: string;
@@ -194,6 +195,14 @@ export function formatDashboardDate(value?: string) {
     day: 'numeric',
     year: 'numeric',
   });
+}
+
+export function formatGenderLabel(value?: string) {
+  if (!value) return 'Gender not available';
+  return value
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 export function formatTenure(value?: string): string {

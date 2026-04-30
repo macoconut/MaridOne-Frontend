@@ -84,6 +84,7 @@ export function AttendanceOverviewDashboard({
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [approvedOvertime, setApprovedOvertime] = useState<OvertimeRequest[]>([]);
   const [holidayDateKeys, setHolidayDateKeys] = useState<string[]>([]);
+  const [holidayNamesByDate, setHolidayNamesByDate] = useState<Record<string, string>>({});
   const [dailyShifts, setDailyShifts] = useState<DailyShift[]>([]);
   const [employees, setEmployees] = useState<EmployeeRow[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -291,9 +292,12 @@ export function AttendanceOverviewDashboard({
       }
 
       if (holidayResult.status === 'fulfilled') {
-        setHolidayDateKeys(parseHolidayLookup(holidayResult.value).holidayDates);
+        const parsedHolidayLookup = parseHolidayLookup(holidayResult.value);
+        setHolidayDateKeys(parsedHolidayLookup.holidayDates);
+        setHolidayNamesByDate(parsedHolidayLookup.holidayNames);
       } else if (!isSilentRefresh) {
         setHolidayDateKeys([]);
+        setHolidayNamesByDate({});
       }
 
       if (dailyShiftResult.status === 'fulfilled') {
@@ -354,6 +358,7 @@ export function AttendanceOverviewDashboard({
 
   const holidayDateSet = useMemo(() => new Set(holidayDateKeys), [holidayDateKeys]);
   const selectedIsHoliday = holidayDateSet.has(effectiveSelectedDateKey);
+  const selectedHolidayName = holidayNamesByDate[effectiveSelectedDateKey] ?? 'Holiday';
 
   const scheduledShiftsByEmployeeAndDate = useMemo(() => {
     const grouped = new Map<string, DailyShift[]>();
@@ -946,6 +951,7 @@ export function AttendanceOverviewDashboard({
             scheduledEmployeeCountSelected={scheduledEmployeeCountSelected}
             selectedDateHeading={selectedDateHeading}
             selectedDateShortLabel={selectedDateShortLabel}
+            selectedHolidayName={selectedHolidayName}
             selectedIsHoliday={selectedIsHoliday}
             isSelectedDateToday={isSelectedDateToday}
           />
@@ -955,6 +961,7 @@ export function AttendanceOverviewDashboard({
           feedPanelHeight={feedPanelHeight}
           items={attendanceFeed}
           selectedDateHeading={selectedDateHeading}
+          selectedHolidayName={selectedHolidayName}
           selectedIsHoliday={selectedIsHoliday}
           showHolidayEmptyState={feedScope === 'selected-date'}
           title={resolvedFeedPanelTitle}
