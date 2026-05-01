@@ -16,6 +16,7 @@ import { compareEmployees } from '../../../lib/employeeSort';
 import { openDocumentAttachment } from '../../../lib/documentAttachments';
 import type { EmployeeDetails, EmployeeOption, LeaveBalanceRow } from '../../../lib/types/employee';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
+import { formatSss, formatPhilHealth, formatPagibig, formatTin, formatPhone, formatBankAccount } from '../../../lib/phIdFormatters';
 import { useEmployeeFilters } from './hooks/useEmployeeFilters';
 import EmployeeTable from './sections/EmployeeTable';
 import EmployeeToolbar from './sections/EmployeeToolbar';
@@ -490,7 +491,7 @@ function toBankAccountDrafts(details?: EmployeeDetails | null): BankAccountDraft
     .map((entry) => ({
       bankId: typeof entry?.bankId === 'number' ? entry.bankId : undefined,
       bankName: typeof entry?.bankName === 'string' ? entry.bankName : '',
-      accountNumber: typeof entry?.accountNumber === 'string' ? entry.accountNumber : '',
+      accountNumber: typeof entry?.accountNumber === 'string' ? formatBankAccount(entry.accountNumber) : '',
     }))
     .filter((entry) => entry.bankId || entry.bankName || entry.accountNumber);
 
@@ -501,7 +502,7 @@ function toBankAccountDrafts(details?: EmployeeDetails | null): BankAccountDraft
   if (details?.bankName || details?.bankAccountNumber) {
     return [{
       bankName: details.bankName ?? '',
-      accountNumber: details.bankAccountNumber ?? '',
+      accountNumber: formatBankAccount(details.bankAccountNumber ?? ''),
     }];
   }
 
@@ -656,7 +657,23 @@ export default function HrManageEmp() {
   const canClearManagerPicker = managerSearch.trim().length > 0 || form.managerId.trim().length > 0;
   const phoneHelperMessage = modal !== 'delete' ? getPhoneValidationMessage(form.phoneNumber) : '';
   const phoneHasError =
-    modal !== 'delete' && form.phoneNumber.trim().length > 0 && sanitizePhoneNumber(form.phoneNumber).length !== 11;
+    modal !== 'delete' && form.phoneNumber.length > 0 && form.phoneNumber.length !== 11;
+  const sssHasError = modal !== 'delete'
+    && form.sssNumber.replace(/-/g, '').length > 0
+    && form.sssNumber.replace(/-/g, '').length !== 10;
+  const philhealthHasError = modal !== 'delete'
+    && form.philhealthNumber.replace(/-/g, '').length > 0
+    && form.philhealthNumber.replace(/-/g, '').length !== 12;
+  const pagibigHasError = modal !== 'delete'
+    && form.pagibigNumber.replace(/-/g, '').length > 0
+    && form.pagibigNumber.replace(/-/g, '').length !== 12;
+  const tinDigitLen = form.tinNumber.replace(/-/g, '').length;
+  const tinHasError = modal !== 'delete' && tinDigitLen > 0 && tinDigitLen !== 9 && tinDigitLen !== 12;
+  const emergencyContactNumberHasError = modal !== 'delete'
+    && form.emergencyContactNumber.length > 0
+    && form.emergencyContactNumber.length !== 11;
+  const bankAccountNumberHasError = modal !== 'delete'
+    && formBankAccounts.some(acc => acc.accountNumber.length > 0 && acc.accountNumber.length < 10);
   const shouldHighlightRequiredFields = modal !== 'delete' && formSubmitAttempted;
   const firstNameMissing = shouldHighlightRequiredFields && form.firstName.trim().length === 0;
   const lastNameMissing = shouldHighlightRequiredFields && form.lastName.trim().length === 0;
@@ -905,10 +922,6 @@ export default function HrManageEmp() {
     showSuccess(`Exported ${visibleEmployeeRows.length} employee record${visibleEmployeeRows.length === 1 ? '' : 's'}.`, 'Employee Data Exported');
   }
 
-  function sanitizePhoneNumber(value: string) {
-    return value.replace(/\D/g, '').slice(0, 11);
-  }
-
   function parseLeaveBalanceHours(value: string, allowZero: boolean) {
     const trimmed = value.trim();
     if (!trimmed) {
@@ -928,14 +941,14 @@ export default function HrManageEmp() {
   }
 
   function getPhoneValidationMessage(value: string) {
-    const digits = sanitizePhoneNumber(value);
+    const digits = formatPhone(value);
     if (!digits) return 'Enter an 11-digit mobile number, for example 09171234567.';
     if (digits.length !== 11) return 'Phone number must be exactly 11 digits.';
     return 'Enter an 11-digit mobile number, for example 09171234567.';
   }
 
   function validatePhoneNumber(value: string) {
-    const digits = sanitizePhoneNumber(value);
+    const digits = formatPhone(value);
     if (digits.length !== 11) {
       throw new Error('Phone number must be exactly 11 digits.');
     }
@@ -1322,7 +1335,7 @@ export default function HrManageEmp() {
         employmentDateEnd: payload.employmentDateEnd ?? '',
         companyEmail: payload.companyEmail ?? '',
         personalEmail: payload.personalEmail ?? '',
-        phoneNumber: sanitizePhoneNumber(payload.phoneNumber ?? ''),
+        phoneNumber: formatPhone(payload.phoneNumber ?? ''),
         position: payload.position ?? 'EMPLOYEE',
         department: payload.department ?? '',
         yearlySalary:
@@ -1336,13 +1349,13 @@ export default function HrManageEmp() {
         state: payload.address?.state ?? '',
         country: payload.address?.country ?? '',
         zipCode: payload.address?.zipCode ?? '',
-        sssNumber: payload.sssNumber ?? '',
-        philhealthNumber: payload.philhealthNumber ?? '',
-        pagibigNumber: payload.pagibigNumber ?? '',
-        tinNumber: payload.tinNumber ?? '',
+        sssNumber: formatSss(payload.sssNumber ?? ''),
+        philhealthNumber: formatPhilHealth(payload.philhealthNumber ?? ''),
+        pagibigNumber: formatPagibig(payload.pagibigNumber ?? ''),
+        tinNumber: formatTin(payload.tinNumber ?? ''),
         emergencyContactName: payload.emergencyContactName ?? '',
         emergencyContactRelationship: payload.emergencyContactRelationship ?? '',
-        emergencyContactNumber: payload.emergencyContactNumber ?? '',
+        emergencyContactNumber: formatPhone(payload.emergencyContactNumber ?? ''),
         separationReason: normalizeSeparationReason(payload.separationReason),
         eligibleForRehire: toRehireSelectValue(payload.eligibleForRehire),
         separationNotes: payload.separationNotes ?? '',
@@ -1422,6 +1435,11 @@ export default function HrManageEmp() {
 
     if (mode === 'add' && !form.phoneNumber.trim()) {
       setSubmitError('Phone number is required.');
+      return false;
+    }
+
+    if (sssHasError || philhealthHasError || pagibigHasError || tinHasError || emergencyContactNumberHasError || bankAccountNumberHasError) {
+      setSubmitError('Please complete all partially-filled fields — each ID number, contact number, and bank account number must have its full required digit count.');
       return false;
     }
 
@@ -2863,7 +2881,7 @@ export default function HrManageEmp() {
                           placeholder={modal === 'add' ? 'Required 11-digit mobile number' : 'Optional 11-digit mobile number'}
                           aria-invalid={phoneInputInvalid ? 'true' : undefined}
                           value={form.phoneNumber}
-                          onChange={(event) => setField('phoneNumber', sanitizePhoneNumber(event.target.value))}
+                          onChange={(event) => setField('phoneNumber', formatPhone(event.target.value))}
                         />
                         {phoneHasError && <span className="hrEmpField__hint is-error">{phoneHelperMessage}</span>}
                       </div>
@@ -2895,9 +2913,15 @@ export default function HrManageEmp() {
                             <input
                               value={bankAccount.accountNumber}
                               placeholder="Bank account number"
-                              onChange={(event) => setBankAccountField(index, 'accountNumber', event.target.value)}
+                              inputMode="numeric"
+                              maxLength={15}
+                              aria-invalid={bankAccount.accountNumber.length > 0 && bankAccount.accountNumber.length < 10 ? 'true' : undefined}
+                              onChange={(event) => setBankAccountField(index, 'accountNumber', formatBankAccount(event.target.value))}
                             />
                           </div>
+                          {bankAccount.accountNumber.length > 0 && bankAccount.accountNumber.length < 10 && (
+                            <span className="hrEmpField__hint is-error">Bank account number must be 10 to 15 digits.</span>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -2911,32 +2935,48 @@ export default function HrManageEmp() {
                         <input
                           value={form.sssNumber}
                           placeholder="00-0000000-0"
-                          onChange={(event) => setField('sssNumber', event.target.value)}
+                          inputMode="numeric"
+                          maxLength={12}
+                          aria-invalid={sssHasError ? 'true' : undefined}
+                          onChange={(event) => setField('sssNumber', formatSss(event.target.value))}
                         />
+                        {sssHasError && <span className="hrEmpField__hint is-error">Must be exactly 10 digits (XX-XXXXXXX-X).</span>}
                       </div>
                       <div className="hrEmpField">
                         <label>PhilHealth ID</label>
                         <input
                           value={form.philhealthNumber}
                           placeholder="00-000000000-0"
-                          onChange={(event) => setField('philhealthNumber', event.target.value)}
+                          inputMode="numeric"
+                          maxLength={14}
+                          aria-invalid={philhealthHasError ? 'true' : undefined}
+                          onChange={(event) => setField('philhealthNumber', formatPhilHealth(event.target.value))}
                         />
+                        {philhealthHasError && <span className="hrEmpField__hint is-error">Must be exactly 12 digits (XX-XXXXXXXXX-X).</span>}
                       </div>
                       <div className="hrEmpField">
                         <label>Pag-IBIG MID</label>
                         <input
                           value={form.pagibigNumber}
                           placeholder="0000-0000-0000"
-                          onChange={(event) => setField('pagibigNumber', event.target.value)}
+                          inputMode="numeric"
+                          maxLength={14}
+                          aria-invalid={pagibigHasError ? 'true' : undefined}
+                          onChange={(event) => setField('pagibigNumber', formatPagibig(event.target.value))}
                         />
+                        {pagibigHasError && <span className="hrEmpField__hint is-error">Must be exactly 12 digits (XXXX-XXXX-XXXX).</span>}
                       </div>
                       <div className="hrEmpField">
                         <label>TIN</label>
                         <input
                           value={form.tinNumber}
-                          placeholder="000-000-000-000"
-                          onChange={(event) => setField('tinNumber', event.target.value)}
+                          placeholder="000-000-000"
+                          inputMode="numeric"
+                          maxLength={15}
+                          aria-invalid={tinHasError ? 'true' : undefined}
+                          onChange={(event) => setField('tinNumber', formatTin(event.target.value))}
                         />
+                        {tinHasError && <span className="hrEmpField__hint is-error">Must be 9 digits (XXX-XXX-XXX) or 12 digits (XXX-XXX-XXX-XXX).</span>}
                       </div>
                     </div>
                   </div>
@@ -2965,8 +3005,12 @@ export default function HrManageEmp() {
                         <input
                           value={form.emergencyContactNumber}
                           placeholder="Phone number"
-                          onChange={(event) => setField('emergencyContactNumber', event.target.value)}
+                          inputMode="numeric"
+                          maxLength={11}
+                          aria-invalid={emergencyContactNumberHasError ? 'true' : undefined}
+                          onChange={(event) => setField('emergencyContactNumber', formatPhone(event.target.value))}
                         />
+                        {emergencyContactNumberHasError && <span className="hrEmpField__hint is-error">Must be exactly 11 digits.</span>}
                       </div>
                     </div>
                   </div>

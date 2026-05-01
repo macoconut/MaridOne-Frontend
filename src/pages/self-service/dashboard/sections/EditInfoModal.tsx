@@ -1,5 +1,6 @@
 import { FiLock, FiMinus, FiPlus } from 'react-icons/fi';
 import LargePopup from '../../../../components/dialog/LargePopup';
+import { formatSss, formatPhilHealth, formatPagibig, formatTin, formatPhone, formatBankAccount } from '../../../../lib/phIdFormatters';
 
 function maskAccountNumber(num: string): string {
   if (!num) return '—';
@@ -70,6 +71,28 @@ export default function EditInfoModal({
   onRevealBankNumbers,
   onSubmit,
 }: EditInfoModalProps) {
+  const sssDigits = editDraft.sssNumber.replace(/-/g, '');
+  const sssError = sssDigits.length > 0 && sssDigits.length !== 10;
+
+  const phDigits = editDraft.philhealthNumber.replace(/-/g, '');
+  const philhealthError = phDigits.length > 0 && phDigits.length !== 12;
+
+  const pagibigDigits = editDraft.pagibigNumber.replace(/-/g, '');
+  const pagibigError = pagibigDigits.length > 0 && pagibigDigits.length !== 12;
+
+  const tinDigits = editDraft.tinNumber.replace(/-/g, '');
+  const tinError = tinDigits.length > 0 && tinDigits.length !== 9 && tinDigits.length !== 12;
+
+  const phoneError = editDraft.phoneNumber.length > 0 && editDraft.phoneNumber.length !== 11;
+
+  const emergencyContactError = editDraft.emergencyContactNumber.length > 0 && editDraft.emergencyContactNumber.length !== 11;
+
+  const bankAccountError = bankRevealed && bankAccounts.some(
+    acc => acc.accountNumber.length > 0 && acc.accountNumber.length < 10
+  );
+
+  const hasIdError = sssError || philhealthError || pagibigError || tinError || phoneError || emergencyContactError || bankAccountError;
+
   return (
     <LargePopup
       open
@@ -84,7 +107,7 @@ export default function EditInfoModal({
           <button type="button" className="btn btn--ghost" onClick={onClose} disabled={savingEdit}>
             Cancel
           </button>
-          <button type="button" className="btn" onClick={onSubmit} disabled={savingEdit}>
+          <button type="button" className="btn" onClick={onSubmit} disabled={savingEdit || hasIdError}>
             {savingEdit ? 'Saving...' : 'Save Changes'}
           </button>
         </>
@@ -136,8 +159,11 @@ export default function EditInfoModal({
           <input
             value={editDraft.phoneNumber}
             placeholder="Optional phone number"
-            onChange={(event) => onSetField('phoneNumber', event.target.value)}
+            inputMode="numeric"
+            maxLength={11}
+            onChange={(event) => onSetField('phoneNumber', formatPhone(event.target.value))}
           />
+          {phoneError && <span className="dashModal__helper dashModal__helper--warning">Must be exactly 11 digits.</span>}
         </label>
         <label className="dashModal__field dashModal__field--full">
           <span>Permanent Address</span>
@@ -225,8 +251,13 @@ export default function EditInfoModal({
                   <input
                     value={bankAccount.accountNumber}
                     placeholder="Bank account number"
-                    onChange={(event) => onSetBankAccountField(index, 'accountNumber', event.target.value)}
+                    inputMode="numeric"
+                    maxLength={15}
+                    onChange={(event) => onSetBankAccountField(index, 'accountNumber', formatBankAccount(event.target.value))}
                   />
+                  {bankAccount.accountNumber.length > 0 && bankAccount.accountNumber.length < 10 && (
+                    <span className="dashModal__helper dashModal__helper--warning">Must be 10 to 15 digits.</span>
+                  )}
                 </>
               ) : (
                 <>
@@ -241,27 +272,47 @@ export default function EditInfoModal({
         <div className="dashModal__sectionHeader">Government Identifiers</div>
         <label className="dashModal__field">
           <span>SSS Number</span>
-          <input value={editDraft.sssNumber} placeholder="00-0000000-0" onChange={(event) => onSetField('sssNumber', event.target.value)} />
+          <input
+            value={editDraft.sssNumber}
+            placeholder="00-0000000-0"
+            inputMode="numeric"
+            maxLength={12}
+            onChange={(event) => onSetField('sssNumber', formatSss(event.target.value))}
+          />
+          {sssError && <span className="dashModal__helper dashModal__helper--warning">Must be exactly 10 digits.</span>}
         </label>
         <label className="dashModal__field">
           <span>PhilHealth ID</span>
           <input
             value={editDraft.philhealthNumber}
             placeholder="00-000000000-0"
-            onChange={(event) => onSetField('philhealthNumber', event.target.value)}
+            inputMode="numeric"
+            maxLength={14}
+            onChange={(event) => onSetField('philhealthNumber', formatPhilHealth(event.target.value))}
           />
+          {philhealthError && <span className="dashModal__helper dashModal__helper--warning">Must be exactly 12 digits.</span>}
         </label>
         <label className="dashModal__field">
           <span>Pag-IBIG MID</span>
           <input
             value={editDraft.pagibigNumber}
             placeholder="0000-0000-0000"
-            onChange={(event) => onSetField('pagibigNumber', event.target.value)}
+            inputMode="numeric"
+            maxLength={14}
+            onChange={(event) => onSetField('pagibigNumber', formatPagibig(event.target.value))}
           />
+          {pagibigError && <span className="dashModal__helper dashModal__helper--warning">Must be exactly 12 digits.</span>}
         </label>
         <label className="dashModal__field">
           <span>TIN</span>
-          <input value={editDraft.tinNumber} placeholder="000-000-000-000" onChange={(event) => onSetField('tinNumber', event.target.value)} />
+          <input
+            value={editDraft.tinNumber}
+            placeholder="000-000-000"
+            inputMode="numeric"
+            maxLength={15}
+            onChange={(event) => onSetField('tinNumber', formatTin(event.target.value))}
+          />
+          {tinError && <span className="dashModal__helper dashModal__helper--warning">Must be 9 or 12 digits.</span>}
         </label>
 
         <div className="dashModal__sectionHeader">Emergency Contact</div>
@@ -286,8 +337,11 @@ export default function EditInfoModal({
           <input
             value={editDraft.emergencyContactNumber}
             placeholder="Phone number"
-            onChange={(event) => onSetField('emergencyContactNumber', event.target.value)}
+            inputMode="numeric"
+            maxLength={11}
+            onChange={(event) => onSetField('emergencyContactNumber', formatPhone(event.target.value))}
           />
+          {emergencyContactError && <span className="dashModal__helper dashModal__helper--warning">Must be exactly 11 digits.</span>}
         </label>
       </div>
 

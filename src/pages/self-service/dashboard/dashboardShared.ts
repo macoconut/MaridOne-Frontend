@@ -1,6 +1,7 @@
 import { toArray } from '../../../lib/api';
 import { getManilaNow } from '../../../lib/manilaTime';
 import type { AttendanceLeaveRequest as LeaveRequestRow, ShiftSchedule as ShiftScheduleRow } from '../../../lib/types/attendance';
+import { formatSss, formatPhilHealth, formatPagibig, formatTin, formatPhone, formatBankAccount } from '../../../lib/phIdFormatters';
 
 export type UserDetails = {
   username?: string;
@@ -143,25 +144,26 @@ export function createEditDraft(source: UserDetails['employee'] | null | undefin
           ? source.email
           : '',
     personalEmail: typeof source?.personalEmail === 'string' ? source.personalEmail : '',
-    phoneNumber:
+    phoneNumber: formatPhone(
       typeof source?.phoneNumber === 'string'
         ? source.phoneNumber
         : typeof source?.contactNumber === 'string'
           ? source.contactNumber
-          : '',
+          : ''
+    ),
     permanentAddress: typeof rawAddress.permanentAddress === 'string' ? rawAddress.permanentAddress : '',
     temporaryAddress: typeof rawAddress.temporaryAddress === 'string' ? rawAddress.temporaryAddress : '',
     city: typeof rawAddress.city === 'string' ? rawAddress.city : '',
     state: typeof rawAddress.state === 'string' ? rawAddress.state : '',
     country: typeof rawAddress.country === 'string' ? rawAddress.country : '',
     zipCode: typeof rawAddress.zipCode === 'string' ? rawAddress.zipCode : '',
-    sssNumber: typeof source?.sssNumber === 'string' ? source.sssNumber : '',
-    philhealthNumber: typeof source?.philhealthNumber === 'string' ? source.philhealthNumber : '',
-    pagibigNumber: typeof source?.pagibigNumber === 'string' ? source.pagibigNumber : '',
-    tinNumber: typeof source?.tinNumber === 'string' ? source.tinNumber : '',
+    sssNumber: typeof source?.sssNumber === 'string' ? formatSss(source.sssNumber) : '',
+    philhealthNumber: typeof source?.philhealthNumber === 'string' ? formatPhilHealth(source.philhealthNumber) : '',
+    pagibigNumber: typeof source?.pagibigNumber === 'string' ? formatPagibig(source.pagibigNumber) : '',
+    tinNumber: typeof source?.tinNumber === 'string' ? formatTin(source.tinNumber) : '',
     emergencyContactName: typeof source?.emergencyContactName === 'string' ? source.emergencyContactName : '',
     emergencyContactRelationship: typeof source?.emergencyContactRelationship === 'string' ? source.emergencyContactRelationship : '',
-    emergencyContactNumber: typeof source?.emergencyContactNumber === 'string' ? source.emergencyContactNumber : '',
+    emergencyContactNumber: typeof source?.emergencyContactNumber === 'string' ? formatPhone(source.emergencyContactNumber) : '',
   };
 }
 
@@ -171,7 +173,7 @@ export function createBankAccountDrafts(source: UserDetails['employee'] | null |
     .map((entry) => ({
       bankId: typeof entry?.bankId === 'number' ? entry.bankId : undefined,
       bankName: typeof entry?.bankName === 'string' ? entry.bankName : '',
-      accountNumber: typeof entry?.accountNumber === 'string' ? entry.accountNumber : '',
+      accountNumber: typeof entry?.accountNumber === 'string' ? formatBankAccount(entry.accountNumber) : '',
     }))
     .filter((entry) => entry.bankId || entry.bankName || entry.accountNumber);
 
@@ -182,7 +184,7 @@ export function createBankAccountDrafts(source: UserDetails['employee'] | null |
   if (source?.bankName || source?.bankAccountNumber) {
     return [{
       bankName: typeof source.bankName === 'string' ? source.bankName : '',
-      accountNumber: typeof source.bankAccountNumber === 'string' ? source.bankAccountNumber : '',
+      accountNumber: typeof source.bankAccountNumber === 'string' ? formatBankAccount(source.bankAccountNumber) : '',
     }];
   }
 
