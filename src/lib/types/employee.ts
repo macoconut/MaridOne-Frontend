@@ -7,6 +7,12 @@ export type EmployeeAddress = {
   zipCode?: string
 }
 
+export type EmployeeBankAccount = {
+  bankId?: number
+  accountNumber?: string
+  bankName?: string
+}
+
 export type EmployeeDetails = {
   id?: number
   employeeId?: number
@@ -39,6 +45,11 @@ export type EmployeeDetails = {
   emergencyContactName?: string
   emergencyContactRelationship?: string
   emergencyContactNumber?: string
+  gender?: string
+  bankName?: string
+  bankAccountNumber?: string
+  bankAccountHolder?: string
+  bankAccounts?: EmployeeBankAccount[]
   separationReason?: string
   eligibleForRehire?: boolean
   separationNotes?: string

@@ -1,9 +1,8 @@
 import { FiEdit2 } from 'react-icons/fi';
 
 import {
-  formatAddress,
   formatDashboardDate,
-  formatGenderLabel,
+  formatGenderIcon,
   formatTenure,
   type UserDetails,
 } from '../dashboardShared';
@@ -23,12 +22,15 @@ export default function EmployeeSummaryCard({
   employeeName,
   lastAttendanceLabel,
   lastLoginLabel,
-  profile,
   savingEdit,
   onEdit,
 }: EmployeeSummaryCardProps) {
   const joinDate = employee?.employmentDateStart || employee?.employmentDate || employee?.dateHired;
   const tenureLabel = formatTenure(joinDate);
+  const genderIcon = formatGenderIcon(employee?.gender);
+
+  const companyEmail = employee?.companyEmail || employee?.email;
+  const personalEmail = employee?.personalEmail;
 
   return (
     <section className="infoCardX">
@@ -47,7 +49,14 @@ export default function EmployeeSummaryCard({
         <div className="infoCardX__left">
           <div className="infoCardX__photo" aria-hidden="true" />
           <div className="infoCardX__bio">
-            <div className="infoCardX__name">{employeeName}</div>
+            <div className="infoCardX__nameRow">
+              <div className="infoCardX__name">{employeeName}</div>
+              {genderIcon && (
+                <span className="infoCardX__genderIcon" aria-hidden="true" title={employee?.gender ?? ''}>
+                  {genderIcon}
+                </span>
+              )}
+            </div>
             <div className="statBlock__sub">
               Joined {formatDashboardDate(joinDate)}
             </div>
@@ -60,21 +69,27 @@ export default function EmployeeSummaryCard({
         <div className="infoCardX__divider" />
 
         <div className="infoCardX__mid">
-          <div className="infoRow">
-            <span className="infoRow__icon">✉</span>
-            <span className="infoRow__link">{employee?.email || profile?.username || 'Email not available'}</span>
-          </div>
+          {companyEmail && (
+            <div className="infoRow">
+              <span className="infoRow__icon">✉</span>
+              <span className="infoRow__link">{companyEmail}</span>
+            </div>
+          )}
+          {personalEmail && (
+            <div className="infoRow">
+              <span className="infoRow__icon">✉</span>
+              <span>{personalEmail}</span>
+            </div>
+          )}
+          {!companyEmail && !personalEmail && (
+            <div className="infoRow">
+              <span className="infoRow__icon">✉</span>
+              <span>Email not available</span>
+            </div>
+          )}
           <div className="infoRow">
             <span className="infoRow__icon">☎</span>
             <span>{employee?.phoneNumber || employee?.contactNumber || 'Phone not available'}</span>
-          </div>
-          <div className="infoRow">
-            <span className="infoRow__icon">◌</span>
-            <span>{formatGenderLabel(employee?.gender)}</span>
-          </div>
-          <div className="infoRow">
-            <span className="infoRow__icon">⌂</span>
-            <span>{formatAddress(employee?.address)}</span>
           </div>
         </div>
 

@@ -1749,6 +1749,7 @@ export function AttendanceReportsBoard({
     focusRecordByDate,
     focusedEmployee,
     holidayDateSet,
+    holidayNamesByDate,
     hasScheduledWorkOnDate,
     isKnownDayOffOnDate,
     monthIndex,

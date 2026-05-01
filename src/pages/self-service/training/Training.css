@@ -123,6 +123,16 @@
   font-weight:700;
 }
 
+.tmCard__header:hover:not(:disabled),
+.tmRow__main:hover:not(:disabled) {
+  transform: none;
+}
+
+.tmRow__download.tmRow__download:hover:not(:disabled),
+.tmRow__download.tmRow__download:focus-visible:not(:disabled) {
+  transform: none;
+}
+
 .tmRow__download.tmRow__download{
   min-width:0;
   width:38px;
@@ -146,19 +156,6 @@
   font-size:18px;
 }
 
-.tmRow__download:hover:not(:disabled),
-.tmRow__download:focus-visible:not(:disabled){
-  background:var(--app-accent-soft, rgba(123, 74, 143, 0.12));
-  color:var(--app-accent-dark, #5f2f78);
-  border-color:rgba(123, 74, 143, 0.22);
-  box-shadow:0 6px 14px rgba(123, 74, 143, 0.18);
-  transform:none;
-  filter:none;
-}
-
-.tmRow__main:hover .tmRow__label{
-  text-decoration:underline;
-}
 
 .trainingPage__error{
   margin:-4px 0 0;

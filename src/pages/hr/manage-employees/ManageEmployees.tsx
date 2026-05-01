@@ -1,6 +1,6 @@
 import { useLoading } from '../../../context/useLoading';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FiChevronDown, FiPlus, FiX } from 'react-icons/fi';
+import { FiChevronDown, FiMinus, FiPlus, FiX } from 'react-icons/fi';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import LargePopup from '../../../components/dialog/LargePopup';
 import SensitiveAccessIndicator from '../../../components/security/SensitiveAccessIndicator';
@@ -145,6 +145,12 @@ type LeaveBalanceAdjustForm = {
   type: LeaveBalanceAdjustmentType;
 };
 
+type BankAccountDraft = {
+  bankId?: number;
+  bankName: string;
+  accountNumber: string;
+};
+
 type FormState = {
   employeeId: string;
   firstName: string;
@@ -250,6 +256,11 @@ const emptyForm: FormState = {
 const emptyLeaveBalanceCreateForm: LeaveBalanceCreateForm = {
   leaveType: 'SICK_LEAVE',
   balanceHours: '',
+};
+
+const emptyBankAccountDraft: BankAccountDraft = {
+  bankName: '',
+  accountNumber: '',
 };
 
 const LOCKED_PAGE_MESSAGE =
@@ -473,6 +484,30 @@ function mergeRowWithDetails(row: EmployeeRow, details: EmployeeDetails): Employ
   };
 }
 
+function toBankAccountDrafts(details?: EmployeeDetails | null): BankAccountDraft[] {
+  const bankAccounts = Array.isArray(details?.bankAccounts) ? details.bankAccounts : [];
+  const drafts = bankAccounts
+    .map((entry) => ({
+      bankId: typeof entry?.bankId === 'number' ? entry.bankId : undefined,
+      bankName: typeof entry?.bankName === 'string' ? entry.bankName : '',
+      accountNumber: typeof entry?.accountNumber === 'string' ? entry.accountNumber : '',
+    }))
+    .filter((entry) => entry.bankId || entry.bankName || entry.accountNumber);
+
+  if (drafts.length > 0) {
+    return drafts;
+  }
+
+  if (details?.bankName || details?.bankAccountNumber) {
+    return [{
+      bankName: details.bankName ?? '',
+      accountNumber: details.bankAccountNumber ?? '',
+    }];
+  }
+
+  return [{ ...emptyBankAccountDraft }];
+}
+
 export default function HrManageEmp() {
   const { showLoading, hideLoading } = useLoading();
   const { showSuccess } = useUiDialog();
@@ -501,6 +536,8 @@ export default function HrManageEmp() {
   const [loadMessage, setLoadMessage] = useState('');
   const [form, setForm] = useState<FormState>(emptyForm);
   const [initialForm, setInitialForm] = useState<FormState>(emptyForm);
+  const [formBankAccounts, setFormBankAccounts] = useState<BankAccountDraft[]>([emptyBankAccountDraft]);
+  const [initialFormBankAccounts, setInitialFormBankAccounts] = useState<BankAccountDraft[]>([emptyBankAccountDraft]);
   const [initialManagerSearch, setInitialManagerSearch] = useState('');
   const [submitError, setSubmitError] = useState('');
   const [formSubmitAttempted, setFormSubmitAttempted] = useState(false);
@@ -646,8 +683,12 @@ export default function HrManageEmp() {
   useEscapeDismiss(exportMenuOpen, () => setExportMenuOpen(false), 11);
   const hasUnsavedModalChanges = useMemo(() => {
     if (!modal) return false;
-    return JSON.stringify(form) !== JSON.stringify(initialForm) || managerSearch !== initialManagerSearch;
-  }, [form, initialForm, initialManagerSearch, managerSearch, modal]);
+    return (
+      JSON.stringify(form) !== JSON.stringify(initialForm)
+      || JSON.stringify(formBankAccounts) !== JSON.stringify(initialFormBankAccounts)
+      || managerSearch !== initialManagerSearch
+    );
+  }, [form, formBankAccounts, initialForm, initialFormBankAccounts, initialManagerSearch, managerSearch, modal]);
 
   function requestCloseModal() {
     if (isSaving) return;
@@ -690,25 +731,6 @@ export default function HrManageEmp() {
   }, [detailsDialogEmployeeId, modal]);
 
   useEffect(() => {
-    if (!sensitiveAccess.isVerified) {
-      setEmployeeRows([]);
-      setEmployeeOptions([]);
-      setEmployeeDetailsById({});
-      setDetailLoadingIds({});
-      setDetailErrors({});
-      setEmployeeComplianceById({});
-      setComplianceLoadingIds({});
-      setComplianceErrors({});
-      setDetailsDialogEmployeeId(null);
-      setLoadMessage('');
-      return;
-    }
-
-    void loadEmployees();
-    void loadEmployeeOptions();
-  }, [refreshTick, sensitiveAccess.isVerified]);
-
-  useEffect(() => {
     if (!managerPickerOpen) {
       return;
     }
@@ -749,7 +771,7 @@ export default function HrManageEmp() {
     }
   }, [managerSearch, selectedManagerOption, showManagerPicker]);
 
-  async function loadEmployees() {
+  const loadEmployees = useCallback(async () => {
     try {
       const response = await apiFetchJson<unknown>('/api/employees?page=0&size=5000');
       const mapped = toArray<Record<string, unknown>>(response).map((item, index) => {
@@ -807,9 +829,9 @@ export default function HrManageEmp() {
         `Unable to load the employee roster right now. (${getFriendlyErrorMessage(error, 'employee-load')})`
       );
     }
-  }
+  }, [sensitiveAccess]);
 
-  async function loadEmployeeOptions() {
+  const loadEmployeeOptions = useCallback(async () => {
     setIsLoadingEmployeeOptions(true);
     setEmployeeOptionsError('');
 
@@ -830,7 +852,26 @@ export default function HrManageEmp() {
     } finally {
       setIsLoadingEmployeeOptions(false);
     }
-  }
+  }, [sensitiveAccess]);
+
+  useEffect(() => {
+    if (!sensitiveAccess.isVerified) {
+      setEmployeeRows([]);
+      setEmployeeOptions([]);
+      setEmployeeDetailsById({});
+      setDetailLoadingIds({});
+      setDetailErrors({});
+      setEmployeeComplianceById({});
+      setComplianceLoadingIds({});
+      setComplianceErrors({});
+      setDetailsDialogEmployeeId(null);
+      setLoadMessage('');
+      return;
+    }
+
+    void loadEmployees();
+    void loadEmployeeOptions();
+  }, [loadEmployeeOptions, loadEmployees, refreshTick, sensitiveAccess.isVerified]);
 
   function todayDateValue() {
     const now = new Date();
@@ -934,6 +975,27 @@ export default function HrManageEmp() {
     setForm((current) => ({ ...current, [key]: value }));
   }
 
+  function setBankAccountField(index: number, key: keyof BankAccountDraft, value: string) {
+    setFormBankAccounts((current) =>
+      current.map((entry, entryIndex) =>
+        entryIndex === index
+          ? {
+              ...entry,
+              [key]: value,
+            }
+          : entry
+      )
+    );
+  }
+
+  function addBankAccountField() {
+    setFormBankAccounts((current) => [...current, { ...emptyBankAccountDraft }]);
+  }
+
+  function removeBankAccountField(index: number) {
+    setFormBankAccounts((current) => current.filter((_, i) => i !== index));
+  }
+
   function handlePositionChange(nextPosition: string) {
     setForm((current) => {
       const shouldRefreshExemption =
@@ -980,6 +1042,8 @@ export default function HrManageEmp() {
     setModal('add');
     setForm(nextForm);
     setInitialForm(nextForm);
+    setFormBankAccounts([{ ...emptyBankAccountDraft }]);
+    setInitialFormBankAccounts([{ ...emptyBankAccountDraft }]);
   }
 
   function closeModal() {
@@ -994,6 +1058,8 @@ export default function HrManageEmp() {
     resetMessages();
     setForm(emptyForm);
     setInitialForm(emptyForm);
+    setFormBankAccounts([{ ...emptyBankAccountDraft }]);
+    setInitialFormBankAccounts([{ ...emptyBankAccountDraft }]);
   }
 
   function syncLeaveBalanceForms(balances: LeaveBalanceRow[]) {
@@ -1285,8 +1351,11 @@ export default function HrManageEmp() {
         payload.managerId !== undefined && payload.managerId !== null
           ? employeeOptions.find((option) => option.id === payload.managerId)?.name ?? ''
           : '';
+      const nextBankAccounts = toBankAccountDrafts(payload);
       setForm(nextForm);
       setInitialForm(nextForm);
+      setFormBankAccounts(nextBankAccounts);
+      setInitialFormBankAccounts(nextBankAccounts);
       setManagerSearch(nextManagerSearch);
       setInitialManagerSearch(nextManagerSearch);
       setConfirmDiscardOpen(false);
@@ -1324,6 +1393,8 @@ export default function HrManageEmp() {
     }
     setForm(nextForm);
     setInitialForm(nextForm);
+    setFormBankAccounts([{ ...emptyBankAccountDraft }]);
+    setInitialFormBankAccounts([{ ...emptyBankAccountDraft }]);
     setInitialManagerSearch('');
     setModal('delete');
   }
@@ -1470,6 +1541,31 @@ export default function HrManageEmp() {
     });
   }
 
+  async function syncFormBankAccounts(employeeId: number) {
+    const prepared = formBankAccounts
+      .map((entry) => ({
+        bankId: entry.bankId,
+        bankName: entry.bankName.trim(),
+        accountNumber: entry.accountNumber.trim(),
+      }))
+      .filter((entry) => entry.bankId || entry.bankName || entry.accountNumber);
+
+    for (const entry of prepared) {
+      if (!entry.bankName || !entry.accountNumber) {
+        throw new Error('Each bank account entry must include both a bank name and account number.');
+      }
+
+      await apiFetchJson(entry.bankId ? `/api/bank/update/${employeeId}` : `/api/bank/add/${employeeId}`, {
+        method: entry.bankId ? 'PATCH' : 'POST',
+        body: JSON.stringify({
+          bankId: entry.bankId,
+          bankName: entry.bankName,
+          accountNumber: entry.accountNumber,
+        }),
+      });
+    }
+  }
+
   async function executeSubmit(targetModal: ModalType) {
     if (!targetModal) return;
 
@@ -1493,17 +1589,18 @@ export default function HrManageEmp() {
           throw new Error('Employee was created, but the new employee ID was not returned.');
         }
 
-        let accountError = '';
+        let followupSaveError = '';
         try {
+          await syncFormBankAccounts(employeeId);
           await saveUserAccount(employeeId, 'add');
         } catch (error) {
-          accountError = getFriendlyErrorMessage(error, 'employee-save');
+          followupSaveError = getFriendlyErrorMessage(error, 'employee-save');
         }
 
         await Promise.all([loadEmployees(), loadEmployeeOptions()]);
 
-        if (accountError) {
-          setSubmitError(`Employee record was created, but the linked user account could not be saved. (${accountError})`);
+        if (followupSaveError) {
+          setSubmitError(`Employee record was created, but some linked account details could not be saved. (${followupSaveError})`);
         } else {
           closeModal();
           showSuccess('Employee created successfully.', 'Employee Created');
@@ -1522,17 +1619,18 @@ export default function HrManageEmp() {
           body: JSON.stringify(buildEmployeePayload(false)),
         });
 
-        let accountError = '';
+        let followupSaveError = '';
         try {
+          await syncFormBankAccounts(employeeId);
           await saveUserAccount(employeeId, 'edit');
         } catch (error) {
-          accountError = getFriendlyErrorMessage(error, 'employee-save');
+          followupSaveError = getFriendlyErrorMessage(error, 'employee-save');
         }
 
         await Promise.all([loadEmployees(), loadEmployeeOptions()]);
 
-        if (accountError) {
-          setSubmitError(`Employee details were updated, but the linked user account could not be saved. (${accountError})`);
+        if (followupSaveError) {
+          setSubmitError(`Employee details were updated, but some linked account details could not be saved. (${followupSaveError})`);
         } else {
           closeModal();
           showSuccess('Employee updated successfully.', 'Employee Updated');
@@ -1822,29 +1920,28 @@ export default function HrManageEmp() {
 
     return (
       <>
-        <section className="hrEmpDetails__card hrEmpDetails__card--full">
-          <h3>Name and ID</h3>
-          <div className="hrEmpDetails__items">
-            <div className="hrEmpDetails__item">
-              <span>First Name</span>
-              <strong>{displayValue(details.firstName)}</strong>
-            </div>
-            <div className="hrEmpDetails__item">
-              <span>Middle Name</span>
-              <strong>{displayValue(details.middleName)}</strong>
-            </div>
-            <div className="hrEmpDetails__item">
-              <span>Last Name</span>
-              <strong>{displayValue(details.lastName)}</strong>
-            </div>
-            <div className="hrEmpDetails__item">
-              <span>Employee ID</span>
-              <strong>{row.id}</strong>
-            </div>
-          </div>
-        </section>
-
         <div className="hrEmpDetails__grid">
+          <section className="hrEmpDetails__card">
+            <h3>Name and ID</h3>
+            <div className="hrEmpDetails__items">
+              <div className="hrEmpDetails__item">
+                <span>First Name</span>
+                <strong>{displayValue(details.firstName)}</strong>
+              </div>
+              <div className="hrEmpDetails__item">
+                <span>Middle Name</span>
+                <strong>{displayValue(details.middleName)}</strong>
+              </div>
+              <div className="hrEmpDetails__item">
+                <span>Last Name</span>
+                <strong>{displayValue(details.lastName)}</strong>
+              </div>
+              <div className="hrEmpDetails__item">
+                <span>Employee ID</span>
+                <strong>{row.id}</strong>
+              </div>
+            </div>
+          </section>
           <section className="hrEmpDetails__card">
             <h3>Account and Contact</h3>
             <div className="hrEmpDetails__items">
@@ -1868,6 +1965,31 @@ export default function HrManageEmp() {
                 <span>Birth Date</span>
                 <strong>{formatDateValue(details.birthDate)}</strong>
               </div>
+            </div>
+          </section>
+
+          <section className="hrEmpDetails__card">
+            <h3>Bank Accounts</h3>
+            <div className="hrEmpDetails__items">
+              {((details.bankAccounts && details.bankAccounts.length > 0) || details.bankAccountNumber || details.bankName) ? (
+                (details.bankAccounts && details.bankAccounts.length > 0 ? details.bankAccounts : [{
+                  bankName: details.bankName,
+                  accountNumber: details.bankAccountNumber,
+                }]).map((bankAccount, index) => (
+                  <div className="hrEmpDetails__item hrEmpDetails__item--full" key={bankAccount.bankId ?? `bank-account-${index}`}>
+                    <span>{`Bank Account ${index + 1}`}</span>
+                    <strong>
+                      {displayValue(bankAccount.bankName)}
+                      <span className="hrEmpDetails__dot" aria-hidden="true" />
+                      {displayValue(bankAccount.accountNumber)}
+                    </strong>
+                  </div>
+                ))
+              ) : (
+                <div className="hrEmpDetails__item hrEmpDetails__item--full">
+                  <span>No bank accounts on record.</span>
+                </div>
+              )}
             </div>
           </section>
 
@@ -2745,6 +2867,39 @@ export default function HrManageEmp() {
                         />
                         {phoneHasError && <span className="hrEmpField__hint is-error">{phoneHelperMessage}</span>}
                       </div>
+                    </div>
+                  </div>
+
+                  <div className="hrEmpForm__section">
+                    <div className="hrEmpForm__sectionTitle hrEmpForm__sectionTitle--withAction">
+                      <span>Bank Accounts</span>
+                      <button type="button" className="hrEmpBankAccounts__addBtn" onClick={addBankAccountField} aria-label="Add bank account" title="Add bank account">
+                        <FiPlus aria-hidden="true" />
+                      </button>
+                    </div>
+                    <div className="hrEmpBankAccounts">
+                      {formBankAccounts.map((bankAccount, index) => (
+                        <div key={bankAccount.bankId ?? `hr-bank-account-${index}`} className="hrEmpBankAccounts__row">
+                          <div className="hrEmpBankAccounts__rowHeader">
+                            <span>{`Account ${index + 1}`}</span>
+                            <button type="button" className="hrEmpBankAccounts__removeBtn" onClick={() => removeBankAccountField(index)} aria-label={`Remove account ${index + 1}`} title="Remove account">
+                              <FiMinus aria-hidden="true" />
+                            </button>
+                          </div>
+                          <div className="hrEmpBankAccounts__inputs">
+                            <input
+                              value={bankAccount.bankName}
+                              placeholder="e.g. BDO, BPI, UnionBank"
+                              onChange={(event) => setBankAccountField(index, 'bankName', event.target.value)}
+                            />
+                            <input
+                              value={bankAccount.accountNumber}
+                              placeholder="Bank account number"
+                              onChange={(event) => setBankAccountField(index, 'accountNumber', event.target.value)}
+                            />
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
 

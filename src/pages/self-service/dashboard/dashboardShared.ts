@@ -9,6 +9,11 @@ export type UserDetails = {
   canChangePasswordNow?: boolean;
   passwordChangeAvailableAt?: string;
   employee?: {
+    bankAccounts?: Array<{
+      bankId?: number;
+      accountNumber?: string;
+      bankName?: string;
+    }>;
     employeeId?: number;
     fullName?: string;
     firstName?: string;
@@ -34,9 +39,13 @@ export type UserDetails = {
     philhealthNumber?: string;
     pagibigNumber?: string;
     tinNumber?: string;
+    birthDate?: string;
     emergencyContactName?: string;
     emergencyContactRelationship?: string;
     emergencyContactNumber?: string;
+    bankName?: string;
+    bankAccountNumber?: string;
+    bankAccountHolder?: string;
   };
 };
 
@@ -123,6 +132,10 @@ export function createEditDraft(source: UserDetails['employee'] | null | undefin
       : {};
 
   return {
+    gender: typeof source?.gender === 'string' ? source.gender : '',
+    birthDate: typeof source?.birthDate === 'string' ? source.birthDate : '',
+    bankName: typeof source?.bankName === 'string' ? source.bankName : '',
+    bankAccountNumber: typeof source?.bankAccountNumber === 'string' ? source.bankAccountNumber : '',
     companyEmail:
       typeof source?.companyEmail === 'string'
         ? source.companyEmail
@@ -150,6 +163,33 @@ export function createEditDraft(source: UserDetails['employee'] | null | undefin
     emergencyContactRelationship: typeof source?.emergencyContactRelationship === 'string' ? source.emergencyContactRelationship : '',
     emergencyContactNumber: typeof source?.emergencyContactNumber === 'string' ? source.emergencyContactNumber : '',
   };
+}
+
+export function createBankAccountDrafts(source: UserDetails['employee'] | null | undefined) {
+  const bankAccounts = Array.isArray(source?.bankAccounts) ? source.bankAccounts : [];
+  const drafts = bankAccounts
+    .map((entry) => ({
+      bankId: typeof entry?.bankId === 'number' ? entry.bankId : undefined,
+      bankName: typeof entry?.bankName === 'string' ? entry.bankName : '',
+      accountNumber: typeof entry?.accountNumber === 'string' ? entry.accountNumber : '',
+    }))
+    .filter((entry) => entry.bankId || entry.bankName || entry.accountNumber);
+
+  if (drafts.length > 0) {
+    return drafts;
+  }
+
+  if (source?.bankName || source?.bankAccountNumber) {
+    return [{
+      bankName: typeof source.bankName === 'string' ? source.bankName : '',
+      accountNumber: typeof source.bankAccountNumber === 'string' ? source.bankAccountNumber : '',
+    }];
+  }
+
+  return [{
+    bankName: '',
+    accountNumber: '',
+  }];
 }
 
 export function isEmailVerified(value: UserDetails['employee'] | null | undefined) {
@@ -203,6 +243,21 @@ export function formatGenderLabel(value?: string) {
     .replace(/_/g, ' ')
     .toLowerCase()
     .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+export function formatGenderIcon(gender?: string): string {
+  if (!gender) return '';
+  const upper = gender.toUpperCase();
+  if (upper === 'MALE') return '♂';
+  if (upper === 'FEMALE') return '♀';
+  return '⚧';
+}
+
+export function maskBankNumber(accountNumber?: string): string {
+  if (!accountNumber || accountNumber.trim().length === 0) return 'Not available';
+  const trimmed = accountNumber.trim();
+  if (trimmed.length <= 4) return trimmed;
+  return `•••• ${trimmed.slice(-4)}`;
 }
 
 export function formatTenure(value?: string): string {

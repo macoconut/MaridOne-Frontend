@@ -686,12 +686,11 @@ export default function EmployeeLogin() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
-
                   <button
                     type="button"
                     className="eyeBtn"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    onClick={() => setShowPassword((value) => !value)}
+                    onClick={() => setShowPassword((v) => !v)}
                   >
                     {showPassword ? <FiEyeOff aria-hidden="true" /> : <FiEye aria-hidden="true" />}
                   </button>

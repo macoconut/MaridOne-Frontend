@@ -136,7 +136,16 @@
   place-items: center;
 }
 
-.eyeBtn:hover {
+/* Disable scale effect on all login page buttons */
+.submitBtn:hover:not(:disabled),
+.eloginBack:hover:not(:disabled),
+.eloginForgot:hover:not(:disabled),
+.eloginTwoFactorSwitch:hover:not(:disabled) {
+  transform: none;
+}
+
+.eyeBtn:hover:not(:disabled) {
+  transform: translateY(-50%);
   color: #4d2d61;
 }
 

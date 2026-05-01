@@ -1,6 +1,14 @@
+import { FiLock, FiMinus, FiPlus } from 'react-icons/fi';
 import LargePopup from '../../../../components/dialog/LargePopup';
 
+function maskAccountNumber(num: string): string {
+  if (!num) return '—';
+  return '••••' + num.slice(-4);
+}
+
 type EditDraft = {
+  gender: string;
+  birthDate: string;
   city: string;
   companyEmail: string;
   country: string;
@@ -19,21 +27,47 @@ type EditDraft = {
   zipCode: string;
 };
 
+type BankAccountDraft = {
+  bankId?: number;
+  bankName: string;
+  accountNumber: string;
+};
+
 type EditInfoModalProps = {
   editDraft: EditDraft;
+  bankAccounts: BankAccountDraft[];
+  bankRevealed: boolean;
   emailVerificationWillReset: boolean;
   savingEdit: boolean;
   onClose: () => void;
   onSetField: <K extends keyof EditDraft>(key: K, value: EditDraft[K]) => void;
+  onAddBankAccount: () => void;
+  onRemoveBankAccount: (index: number) => void;
+  onSetBankAccountField: (index: number, key: keyof BankAccountDraft, value: string) => void;
+  onRevealBankNumbers: () => void;
   onSubmit: () => void;
 };
 
+const GENDER_OPTIONS = [
+  { value: '', label: 'Not specified' },
+  { value: 'MALE', label: 'Male' },
+  { value: 'FEMALE', label: 'Female' },
+  { value: 'NON_BINARY', label: 'Non-Binary' },
+  { value: 'PREFER_NOT_TO_SAY', label: 'Prefer Not To Say' },
+];
+
 export default function EditInfoModal({
   editDraft,
+  bankAccounts,
+  bankRevealed,
   emailVerificationWillReset,
   savingEdit,
   onClose,
   onSetField,
+  onAddBankAccount,
+  onRemoveBankAccount,
+  onSetBankAccountField,
+  onRevealBankNumbers,
   onSubmit,
 }: EditInfoModalProps) {
   return (
@@ -41,7 +75,7 @@ export default function EditInfoModal({
       open
       ariaLabel="Edit employee info"
       title="Edit Info"
-      subtitle="Update your contact details and address information before saving the changes."
+      subtitle="Update your personal details, contact information, and bank details before saving."
       size="xl"
       onClose={onClose}
       closeDisabled={savingEdit}
@@ -57,6 +91,28 @@ export default function EditInfoModal({
       }
     >
       <div className="dashModal__grid">
+        <div className="dashModal__sectionHeader">Personal Information</div>
+        <label className="dashModal__field">
+          <span>Gender</span>
+          <select
+            value={editDraft.gender}
+            onChange={(event) => onSetField('gender', event.target.value)}
+          >
+            {GENDER_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="dashModal__field">
+          <span>Birthday</span>
+          <input
+            type="date"
+            value={editDraft.birthDate}
+            onChange={(event) => onSetField('birthDate', event.target.value)}
+          />
+        </label>
+
+        <div className="dashModal__sectionHeader">Contact</div>
         <label className="dashModal__field">
           <span>Company Email</span>
           <input
@@ -115,6 +171,72 @@ export default function EditInfoModal({
           <span>Zip Code</span>
           <input value={editDraft.zipCode} placeholder="Optional ZIP code" onChange={(event) => onSetField('zipCode', event.target.value)} />
         </label>
+
+        <div className="dashModal__sectionHeader dashModal__sectionHeader--withAction">
+          <span>Bank Information</span>
+          {bankRevealed ? (
+            <button
+              type="button"
+              className="dashModal__headerBtn"
+              onClick={onAddBankAccount}
+              disabled={savingEdit}
+              aria-label="Add bank account"
+              title="Add bank account"
+            >
+              <FiPlus aria-hidden="true" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="dashModal__headerBtn"
+              onClick={onRevealBankNumbers}
+              aria-label="Reveal bank account numbers"
+              title="Click to reveal bank account numbers"
+            >
+              <FiLock aria-hidden="true" />
+            </button>
+          )}
+        </div>
+        {bankAccounts.map((bankAccount, index) => (
+          <div key={bankAccount.bankId ?? `bank-account-${index}`} className="dashModal__field dashModal__field--full dashModal__bankRow">
+            <div className="dashModal__bankRowHeader">
+              <span>{`Account ${index + 1}`}</span>
+              {bankRevealed && (
+                <button
+                  type="button"
+                  className="dashModal__removeBtn"
+                  onClick={() => onRemoveBankAccount(index)}
+                  disabled={savingEdit}
+                  aria-label={`Remove account ${index + 1}`}
+                  title="Remove account"
+                >
+                  <FiMinus aria-hidden="true" />
+                </button>
+              )}
+            </div>
+            <div className="dashModal__inlineGroup">
+              {bankRevealed ? (
+                <>
+                  <input
+                    value={bankAccount.bankName}
+                    placeholder="e.g. BDO, BPI, UnionBank"
+                    onChange={(event) => onSetBankAccountField(index, 'bankName', event.target.value)}
+                  />
+                  <input
+                    value={bankAccount.accountNumber}
+                    placeholder="Bank account number"
+                    onChange={(event) => onSetBankAccountField(index, 'accountNumber', event.target.value)}
+                  />
+                </>
+              ) : (
+                <>
+                  <input value={bankAccount.bankName || '—'} readOnly />
+                  <input value={maskAccountNumber(bankAccount.accountNumber)} readOnly />
+                </>
+              )}
+            </div>
+          </div>
+        ))}
 
         <div className="dashModal__sectionHeader">Government Identifiers</div>
         <label className="dashModal__field">

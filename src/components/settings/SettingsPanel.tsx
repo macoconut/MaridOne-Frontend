@@ -180,36 +180,6 @@ export default function SettingsPanel() {
     setReduceMotionState(nextReduceMotion);
   }
 
-  async function refreshProfileDetails() {
-    const username = getUserEmail();
-    if (!username) return;
-
-    const details = await apiFetchJson<UserDetails>(`/api/user/details/${encodeURIComponent(username)}`);
-    setProfile(details);
-
-    const employeeFromDetails =
-      details.employee && typeof details.employee === 'object' ? details.employee : null;
-    const resolvedEmployeeId =
-      typeof details.employeeId === 'number'
-        ? details.employeeId
-        : typeof employeeFromDetails?.employeeId === 'number'
-          ? employeeFromDetails.employeeId
-          : null;
-
-    if (employeeFromDetails) {
-      setEmployee(employeeFromDetails);
-      return;
-    }
-
-    if (resolvedEmployeeId) {
-      const employeeDetails = await apiFetchJson<EmployeeProfile>(`/api/employees/${resolvedEmployeeId}`);
-      setEmployee(employeeDetails);
-      return;
-    }
-
-    setEmployee(null);
-  }
-
   async function handleSendEmailVerification() {
     clearSecurityFeedback();
     setSendingVerification(true);

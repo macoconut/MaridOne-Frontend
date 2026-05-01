@@ -1,5 +1,5 @@
 import { useLoading } from '../../../context/useLoading';
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
 import { useUiDialog } from '../../../components/dialog/useUiDialog';
@@ -7,6 +7,8 @@ import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
+import { useSensitiveAccessPrompt } from '../../../hooks/useSensitiveAccessPrompt';
+import SensitiveAccessModal from '../../../components/security/SensitiveAccessModal';
 import { apiFetchJson, toArray } from '../../../lib/api';
 import {
   downloadLibraryDocument,
@@ -21,6 +23,7 @@ import type { AttendanceLeaveRequest as LeaveRequestRow, AttendanceLog, ShiftSch
 import type { LeaveBalanceRow } from '../../../lib/types/employee';
 import {
   createAnnouncementDraft,
+  createBankAccountDrafts,
   createEditDraft,
   formatDashboardDateTime,
   formatJwtIssuedAt,
@@ -44,6 +47,12 @@ import EmployeeSummaryCard from './sections/EmployeeSummaryCard';
 import TimeOffBalancesCard from './sections/TimeOffBalancesCard';
 import './Dashboard.css';
 
+type BankAccountDraft = {
+  bankId?: number;
+  bankName: string;
+  accountNumber: string;
+};
+
 export default function Dashboard() {
   const { showLoading, hideLoading } = useLoading();
 
@@ -66,6 +75,11 @@ export default function Dashboard() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError, setEditError] = useState('');
   const [editOpen, setEditOpen] = useState(false);
+  const [editIsDirty, setEditIsDirty] = useState(false);
+  const [discardConfirmOpen, setDiscardConfirmOpen] = useState(false);
+  const [editBankAccounts, setEditBankAccounts] = useState<BankAccountDraft[]>([]);
+  const [bankRevealed, setBankRevealed] = useState(false);
+  const sensitiveAccess = useSensitiveAccessPrompt();
   const [confirmEmailChangeOpen, setConfirmEmailChangeOpen] = useState(false);
   const [createAnnouncementOpen, setCreateAnnouncementOpen] = useState(false);
   const [creatingAnnouncement, setCreatingAnnouncement] = useState(false);
@@ -77,6 +91,8 @@ export default function Dashboard() {
   const [deletingAnnouncementId, setDeletingAnnouncementId] = useState<number | null>(null);
   const [announcementDraft, setAnnouncementDraft] = useState<AnnouncementDraft>(() => createAnnouncementDraft());
   const [editDraft, setEditDraft] = useState({
+    gender: '',
+    birthDate: '',
     companyEmail: '',
     personalEmail: '',
     phoneNumber: '',
@@ -103,7 +119,7 @@ export default function Dashboard() {
   };
   useEscapeDismiss(Boolean(selectedAnnouncementDay), closeAnnouncementDay, 10);
   useEscapeDismiss(createAnnouncementOpen && !creatingAnnouncement, closeCreateAnnouncementModal, 10);
-  useEscapeDismiss(editOpen && !savingEdit && !confirmEmailChangeOpen, closeEditModal, 10);
+  useEscapeDismiss(editOpen && !savingEdit && !confirmEmailChangeOpen && !discardConfirmOpen, closeEditModal, 10);
   useAutoRefreshingPage(handlePageRefresh, {
     intervalMs: 15000,
     enabled:
@@ -171,9 +187,31 @@ export default function Dashboard() {
             .catch(() => setNextLeave(null));
         }
 
+        if (resolvedEmpId) {
+          const selfEmployee = await apiFetchJson<UserDetails['employee']>(
+            `/api/employees/${resolvedEmpId}`
+          );
+          setEmployee(selfEmployee);
+          setEditDraft(createEditDraft(selfEmployee));
+          setEditBankAccounts(createBankAccountDrafts(selfEmployee));
+          try {
+            const attendance = await apiFetchJson<unknown>(`/api/logs/attendance/self/${resolvedEmpId}?page=0&size=1`);
+            const first = toArray<AttendanceLog>(attendance)[0];
+            if (first?.timestamp) {
+              setLastAttendanceLabel(formatDashboardDateTime(first.timestamp));
+            } else {
+              setLastAttendanceLabel('Not available');
+            }
+          } catch {
+            setLastAttendanceLabel('Not available');
+          }
+          return;
+        }
+
         if (fromUser) {
           setEmployee(fromUser);
           setEditDraft(createEditDraft(fromUser));
+          setEditBankAccounts(createBankAccountDrafts(fromUser));
           const empId = typeof fromUser.employeeId === 'number' ? fromUser.employeeId : resolvedEmpId;
           if (empId) {
             try {
@@ -187,26 +225,6 @@ export default function Dashboard() {
             } catch {
               setLastAttendanceLabel('Not available');
             }
-          }
-          return;
-        }
-
-        if (resolvedEmpId) {
-          const selfEmployee = await apiFetchJson<UserDetails['employee']>(
-            `/api/employees/${resolvedEmpId}`
-          );
-          setEmployee(selfEmployee);
-          setEditDraft(createEditDraft(selfEmployee));
-          try {
-            const attendance = await apiFetchJson<unknown>(`/api/logs/attendance/self/${resolvedEmpId}?page=0&size=1`);
-            const first = toArray<AttendanceLog>(attendance)[0];
-            if (first?.timestamp) {
-              setLastAttendanceLabel(formatDashboardDateTime(first.timestamp));
-            } else {
-              setLastAttendanceLabel('Not available');
-            }
-          } catch {
-            setLastAttendanceLabel('Not available');
           }
           return;
         }
@@ -501,19 +519,94 @@ export default function Dashboard() {
   function openEditModal() {
     setEditError('');
     setEditDraft(createEditDraft(employee));
+    setEditBankAccounts(createBankAccountDrafts(employee));
+    setEditIsDirty(false);
     setEditOpen(true);
   }
 
-  function closeEditModal() {
-    if (savingEdit) return;
+  function actuallyCloseEditModal() {
     setEditOpen(false);
+    setDiscardConfirmOpen(false);
     setConfirmEmailChangeOpen(false);
     setEditError('');
+    setEditIsDirty(false);
+    setBankRevealed(false);
     setEditDraft(createEditDraft(employee));
+    setEditBankAccounts(createBankAccountDrafts(employee));
+  }
+
+  const revealBankNumbers = useCallback(() => {
+    if (sensitiveAccess.isVerified) {
+      setBankRevealed(true);
+    } else {
+      sensitiveAccess.requestVerification(
+        async () => { setBankRevealed(true); },
+        'Enter your password to view and edit bank account numbers.'
+      );
+    }
+  }, [sensitiveAccess]);
+
+  function closeEditModal() {
+    if (savingEdit) return;
+    if (editIsDirty) {
+      setDiscardConfirmOpen(true);
+      return;
+    }
+    actuallyCloseEditModal();
   }
 
   function setEditField<K extends keyof typeof editDraft>(key: K, value: (typeof editDraft)[K]) {
+    setEditIsDirty(true);
     setEditDraft((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function setEditBankAccountField(index: number, key: keyof BankAccountDraft, value: string) {
+    setEditIsDirty(true);
+    setEditBankAccounts((prev) =>
+      prev.map((entry, entryIndex) =>
+        entryIndex === index
+          ? {
+              ...entry,
+              [key]: value,
+            }
+          : entry
+      )
+    );
+  }
+
+  function addEditBankAccount() {
+    setEditIsDirty(true);
+    setEditBankAccounts((prev) => [...prev, { bankName: '', accountNumber: '' }]);
+  }
+
+  function removeEditBankAccount(index: number) {
+    setEditIsDirty(true);
+    setEditBankAccounts((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  async function syncBankAccounts(employeeId: number) {
+    const prepared = editBankAccounts
+      .map((entry) => ({
+        bankId: entry.bankId,
+        bankName: entry.bankName.trim(),
+        accountNumber: entry.accountNumber.trim(),
+      }))
+      .filter((entry) => entry.bankId || entry.bankName || entry.accountNumber);
+
+    for (const entry of prepared) {
+      if (!entry.bankName || !entry.accountNumber) {
+        throw new Error('Each bank account needs both a bank name and account number before saving.');
+      }
+
+      await apiFetchJson(entry.bankId ? `/api/bank/update/${employeeId}` : `/api/bank/add/${employeeId}`, {
+        method: entry.bankId ? 'PATCH' : 'POST',
+        body: JSON.stringify({
+          bankId: entry.bankId,
+          bankName: entry.bankName,
+          accountNumber: entry.accountNumber,
+        }),
+      });
+    }
   }
 
   async function runEditInfoSubmit() {
@@ -529,6 +622,8 @@ export default function Dashboard() {
       await apiFetchJson(`/api/employees/${employeeId}`, {
         method: 'PATCH',
         body: JSON.stringify({
+          gender: editDraft.gender.trim() || undefined,
+          birthDate: editDraft.birthDate.trim() || undefined,
           personalEmail: editDraft.personalEmail.trim() || undefined,
           phoneNumber: editDraft.phoneNumber.trim() || undefined,
           sssNumber: editDraft.sssNumber.trim() || undefined,
@@ -548,9 +643,12 @@ export default function Dashboard() {
           },
         }),
       });
+      await syncBankAccounts(employeeId);
       const refreshed = await apiFetchJson<UserDetails['employee']>(`/api/employees/${employeeId}`);
       setEmployee(refreshed);
       setEditDraft(createEditDraft(refreshed));
+      setEditBankAccounts(createBankAccountDrafts(refreshed));
+      setEditIsDirty(false);
       setEditOpen(false);
       if (emailChanged) {
         showSuccess(
@@ -651,6 +749,17 @@ export default function Dashboard() {
       />
 
       <ConfirmDialog
+        open={discardConfirmOpen}
+        title="Discard changes?"
+        message="You have unsaved changes. Are you sure you want to close without saving?"
+        confirmLabel="Discard Changes"
+        cancelLabel="Keep Editing"
+        isBusy={false}
+        onConfirm={actuallyCloseEditModal}
+        onCancel={() => setDiscardConfirmOpen(false)}
+      />
+
+      <ConfirmDialog
         open={confirmEmailChangeOpen}
         title="Confirm Personal Email Change"
         message="Changing your verified personal email will remove its verified status until you verify the new address again. Do you want to continue saving this profile update?"
@@ -679,14 +788,26 @@ export default function Dashboard() {
       {editOpen && (
         <EditInfoModal
           editDraft={editDraft}
+          bankAccounts={editBankAccounts}
+          bankRevealed={bankRevealed}
           emailVerificationWillReset={emailVerificationWillReset}
           savingEdit={savingEdit}
           onClose={closeEditModal}
+          onAddBankAccount={addEditBankAccount}
+          onRemoveBankAccount={removeEditBankAccount}
+          onSetBankAccountField={setEditBankAccountField}
+          onRevealBankNumbers={revealBankNumbers}
           onSetField={setEditField}
           onSubmit={() => void submitEditInfo()}
         />
       )}
 
+      <SensitiveAccessModal
+        open={sensitiveAccess.open}
+        onClose={sensitiveAccess.close}
+        onVerified={sensitiveAccess.handleVerified}
+        notice={sensitiveAccess.notice}
+      />
     </div>
   );
 }

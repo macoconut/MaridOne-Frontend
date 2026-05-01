@@ -13,7 +13,6 @@ function hasActiveSensitiveAccess() {
 export function useSensitiveAccessPrompt(options: SensitiveAccessPromptOptions = {}) {
   const { entryNotice } = options;
   const pendingActionRef = useRef<null | (() => Promise<void>)>(null);
-  const hasPromptedForEntryRef = useRef(false);
   const [open, setOpen] = useState(false);
   const [notice, setNotice] = useState('Enter your password to continue.');
   const [isVerified, setIsVerified] = useState(() => hasActiveSensitiveAccess());
@@ -23,8 +22,6 @@ export function useSensitiveAccessPrompt(options: SensitiveAccessPromptOptions =
   }, []);
 
   useEffect(() => {
-    syncVerificationState();
-
     const handleSensitiveAccessChange = () => syncVerificationState();
     const handleWindowFocus = () => syncVerificationState();
 
@@ -40,14 +37,15 @@ export function useSensitiveAccessPrompt(options: SensitiveAccessPromptOptions =
   }, [syncVerificationState]);
 
   useEffect(() => {
-    if (!entryNotice || isVerified || hasPromptedForEntryRef.current) {
-      return;
-    }
+    if (!entryNotice || isVerified) return;
 
-    hasPromptedForEntryRef.current = true;
     pendingActionRef.current = null;
-    setNotice(entryNotice);
-    setOpen(true);
+    const timeoutId = setTimeout(() => {
+      setNotice(entryNotice);
+      setOpen(true);
+    }, 0);
+
+    return () => clearTimeout(timeoutId);
   }, [entryNotice, isVerified]);
 
   const requestVerification = useCallback((action: () => Promise<void>, nextNotice?: string) => {

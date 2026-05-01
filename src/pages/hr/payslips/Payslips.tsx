@@ -409,7 +409,7 @@ export default function HrPayslips() {
     persistRunSelection(currentRun);
   }, [currentRun]);
 
-  async function loadDisputes() {
+  const loadDisputes = useCallback(async () => {
     const waitingDisputes = await reconcileWaitingDisputes();
     try {
       setLoadError('');
@@ -436,7 +436,7 @@ export default function HrPayslips() {
       setLoadError(getFriendlyErrorMessage(error, 'payroll-dispute'));
       return waitingDisputes;
     }
-  }
+  }, [handleSensitiveAccessError]);
 
   useEffect(() => {
     if (!sensitiveAccess.isVerified) {
@@ -446,7 +446,7 @@ export default function HrPayslips() {
     }
 
     void loadDisputes();
-  }, [refreshTick, sensitiveAccess.isVerified]);
+  }, [loadDisputes, refreshTick, sensitiveAccess.isVerified]);
 
   useEffect(() => {
     if (!sensitiveAccess.isVerified || !currentRun?.payId || currentRun.payrollStatus !== 'IN_PROGRESS') {
