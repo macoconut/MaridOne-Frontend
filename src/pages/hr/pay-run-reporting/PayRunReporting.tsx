@@ -35,6 +35,7 @@ import type {
 import './PayRunReporting.css';
 
 type ReportView = 'employee' | 'payType';
+type PayTypeCategoryFilter = 'all' | 'EARNING' | 'DEDUCTION' | 'EMPLOYER_CONTRIBUTION';
 
 type EmployeeReportExportRow = {
   employeeId: string;
@@ -203,6 +204,30 @@ function getSummaryKind(row: PayTypeSummaryRow) {
   return row.summaryKind ?? row.adjustment ?? row.adjustmentKind;
 }
 
+function mergePayTypeSummaryRows(rows: PayTypeSummaryRow[]) {
+  const merged = new Map<string, PayTypeSummaryRow>();
+
+  for (const row of rows) {
+    const summaryKind = getSummaryKind(row) as PayrollBreakdownLine['lineType'] | undefined;
+    const mergedPayType = formatSummaryLabel(row.payType, summaryKind);
+    const key = `${summaryKind ?? 'UNKNOWN'}::${mergedPayType}`;
+    const existing = merged.get(key);
+
+    if (existing) {
+      existing.total = toAmount(existing.total) + toAmount(row.total);
+      continue;
+    }
+
+    merged.set(key, {
+      ...row,
+      payType: mergedPayType,
+      summaryKind: row.summaryKind ?? summaryKind,
+    });
+  }
+
+  return Array.from(merged.values());
+}
+
 function normalizeBreakdownLabel(label: string, lineType: PayrollBreakdownLine['lineType']) {
   const trimmed = label.trim();
   if (!trimmed) {
@@ -357,6 +382,51 @@ function buildEmployeeReportRows(
   ];
 }
 
+function formatSummaryPeriod(fromDate: string, toDate: string) {
+  if (!fromDate || !toDate) return 'Selected Range';
+
+  const from = new Date(fromDate);
+  const to = new Date(toDate);
+
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+    return `${fromDate} to ${toDate}`;
+  }
+
+  if (from.getFullYear() === to.getFullYear() && from.getMonth() === to.getMonth()) {
+    return from.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'long',
+    });
+  }
+
+  return `${formatDate(fromDate, '-')} to ${formatDate(toDate, '-')}`;
+}
+
+function formatSummaryEntryLabel(
+  label: string,
+  lineType: PayrollBreakdownLine['lineType'],
+  options?: { prefixOthers?: boolean }
+) {
+  const normalized = normalizeBreakdownLabel(label, lineType);
+
+  if (lineType === 'DEDUCTION') {
+    if (normalized === 'SSS Contribution') return 'SSS Premium';
+    if (normalized === 'PhilHealth Contribution') return 'PhilHealth Premium';
+    if (normalized === 'Pag-IBIG Contribution') return 'HDMF Premium';
+  }
+
+  if (lineType === 'EMPLOYER_CONTRIBUTION') {
+    if (normalized === 'Employer SSS Contribution') return 'SSS Employer';
+    if (normalized === 'Employer PhilHealth Contribution') return 'PhilHealth Employer';
+    if (normalized === 'Employer Pag-IBIG Contribution') return 'HDMF Employer';
+  }
+
+  if (!options?.prefixOthers) return normalized;
+
+  const cleaned = normalized.replace(/^Employer\s+/i, '').trim();
+  return `Others: ${cleaned || normalized}`;
+}
+
 function getEmptyRunMessage(run: PayrollRunRow | null, view: ReportView, availableRunCount: number) {
   if (!run) {
     if (view === 'employee') {
@@ -410,6 +480,7 @@ export default function HrPayRunReporting() {
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [roleFilter, setRoleFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [payTypeCategoryFilter, setPayTypeCategoryFilter] = useState<PayTypeCategoryFilter>('all');
   const [selectedBreakdownItem, setSelectedBreakdownItem] = useState<AggregatedEmployeeRow | null>(null);
   const [selectedBreakdownEarnings, setSelectedBreakdownEarnings] = useState<PayrollBreakdownLine[]>([]);
   const [selectedBreakdownDeductions, setSelectedBreakdownDeductions] = useState<PayrollBreakdownLine[]>([]);
@@ -645,10 +716,11 @@ export default function HrPayRunReporting() {
   }, [departmentFilter, employeeReportRows, roleFilter, employeeSort, normalizedFilter]);
 
   const visiblePayTypeRows = useMemo(() => {
+    const mergedRows = mergePayTypeSummaryRows(payTypeRows);
     const filtered =
       !normalizedFilter || normalizedFilter === 'all'
-        ? [...payTypeRows]
-        : payTypeRows.filter((row) => {
+        ? [...mergedRows]
+        : mergedRows.filter((row) => {
             const payType = String(row.payType ?? '').toLowerCase();
             const kind = String(getSummaryKind(row) ?? '').toLowerCase();
             const friendlyPayType = formatSummaryLabel(
@@ -658,13 +730,18 @@ export default function HrPayRunReporting() {
             return payType.includes(normalizedFilter) || kind.includes(normalizedFilter) || friendlyPayType.includes(normalizedFilter);
           });
 
-    return filtered.sort((a, b) => {
+    const categoryFiltered =
+      payTypeCategoryFilter === 'all'
+        ? filtered
+        : filtered.filter((row) => getSummaryKind(row) === payTypeCategoryFilter);
+
+    return categoryFiltered.sort((a, b) => {
       if (payTypeSort === 'amount') {
         return toAmount(b.total) - toAmount(a.total);
       }
       return formatSummaryLabel(a.payType).localeCompare(formatSummaryLabel(b.payType));
     });
-  }, [normalizedFilter, payTypeRows, payTypeSort]);
+  }, [normalizedFilter, payTypeCategoryFilter, payTypeRows, payTypeSort]);
 
   const visibleEarningRows = useMemo(
     () => visiblePayTypeRows.filter((row) => getSummaryKind(row) === 'EARNING'),
@@ -679,6 +756,23 @@ export default function HrPayRunReporting() {
   const visibleEmployerContributionRows = useMemo(
     () => visiblePayTypeRows.filter((row) => getSummaryKind(row) === 'EMPLOYER_CONTRIBUTION'),
     [visiblePayTypeRows]
+  );
+
+  const summaryPayTypeRows = useMemo(() => mergePayTypeSummaryRows(payTypeRows), [payTypeRows]);
+
+  const summaryEarningRows = useMemo(
+    () => summaryPayTypeRows.filter((row) => getSummaryKind(row) === 'EARNING'),
+    [summaryPayTypeRows]
+  );
+
+  const summaryDeductionRows = useMemo(
+    () => summaryPayTypeRows.filter((row) => getSummaryKind(row) === 'DEDUCTION'),
+    [summaryPayTypeRows]
+  );
+
+  const summaryEmployerContributionRows = useMemo(
+    () => summaryPayTypeRows.filter((row) => getSummaryKind(row) === 'EMPLOYER_CONTRIBUTION'),
+    [summaryPayTypeRows]
   );
 
   const earningsTotal = useMemo(
@@ -696,6 +790,111 @@ export default function HrPayRunReporting() {
     [visibleEmployerContributionRows]
   );
 
+  const payrollSummaryPeriod = useMemo(() => formatSummaryPeriod(fromDate, toDate), [fromDate, toDate]);
+
+  const totalGrossPay = useMemo(
+    () => employeeRows.reduce((sum, row) => sum + toAmount(row.grossPay), 0),
+    [employeeRows]
+  );
+
+  const totalNetPay = useMemo(
+    () => employeeRows.reduce((sum, row) => sum + toAmount(row.netPay), 0),
+    [employeeRows]
+  );
+
+  const summaryAmounts = useMemo(() => {
+    const earningMap = new Map<string, number>();
+    const deductionMap = new Map<string, number>();
+    const employerMap = new Map<string, number>();
+
+    for (const row of summaryEarningRows) {
+      const label = normalizeBreakdownLabel(formatSummaryLabel(row.payType, 'EARNING'), 'EARNING');
+      earningMap.set(label, (earningMap.get(label) ?? 0) + toAmount(row.total));
+    }
+
+    for (const row of summaryDeductionRows) {
+      const label = normalizeBreakdownLabel(formatSummaryLabel(row.payType, 'DEDUCTION'), 'DEDUCTION');
+      deductionMap.set(label, (deductionMap.get(label) ?? 0) + toAmount(row.total));
+    }
+
+    for (const row of summaryEmployerContributionRows) {
+      const label = normalizeBreakdownLabel(
+        formatSummaryLabel(row.payType, 'EMPLOYER_CONTRIBUTION'),
+        'EMPLOYER_CONTRIBUTION'
+      );
+      employerMap.set(label, (employerMap.get(label) ?? 0) + toAmount(row.total));
+    }
+
+    return { earningMap, deductionMap, employerMap };
+  }, [summaryDeductionRows, summaryEarningRows, summaryEmployerContributionRows]);
+
+  const completePaySummary = useMemo(() => {
+    const { earningMap, deductionMap, employerMap } = summaryAmounts;
+    const basicPay = earningMap.get('Basic Pay') ?? 0;
+    const lateAndAbsences =
+      (deductionMap.get('Late Penalty') ?? 0) + (deductionMap.get('Absent Deduction') ?? 0);
+    const sssPremium = deductionMap.get('SSS Contribution') ?? 0;
+    const philHealthPremium = deductionMap.get('PhilHealth Contribution') ?? 0;
+    const hdmfPremium = deductionMap.get('Pag-IBIG Contribution') ?? 0;
+    const statutoryTotal = sssPremium + philHealthPremium + hdmfPremium;
+    const taxableCompensation = Math.max(totalGrossPay - statutoryTotal, 0);
+    const incomeTax = deductionMap.get('Withholding Tax') ?? 0;
+
+    const otherDeductionRows = summaryDeductionRows
+      .map((row) => {
+        const normalized = normalizeBreakdownLabel(formatSummaryLabel(row.payType, 'DEDUCTION'), 'DEDUCTION');
+        return {
+          label: normalized,
+          amount: toAmount(row.total),
+        };
+      })
+      .filter(
+        (row) =>
+          row.amount > 0 &&
+          ![
+            'Late Penalty',
+            'Absent Deduction',
+            'SSS Contribution',
+            'PhilHealth Contribution',
+            'Pag-IBIG Contribution',
+            'Withholding Tax',
+          ].includes(row.label)
+      );
+
+    const employerRows = summaryEmployerContributionRows
+      .map((row) => ({
+        label: normalizeBreakdownLabel(
+          formatSummaryLabel(row.payType, 'EMPLOYER_CONTRIBUTION'),
+          'EMPLOYER_CONTRIBUTION'
+        ),
+        amount: toAmount(row.total),
+      }))
+      .filter((row) => row.amount > 0);
+
+    const bankFeeRows = employerRows.filter((row) => /bank (fee|charge)/i.test(row.label));
+    const standardEmployerRows = employerRows.filter((row) => !/bank (fee|charge)/i.test(row.label));
+    const employerExpenseTotal = standardEmployerRows.reduce((sum, row) => sum + row.amount, 0);
+    const plusBankFee = employerExpenseTotal + bankFeeRows.reduce((sum, row) => sum + row.amount, 0);
+
+    return {
+      basicPay,
+      grossPay: totalGrossPay,
+      netPay: totalNetPay,
+      lateAndAbsences,
+      sssPremium,
+      philHealthPremium,
+      hdmfPremium,
+      statutoryTotal,
+      taxableCompensation,
+      incomeTax,
+      otherDeductionRows,
+      standardEmployerRows,
+      bankFeeRows,
+      employerExpenseTotal,
+      plusBankFee,
+    };
+  }, [summaryAmounts, summaryDeductionRows, summaryEmployerContributionRows, totalGrossPay, totalNetPay]);
+
   const reportLabel = useMemo(() => {
     if (!fromDate || !toDate) return 'Pay Run Report';
     return `Report from ${formatDate(fromDate, '-')} to ${formatDate(toDate, '-')}`;
@@ -707,9 +906,11 @@ export default function HrPayRunReporting() {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '') || 'payroll-run-report';
   }, [reportLabel]);
-  const activeFilterCount = [roleFilter, departmentFilter].filter(
-    (value) => value !== 'all'
-  ).length;
+  const activeFilterCount = (
+    view === 'employee'
+      ? [roleFilter, departmentFilter]
+      : [payTypeCategoryFilter]
+  ).filter((value) => value !== 'all').length;
   const employeeEmptyMessage =
     !sensitiveAccess.isVerified
       ? LOCKED_PAGE_MESSAGE
@@ -721,6 +922,41 @@ export default function HrPayRunReporting() {
     return [
       ['Report', reportLabel],
       ['Status', selectedRun?.payrollStatus || 'Unknown status'],
+      ['Summary Period', payrollSummaryPeriod],
+      [''],
+      ['Summary Item', 'Amount'],
+      ['Basic Pay', formatCurrency(completePaySummary.basicPay)],
+      ['Gross Pay', formatCurrency(completePaySummary.grossPay)],
+      ['Net Pay', formatCurrency(completePaySummary.netPay)],
+      [''],
+      ['Lates and Absences', formatCurrency(completePaySummary.lateAndAbsences)],
+      ['SSS Premium', formatCurrency(completePaySummary.sssPremium)],
+      ['PhilHealth Premium', formatCurrency(completePaySummary.philHealthPremium)],
+      ['HDMF Premium', formatCurrency(completePaySummary.hdmfPremium)],
+      ['Premium Payable Total (Statutory)', formatCurrency(completePaySummary.statutoryTotal)],
+      ...completePaySummary.otherDeductionRows.map((row) => [
+        formatSummaryEntryLabel(row.label, 'DEDUCTION', { prefixOthers: !/loan|advance/i.test(row.label) }),
+        formatCurrency(row.amount),
+      ]),
+      ['Total Taxable Compensation', formatCurrency(completePaySummary.taxableCompensation)],
+      ['Income Tax', formatCurrency(completePaySummary.incomeTax)],
+      [''],
+      ...completePaySummary.standardEmployerRows.map((row) => [
+        formatSummaryEntryLabel(row.label, 'EMPLOYER_CONTRIBUTION', {
+          prefixOthers: ![
+            'Employer SSS Contribution',
+            'Employer PhilHealth Contribution',
+            'Employer Pag-IBIG Contribution',
+          ].includes(row.label),
+        }),
+        formatCurrency(row.amount),
+      ]),
+      ...completePaySummary.bankFeeRows.map((row) => [
+        formatSummaryEntryLabel(row.label, 'EMPLOYER_CONTRIBUTION', { prefixOthers: true }),
+        formatCurrency(row.amount),
+      ]),
+      ['Employer Expense Total', formatCurrency(completePaySummary.employerExpenseTotal)],
+      ['Plus Bank Fee', formatCurrency(completePaySummary.plusBankFee)],
       [''],
       ['Category', 'Type', 'Total'],
       ...visibleEarningRows.map((row) => ['Earnings', formatSummaryLabel(row.payType), formatCurrency(row.total)]),
@@ -735,9 +971,11 @@ export default function HrPayRunReporting() {
       ['Employer Contributions Total', '', formatCurrency(employerContributionTotal)],
     ];
   }, [
+    completePaySummary,
     deductionsTotal,
     earningsTotal,
     employerContributionTotal,
+    payrollSummaryPeriod,
     reportLabel,
     selectedRun?.payrollStatus,
     visibleDeductionRows,
@@ -1003,6 +1241,7 @@ export default function HrPayRunReporting() {
   function clearFilters() {
     setRoleFilter('all');
     setDepartmentFilter('all');
+    setPayTypeCategoryFilter('all');
   }
 
   return (
@@ -1163,32 +1402,49 @@ export default function HrPayRunReporting() {
 
               {filterOpen ? (
                 <div className="uFilter__panel">
-                  <label className="uFilter__field">
-                    <span>Role</span>
-                    <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
-                      <option value="all">All Roles</option>
-                      {roleOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                  {view === 'employee' ? (
+                    <>
+                      <label className="uFilter__field">
+                        <span>Role</span>
+                        <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
+                          <option value="all">All Roles</option>
+                          {roleOptions.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
 
-                  <label className="uFilter__field">
-                    <span>Department</span>
-                    <select
-                      value={departmentFilter}
-                      onChange={(event) => setDepartmentFilter(event.target.value)}
-                    >
-                      <option value="all">All Departments</option>
-                      {departmentOptions.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                      <label className="uFilter__field">
+                        <span>Department</span>
+                        <select
+                          value={departmentFilter}
+                          onChange={(event) => setDepartmentFilter(event.target.value)}
+                        >
+                          <option value="all">All Departments</option>
+                          {departmentOptions.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </>
+                  ) : (
+                    <label className="uFilter__field">
+                      <span>Category</span>
+                      <select
+                        value={payTypeCategoryFilter}
+                        onChange={(event) => setPayTypeCategoryFilter(event.target.value as PayTypeCategoryFilter)}
+                      >
+                        <option value="all">All Categories</option>
+                        <option value="EARNING">Earnings</option>
+                        <option value="DEDUCTION">Deductions</option>
+                        <option value="EMPLOYER_CONTRIBUTION">Employer Contributions</option>
+                      </select>
+                    </label>
+                  )}
 
                   <div className="uFilter__actions">
                     <button type="button" onClick={clearFilters}>
@@ -1242,6 +1498,126 @@ export default function HrPayRunReporting() {
         <div className="hrRunSplitTables" aria-label="Pay run earnings, deductions, and employer contributions">
           {!isLoading && (visibleEarningRows.length > 0 || visibleDeductionRows.length > 0 || visibleEmployerContributionRows.length > 0) ? (
             <>
+              <section className="hrRunSummary" aria-label="Complete payroll summary">
+                <div className="hrRunSummary__meta">
+                  <div className="hrRunSummary__metaRow hrRunSummary__metaRow--strong">
+                    <span>Month</span>
+                    <strong>{payrollSummaryPeriod}</strong>
+                  </div>
+                </div>
+
+                <div className="hrRunSummary__panel">
+                  <div className="hrRunGroup__head">
+                    <div className="hrRunGroup__titleBlock">
+                      <span className="hrRunGroup__title">Payroll Summary</span>
+                      <span className="hrRunGroup__caption">Complete pay overview for the selected range</span>
+                    </div>
+                  </div>
+
+                  <div className="hrRunSummary__hero">
+                    <div className="hrRunSummary__heroHead">
+                      <span>Items</span>
+                      <span>Amount</span>
+                    </div>
+                    <div className="hrRunSummary__heroBody">
+                      <div className="hrRunSummary__heroRow">
+                        <span>Basic Pay</span>
+                        <strong>{formatCurrency(completePaySummary.basicPay)}</strong>
+                      </div>
+                      <div className="hrRunSummary__heroRow">
+                        <span>Gross Pay</span>
+                        <strong>{formatCurrency(completePaySummary.grossPay)}</strong>
+                      </div>
+                      <div className="hrRunSummary__heroRow">
+                        <span>Net Pay</span>
+                        <strong>{formatCurrency(completePaySummary.netPay)}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="hrRunSummary__columns">
+                    <div className="hrRunSummary__column">
+                      <div className="hrRunSummary__section">
+                        <div className="hrRunSummary__line hrRunSummary__line--strong">
+                          <span>Lates and Absences</span>
+                          <strong>{formatCurrency(completePaySummary.lateAndAbsences)}</strong>
+                        </div>
+                        <div className="hrRunSummary__line">
+                          <span>SSS Premium</span>
+                          <span>{formatCurrency(completePaySummary.sssPremium)}</span>
+                        </div>
+                        <div className="hrRunSummary__line">
+                          <span>PhilHealth Premium</span>
+                          <span>{formatCurrency(completePaySummary.philHealthPremium)}</span>
+                        </div>
+                        <div className="hrRunSummary__line">
+                          <span>HDMF Premium</span>
+                          <span>{formatCurrency(completePaySummary.hdmfPremium)}</span>
+                        </div>
+                        <div className="hrRunSummary__line hrRunSummary__line--subtotal">
+                          <span>Premium Payable Total (Statutory)</span>
+                          <strong>{formatCurrency(completePaySummary.statutoryTotal)}</strong>
+                        </div>
+                      </div>
+
+                      <div className="hrRunSummary__section">
+                        {completePaySummary.otherDeductionRows.map((row) => (
+                          <div key={`summary-deduction-${row.label}`} className="hrRunSummary__line">
+                            <span>
+                              {formatSummaryEntryLabel(row.label, 'DEDUCTION', {
+                                prefixOthers: !/loan|advance/i.test(row.label),
+                              })}
+                            </span>
+                            <span>{formatCurrency(row.amount)}</span>
+                          </div>
+                        ))}
+                        <div className="hrRunSummary__line hrRunSummary__line--subtotal">
+                          <span>Total Taxable Compensation</span>
+                          <strong>{formatCurrency(completePaySummary.taxableCompensation)}</strong>
+                        </div>
+                        <div className="hrRunSummary__line hrRunSummary__line--alert">
+                          <span>Income Tax</span>
+                          <strong>{formatCurrency(completePaySummary.incomeTax)}</strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="hrRunSummary__column">
+                      <div className="hrRunSummary__section">
+                        {completePaySummary.standardEmployerRows.map((row) => (
+                          <div key={`summary-employer-${row.label}`} className="hrRunSummary__line">
+                            <span>
+                              {formatSummaryEntryLabel(row.label, 'EMPLOYER_CONTRIBUTION', {
+                                prefixOthers: ![
+                                  'Employer SSS Contribution',
+                                  'Employer PhilHealth Contribution',
+                                  'Employer Pag-IBIG Contribution',
+                                ].includes(row.label),
+                              })}
+                            </span>
+                            <span>{formatCurrency(row.amount)}</span>
+                          </div>
+                        ))}
+                        {completePaySummary.bankFeeRows.map((row) => (
+                          <div key={`summary-bank-${row.label}`} className="hrRunSummary__line hrRunSummary__line--muted">
+                            <span>{formatSummaryEntryLabel(row.label, 'EMPLOYER_CONTRIBUTION', { prefixOthers: true })}</span>
+                            <span>{formatCurrency(row.amount)}</span>
+                          </div>
+                        ))}
+                        <div className="hrRunSummary__line hrRunSummary__line--subtotal">
+                          <span>Employer Expense Total</span>
+                          <strong>{formatCurrency(completePaySummary.employerExpenseTotal)}</strong>
+                        </div>
+                        <div className="hrRunSummary__line hrRunSummary__line--strong">
+                          <span>Plus Bank Fee</span>
+                          <strong>{formatCurrency(completePaySummary.plusBankFee)}</strong>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
               <section className="hrRunTable hrRunTable--summaryView" aria-label="Earnings summary table">
                 <div className="hrRunGroup__head">
                   <div className="hrRunGroup__titleBlock">

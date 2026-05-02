@@ -41,6 +41,8 @@ type DashboardBreakdownState = {
   rows: DashboardBreakdownRow[];
 };
 
+type RangePreset = 'lastWeek' | 'lastMonth' | 'lastQuarter' | 'lastYear' | 'custom';
+
 type AccountingPayrollDashboardProps = {
   showSensitiveAccessIndicator?: boolean;
 };
@@ -187,6 +189,10 @@ export default function AccountingPayrollDashboard({
   showSensitiveAccessIndicator = false,
 }: AccountingPayrollDashboardProps) {
   const [runs, setRuns] = useState<PayrollRunRow[]>([]);
+  const defaultRange = useMemo(() => createPresetRange('lastMonth'), []);
+  const [rangePreset, setRangePreset] = useState<RangePreset>('lastMonth');
+  const [fromDate, setFromDate] = useState(defaultRange.from);
+  const [toDate, setToDate] = useState(defaultRange.to);
   const [selectedPayId, setSelectedPayId] = useState<number | null>(null);
   const [selectedItems, setSelectedItems] = useState<PayrollItemRow[]>([]);
   const [selectedSummary, setSelectedSummary] = useState<PayTypeSummaryRow[]>([]);
@@ -282,8 +288,13 @@ export default function AccountingPayrollDashboard({
     };
   }, [refreshTick, handleSensitiveAccessError, sensitiveAccess.isVerified]);
 
+  const filteredRuns = useMemo(
+    () => runs.filter((run) => runMatchesDateRange(run, fromDate, toDate)),
+    [fromDate, runs, toDate]
+  );
+
   useEffect(() => {
-    if (!sensitiveAccess.isVerified || runs.length === 0 || selectedPayId == null) {
+    if (!sensitiveAccess.isVerified || filteredRuns.length === 0) {
       setSelectedItems([]);
       setSelectedSummary([]);
       setHistoryPoints([]);
@@ -303,17 +314,11 @@ export default function AccountingPayrollDashboard({
       }
 
       try {
-        const selectedItemsPromise = apiFetchJson<unknown>(
-          `/api/payroll/run/${selectedPayId}/items?page=0&size=1000`
+        const runsInRange = filteredRuns.filter(
+          (run): run is PayrollRunRow & { payId: number } => typeof run.payId === 'number'
         );
-        const selectedSummaryPromise = apiFetchJson<unknown>(`/api/payroll/run/summary/${selectedPayId}`);
 
-        const recentRuns = runs
-          .filter((run): run is PayrollRunRow & { payId: number } => typeof run.payId === 'number')
-          .slice(0, 6)
-          .reverse();
-
-        const historyPromises = recentRuns.map(async (run) => {
+        const runDataPromises = runsInRange.map(async (run) => {
           const response = await apiFetchJson<unknown>(`/api/payroll/run/${run.payId}/items?page=0&size=1000`);
           const rows = toArray<PayrollItemRow>(response);
           const grossTotal = rows.reduce((sum, row) => sum + toAmount(row.grossPay), 0);
@@ -322,24 +327,52 @@ export default function AccountingPayrollDashboard({
             0
           );
           return {
-            payId: run.payId,
-            label: describeRun(run),
-            grossTotal,
-            totalPayrollCost: grossTotal + employerContributionTotal,
-          } as HistoryPoint;
+            run,
+            rows,
+            historyPoint: {
+              payId: run.payId,
+              label: describeRun(run),
+              grossTotal,
+              totalPayrollCost: grossTotal + employerContributionTotal,
+            } satisfies HistoryPoint,
+          };
         });
 
-        const [itemsResponse, summaryResponse, nextHistoryPoints] = await Promise.all([
-          selectedItemsPromise,
-          selectedSummaryPromise,
-          Promise.all(historyPromises),
+        const summaryPromises = runsInRange.map(async (run) => ({
+          run,
+          summary: toArray<PayTypeSummaryRow>(await apiFetchJson<unknown>(`/api/payroll/run/summary/${run.payId}`)),
+        }));
+
+        const [runDataResults, summaryResults] = await Promise.all([
+          Promise.all(runDataPromises),
+          Promise.all(summaryPromises),
         ]);
 
         if (cancelled) return;
 
-        setSelectedItems(toArray<PayrollItemRow>(itemsResponse));
-        setSelectedSummary(toArray<PayTypeSummaryRow>(summaryResponse));
-        setHistoryPoints(nextHistoryPoints);
+        const aggregatedItems = runDataResults.flatMap((result) => result.rows);
+        const summaryMap = new Map<string, PayTypeSummaryRow>();
+
+        for (const result of summaryResults) {
+          for (const row of result.summary) {
+            const kind = getSummaryKind(row) ?? 'UNKNOWN';
+            const payType = String(row.payType ?? '').trim().toUpperCase();
+            const key = `${kind}::${payType}`;
+            const existing = summaryMap.get(key);
+            if (existing) {
+              existing.total = toAmount(existing.total) + toAmount(row.total);
+            } else {
+              summaryMap.set(key, {
+                ...row,
+                total: toAmount(row.total),
+              });
+            }
+          }
+        }
+
+        setSelectedItems(aggregatedItems);
+        setSelectedSummary(Array.from(summaryMap.values()));
+        setHistoryPoints(runDataResults.map((result) => result.historyPoint).reverse());
         setLoadError('');
       } catch (error) {
         if (cancelled) return;
@@ -370,12 +403,30 @@ export default function AccountingPayrollDashboard({
     return () => {
       cancelled = true;
     };
-  }, [runs, selectedPayId, handleSensitiveAccessError, sensitiveAccess.isVerified]);
+  }, [filteredRuns, handleSensitiveAccessError, sensitiveAccess.isVerified]);
+
+  useEffect(() => {
+    if (filteredRuns.length === 0) {
+      setSelectedPayId(null);
+      return;
+    }
+
+    setSelectedPayId((currentPayId) => {
+      if (currentPayId != null && filteredRuns.some((run) => run.payId === currentPayId)) {
+        return currentPayId;
+      }
+
+      const defaultRun = getDefaultRun(filteredRuns);
+      return typeof defaultRun?.payId === 'number' ? defaultRun.payId : null;
+    });
+  }, [filteredRuns]);
 
   const selectedRun = useMemo(
-    () => runs.find((run) => run.payId === selectedPayId) ?? null,
-    [runs, selectedPayId]
+    () => filteredRuns.find((run) => run.payId === selectedPayId) ?? null,
+    [filteredRuns, selectedPayId]
   );
+
+  const activeRangeLabel = useMemo(() => describeDateRange(fromDate, toDate), [fromDate, toDate]);
 
   const finalNetPayout = useMemo(
     () => selectedItems.reduce((sum, row) => sum + toAmount(row.netPay), 0),
@@ -529,14 +580,22 @@ export default function AccountingPayrollDashboard({
     });
   }, []);
 
+  const applyPresetRange = useCallback((preset: RangePreset) => {
+    setRangePreset(preset);
+    if (preset === 'custom') return;
+    const nextRange = createPresetRange(preset);
+    setFromDate(nextRange.from);
+    setToDate(nextRange.to);
+  }, []);
+
   const openBreakdown = useCallback(
     (kind: 'net' | 'gross' | 'employer' | 'total') => {
-      if (!selectedRun) return;
+      if (selectedItems.length === 0) return;
 
       if (kind === 'net') {
         setSelectedBreakdown({
           title: 'Final Net Payout Breakdown',
-          subtitle: `${describeRun(selectedRun)} by employee net pay.`,
+          subtitle: `${activeRangeLabel} by employee net pay.`,
           totalLabel: 'Final Net Payout',
           totalValue: finalNetPayout,
           rows: netPayoutRows,
@@ -547,7 +606,7 @@ export default function AccountingPayrollDashboard({
       if (kind === 'gross') {
         setSelectedBreakdown({
           title: 'Total Gross Wages Breakdown',
-          subtitle: `${describeRun(selectedRun)} by employee gross pay.`,
+          subtitle: `${activeRangeLabel} by employee gross pay.`,
           totalLabel: 'Total Gross Wages',
           totalValue: totalGrossWages,
           rows: grossWageRows,
@@ -558,7 +617,7 @@ export default function AccountingPayrollDashboard({
       if (kind === 'employer') {
         setSelectedBreakdown({
           title: 'Employer Statutory Cost Breakdown',
-          subtitle: `${describeRun(selectedRun)} by employer contribution type.`,
+          subtitle: `${activeRangeLabel} by employer contribution type.`,
           totalLabel: 'Employer Statutory Cost',
           totalValue: employerStatutoryCost,
           rows: employerCostRows,
@@ -568,19 +627,20 @@ export default function AccountingPayrollDashboard({
 
       setSelectedBreakdown({
         title: 'Total Payroll Cost Breakdown',
-        subtitle: `${describeRun(selectedRun)} by employee payroll cost.`,
+        subtitle: `${activeRangeLabel} by employee payroll cost.`,
         totalLabel: 'Total Payroll Cost',
         totalValue: totalPayrollCost,
         rows: totalPayrollCostRows,
       });
     },
     [
+      activeRangeLabel,
       employerCostRows,
       employerStatutoryCost,
       finalNetPayout,
       grossWageRows,
       netPayoutRows,
-      selectedRun,
+      selectedItems.length,
       totalGrossWages,
       totalPayrollCost,
       totalPayrollCostRows,
@@ -592,7 +652,7 @@ export default function AccountingPayrollDashboard({
       <div className="aDashPay__top">
         <PageHeader
           title="Overall Payroll Costs"
-          description="Compare payroll cost trends, pay-type breakdowns, and the current run at a glance."
+          description="Compare payroll cost trends, pay-type breakdowns, and accounting date ranges at a glance."
           titleMeta={showSensitiveAccessIndicator || !sensitiveAccess.isVerified ? (
             <SensitiveAccessIndicator
               onActivate={() =>
@@ -606,61 +666,108 @@ export default function AccountingPayrollDashboard({
         />
 
         <div className="aDashPay__controls">
-          <div className="aDashPaySelectField">
-            <label htmlFor="aDashPayRunSelect">Payroll run from:</label>
-            <div className="aDashPaySelect">
-              <select
-                id="aDashPayRunSelect"
-                value={selectedPayId ?? ''}
-                onChange={(event) => setSelectedPayId(event.target.value ? Number(event.target.value) : null)}
-                aria-label="Payroll run"
-                disabled={runs.length === 0}
-              >
-                {runs.length > 0 ? (
-                  runs.map((run) => (
-                    <option key={run.payId ?? `run-${run.periodEnd}`} value={run.payId}>
-                      {describeRun(run)}
-                    </option>
-                  ))
-                ) : (
-                  <option value="">No payroll runs yet</option>
-                )}
-              </select>
+          <div className="aDashPayControlsCard">
+            <div className="aDashPayControlsGrid">
+              <div className="aDashPaySelectField">
+                <label htmlFor="aDashPayRangePreset">Financial calendar</label>
+                <div className="aDashPaySelect">
+                  <select
+                    id="aDashPayRangePreset"
+                    value={rangePreset}
+                    onChange={(event) => applyPresetRange(event.target.value as RangePreset)}
+                    aria-label="Financial calendar preset"
+                  >
+                    <option value="lastWeek">Last Week</option>
+                    <option value="lastMonth">Last Month</option>
+                    <option value="lastQuarter">Last Quarter</option>
+                    <option value="lastYear">Last Year</option>
+                    <option value="custom">Custom Range</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="aDashPayDateGroup" aria-label="Payroll dashboard date range">
+                <label className="aDashPayDateField">
+                  <span>Start date</span>
+                  <input
+                    type="date"
+                    value={fromDate}
+                    onChange={(event) => {
+                      setRangePreset('custom');
+                      setFromDate(event.target.value);
+                    }}
+                  />
+                </label>
+                <label className="aDashPayDateField">
+                  <span>End date</span>
+                  <input
+                    type="date"
+                    value={toDate}
+                    onChange={(event) => {
+                      setRangePreset('custom');
+                      setToDate(event.target.value);
+                    }}
+                  />
+                </label>
+              </div>
+
+              <div className="aDashPaySelectField">
+                <label htmlFor="aDashPayRunSelect">Focused payroll run</label>
+                <div className="aDashPaySelect">
+                  <select
+                    id="aDashPayRunSelect"
+                    value={selectedPayId ?? ''}
+                    onChange={(event) => setSelectedPayId(event.target.value ? Number(event.target.value) : null)}
+                    aria-label="Focused payroll run"
+                    disabled={filteredRuns.length === 0}
+                  >
+                    {filteredRuns.length > 0 ? (
+                      filteredRuns.map((run) => (
+                        <option key={run.payId ?? `run-${run.periodEnd}`} value={run.payId}>
+                          {describeRun(run)}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="">No payroll runs in range</option>
+                    )}
+                  </select>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       <section className="aDashPaySummaryGrid">
-        <button type="button" className="aDashPaySummaryCard aDashPaySummaryCard--button" onClick={() => openBreakdown('net')} disabled={!selectedRun}>
+        <button type="button" className="aDashPaySummaryCard aDashPaySummaryCard--button" onClick={() => openBreakdown('net')} disabled={selectedItems.length === 0}>
           <h3>Final Net Payout</h3>
           <div className="aDashPaySummaryCard__value">{formatCurrency(finalNetPayout)}</div>
-          <p>{selectedRun ? `${describeRun(selectedRun)} payout` : 'No payroll run selected yet'}</p>
+          <p>{selectedItems.length > 0 ? `${activeRangeLabel} payout` : 'No payroll runs matched this date range yet'}</p>
         </button>
 
-        <button type="button" className="aDashPaySummaryCard aDashPaySummaryCard--button" onClick={() => openBreakdown('gross')} disabled={!selectedRun}>
+        <button type="button" className="aDashPaySummaryCard aDashPaySummaryCard--button" onClick={() => openBreakdown('gross')} disabled={selectedItems.length === 0}>
           <h3>Total Gross Wages</h3>
           <div className="aDashPaySummaryCard__value">{formatCurrency(totalGrossWages)}</div>
-          <p>{selectedItems.length} employee record{selectedItems.length === 1 ? '' : 's'} included in this run.</p>
+          <p>{selectedItems.length} employee record{selectedItems.length === 1 ? '' : 's'} included in this range.</p>
         </button>
 
-        <button type="button" className="aDashPaySummaryCard aDashPaySummaryCard--button" onClick={() => openBreakdown('employer')} disabled={!selectedRun}>
+        <button type="button" className="aDashPaySummaryCard aDashPaySummaryCard--button" onClick={() => openBreakdown('employer')} disabled={selectedItems.length === 0}>
           <h3>Employer Statutory Cost</h3>
           <div className="aDashPaySummaryCard__value">{formatCurrency(employerStatutoryCost)}</div>
-          <p>Employer SSS, PhilHealth, and Pag-IBIG costs captured in this run.</p>
+          <p>Employer SSS, PhilHealth, and Pag-IBIG costs captured in this range.</p>
         </button>
 
-        <button type="button" className="aDashPaySummaryCard aDashPaySummaryCard--button" onClick={() => openBreakdown('total')} disabled={!selectedRun}>
+        <button type="button" className="aDashPaySummaryCard aDashPaySummaryCard--button" onClick={() => openBreakdown('total')} disabled={selectedItems.length === 0}>
           <h3>Total Payroll Cost</h3>
           <div className="aDashPaySummaryCard__value">{formatCurrency(totalPayrollCost)}</div>
-          <p>Gross wages plus employer statutory contributions for the selected run.</p>
+          <p>Gross wages plus employer statutory contributions across the selected range.</p>
         </button>
       </section>
 
       <section className="aDashPayChartsGrid">
         <article className="aDashPayPanel aDashPayPanel--history">
           <header className="aDashPayPanel__head aDashPayPanel__head--history">
-            <span>Latest Payroll Runs</span>
+            <span>Payroll Runs in Range</span>
             <div className="aDashPayHistoryNav" aria-label="Payroll history navigation">
               <button
                 type="button"
@@ -739,7 +846,9 @@ export default function AccountingPayrollDashboard({
                     ? 'Loading payroll history...'
                     : !sensitiveAccess.isVerified
                       ? LOCKED_PAGE_MESSAGE
-                      : 'No payroll totals are available yet.'}
+                      : runs.length > 0
+                        ? 'No payroll runs matched this date range yet.'
+                        : 'No payroll totals are available yet.'}
                 </div>
               )}
             </div>
@@ -747,7 +856,7 @@ export default function AccountingPayrollDashboard({
         </article>
 
         <article className="aDashPayPanel">
-          <header className="aDashPayPanel__head">Selected Run Cost Breakdown by Pay Type</header>
+          <header className="aDashPayPanel__head">Date Range Cost Breakdown by Pay Type</header>
           <div className="aDashPayDonutBlock">
             <div
               className={`aDashPayDonut${breakdownPoints.length === 0 ? ' aDashPayDonut--empty' : ''}`}
@@ -779,7 +888,7 @@ export default function AccountingPayrollDashboard({
                     ? 'Loading pay type totals...'
                     : !sensitiveAccess.isVerified
                       ? LOCKED_PAGE_MESSAGE
-                      : 'No pay type totals are available for this run yet.'}
+                      : 'No pay type totals are available for this date range yet.'}
                 </div>
               )}
             </div>
@@ -836,4 +945,59 @@ export default function AccountingPayrollDashboard({
       ) : null}
     </section>
   );
+}
+
+function formatIsoDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function createPresetRange(preset: Exclude<RangePreset, 'custom'>, now = new Date()) {
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const start = new Date(end);
+
+  if (preset === 'lastWeek') {
+    start.setDate(end.getDate() - 6);
+  } else if (preset === 'lastMonth') {
+    start.setMonth(end.getMonth() - 1);
+    start.setDate(start.getDate() + 1);
+  } else if (preset === 'lastQuarter') {
+    start.setMonth(end.getMonth() - 3);
+    start.setDate(start.getDate() + 1);
+  } else {
+    start.setFullYear(end.getFullYear() - 1);
+    start.setDate(start.getDate() + 1);
+  }
+
+  return {
+    from: formatIsoDate(start),
+    to: formatIsoDate(end),
+  };
+}
+
+function toDateStamp(value?: string) {
+  if (!value) return null;
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function runMatchesDateRange(run: PayrollRunRow, fromDate: string, toDate: string) {
+  const rangeStart = toDateStamp(fromDate);
+  const rangeEnd = toDateStamp(toDate);
+  if (rangeStart == null || rangeEnd == null) return true;
+
+  const runStart = toDateStamp(run.periodStart) ?? toDateStamp(run.periodEnd);
+  const runEnd = toDateStamp(run.periodEnd) ?? toDateStamp(run.periodStart);
+  if (runStart == null && runEnd == null) return false;
+
+  const effectiveStart = runStart ?? runEnd ?? rangeStart;
+  const effectiveEnd = runEnd ?? runStart ?? rangeEnd;
+  return effectiveEnd >= rangeStart && effectiveStart <= rangeEnd;
+}
+
+function describeDateRange(fromDate: string, toDate: string) {
+  if (!fromDate || !toDate) return 'Selected date range';
+  return `${formatDate(fromDate, '-')} to ${formatDate(toDate, '-')}`;
 }

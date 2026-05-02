@@ -1,5 +1,15 @@
 import { useMemo, useState } from 'react';
 
+export type AttendanceStatusFilter =
+  | 'all'
+  | 'present'
+  | 'late'
+  | 'incomplete'
+  | 'outside'
+  | 'absent'
+  | 'dayOff'
+  | 'holiday';
+
 type UseAttendanceReportFiltersOptions = {
   todayDateKey: string;
   todayMonthIndex: number;
@@ -25,6 +35,7 @@ export function useAttendanceReportFilters({
   const [filterOpen, setFilterOpen] = useState(false);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [attendanceStatusFilter, setAttendanceStatusFilter] = useState<AttendanceStatusFilter>('all');
 
   const monthLabel = useMemo(
     () =>
@@ -56,10 +67,12 @@ export function useAttendanceReportFilters({
 
   function clearFilters() {
     setDepartmentFilter('all');
+    setAttendanceStatusFilter('all');
   }
 
   return {
     actionMenuOpen,
+    attendanceStatusFilter,
     clearFilters,
     departmentFilter,
     detailOpen,
@@ -72,6 +85,7 @@ export function useAttendanceReportFilters({
     searchValue,
     selectedDateKey,
     setActionMenuOpen,
+    setAttendanceStatusFilter,
     setDepartmentFilter,
     setDetailOpen,
     setFilterOpen,

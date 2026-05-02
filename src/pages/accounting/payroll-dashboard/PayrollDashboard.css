@@ -24,14 +24,30 @@
   display: flex;
   justify-content: flex-end;
   margin-left: auto;
-  min-width: min(100%, 360px);
+  min-width: min(100%, 760px);
+}
+
+.aDashPayControlsCard {
+  width: min(100%, 760px);
+  border: 1.5px solid #dacde7;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 8px 14px rgba(123, 74, 143, 0.12);
+  padding: 14px;
+}
+
+.aDashPayControlsGrid {
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr) minmax(220px, 280px);
+  gap: 12px;
+  align-items: end;
 }
 
 .aDashPaySelectField {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  width: min(100%, 360px);
+  width: 100%;
 }
 
 .aDashPaySelectField label {
@@ -82,6 +98,42 @@
 
 .aDashPaySelect select:focus {
   outline: none;
+}
+
+.aDashPayDateGroup {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.aDashPayDateField {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.aDashPayDateField span {
+  font-size: 16px;
+  font-weight: 700;
+  color: #6a627c;
+}
+
+.aDashPayDateField input[type='date'] {
+  min-height: 38px;
+  border: 1px solid rgba(59, 34, 87, 0.16);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  padding: 0 12px;
+  color: #2f2050;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.aDashPayDateField input[type='date']:focus {
+  outline: none;
+  border-color: rgba(123, 74, 143, 0.42);
+  box-shadow: 0 0 0 3px rgba(123, 74, 143, 0.12);
 }
 
 .aDashPaySummaryGrid {
@@ -583,6 +635,10 @@
 }
 
 @media (max-width: 1400px) {
+  .aDashPayControlsGrid {
+    grid-template-columns: 1fr;
+  }
+
   .aDashPaySummaryGrid {
     grid-template-columns: 1fr;
   }
@@ -625,6 +681,10 @@
     width: 100%;
   }
 
+  .aDashPayDateGroup {
+    grid-template-columns: 1fr;
+  }
+
   .aDashPayDonutBlock {
     grid-template-columns: 1fr;
     justify-items: center;
@@ -662,6 +722,10 @@
   .aDashPay__controls,
   .aDashPaySelectField {
     width: 100%;
+  }
+
+  .aDashPayControlsCard {
+    padding: 12px;
   }
 
   .aDashPaySummaryCard {

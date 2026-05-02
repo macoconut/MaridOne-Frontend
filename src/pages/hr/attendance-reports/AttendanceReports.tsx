@@ -18,7 +18,7 @@ import { apiFetchJson, toArray } from '../../../lib/api';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import { getManilaNow } from '../../../lib/manilaTime';
 import { evaluateDailyAttendanceCoverage } from '../../../lib/attendance/dailyAttendanceEvaluator';
-import { useAttendanceReportFilters } from './hooks/useAttendanceReportFilters';
+import { useAttendanceReportFilters, type AttendanceStatusFilter } from './hooks/useAttendanceReportFilters';
 import AttendanceReportToolbar from './sections/AttendanceReportToolbar';
 import type {
   AttendanceEmployeeRow as EmployeeRow,
@@ -505,6 +505,20 @@ function attendanceBadgeForRecord(record: DailyEmployeeRecord) {
     label: labels.join(' + '), 
     toneClass: record.isLate || record.isEarlyOut ? 'is-late' : 'is-on-time' 
   };
+}
+
+function matchesRecordStatusFilter(record: DailyEmployeeRecord, filter: AttendanceStatusFilter) {
+  if (filter === 'all') return true;
+  if (filter === 'present') return record.status === 'PRESENT' && !record.isLate;
+  if (filter === 'late') return record.status === 'PRESENT' && record.isLate;
+  if (filter === 'incomplete') return record.status === 'INCOMPLETE';
+  if (filter === 'outside') return record.status === 'OUTSIDE_SCHEDULE';
+  if (filter === 'absent') return record.status === 'ABSENT';
+  return false;
+}
+
+function matchesCountStatusFilter(filter: AttendanceStatusFilter, status: Exclude<AttendanceStatusFilter, 'all'>) {
+  return filter === 'all' || filter === status;
 }
 
 function isInDirection(direction?: string) {
@@ -1024,6 +1038,7 @@ export function AttendanceReportsBoard({
   const todayMonthIndex = useMemo(() => getManilaNow().month - 1, []);
   const {
     actionMenuOpen,
+    attendanceStatusFilter,
     clearFilters,
     departmentFilter,
     detailOpen,
@@ -1036,6 +1051,7 @@ export function AttendanceReportsBoard({
     searchValue,
     selectedDateKey,
     setActionMenuOpen,
+    setAttendanceStatusFilter,
     setDepartmentFilter,
     setDetailOpen,
     setFilterOpen,
@@ -1520,7 +1536,7 @@ export function AttendanceReportsBoard({
 
   const focusedEmployee = filteredEmployees.length === 1 ? filteredEmployees[0] : null;
   const focusedDepartment = focusedEmployee ? resolveDepartmentLabel(focusedEmployee) : '';
-  const activeFilterCount = departmentFilter === 'all' ? 0 : 1;
+  const activeFilterCount = [departmentFilter !== 'all', attendanceStatusFilter !== 'all'].filter(Boolean).length;
   const noEmployeeMatches = !isLoading && !loadError && reportableEmployees.length > 0 && filteredEmployees.length === 0;
   const selectedDateLabel = selectedDateKey ? longDateLabel(selectedDateKey) : 'Selected date';
   const focusLeaves = useMemo(() => {
@@ -1601,16 +1617,25 @@ export function AttendanceReportsBoard({
         holidayDateSet
       );
       const isHoliday = holidayDateSet.has(dateKey);
-      const incompleteCount = records.filter((record) => record.status === 'INCOMPLETE').length;
-      const lateCount = records.filter((record) => record.status === 'PRESENT' && record.isLate).length;
-      const presentCount = records.filter((record) => record.status === 'PRESENT' && !record.isLate).length;
-      const outsideScheduleCount = records.filter((record) => record.status === 'OUTSIDE_SCHEDULE').length;
+      const incompleteCount = matchesCountStatusFilter(attendanceStatusFilter, 'incomplete')
+        ? records.filter((record) => record.status === 'INCOMPLETE').length
+        : 0;
+      const lateCount = matchesCountStatusFilter(attendanceStatusFilter, 'late')
+        ? records.filter((record) => record.status === 'PRESENT' && record.isLate).length
+        : 0;
+      const presentCount = matchesCountStatusFilter(attendanceStatusFilter, 'present')
+        ? records.filter((record) => record.status === 'PRESENT' && !record.isLate).length
+        : 0;
+      const outsideScheduleCount = matchesCountStatusFilter(attendanceStatusFilter, 'outside')
+        ? records.filter((record) => record.status === 'OUTSIDE_SCHEDULE').length
+        : 0;
       const leaveEmployeeIds = approvedLeaveEmployeeIdsByDate.get(dateKey) ?? new Set<number>();
       const loggedEmployeeIds = new Set(records.map((record) => record.employeeId));
       const absentLoggedEmployeeIds = new Set(
         records.filter((record) => record.status === 'ABSENT').map((record) => record.employeeId)
       );
       const holidayCount =
+        matchesCountStatusFilter(attendanceStatusFilter, 'holiday') &&
         hasFullRoster && !isFutureDate && isHoliday
           ? activeEmployees.filter((employee) => !loggedEmployeeIds.has(employee.id))
               .filter((employee) => !leaveEmployeeIds.has(employee.id)).length
@@ -1629,8 +1654,11 @@ export function AttendanceReportsBoard({
               .filter((employee) => absentLoggedEmployeeIds.has(employee.id))
               .filter((employee) => !leaveEmployeeIds.has(employee.id)).length
           : 0;
-      const absentCount = missingLogsAbsentCount + absentFromLogsCount;
+      const absentCount = matchesCountStatusFilter(attendanceStatusFilter, 'absent')
+        ? missingLogsAbsentCount + absentFromLogsCount
+        : 0;
       const dayOffCount =
+        matchesCountStatusFilter(attendanceStatusFilter, 'dayOff') &&
         hasFullRoster && !isFutureDate && !isHoliday
           ? activeEmployees.filter((employee) => isKnownDayOffOnDate(employee, dateKey))
               .filter((employee) => !leaveEmployeeIds.has(employee.id)).length
@@ -1660,6 +1688,7 @@ export function AttendanceReportsBoard({
     logsByDate,
     monthIndex,
     scheduledShiftsByEmployeeAndDate,
+    attendanceStatusFilter,
     todayDateKey,
     year,
   ]);
@@ -1692,7 +1721,7 @@ export function AttendanceReportsBoard({
         details.push(formatLeaveDetail(leaveRequests[0]));
       }
 
-      if (isHoliday) {
+      if (isHoliday && matchesCountStatusFilter(attendanceStatusFilter, 'holiday')) {
         notes.push({
           label: holidayNamesByDate[dateKey] ?? (isRegularHoliday ? 'Regular Holiday' : 'Holiday'),
           tone: 'holiday',
@@ -1700,7 +1729,7 @@ export function AttendanceReportsBoard({
         tone ??= 'holiday';
       }
 
-      if (record) {
+      if (record && matchesRecordStatusFilter(record, attendanceStatusFilter)) {
         if (record.status === 'INCOMPLETE') {
           notes.push({ label: 'Incomplete', tone: 'incomplete' });
           tone ??= 'incomplete';
@@ -1721,10 +1750,10 @@ export function AttendanceReportsBoard({
         const attendanceWindow = formatAttendanceWindow(record);
         if (attendanceWindow) details.push(attendanceWindow);
       } else if (!isFutureDate && leaveRequests.length === 0 && !isHoliday) {
-        if (hasScheduledWork) {
+        if (matchesCountStatusFilter(attendanceStatusFilter, 'absent') && hasScheduledWork) {
           notes.push({ label: 'Absent', tone: 'absent' });
           tone ??= 'absent';
-        } else if (isKnownDayOff) {
+        } else if (matchesCountStatusFilter(attendanceStatusFilter, 'dayOff') && isKnownDayOff) {
           notes.push({ label: 'Day Off', tone: 'dayOff' });
           tone ??= 'dayOff';
         }
@@ -1753,6 +1782,7 @@ export function AttendanceReportsBoard({
     hasScheduledWorkOnDate,
     isKnownDayOffOnDate,
     monthIndex,
+    attendanceStatusFilter,
     regularHolidayDateSet,
     todayDateKey,
     year,
@@ -1769,6 +1799,11 @@ export function AttendanceReportsBoard({
       holidayDateSet
     );
   }, [approvedOvertimeByDate, filteredEmployeeById, holidayDateSet, logsByDate, scheduledShiftsByEmployeeAndDate, selectedDateKey]);
+
+  const visibleSelectedRecords = useMemo(
+    () => selectedRecords.filter((record) => matchesRecordStatusFilter(record, attendanceStatusFilter)),
+    [attendanceStatusFilter, selectedRecords]
+  );
 
   const selectedIsFuture = useMemo(() => {
     return Boolean(selectedDateKey) && selectedDateKey > todayDateKey;
@@ -1795,7 +1830,7 @@ export function AttendanceReportsBoard({
     if (!hasFullRoster || selectedIsFuture || !selectedIsWorkingDay || selectedIsHoliday) return [];
     const recordByEmployeeId = new Map(selectedRecords.map((record) => [record.employeeId, record] as const));
     const leaveEmployeeIds = selectedDateKey ? approvedLeaveEmployeeIdsByDate.get(selectedDateKey) ?? new Set<number>() : new Set<number>();
-    return activeEmployees
+    const absentEmployees = activeEmployees
       .filter((employee) => hasScheduledWorkOnDate(employee, selectedDateKey))
       .filter((employee) => isEmployeeScheduledToHaveStartedByNow(employee, selectedDateKey, todayDateKey, focusLeavesByDate.get(selectedDateKey) || []))
       .filter((employee) => {
@@ -1805,8 +1840,10 @@ export function AttendanceReportsBoard({
       })
       .filter((employee) => !leaveEmployeeIds.has(employee.id))
       .sort((a, b) => a.name.localeCompare(b.name));
+    return matchesCountStatusFilter(attendanceStatusFilter, 'absent') ? absentEmployees : [];
   }, [
     activeEmployees,
+    attendanceStatusFilter,
     hasScheduledWorkOnDate,
     todayDateKey,
     focusLeavesByDate,
@@ -1820,18 +1857,28 @@ export function AttendanceReportsBoard({
   ]);
 
   const selectedSummary = useMemo(() => {
-    const incomplete = selectedRecords.filter((record) => record.status === 'INCOMPLETE').length;
-    const late = selectedRecords.filter((record) => record.status === 'PRESENT' && record.isLate).length;
-    const present = selectedRecords.filter((record) => record.status === 'PRESENT' && !record.isLate).length;
-    const outsideSchedule = selectedRecords.filter((record) => record.status === 'OUTSIDE_SCHEDULE').length;
+    const incomplete = matchesCountStatusFilter(attendanceStatusFilter, 'incomplete')
+      ? selectedRecords.filter((record) => record.status === 'INCOMPLETE').length
+      : 0;
+    const late = matchesCountStatusFilter(attendanceStatusFilter, 'late')
+      ? selectedRecords.filter((record) => record.status === 'PRESENT' && record.isLate).length
+      : 0;
+    const present = matchesCountStatusFilter(attendanceStatusFilter, 'present')
+      ? selectedRecords.filter((record) => record.status === 'PRESENT' && !record.isLate).length
+      : 0;
+    const outsideSchedule = matchesCountStatusFilter(attendanceStatusFilter, 'outside')
+      ? selectedRecords.filter((record) => record.status === 'OUTSIDE_SCHEDULE').length
+      : 0;
     const leaveEmployeeIds = selectedDateKey ? approvedLeaveEmployeeIdsByDate.get(selectedDateKey) ?? new Set<number>() : new Set<number>();
     const loggedEmployeeIds = new Set(selectedRecords.map((record) => record.employeeId));
     const holidayCount =
+      matchesCountStatusFilter(attendanceStatusFilter, 'holiday') &&
       hasFullRoster && !selectedIsFuture && selectedDateKey && selectedIsHoliday
         ? activeEmployees.filter((employee) => !loggedEmployeeIds.has(employee.id))
             .filter((employee) => !leaveEmployeeIds.has(employee.id)).length
         : 0;
     const dayOffCount =
+      matchesCountStatusFilter(attendanceStatusFilter, 'dayOff') &&
       hasFullRoster && !selectedIsFuture && selectedDateKey && !selectedIsHoliday
         ? activeEmployees.filter((employee) => isKnownDayOffOnDate(employee, selectedDateKey))
             .filter((employee) => !leaveEmployeeIds.has(employee.id)).length
@@ -1842,12 +1889,20 @@ export function AttendanceReportsBoard({
       incomplete,
       outsideSchedule,
       holiday: holidayCount,
-      absent: hasFullRoster && !selectedIsFuture && selectedIsWorkingDay && !selectedIsHoliday ? selectedAbsent.length : 0,
+      absent:
+        matchesCountStatusFilter(attendanceStatusFilter, 'absent') &&
+        hasFullRoster &&
+        !selectedIsFuture &&
+        selectedIsWorkingDay &&
+        !selectedIsHoliday
+          ? selectedAbsent.length
+          : 0,
       dayOff: !selectedIsWorkingDay ? dayOffCount : 0,
       totalLogs: (logsByDate.get(selectedDateKey) ?? []).length,
     };
   }, [
     activeEmployees,
+    attendanceStatusFilter,
     approvedLeaveEmployeeIdsByDate,
     hasFullRoster,
     isKnownDayOffOnDate,
@@ -2322,6 +2377,7 @@ export function AttendanceReportsBoard({
         actionMenuOpen={actionMenuOpen}
         actionMenuRef={actionMenuRef}
         activeFilterCount={activeFilterCount}
+        attendanceStatusFilter={attendanceStatusFilter}
         canImport={canImport}
         departmentFilter={departmentFilter}
         departmentOptions={departmentOptions}
@@ -2333,6 +2389,7 @@ export function AttendanceReportsBoard({
         importLoading={isImporting}
         onClearFilters={clearFilters}
         onClearSearch={() => setSearchValue('')}
+        onAttendanceStatusFilterChange={setAttendanceStatusFilter}
         onDepartmentFilterChange={setDepartmentFilter}
         onOpenExport={() => {
           setActionMenuOpen(false);
@@ -2513,7 +2570,7 @@ export function AttendanceReportsBoard({
                     const isSelected = dateKey === selectedDateKey;
                     const isHoliday = holidayDateSet.has(dateKey);
                     const showAttendanceIndicators = !isFutureDate;
-                    const showHolidayIndicator = isHoliday;
+                    const showHolidayIndicator = isHoliday && matchesCountStatusFilter(attendanceStatusFilter, 'holiday');
                     const showIndicators = showAttendanceIndicators || showHolidayIndicator;
                     const hasAttention =
                       showAttendanceIndicators &&
@@ -2763,12 +2820,12 @@ export function AttendanceReportsBoard({
                     <FiUsers />
                     Logged Employees
                   </div>
-                  <span className="hrAttBreakdown__count">{selectedRecords.length}</span>
+                  <span className="hrAttBreakdown__count">{visibleSelectedRecords.length}</span>
                 </div>
 
                 <div className="hrAttBreakdown__list">
-                  {selectedRecords.length > 0 ? (
-                    selectedRecords.map((record) => {
+                  {visibleSelectedRecords.length > 0 ? (
+                    visibleSelectedRecords.map((record) => {
                       const badge = attendanceBadgeForRecord(record);
                       const employee = filteredEmployeeById.get(record.employeeId);
                       const metaLine = formatEmployeeMetaLine(
@@ -2813,6 +2870,8 @@ export function AttendanceReportsBoard({
                     })
                   ) : selectedIsFuture ? (
                     <div className="hrAttBreakdown__empty">This date has not happened yet.</div>
+                  ) : attendanceStatusFilter !== 'all' ? (
+                    <div className="hrAttBreakdown__empty">No attendance entries matched the selected status filter for this day.</div>
                   ) : (
                     <div className="hrAttBreakdown__empty">No attendance logs recorded for this day.</div>
                   )}
@@ -2848,6 +2907,8 @@ export function AttendanceReportsBoard({
                       ))
                     ) : selectedIsFuture ? (
                       <div className="hrAttBreakdown__empty">Absent employees will only be shown after this date passes.</div>
+                    ) : attendanceStatusFilter !== 'all' && attendanceStatusFilter !== 'absent' ? (
+                      <div className="hrAttBreakdown__empty">Switch the status filter to Absent to review employees with no logs for this day.</div>
                     ) : focusedEmployee && focusedSelectedLeaves.length > 0 ? (
                       <div className="hrAttBreakdown__empty">
                         {focusedEmployee.name} is covered by an approved leave request for this day.

@@ -7,11 +7,13 @@ import {
   FiUpload,
   FiXCircle,
 } from 'react-icons/fi';
+import type { AttendanceStatusFilter } from '../hooks/useAttendanceReportFilters';
 
 type AttendanceReportToolbarProps = {
   actionMenuOpen: boolean;
   actionMenuRef: RefObject<HTMLDivElement | null>;
   activeFilterCount: number;
+  attendanceStatusFilter: AttendanceStatusFilter;
   canImport: boolean;
   departmentFilter: string;
   departmentOptions: string[];
@@ -23,6 +25,7 @@ type AttendanceReportToolbarProps = {
   importLoading: boolean;
   onClearFilters: () => void;
   onClearSearch: () => void;
+  onAttendanceStatusFilterChange: (value: AttendanceStatusFilter) => void;
   onDepartmentFilterChange: (value: string) => void;
   onOpenExport: () => void;
   onOpenImport: () => void;
@@ -37,6 +40,7 @@ export default function AttendanceReportToolbar({
   actionMenuOpen,
   actionMenuRef,
   activeFilterCount,
+  attendanceStatusFilter,
   canImport,
   departmentFilter,
   departmentOptions,
@@ -48,6 +52,7 @@ export default function AttendanceReportToolbar({
   importLoading,
   onClearFilters,
   onClearSearch,
+  onAttendanceStatusFilterChange,
   onDepartmentFilterChange,
   onOpenExport,
   onOpenImport,
@@ -96,6 +101,23 @@ export default function AttendanceReportToolbar({
                         {option}
                       </option>
                     ))}
+                  </select>
+                </label>
+
+                <label className="uFilter__field">
+                  <span>Attendance Status</span>
+                  <select
+                    value={attendanceStatusFilter}
+                    onChange={(event) => onAttendanceStatusFilterChange(event.target.value as AttendanceStatusFilter)}
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="present">Present</option>
+                    <option value="late">Late</option>
+                    <option value="incomplete">Incomplete</option>
+                    <option value="outside">Outside Schedule</option>
+                    <option value="absent">Absent</option>
+                    <option value="dayOff">Day Off</option>
+                    <option value="holiday">Holiday</option>
                   </select>
                 </label>
 
