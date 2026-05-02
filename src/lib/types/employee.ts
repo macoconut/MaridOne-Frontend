@@ -35,6 +35,7 @@ export type EmployeeDetails = {
   position?: string
   department?: string
   userAccountName?: string
+  accountStatus?: string
   managerId?: number
   managerName?: string
   taxNumber?: string

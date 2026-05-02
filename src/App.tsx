@@ -1,6 +1,14 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect, type ReactElement } from 'react';
-import { getAuthToken, getRequiresPasswordChange, getUserRole, type UserRole } from './lib/session';
+import { useEffect, useState, type ReactElement } from 'react';
+import {
+  clearForcedLogoutMessage,
+  getAuthToken,
+  getForcedLogoutMessage,
+  getRequiresPasswordChange,
+  getUserRole,
+  type UserRole,
+} from './lib/session';
+import { FORCED_LOGOUT_EVENT } from './lib/api';
 import {
   getAllLoginAliases,
   getRoleHomePath,
@@ -44,6 +52,7 @@ import AccountingLayout from './layouts/accounting/AccountingLayout';
 import AccountingPayrollDashboard from './pages/accounting/payroll-dashboard/PayrollDashboard';
 import AccountingPayrollReview from './pages/accounting/payroll-review/PayrollReview';
 import { UiDialogProvider } from './components/dialog/UiDialogProvider';
+import AlertDialog from './components/dialog/AlertDialog';
 import { LoadingProvider } from './context/LoadingContext';
 import {
   applyUiPreferences,
@@ -170,6 +179,8 @@ function renderSelfServiceRoutes(role: SelfServiceRole) {
 }
 
 export default function App() {
+  const [forcedLogoutMessage, setForcedLogoutMessage] = useState(() => getForcedLogoutMessage());
+
   useEffect(() => {
     const syncPreferences = () => {
       applyUiPreferences();
@@ -183,6 +194,21 @@ export default function App() {
       unsubscribeUiPreferences();
     };
   }, []);
+
+  useEffect(() => {
+    function handleForcedLogout(event: Event) {
+      const detail = event instanceof CustomEvent ? event.detail as { message?: string } : null;
+      setForcedLogoutMessage(detail?.message?.trim() || 'Your portal access has been removed. Logging out now.');
+    }
+
+    window.addEventListener(FORCED_LOGOUT_EVENT, handleForcedLogout);
+    return () => window.removeEventListener(FORCED_LOGOUT_EVENT, handleForcedLogout);
+  }, []);
+
+  function dismissForcedLogoutDialog() {
+    clearForcedLogoutMessage();
+    setForcedLogoutMessage('');
+  }
 
   return (
     <UiDialogProvider>
@@ -257,6 +283,14 @@ export default function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
+        <AlertDialog
+          open={Boolean(forcedLogoutMessage)}
+          title="Portal Access Removed"
+          message={forcedLogoutMessage}
+          confirmLabel="Close"
+          variant="error"
+          onClose={dismissForcedLogoutDialog}
+        />
       </LoadingProvider>
     </UiDialogProvider>
   );

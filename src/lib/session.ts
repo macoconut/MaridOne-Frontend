@@ -9,6 +9,7 @@ const AUTH_KEYS = [
 ] as const;
 
 export const SENSITIVE_ACCESS_CHANGE_EVENT = 'maridone:sensitive-access-change';
+const FORCED_LOGOUT_MESSAGE_KEY = 'maridone.forcedLogoutMessage';
 
 function emitSensitiveAccessChange() {
   if (typeof window === 'undefined') return;
@@ -129,4 +130,19 @@ export function getSensitiveAccessToken() {
 
 export function getSensitiveAccessExpiry() {
   return getSessionValue('maridone.sensitiveAccessExpiresAt');
+}
+
+export function setForcedLogoutMessage(message: string) {
+  if (typeof window === 'undefined') return;
+  sessionStorage.setItem(FORCED_LOGOUT_MESSAGE_KEY, message);
+}
+
+export function getForcedLogoutMessage() {
+  if (typeof window === 'undefined') return '';
+  return sessionStorage.getItem(FORCED_LOGOUT_MESSAGE_KEY) ?? '';
+}
+
+export function clearForcedLogoutMessage() {
+  if (typeof window === 'undefined') return;
+  sessionStorage.removeItem(FORCED_LOGOUT_MESSAGE_KEY);
 }

@@ -190,6 +190,7 @@ type FormState = {
 };
 
 const employmentStatusOptions = ['REGULAR', 'NEW_HIRE', 'PART_TIME', 'SUSPENDED', 'TERMINATED'] as const;
+const accountStatusOptions = ['ACTIVE', 'INACTIVE'] as const;
 const exemptionStatusOptions = ['EXEMPT', 'NON_EXEMPT'] as const;
 const positionOptions = ['EMPLOYEE', 'MANAGER', 'HR', 'MANAGEMENT', 'ACCOUNTING', 'UNKNOWN'] as const;
 const separationReasonOptions: Array<{ label: string; value: SeparationReason }> = [
@@ -235,6 +236,7 @@ const emptyForm: FormState = {
   yearlySalary: '',
   managerId: '',
   username: '',
+  accountStatus: 'ACTIVE',
   password: '',
   permanentAddress: '',
   temporaryAddress: '',
@@ -1342,6 +1344,7 @@ export default function HrManageEmp() {
           payload.yearlySalary !== undefined && payload.yearlySalary !== null ? String(payload.yearlySalary) : '',
         managerId: payload.managerId !== undefined && payload.managerId !== null ? String(payload.managerId) : '',
         username: payload.userAccountName ?? (row.username === '-' ? '' : row.username),
+        accountStatus: payload.accountStatus ?? 'ACTIVE',
         password: '',
         permanentAddress: payload.address?.permanentAddress ?? '',
         temporaryAddress: payload.address?.temporaryAddress ?? '',
@@ -1543,6 +1546,7 @@ export default function HrManageEmp() {
         body: JSON.stringify({
           employeeId,
           username,
+          accountStatus: form.accountStatus || 'ACTIVE',
           password,
         }),
       });
@@ -1554,6 +1558,7 @@ export default function HrManageEmp() {
       body: JSON.stringify({
         employeeId,
         username,
+        accountStatus: form.accountStatus || 'ACTIVE',
         password: password || undefined,
       }),
     });
@@ -1920,6 +1925,7 @@ export default function HrManageEmp() {
     const isComplianceLoading = Boolean(complianceLoadingIds[row.id]);
     const complianceError = complianceErrors[row.id];
     const username = details?.userAccountName ?? (row.username === '-' ? '' : row.username);
+    const accountStatus = details?.accountStatus ?? (username ? 'ACTIVE' : '-');
     const noteExpanded = Boolean(expandedSeparationNotes[row.id]);
     const separationNote = String(details?.separationNotes ?? '').trim();
     const canExpandSeparationNote = isLongSeparationNote(separationNote);
@@ -1966,6 +1972,10 @@ export default function HrManageEmp() {
               <div className="hrEmpDetails__item">
                 <span>Username</span>
                 <strong>{displayValue(username)}</strong>
+              </div>
+              <div className="hrEmpDetails__item">
+                <span>Portal Access</span>
+                <strong>{displayValue(accountStatus)}</strong>
               </div>
               <div className="hrEmpDetails__item">
                 <span>Company Email</span>
@@ -3027,6 +3037,20 @@ export default function HrManageEmp() {
                           onChange={(event) => setField('username', event.target.value)}
                           placeholder="Required"
                         />
+                      </div>
+
+                      <div className="hrEmpField">
+                        <label>Portal Access</label>
+                        <select
+                          value={form.accountStatus}
+                          onChange={(event) => setField('accountStatus', event.target.value)}
+                        >
+                          {accountStatusOptions.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
                       </div>
 
                       <div className="hrEmpField">

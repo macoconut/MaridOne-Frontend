@@ -784,13 +784,26 @@ function matchesTimeWindow(timestampValue: number, filter: TimeFilter) {
   return diffMs <= limitDays * 24 * 60 * 60 * 1000;
 }
 
-async function loadAllActivityRows() {
+function startOfDayIso(date: string) {
+  return `${date}T00:00:00.000Z`;
+}
+
+function endOfDayIso(date: string) {
+  return `${date}T23:59:59.999Z`;
+}
+
+async function loadAllActivityRows(startDate?: string, endDate?: string) {
   const collected = new Map<string, ActivityLogRow>();
   let page = 0;
   let totalPages = 1;
+  const query = new URLSearchParams();
+  if (startDate) query.set('startDate', startOfDayIso(startDate));
+  if (endDate) query.set('endDate', endOfDayIso(endDate));
 
   while (page < totalPages && page < MAX_SERVER_PAGES) {
-    const payload = await apiFetchJson<ActivityPage>(`/api/logs/activity?page=${page}&size=${SERVER_PAGE_SIZE}`);
+    query.set('page', String(page));
+    query.set('size', String(SERVER_PAGE_SIZE));
+    const payload = await apiFetchJson<ActivityPage>(`/api/logs/activity?${query.toString()}`);
     const content = toArray<ActivityLogRow>(payload);
 
     for (const row of content) {
@@ -840,6 +853,8 @@ export default function HrAuditLogs() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
+  const [startDateFilter, setStartDateFilter] = useState('');
+  const [endDateFilter, setEndDateFilter] = useState('');
   const [refreshTick, setRefreshTick] = useState(0);
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const silentRefreshRef = useRef(false);
@@ -873,7 +888,7 @@ export default function HrAuditLogs() {
         }
 
         const [activityRows, employeePayload, payrollRunsPayload] = await Promise.all([
-          loadAllActivityRows(),
+          loadAllActivityRows(startDateFilter, endDateFilter),
           apiFetchJson<unknown>('/api/employees?page=0&size=500').catch(() => null),
           apiFetchJson<unknown>('/api/payroll/run').catch(() => null),
         ]);
@@ -910,7 +925,7 @@ export default function HrAuditLogs() {
     return () => {
       cancelled = true;
     };
-  }, [refreshTick]);
+  }, [endDateFilter, refreshTick, startDateFilter]);
 
   const entries = useMemo(
     () =>
@@ -929,7 +944,12 @@ export default function HrAuditLogs() {
     });
   }, [deferredSearch, entries, timeFilter, typeFilter]);
 
-  const activeFilterCount = [typeFilter, timeFilter].filter((value) => value !== 'all').length;
+  const activeFilterCount = [
+    typeFilter !== 'all',
+    timeFilter !== 'all',
+    Boolean(startDateFilter),
+    Boolean(endDateFilter),
+  ].filter(Boolean).length;
   const selectedEntry = useMemo(
     () => visibleEntries.find((entry) => entry.id === selectedEntryId) ?? null,
     [selectedEntryId, visibleEntries]
@@ -956,6 +976,8 @@ export default function HrAuditLogs() {
   function clearFilters() {
     setTypeFilter('all');
     setTimeFilter('all');
+    setStartDateFilter('');
+    setEndDateFilter('');
   }
 
   return (
@@ -1013,6 +1035,26 @@ export default function HrAuditLogs() {
                     <option value="7d">Last 7 Days</option>
                     <option value="30d">Last 30 Days</option>
                   </select>
+                </label>
+
+                <label className="uFilter__field">
+                  <span>Start Date</span>
+                  <input
+                    type="date"
+                    value={startDateFilter}
+                    max={endDateFilter || undefined}
+                    onChange={(event) => setStartDateFilter(event.target.value)}
+                  />
+                </label>
+
+                <label className="uFilter__field">
+                  <span>End Date</span>
+                  <input
+                    type="date"
+                    value={endDateFilter}
+                    min={startDateFilter || undefined}
+                    onChange={(event) => setEndDateFilter(event.target.value)}
+                  />
                 </label>
 
                 <div className="uFilter__actions">

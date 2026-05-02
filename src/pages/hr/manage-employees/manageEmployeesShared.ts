@@ -8,6 +8,7 @@ import type {
 } from './types';
 
 export const employmentStatusOptions = ['REGULAR', 'NEW_HIRE', 'PART_TIME', 'SUSPENDED', 'TERMINATED'] as const;
+export const accountStatusOptions = ['ACTIVE', 'INACTIVE'] as const;
 export const exemptionStatusOptions = ['EXEMPT', 'NON_EXEMPT'] as const;
 export const positionOptions = ['EMPLOYEE', 'MANAGER', 'HR', 'MANAGEMENT', 'ACCOUNTING', 'UNKNOWN'] as const;
 export const separationReasonOptions: Array<{ label: string; value: SeparationReason }> = [
@@ -53,6 +54,7 @@ export const emptyForm: FormState = {
   yearlySalary: '',
   managerId: '',
   username: '',
+  accountStatus: 'ACTIVE',
   password: '',
   permanentAddress: '',
   temporaryAddress: '',

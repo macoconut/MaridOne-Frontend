@@ -142,6 +142,7 @@ export type FormState = {
   yearlySalary: string;
   managerId: string;
   username: string;
+  accountStatus: string;
   password: string;
   permanentAddress: string;
   temporaryAddress: string;

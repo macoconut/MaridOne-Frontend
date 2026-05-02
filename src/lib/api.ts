@@ -1,9 +1,11 @@
 import {
+  clearForcedLogoutMessage,
   clearSession,
   getAuthToken,
   getRequiresPasswordChange,
   getRefreshToken,
   getSensitiveAccessToken,
+  setForcedLogoutMessage,
   setAuthToken,
   setRequiresPasswordChange,
   setRefreshToken,
@@ -41,6 +43,10 @@ export function resolveApiBaseUrl(
 const API_BASE_URL = resolveApiBaseUrl();
 let refreshPromise: Promise<boolean> | null = null;
 const inflightGetRequests = new Map<string, Promise<Response>>();
+let forcedLogoutTimer: number | null = null;
+export const FORCED_LOGOUT_EVENT = 'maridone:forced-logout';
+const FORCED_LOGOUT_HEADER = 'X-Session-Ended-Reason';
+const PORTAL_ACCESS_REMOVED_REASON = 'portal-access-removed';
 
 export class ApiError extends Error {
   status: number;
@@ -79,11 +85,44 @@ export async function expireCurrentSession() {
   }
 }
 
-function redirectToLogin() {
+function completeLoginRedirect() {
   clearSession();
   if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
     window.location.replace('/login');
   }
+}
+
+function triggerForcedLogout(message: string) {
+  if (typeof window === 'undefined') {
+    completeLoginRedirect();
+    return;
+  }
+
+  if (forcedLogoutTimer !== null) {
+    return;
+  }
+
+  setForcedLogoutMessage(message);
+  window.dispatchEvent(new CustomEvent(FORCED_LOGOUT_EVENT, { detail: { message } }));
+  forcedLogoutTimer = window.setTimeout(() => {
+    forcedLogoutTimer = null;
+    completeLoginRedirect();
+  }, 250);
+}
+
+function redirectToLogin(message?: string) {
+  if (message) {
+    triggerForcedLogout(message);
+    return;
+  }
+  clearForcedLogoutMessage();
+  completeLoginRedirect();
+}
+
+function isPortalAccessRemovedResponse(response: Response, responseText = '') {
+  const reason = response.headers.get(FORCED_LOGOUT_HEADER)?.trim().toLowerCase();
+  if (reason === PORTAL_ACCESS_REMOVED_REASON) return true;
+  return /portal access has been removed/i.test(responseText.trim());
 }
 
 function redirectToPasswordChange() {
@@ -259,13 +298,25 @@ export async function apiFetchRaw(path: string, init: RequestInit = {}, allowRet
       credentials: 'include',
     });
 
+    const responseTextPromise =
+      response.status === 401 ? response.clone().text().catch(() => '') : Promise.resolve('');
+
     if (response.status === 401 && allowRetry && getRefreshToken()) {
       const refreshed = await refreshAccessToken();
       if (refreshed) {
         return apiFetchRaw(path, init, false);
       }
-
-      redirectToLogin();
+      const forcedLogoutMessage = await responseTextPromise;
+      redirectToLogin(
+        isPortalAccessRemovedResponse(response, forcedLogoutMessage)
+          ? forcedLogoutMessage.trim() || 'Your portal access has been removed. Logging out now.'
+          : undefined
+      );
+    } else if (response.status === 401) {
+      const forcedLogoutMessage = await responseTextPromise;
+      if (isPortalAccessRemovedResponse(response, forcedLogoutMessage)) {
+        redirectToLogin(forcedLogoutMessage.trim() || 'Your portal access has been removed. Logging out now.');
+      }
     }
 
     if (
