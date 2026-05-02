@@ -414,7 +414,8 @@ export function AttendanceOverviewDashboard({
     return logs.filter((log) => {
       if (localDateKey(log.timestamp) !== effectiveSelectedDateKey) return false;
       const employee = employeeById.get(log.employeeId ?? -1);
-      return String(employee?.status ?? '').toUpperCase() !== 'TERMINATED';
+      if (!employee) return false;
+      return String(employee.status).toUpperCase() !== 'TERMINATED';
     });
   }, [effectiveSelectedDateKey, employeeById, logs]);
 
@@ -549,7 +550,8 @@ export function AttendanceOverviewDashboard({
       })
       .filter((log) => {
         const employee = employeeById.get(log.employeeId ?? -1);
-        return String(employee?.status ?? '').toUpperCase() !== 'TERMINATED';
+        if (!employee) return false;
+        return String(employee.status).toUpperCase() !== 'TERMINATED';
       })
       .map((log, idx) => {
         const employee = employeeById.get(log.employeeId ?? -1);
@@ -790,7 +792,7 @@ export function AttendanceOverviewDashboard({
       if (!dateKey) continue;
 
       const employee = employeeById.get(log.employeeId ?? -1);
-      if (String(employee?.status ?? '').toUpperCase() === 'TERMINATED') continue;
+      if (!employee || String(employee.status).toUpperCase() === 'TERMINATED') continue;
 
       const current = logsByDate.get(dateKey) ?? [];
       current.push(log);

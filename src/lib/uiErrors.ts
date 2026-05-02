@@ -156,7 +156,7 @@ export function getFriendlyErrorMessage(error: unknown, context: ErrorContext = 
           return 'The uploaded file is too large. Please keep it within 10 MB.';
       }
     case 500:
-      return 'The server hit an unexpected problem. Please try again in a moment.';
+      return error.rawMessage || 'An unexpected server error occurred. Please try again.';
     default:
       return error.rawMessage || `Request failed (${error.status}).`;
   }
