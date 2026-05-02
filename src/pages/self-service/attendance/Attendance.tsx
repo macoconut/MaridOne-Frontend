@@ -133,7 +133,7 @@ const LEAVE_TYPE_OPTIONS: Array<{ label: string; value: LeaveType }> = [
   { label: 'Paternity Leave', value: 'PATERNITY_LEAVE' },
   { label: 'Solo Parent Leave', value: 'SOLO_PARENT_LEAVE' },
   { label: 'Magna Carta', value: 'MAGNA_CARTA' },
-  { label: 'RA 9262', value: 'RA9262' },
+  { label: 'VAWC Leave', value: 'RA9262' },
   { label: 'Emergency Leave', value: 'EMERGENCY_LEAVE' },
 ];
 const HOURS_FORMATTER = new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 });

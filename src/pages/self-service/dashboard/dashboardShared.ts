@@ -433,7 +433,7 @@ export function getLeaveTypeLabel(type?: string) {
     case 'PATERNITY_LEAVE': return 'Paternity Leave';
     case 'SOLO_PARENT_LEAVE': return 'Solo Parent';
     case 'MAGNA_CARTA': return 'Magna Carta';
-    case 'RA9262': return 'RA 9262';
+    case 'RA9262': return 'VAWC Leave';
     case 'EMERGENCY_LEAVE': return 'Emergency Leave';
     default: return type?.replace(/_/g, ' ') || 'Leave';
   }
