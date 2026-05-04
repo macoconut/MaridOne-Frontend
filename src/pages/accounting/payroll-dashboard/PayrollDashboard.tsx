@@ -421,11 +421,6 @@ export default function AccountingPayrollDashboard({
     });
   }, [filteredRuns]);
 
-  const selectedRun = useMemo(
-    () => filteredRuns.find((run) => run.payId === selectedPayId) ?? null,
-    [filteredRuns, selectedPayId]
-  );
-
   const activeRangeLabel = useMemo(() => describeDateRange(fromDate, toDate), [fromDate, toDate]);
 
   const finalNetPayout = useMemo(
