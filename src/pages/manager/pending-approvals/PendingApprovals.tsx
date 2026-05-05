@@ -9,8 +9,8 @@ import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '../../../lib/api';
-import { extractAttachmentReference, openDocumentAttachment } from '../../../lib/documentAttachments';
-import { formatDateTime } from '../../../lib/formatters';
+import { extractAttachmentReference, openDocumentAttachment } from '../../../lib/document/documentAttachments';
+import { formatDateTime } from '../../../lib/utils/formatters';
 import {
   buildRequestSummaryMessage,
   formatLeaveDurationLabel,

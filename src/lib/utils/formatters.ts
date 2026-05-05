@@ -59,3 +59,15 @@ export function employeeLabelFromParts(
   if (typeof employeeId === 'number') return `EMP ID ${employeeId}`
   return 'Employee unavailable'
 }
+
+
+export function formatFileSize(bytes: number, decimals = 2): string {
+  if (bytes <= 0) return '0 Bytes';
+
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
+  const value = (bytes / Math.pow(k, i)).toFixed(Math.max(0, decimals));
+
+  return `${value} ${sizes[i]}`;
+}

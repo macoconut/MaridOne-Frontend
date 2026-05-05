@@ -8,7 +8,7 @@ import {
   materialLibrarySections,
   openLibraryDocument,
   type LibraryDocument,
-} from '../../../lib/materialLibrary';
+} from '../../../lib/document/publicLibrary';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import './Training.css';
 

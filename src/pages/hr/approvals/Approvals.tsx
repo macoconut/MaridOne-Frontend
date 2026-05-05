@@ -8,8 +8,8 @@ import PageHeader from '../../../components/layout/PageHeader';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
-import { apiFetchJson, toArray } from '../../../lib/api';
-import { extractAttachmentReference, openDocumentAttachment } from '../../../lib/documentAttachments';
+import { apiFetchJson, toArray } from '../../../lib/api/api';
+import {openDocumentAttachment} from '../../../lib/document/documentAttachments';
 import {
   buildRequestSummaryMessage,
   formatLeaveDurationLabel,
@@ -24,7 +24,7 @@ import type {
 } from '../../../lib/types/approval';
 import type { LeaveBalanceRow } from '../../../lib/types/employee';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
-import { employeeLabel, formatDateTime } from '../../../lib/formatters';
+import { employeeLabel, formatDateTime } from '../../../lib/utils/formatters';
 import '../../self-service/approvals/Approval.css';
 import './Approvals.css';
 import '../../manager/pending-approvals/PendingApprovals.css';

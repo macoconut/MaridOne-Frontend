@@ -7,8 +7,8 @@ import {
   FiPlus,
 } from 'react-icons/fi';
 import EmployeeSortMenu from '../../../../components/layout/EmployeeSortMenu';
-import type { EmployeeSortKey } from '../../../../lib/employeeSort';
-import { formatDate } from '../../../../lib/formatters';
+import type { EmployeeSortKey } from '../../../../lib/utils/employeeSort';
+import { formatDate } from '../../../../lib/utils/formatters';
 import type { PayrollRunRow as PayrollRunDto } from '../../../../lib/types/payroll';
 import { formatCurrency, formatRunType } from '../payslipsShared';
 import type { RunItemViewRow } from '../types';

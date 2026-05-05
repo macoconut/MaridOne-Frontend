@@ -15,7 +15,7 @@ import { BACKEND_TEST_MODE } from '../../config/flags';
 import {
   extractFirstId,
   type PlaceholderContext,
-} from '../../lib/backendTest';
+} from '../../lib/test/backendTest';
 import { useRoleLayout } from '../../hooks/useRoleLayout';
 import { RoleShell } from '../shared/RoleShell';
 import { useNotificationCenter } from '../shared/useNotificationCenter';

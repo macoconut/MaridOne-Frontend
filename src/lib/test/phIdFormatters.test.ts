@@ -6,7 +6,7 @@ import {
   formatTin,
   formatPhone,
   formatBankAccount,
-} from './phIdFormatters'
+} from '../utils/phIdFormatters'
 
 describe('formatSss', () => {
   it('returns empty string for empty input', () => {

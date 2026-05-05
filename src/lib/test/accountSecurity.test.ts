@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ApiError } from './api';
-import { verifyEmailToken } from './accountSecurity';
+import { ApiError } from '../api/api';
+import { verifyEmailToken } from '../accountSecurity';
 
 describe('verifyEmailToken', () => {
   const fetchMock = vi.fn();

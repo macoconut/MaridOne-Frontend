@@ -1,34 +1,34 @@
-import { useLoading } from '../../../context/useLoading';
+import { useLoading } from '@/context/useLoading';
 import { useEffect, useMemo, useState } from 'react';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
-import ApprovalStatusSummary from '../../../components/approvals/ApprovalStatusSummary';
-import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
-import LargePopup from '../../../components/dialog/LargePopup';
-import PageHeader from '../../../components/layout/PageHeader';
-import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
-import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
-import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
-import { extractFirstId } from '../../../lib/backendTest';
-import { apiFetchJson, toArray } from '../../../lib/api';
-import { extractAttachmentReference, openDocumentAttachment } from '../../../lib/documentAttachments';
-import { formatDateTime } from '../../../lib/formatters';
+import ApprovalStatusSummary from '@/components/approvals/ApprovalStatusSummary';
+import ConfirmDialog from '@/components/dialog/ConfirmDialog';
+import LargePopup from '@/components/dialog/LargePopup';
+import PageHeader from '@/components/layout/PageHeader';
+import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
+import { useEscapeDismiss } from '@/hooks/useEscapeDismiss';
+import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
+import { extractFirstId } from '@/lib/test/backendTest';
+import { apiFetchJson, toArray } from '@/lib/api/api';
+import { extractAttachmentReference, openDocumentAttachment } from '@/lib/document/documentAttachments';
+import { formatDateTime } from '@/lib/utils/formatters';
 import {
   buildRequestSummaryMessage,
   formatLeaveDurationLabel,
   formatRequestPeriodLabel,
   formatRequestTimeRangeLabel,
   formatRequestTypeLabel,
-} from '../../../lib/requestPresentation';
-import { getUserEmail } from '../../../lib/session';
+} from '@/lib/requestPresentation';
+import { getUserEmail } from '@/lib/session';
 import type {
   ApprovalEmployeeDirectoryRow as EmployeeDirectoryRow,
   LeaveApprovalRow as LeaveDto,
   OvertimeApprovalRow as OvertimeDto,
-} from '../../../lib/types/approval';
-import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
-import '../../self-service/approvals/Approval.css';
-import '../../manager/pending-approvals/PendingApprovals.css';
-import '../../hr/approvals/Approvals.css';
+} from '@/lib/types/approval';
+import { getFriendlyErrorMessage } from '@/lib/uiErrors';
+import '@/self-service/approvals/Approval.css';
+import '@/manager/pending-approvals/PendingApprovals.css';
+import '@/hr/approvals/Approvals.css';
 
 type EmployeeRow = {
   id: number;

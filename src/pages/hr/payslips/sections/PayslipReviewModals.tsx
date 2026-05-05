@@ -1,6 +1,6 @@
 import { FiEdit2 } from 'react-icons/fi';
 import LargePopup from '../../../../components/dialog/LargePopup';
-import { formatDate, formatDateTime } from '../../../../lib/formatters';
+import { formatDate, formatDateTime } from '../../../../lib/utils/formatters';
 import {
   formatPayrollRunTypeLabel,
   formatPayrollStatusLabel,

@@ -1,4 +1,4 @@
-import { ApiError, apiFetchJson } from './api';
+import { ApiError, apiFetchJson } from './api/api';
 import { clearSensitiveAccessToken, setSensitiveAccessToken } from './session';
 
 type SensitiveAccessVerifyResponse = {

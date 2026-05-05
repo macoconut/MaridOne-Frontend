@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { EmployeeSortKey } from '../../../../lib/employeeSort';
+import type { EmployeeSortKey } from '../../../../lib/utils/employeeSort';
 import type { DisputeStatusFilter, DisputeTypeFilter } from '../types';
 
 export function usePayslipFilters() {

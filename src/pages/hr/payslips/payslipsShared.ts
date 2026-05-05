@@ -1,5 +1,5 @@
 import { ApiError, apiFetchJson, toArray } from '../../../lib/api';
-import { extractAttachmentReference } from '../../../lib/documentAttachments';
+import { extractAttachmentReference } from '../../../lib/document/documentAttachments';
 import {
   employeeLabel,
   employeeLabelFromParts,
@@ -8,7 +8,7 @@ import {
   toMoneyString,
   toOptionalMoneyString,
   toOptionalText,
-} from '../../../lib/formatters';
+} from '../../../lib/utils/formatters';
 import { getManilaNow } from '../../../lib/manilaTime';
 import { formatPayrollRunTypeLabel } from '../../../lib/payrollRunLabels';
 import type { EmployeeOption } from '../../../lib/types/employee';

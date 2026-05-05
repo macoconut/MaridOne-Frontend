@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
-import LargePopup from '../../../components/dialog/LargePopup';
-import PageHeader from '../../../components/layout/PageHeader';
-import SensitiveAccessIndicator from '../../../components/security/SensitiveAccessIndicator';
-import SensitiveAccessModal from '../../../components/security/SensitiveAccessModal';
-import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
-import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
-import { useSensitiveAccessPrompt } from '../../../hooks/useSensitiveAccessPrompt';
-import { apiFetchJson, toArray } from '../../../lib/api';
-import { formatDate } from '../../../lib/formatters';
-import type { PayTypeSummaryRow, PayrollItemRow, PayrollRunRow } from '../../../lib/types/payroll';
-import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
+import LargePopup from '@/components/dialog/LargePopup';
+import PageHeader from '@/components/layout/PageHeader';
+import SensitiveAccessIndicator from '@/components/security/SensitiveAccessIndicator';
+import SensitiveAccessModal from '@/components/security/SensitiveAccessModal';
+import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
+import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
+import { useSensitiveAccessPrompt } from '@/hooks/useSensitiveAccessPrompt';
+import { apiFetchJson, toArray } from '@/lib/api/api';
+import { formatDate } from '@/lib/utils/formatters';
+import type { PayTypeSummaryRow, PayrollItemRow, PayrollRunRow } from '@/lib/types/payroll';
+import { getFriendlyErrorMessage } from '@/lib/uiErrors';
 import './PayrollDashboard.css';
 
 type HistoryPoint = {
@@ -321,9 +321,9 @@ export default function AccountingPayrollDashboard({
         const runDataPromises = runsInRange.map(async (run) => {
           const response = await apiFetchJson<unknown>(`/api/payroll/run/${run.payId}/items?page=0&size=1000`);
           const rows = toArray<PayrollItemRow>(response);
-          const grossTotal = rows.reduce((sum, row) => sum + toAmount(row.grossPay), 0);
+          const grossTotal = rows.reduce((sum: number, row: PayrollItemRow) => sum + toAmount(row.grossPay), 0);
           const employerContributionTotal = rows.reduce(
-            (sum, row) => sum + toAmount(row.employerContributionTotal),
+            (sum: number, row: PayrollItemRow) => sum + toAmount(row.employerContributionTotal),
             0
           );
           return {

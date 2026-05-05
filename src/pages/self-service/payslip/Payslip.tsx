@@ -15,7 +15,7 @@ import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
 import { useUnsavedChangesPrompt } from '../../../hooks/useUnsavedChangesPrompt';
-import { toMoneyString, toOptionalMoneyString, toOptionalText } from '../../../lib/formatters';
+import { toMoneyString, toOptionalMoneyString, toOptionalText } from '../../../lib/utils/formatters';
 import type { EmployeeDetails } from '../../../lib/types/employee';
 import type { PayrollDisputeRow as DisputeRow, PayrollItemReference as PayrollItemRow } from '../../../lib/types/payroll';
 import './Payslip.css';

@@ -9,7 +9,8 @@ import {
   setAuthToken,
   setRequiresPasswordChange,
   setRefreshToken,
-} from './session';
+} from '../session';
+import type { ErrorResponseDto } from '../types/error';
 
 type ApiLocation = Pick<Location, 'origin' | 'protocol' | 'hostname' | 'port'>;
 
@@ -50,15 +51,22 @@ const PORTAL_ACCESS_REMOVED_REASON = 'portal-access-removed';
 
 export class ApiError extends Error {
   status: number;
+  code: string;
+  timestamp: string;
   rawMessage: string;
-  details: string[];
 
-  constructor(status: number, message: string, rawMessage = message, details: string[] = []) {
-    super(message);
+  constructor(
+    error: ErrorResponseDto,
+  ) {
+    super(error.message);
+
     this.name = 'ApiError';
-    this.status = status;
-    this.rawMessage = rawMessage;
-    this.details = details;
+
+    this.status = error.status;
+    this.code = error.code;
+    this.timestamp = error.timestamp;
+
+    this.rawMessage = error.message;
   }
 }
 
@@ -144,85 +152,69 @@ function fallbackRequestMessage(fallbackStatus: number) {
   return fallbackStatus > 0 ? `Request failed (${fallbackStatus})` : 'Something went wrong';
 }
 
-function toDisplayErrorFromPayload(data: unknown, fallbackStatus: number, rawText = ''): {
-  message: string;
-  details: string[];
-} {
-  const details: string[] = [];
-
+function toDisplayErrorFromPayload(
+  data: unknown,
+  fallbackStatus: number,
+  rawText = ''
+): { message: string } {
   if (data && typeof data === 'object') {
     const obj = data as Record<string, unknown>;
 
-    if (typeof obj.message === 'string' && obj.message.trim().length > 0) {
-      details.push(obj.message.trim());
+    if (typeof obj.message === 'string' && obj.message.trim()) {
+      return { message: obj.message.trim() };
     }
 
-    if (typeof obj.error === 'string' && obj.error.trim().length > 0) {
-      details.push(obj.error.trim());
-    }
-
-    if (Array.isArray(obj.errors) && obj.errors.length > 0) {
-      for (const item of obj.errors) {
-        if (typeof item === 'string' && item.trim().length > 0) {
-          details.push(item.trim());
-          continue;
-        }
-
-        if (item && typeof item === 'object') {
-          const entry = item as Record<string, unknown>;
-          if (typeof entry.defaultMessage === 'string' && entry.defaultMessage.trim().length > 0) {
-            details.push(entry.defaultMessage.trim());
-          }
-        }
-      }
+    if (typeof obj.error === 'string' && obj.error.trim()) {
+      return { message: obj.error.trim() };
     }
   }
 
-  const uniqueDetails = [...new Set(details)];
-  const message = uniqueDetails[0];
-
-  if (message) {
-    return { message, details: uniqueDetails };
+  if (rawText && rawText.trim().length <= 250) {
+    return { message: rawText.trim() };
   }
 
-  if (rawText && !data) {
-    const trimmedRawText = rawText.trim();
-    if (trimmedRawText.length > 0 && trimmedRawText.length <= 250) {
-      return { message: trimmedRawText, details: [] };
-    }
-  }
-
-  return { message: fallbackRequestMessage(fallbackStatus), details: [] };
+  return {
+    message: fallbackRequestMessage(fallbackStatus),
+  };
 }
 
-export function toDisplayError(error: unknown, fallbackStatus = 0): {
-  message: string;
-  details: string[];
-} {
+export function toDisplayError(
+  error: unknown,
+  fallbackStatus = 0
+): { message: string } {
   if (error instanceof ApiError) {
-    const message = error.message?.trim() || error.rawMessage?.trim() || fallbackRequestMessage(error.status || fallbackStatus);
-    const details = error.details.length > 0 ? [...new Set(error.details)] : [];
-    return { message, details };
+    return {
+      message: error.message?.trim() || fallbackRequestMessage(error.status || fallbackStatus),
+    };
   }
 
   if (error instanceof Error) {
-    const message = error.message?.trim() || fallbackRequestMessage(fallbackStatus);
-    return { message, details: [] };
+    return {
+      message: error.message?.trim() || fallbackRequestMessage(fallbackStatus),
+    };
   }
 
-  if (typeof error === 'string' && error.trim().length > 0) {
-    return { message: error.trim(), details: [] };
+  if (typeof error === 'string' && error.trim()) {
+    return { message: error.trim() };
   }
 
   return toDisplayErrorFromPayload(error, fallbackStatus);
 }
 
-function throwApiErrorIfNeeded(response: Response, text: string) {
+export function throwApiErrorIfNeeded(response: Response, text: string): void {
   if (response.ok) return;
 
   const data = parseJsonSafely(text);
-  const { message, details } = toDisplayErrorFromPayload(data, response.status, text);
-  throw new ApiError(response.status, message, message, details);
+  const dto = data && typeof data === 'object' ? (data as Record<string, unknown>) : null;
+
+  const errorDto: ErrorResponseDto = {
+    code: typeof dto?.code === 'string' ? dto.code : 'UNKNOWN_ERROR',
+    message: typeof dto?.message === 'string' ? dto.message : text || 'Something went wrong',
+    status: response.status,
+    timestamp: typeof dto?.timestamp === 'string' ? dto.timestamp : new Date().toISOString(),
+  };
+
+  throw new ApiError(errorDto);
 }
 
 async function refreshAccessToken(): Promise<boolean> {

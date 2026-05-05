@@ -1,4 +1,4 @@
-import { ApiError, apiFetchJson, apiFetchText, getApiBaseUrl } from './api';
+import { apiFetchJson, apiFetchText, getApiBaseUrl, throwApiErrorIfNeeded } from './api/api';
 
 export type TwoFactorSetupResponse = {
   qrCodeImageUri?: string;
@@ -54,7 +54,7 @@ export function verifyEmailToken(token: string, init: RequestInit = {}) {
     const text = await response.text();
 
     if (!response.ok) {
-      throw new ApiError(response.status, text || `Request failed (${response.status})`, text || '');
+      throw throwApiErrorIfNeeded(response, text);
     }
 
     return text;

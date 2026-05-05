@@ -11,8 +11,8 @@ import PageHeader from '../../../components/layout/PageHeader';
 import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
 import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
 import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
-import { apiFetchJson, toArray } from '../../../lib/api';
-import { compareEmployees, type EmployeeSortKey } from '../../../lib/employeeSort';
+import { apiFetchJson, toArray } from '../../../lib/api/api';
+import { compareEmployees, type EmployeeSortKey } from '../../../lib/utils/employeeSort';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
 import { getManilaNow } from '../../../lib/manilaTime';
 import {
@@ -20,7 +20,7 @@ import {
   toMoneyString,
   toOptionalMoneyString,
   toOptionalText,
-} from '../../../lib/formatters';
+} from '../../../lib/utils/formatters';
 import type {
   EmployeeDirectoryEntry,
   EmployeeReportRow,

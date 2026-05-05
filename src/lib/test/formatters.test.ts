@@ -7,7 +7,7 @@ import {
   formatDate,
   employeeLabel,
   employeeLabelFromParts,
-} from './formatters'
+} from '../utils/formatters'
 
 describe('toMoneyString', () => {
   it('formats finite numbers to 2dp', () => {

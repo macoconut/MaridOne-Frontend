@@ -1,26 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { ApiError, resolveApiBaseUrl, toDisplayError } from './api';
+import { ApiError, resolveApiBaseUrl, toDisplayError } from '../api/api';
 
 describe('toDisplayError', () => {
-  it('formats ApiError with details', () => {
-    const out = toDisplayError(new ApiError(400, 'bad', 'bad', ['field must be positive']));
-
+  it('formats ApiError with message', () => {
+    const error = new ApiError({
+      code: 'VALIDATION_ERROR',
+      message: 'bad',
+      status: 400,
+      timestamp: new Date().toISOString(),
+    });
+    const out = toDisplayError(error);
     expect(out.message).toBe('bad');
-    expect(out.details).toEqual(['field must be positive']);
   });
 
   it('formats plain Error', () => {
     const out = toDisplayError(new Error('boom'));
-
     expect(out.message).toBe('boom');
-    expect(out.details).toEqual([]);
   });
 
   it('handles unknown input', () => {
     const out = toDisplayError('nope');
-
-    expect(out.message).toBe('nope');
-    expect(out.details).toEqual([]);
+    expect(out.message).toBe('nope')
   });
 });
 

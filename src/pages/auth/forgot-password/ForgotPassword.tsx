@@ -3,7 +3,7 @@ import { useRef, useState } from 'react';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import { useUiDialog } from '../../../components/dialog/useUiDialog';
-import { apiFetchText } from '../../../lib/api';
+import { apiFetchText } from '../../../lib/api/api';
 import '../login/Login.css';
 
 export default function ForgotPassword() {

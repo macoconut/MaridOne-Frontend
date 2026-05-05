@@ -14,7 +14,7 @@ import {
   extractFirstId,
   firstFromCollection,
   type PlaceholderContext,
-} from '../../lib/backendTest';
+} from '../../lib/test/backendTest';
 import type { NavSection } from '../../components/navigation/SidebarNavSection';
 import { useRoleLayout } from '../../hooks/useRoleLayout';
 import { RoleShell } from '../shared/RoleShell';

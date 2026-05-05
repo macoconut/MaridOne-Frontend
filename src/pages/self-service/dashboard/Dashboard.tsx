@@ -14,7 +14,7 @@ import {
   downloadLibraryDocument,
   handbookLibraryCard,
   openLibraryDocument,
-} from '../../../lib/materialLibrary';
+} from '../../../lib/document/publicLibrary';
 import { getSelfServicePath } from '../../../lib/roleRoutes';
 import { getAuthToken, getUserEmail, getUserRole } from '../../../lib/session';
 import { getFriendlyErrorMessage } from '../../../lib/uiErrors';

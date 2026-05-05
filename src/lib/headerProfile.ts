@@ -1,5 +1,5 @@
-import { apiFetchRaw } from './api';
-import { extractFirstId } from './backendTest';
+import { apiFetchRaw } from './api/api';
+import { extractFirstId } from './test/backendTest';
 
 type JsonRecord = Record<string, unknown>;
 

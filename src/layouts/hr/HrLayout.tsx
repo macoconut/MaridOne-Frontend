@@ -20,7 +20,7 @@ import {
   extractFirstId,
   firstFromCollection,
   type PlaceholderContext,
-} from '../../lib/backendTest';
+} from '../../lib/test/backendTest';
 import { useRoleLayout } from '../../hooks/useRoleLayout';
 import { RoleShell } from '../shared/RoleShell';
 import { useNotificationCenter } from '../shared/useNotificationCenter';
