@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { verifyEmailToken } from '../../lib/accountSecurity';
-import { useErrorDialogEffect } from '../../hooks/useErrorDialogEffect';
-import { getFriendlyErrorMessage } from '../../lib/uiErrors';
+import { verifyEmailToken } from '@/lib/accountSecurity';
+import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
+import { getFriendlyErrorMessage } from '@/lib/uiErrors';
 import './VerifyEmail.css';
 
 const VERIFY_REQUEST_TIMEOUT_MS = 15000;

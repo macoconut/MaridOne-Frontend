@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
-import { toArray } from '../../../lib/api';
-import { getManilaNow } from '../../../lib/manilaTime';
-import { evaluateDailyAttendanceCoverage } from '../../../lib/attendance/dailyAttendanceEvaluator';
+import { toArray } from '@/lib/api/api';
+import { getManilaNow } from '@/lib/manilaTime';
+import { evaluateDailyAttendanceCoverage } from '@/lib/attendance/dailyAttendanceEvaluator';
 import type {
   AttendanceEmployeeRow as EmployeeRow,
   AttendanceLeaveRequest as LeaveRequest,
@@ -9,7 +9,7 @@ import type {
   AttendanceOvertimeRequest as OvertimeRequest,
   DailyShift,
   HolidayLookupPayload,
-} from '../../../lib/types/attendance';
+} from '@/lib/types/attendance';
 
 export type FeedItem = {
   id: string;

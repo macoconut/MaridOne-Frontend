@@ -5,22 +5,22 @@ import LargePopup from '../../../components/dialog/LargePopup';
 type AggregatedEmployeeRow = EmployeeReportRow & {
   itemIds: number[];
 };
-import EmployeeSortMenu from '../../../components/layout/EmployeeSortMenu';
-import SortMenu, { type SortOption } from '../../../components/layout/SortMenu';
-import PageHeader from '../../../components/layout/PageHeader';
-import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
-import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
-import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
-import { apiFetchJson, toArray } from '../../../lib/api/api';
-import { compareEmployees, type EmployeeSortKey } from '../../../lib/utils/employeeSort';
-import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
-import { getManilaNow } from '../../../lib/manilaTime';
+import EmployeeSortMenu from '@/components/layout/EmployeeSortMenu';
+import SortMenu, { type SortOption } from '@/components/layout/SortMenu';
+import PageHeader from '@/components/layout/PageHeader';
+import { useEscapeDismiss } from '@/hooks/useEscapeDismiss';
+import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
+import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
+import { apiFetchJson, toArray } from '@/lib/api/api';
+import { compareEmployees, type EmployeeSortKey } from '@/lib/utils/employeeSort';
+import { getFriendlyErrorMessage } from '@/lib/uiErrors';
+import { getManilaNow } from '@/lib/manilaTime';
 import {
   formatDateTime,
   toMoneyString,
   toOptionalMoneyString,
   toOptionalText,
-} from '../../../lib/utils/formatters';
+} from '@/lib/utils/formatters';
 import type {
   EmployeeDirectoryEntry,
   EmployeeReportRow,
@@ -28,7 +28,7 @@ import type {
   PayrollBreakdownLine,
   PayrollItemRow,
   PayrollRunRow,
-} from '../../../lib/types/payroll';
+} from '@/lib/types/payroll';
 import './PayrollReview.css';
 
 type ReportView = 'employee' | 'payType';

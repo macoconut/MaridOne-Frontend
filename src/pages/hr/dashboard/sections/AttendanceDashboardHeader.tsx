@@ -1,6 +1,6 @@
 import { FiCalendar, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 
-import PageHeader from '../../../../components/layout/PageHeader';
+import PageHeader from '@/components/layout/PageHeader';
 
 type AttendanceDashboardHeaderProps = {
   description?: string;

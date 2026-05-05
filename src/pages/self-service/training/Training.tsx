@@ -1,15 +1,15 @@
 import { useMemo, useState } from 'react';
 import { FiChevronDown, FiDownload, FiFileText } from 'react-icons/fi';
-import ActionButton from '../../../components/button/ActionButton';
-import PageHeader from '../../../components/layout/PageHeader';
-import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
+import ActionButton from '@/components/button/ActionButton';
+import PageHeader from '@/components/layout/PageHeader';
+import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
 import {
   downloadLibraryDocument,
   materialLibrarySections,
   openLibraryDocument,
   type LibraryDocument,
-} from '../../../lib/document/publicLibrary';
-import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
+} from '@/lib/document/publicLibrary';
+import { getFriendlyErrorMessage } from '@/lib/uiErrors';
 import './Training.css';
 
 export default function Training() {

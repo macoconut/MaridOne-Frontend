@@ -1,8 +1,8 @@
 import type { RefObject } from 'react';
 import { FiChevronDown, FiX } from 'react-icons/fi';
-import LargePopup from '../../../../components/dialog/LargePopup';
-import { formatDate, formatDateTime } from '../../../../lib/utils/formatters';
-import type { EmployeeOption } from '../../../../lib/types/employee';
+import LargePopup from '@/components/dialog/LargePopup';
+import { formatDate, formatDateTime } from '@/lib/utils/formatters';
+import type { EmployeeOption } from '@/lib/types/employee';
 import { formatCurrency, formatRunType, getStandardPaymentDate } from '../payslipsShared';
 import type {
   CorrectionIntent,

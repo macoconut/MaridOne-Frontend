@@ -1,14 +1,14 @@
 import { Outlet } from 'react-router-dom';
 import { FiBarChart2, FiClipboard } from 'react-icons/fi';
-import BackendTestPanel from '../../components/layout/BackendTestPanel';
-import type { NavSection } from '../../components/navigation/SidebarNavSection';
-import { BACKEND_TEST_MODE } from '../../config/flags';
+import BackendTestPanel from '@/components/layout/BackendTestPanel';
+import type { NavSection } from '@/components/navigation/SidebarNavSection';
+import { BACKEND_TEST_MODE } from '@/config/flags';
 import {
   extractFirstId,
   firstFromCollection,
   type PlaceholderContext,
-} from '../../lib/test/backendTest';
-import { useRoleLayout } from '../../hooks/useRoleLayout';
+} from '@/lib/test/backendTest';
+import { useRoleLayout } from '@/hooks/useRoleLayout';
 import { RoleShell } from '../shared/RoleShell';
 import type { BackendTestAction } from '../shared/useBackendTestRunner';
 

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 import LargePopup from '../dialog/LargePopup';
-import { verifySensitiveAccess } from '../../lib/sensitiveAccess';
-import { getFriendlyErrorMessage } from '../../lib/uiErrors';
+import { verifySensitiveAccess } from '@/lib/sensitiveAccess';
+import { getFriendlyErrorMessage } from '@/lib/uiErrors';
 
 type SensitiveAccessModalProps = {
   open: boolean;

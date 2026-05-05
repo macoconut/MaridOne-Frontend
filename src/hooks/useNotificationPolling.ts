@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { apiFetchRaw } from '../lib/api';
+import { apiFetchRaw } from '../lib/api/api';
 import {
   mapNotificationItem,
   type NotificationItem,

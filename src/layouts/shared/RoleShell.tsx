@@ -1,13 +1,13 @@
 import { FiMenu } from 'react-icons/fi'
 import type { ComponentProps, ReactNode } from 'react'
 
-import AppFooter from '../../components/layout/AppFooter'
-import NotificationCenter from '../../components/layout/NotificationCenter'
-import HeaderRefreshButton from '../../components/navigation/HeaderRefreshButton'
-import type { NavSection } from '../../components/navigation/SidebarNavSection'
-import RoleSidebar from '../../components/navigation/RoleSidebar'
-import SettingsModal from '../../components/settings/SettingsModal'
-import { PageRefreshProvider } from '../../lib/pageRefresh'
+import AppFooter from '@/components/layout/AppFooter'
+import NotificationCenter from '@/components/layout/NotificationCenter'
+import HeaderRefreshButton from '@/components/navigation/HeaderRefreshButton'
+import type { NavSection } from '@/components/navigation/SidebarNavSection'
+import RoleSidebar from '@/components/navigation/RoleSidebar'
+import SettingsModal from '@/components/settings/SettingsModal'
+import { PageRefreshProvider } from '@/lib/pageRefresh'
 import './RoleLayout.css'
 
 type RoleShellProps = {

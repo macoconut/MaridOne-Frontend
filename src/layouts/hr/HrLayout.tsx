@@ -12,16 +12,16 @@ import {
   FiCreditCard,
   FiActivity,
 } from 'react-icons/fi';
-import BackendTestPanel from '../../components/layout/BackendTestPanel';
-import type { NavSection } from '../../components/navigation/SidebarNavSection';
-import '../shared/hr-theme.css';
-import { BACKEND_TEST_MODE } from '../../config/flags';
+import BackendTestPanel from '@/components/layout/BackendTestPanel';
+import type { NavSection } from '@/components/navigation/SidebarNavSection';
+import '@/shared/hr-theme.css';
+import { BACKEND_TEST_MODE } from '@/config/flags';
 import {
   extractFirstId,
   firstFromCollection,
   type PlaceholderContext,
-} from '../../lib/test/backendTest';
-import { useRoleLayout } from '../../hooks/useRoleLayout';
+} from '@/lib/test/backendTest';
+import { useRoleLayout } from '@/hooks/useRoleLayout';
 import { RoleShell } from '../shared/RoleShell';
 import { useNotificationCenter } from '../shared/useNotificationCenter';
 import type { BackendTestAction } from '../shared/useBackendTestRunner';

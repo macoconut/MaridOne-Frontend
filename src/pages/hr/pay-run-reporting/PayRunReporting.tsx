@@ -4,26 +4,26 @@ import { FiCalendar, FiDownload, FiEye, FiFilter, FiMoreVertical, FiSearch, FiXC
 type AggregatedEmployeeRow = EmployeeReportRow & {
   itemIds: number[];
 };
-import LargePopup from '../../../components/dialog/LargePopup';
-import SensitiveAccessIndicator from '../../../components/security/SensitiveAccessIndicator';
-import SensitiveAccessModal from '../../../components/security/SensitiveAccessModal';
-import EmployeeSortMenu from '../../../components/layout/EmployeeSortMenu';
-import SortMenu, { type SortOption } from '../../../components/layout/SortMenu';
-import PageHeader from '../../../components/layout/PageHeader';
-import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
-import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
-import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
-import { useSensitiveAccessPrompt } from '../../../hooks/useSensitiveAccessPrompt';
-import { apiFetchJson, toArray } from '../../../lib/api';
-import { compareEmployees, type EmployeeSortKey } from '../../../lib/utils/employeeSort';
-import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
+import LargePopup from '@/components/dialog/LargePopup';
+import SensitiveAccessIndicator from '@/components/security/SensitiveAccessIndicator';
+import SensitiveAccessModal from '@/components/security/SensitiveAccessModal';
+import EmployeeSortMenu from '@/components/layout/EmployeeSortMenu';
+import SortMenu, { type SortOption } from '@/components/layout/SortMenu';
+import PageHeader from '@/components/layout/PageHeader';
+import { useEscapeDismiss } from '@/hooks/useEscapeDismiss';
+import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
+import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
+import { useSensitiveAccessPrompt } from '@/hooks/useSensitiveAccessPrompt';
+import { apiFetchJson, toArray } from '@/lib/api/api';
+import { compareEmployees, type EmployeeSortKey } from '@/lib/utils/employeeSort';
+import { getFriendlyErrorMessage } from '@/lib/uiErrors';
 import {
   formatDate,
   formatDateTime,
   toMoneyString,
   toOptionalMoneyString,
   toOptionalText,
-} from '../../../lib/utils/formatters';
+} from '@/lib/utils/formatters';
 import type {
   EmployeeDirectoryEntry,
   EmployeeReportRow,
@@ -31,7 +31,7 @@ import type {
   PayrollBreakdownLine,
   PayrollItemRow,
   PayrollRunRow,
-} from '../../../lib/types/payroll';
+} from '@/lib/types/payroll';
 import './PayRunReporting.css';
 
 type ReportView = 'employee' | 'payType';

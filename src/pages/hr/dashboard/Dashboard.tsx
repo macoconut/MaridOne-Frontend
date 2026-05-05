@@ -1,16 +1,16 @@
 import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
-import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
-import { apiFetchJson, toArray } from '../../../lib/api';
-import { getManilaNow } from '../../../lib/manilaTime';
+import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
+import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
+import { apiFetchJson, toArray } from '@/lib/api/api';
+import { getManilaNow } from '@/lib/manilaTime';
 import type {
   AttendanceEmployeeRow as EmployeeRow,
   AttendanceLeaveRequest as LeaveRequest,
   AttendanceLog,
   AttendanceOvertimeRequest as OvertimeRequest,
   DailyShift,
-} from '../../../lib/types/attendance';
+} from '@/lib/types/attendance';
 import {
   DEPARTMENTS_PER_PAGE,
   STATUS_CONFIG,
@@ -286,7 +286,7 @@ export function AttendanceOverviewDashboard({
       }
 
       if (rosterResult.status === 'fulfilled') {
-        setEmployees(rosterRows(rosterResult.value).filter((row) => Number.isFinite(row.id)));
+        setEmployees(rosterRows(rosterResult.value).filter((row: EmployeeRow) => Number.isFinite(row.id)));
       } else if (!isSilentRefresh) {
         setEmployees([]);
       }

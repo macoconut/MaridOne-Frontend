@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { apiFetchRaw, getApiBaseUrl } from '../../lib/api/api';
+import { apiFetchRaw, getApiBaseUrl } from '@/lib/api/api';
 import {
   applyBodyPlaceholders,
   applyPathPlaceholders,

@@ -1,22 +1,22 @@
-import { useLoading } from '../../../context/useLoading';
+import { useLoading } from '@/context/useLoading';
 import type { CSSProperties } from 'react';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import './Attendance.css';
 import { FiCalendar, FiCheckCircle, FiChevronLeft, FiChevronRight, FiClock, FiDownload, FiInfo, FiPlusSquare, FiPrinter, FiXCircle } from 'react-icons/fi';
-import ActionButton from '../../../components/button/ActionButton';
-import FileUploadField from '../../../components/form/FileUploadField';
-import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
-import LargePopup from '../../../components/dialog/LargePopup';
-import { useUiDialog } from '../../../components/dialog/useUiDialog';
-import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
-import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
-import { useUnsavedChangesPrompt } from '../../../hooks/useUnsavedChangesPrompt';
-import { ApiError, apiFetchJson, apiFetchRaw, toArray } from '../../../lib/api';
-import { uploadDocument } from '../../../lib/documentUpload';
-import { sanitizeFileNamePart } from '../../../lib/fileNames';
-import { getUserEmail, getUserRole } from '../../../lib/session';
-import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
-import { getManilaNow } from '../../../lib/manilaTime';
+import ActionButton from '@/components/button/ActionButton';
+import FileUploadField from '@/components/form/FileUploadField';
+import ConfirmDialog from '@/components/dialog/ConfirmDialog';
+import LargePopup from '@/components/dialog/LargePopup';
+import { useUiDialog } from '@/components/dialog/useUiDialog';
+import { useEscapeDismiss } from '@/hooks/useEscapeDismiss';
+import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
+import { useUnsavedChangesPrompt } from '@/hooks/useUnsavedChangesPrompt';
+import { ApiError, apiFetchJson, apiFetchRaw, toArray } from '@/lib/api/api';
+import { uploadDocument } from '@/lib/documentUpload';
+import { sanitizeFileNamePart } from '@/lib/fileNames';
+import { getUserEmail, getUserRole } from '@/lib/session';
+import { getFriendlyErrorMessage } from '@/lib/uiErrors';
+import { getManilaNow } from '@/lib/manilaTime';
 import { useAttendanceRequestForm } from './hooks/useAttendanceRequestForm';
 import AttendanceHeader from './sections/AttendanceHeader';
 import AttendanceSummary from './sections/AttendanceSummary';
@@ -27,8 +27,8 @@ import type {
   AttendanceOvertimeRequest as OvertimeRequestRow,
   DailyShift as DailyShiftRow,
   ShiftSchedule as ShiftScheduleRow,
-} from '../../../lib/types/attendance';
-import type { EmployeeDetails, LeaveBalanceRow } from '../../../lib/types/employee';
+} from '@/lib/types/attendance';
+import type { EmployeeDetails, LeaveBalanceRow } from '@/lib/types/employee';
 
 type LeaveType =
   | 'SICK_LEAVE'

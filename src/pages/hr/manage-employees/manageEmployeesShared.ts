@@ -1,4 +1,4 @@
-import type { EmployeeDetails, EmployeeOption, LeaveBalanceRow } from '../../../lib/types/employee';
+import type { EmployeeDetails, EmployeeOption, LeaveBalanceRow } from '@/lib/types/employee';
 import type {
   EmployeeRow,
   FormState,

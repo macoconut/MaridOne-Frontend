@@ -1,5 +1,5 @@
 import { FiCalendar, FiPlusSquare } from 'react-icons/fi';
-import PageHeader from '../../../../components/layout/PageHeader';
+import PageHeader from '@/components/layout/PageHeader';
 
 type AttendanceHeaderProps = {
   isClockOutAction: boolean;

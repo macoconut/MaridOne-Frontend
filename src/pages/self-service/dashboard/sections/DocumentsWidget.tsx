@@ -1,8 +1,8 @@
 import { FiDownload, FiFileText } from 'react-icons/fi';
 
-import ActionButton from '../../../../components/button/ActionButton';
-import MaterialArt from '../../../../components/document/MaterialArt';
-import { handbookLibraryCard } from '../../../../lib/document/publicLibrary';
+import ActionButton from '@/components/button/ActionButton';
+import MaterialArt from '@/components/document/MaterialArt';
+import { handbookLibraryCard } from '@/lib/document/publicLibrary';
 
 type DocumentsWidgetProps = {
   onDownload: () => void;

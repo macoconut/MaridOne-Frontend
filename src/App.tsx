@@ -8,7 +8,7 @@ import {
   getUserRole,
   type UserRole,
 } from './lib/session';
-import { FORCED_LOGOUT_EVENT } from './lib/api';
+import { FORCED_LOGOUT_EVENT } from './lib/api/api';
 import {
   getAllLoginAliases,
   getRoleHomePath,

@@ -10,15 +10,15 @@ import {
   FiGrid,
 } from 'react-icons/fi';
 import { useCallback } from 'react';
-import BackendTestPanel from '../../components/layout/BackendTestPanel';
-import type { NavSection } from '../../components/navigation/SidebarNavSection';
-import { BACKEND_TEST_MODE } from '../../config/flags';
+import BackendTestPanel from '@/components/layout/BackendTestPanel';
+import type { NavSection } from '@/components/navigation/SidebarNavSection';
+import { BACKEND_TEST_MODE } from '@/config/flags';
 import {
   extractFirstId,
   firstFromCollection,
   type PlaceholderContext,
-} from '../../lib/test/backendTest';
-import { useRoleLayout } from '../../hooks/useRoleLayout';
+} from '@/lib/test/backendTest';
+import { useRoleLayout } from '@/hooks/useRoleLayout';
 import { RoleShell } from '../shared/RoleShell';
 import { useNotificationCenter } from '../shared/useNotificationCenter';
 import type { BackendTestAction } from '../shared/useBackendTestRunner';

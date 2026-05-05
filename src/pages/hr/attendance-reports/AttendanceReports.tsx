@@ -8,16 +8,16 @@ import {
   FiUpload,
   FiUsers,
 } from 'react-icons/fi';
-import LargePopup from '../../../components/dialog/LargePopup';
-import FileUploadField from '../../../components/form/FileUploadField';
-import PageHeader from '../../../components/layout/PageHeader';
-import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
-import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
-import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
-import { apiFetchJson, toArray } from '../../../lib/api';
-import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
-import { getManilaNow } from '../../../lib/manilaTime';
-import { evaluateDailyAttendanceCoverage } from '../../../lib/attendance/dailyAttendanceEvaluator';
+import LargePopup from '@/components/dialog/LargePopup';
+import FileUploadField from '@/components/form/FileUploadField';
+import PageHeader from '@/components/layout/PageHeader';
+import { useEscapeDismiss } from '@/hooks/useEscapeDismiss';
+import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
+import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
+import { apiFetchJson, toArray } from '@/lib/api/api';
+import { getFriendlyErrorMessage } from '@/lib/uiErrors';
+import { getManilaNow } from '@/lib/manilaTime';
+import { evaluateDailyAttendanceCoverage } from '@/lib/attendance/dailyAttendanceEvaluator';
 import { useAttendanceReportFilters, type AttendanceStatusFilter } from './hooks/useAttendanceReportFilters';
 import AttendanceReportToolbar from './sections/AttendanceReportToolbar';
 import type {
@@ -27,7 +27,7 @@ import type {
   AttendanceOvertimeRequest as OvertimeRequest,
   DailyShift,
   HolidayLookupPayload,
-} from '../../../lib/types/attendance';
+} from '@/lib/types/attendance';
 import './AttendanceReports.css';
 
 type DayCell = {

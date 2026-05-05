@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { BackendTestAction } from '../../layouts/shared/useBackendTestRunner';
+import type { BackendTestAction } from '@/layouts/shared/useBackendTestRunner';
 
 type BackendTestPanelProps = {
   actions: BackendTestAction[];

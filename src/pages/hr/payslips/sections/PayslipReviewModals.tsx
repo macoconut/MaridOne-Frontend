@@ -1,11 +1,11 @@
 import { FiEdit2 } from 'react-icons/fi';
-import LargePopup from '../../../../components/dialog/LargePopup';
-import { formatDate, formatDateTime } from '../../../../lib/utils/formatters';
+import LargePopup from '@/components/dialog/LargePopup';
+import { formatDate, formatDateTime } from '@/lib/utils/formatters';
 import {
   formatPayrollRunTypeLabel,
   formatPayrollStatusLabel,
-} from '../../../../lib/payrollRunLabels';
-import type { PayrollRunRow as PayrollRunDto } from '../../../../lib/types/payroll';
+} from '@/lib/payrollRunLabels';
+import type { PayrollRunRow as PayrollRunDto } from '@/lib/types/payroll';
 import { formatCurrency } from '../payslipsShared';
 import type { CorrectionLine, DisputeRow, PayrollItemSummaryRow } from '../types';
 

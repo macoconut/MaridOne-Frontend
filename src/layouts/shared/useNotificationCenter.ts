@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useEscapeDismiss } from '../../hooks/useEscapeDismiss';
-import useAnimatedPresence from '../../hooks/useAnimatedPresence';
-import { useNotificationPolling } from '../../hooks/useNotificationPolling';
-import { apiFetchRaw } from '../../lib/api';
-import { routeWheelToScrollableChild } from '../../lib/scrollContain';
-import type { NotificationItem, NotificationRole } from '../../lib/notificationRouting';
+import { useEscapeDismiss } from '@/hooks/useEscapeDismiss';
+import useAnimatedPresence from '@/hooks/useAnimatedPresence';
+import { useNotificationPolling } from '@/hooks/useNotificationPolling';
+import { apiFetchRaw } from '@/lib/api/api';
+import { routeWheelToScrollableChild } from '@/lib/scrollContain';
+import type { NotificationItem, NotificationRole } from '@/lib/notificationRouting';
 
 export function useNotificationCenter(
   role: NotificationRole,

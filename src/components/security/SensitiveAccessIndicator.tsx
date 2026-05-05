@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { FiLock, FiUnlock } from 'react-icons/fi';
-import { clearSensitiveAccessSession } from '../../lib/sensitiveAccess';
-import { getSensitiveAccessExpiry, getSensitiveAccessToken } from '../../lib/session';
+import { clearSensitiveAccessSession } from '@/lib/sensitiveAccess';
+import { getSensitiveAccessExpiry, getSensitiveAccessToken } from '@/lib/session';
 import './SensitiveAccessIndicator.css';
 
 type SensitiveAccessIndicatorProps = {

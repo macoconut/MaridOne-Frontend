@@ -1,14 +1,14 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
-import LargePopup from '../../../components/dialog/LargePopup';
-import PageHeader from '../../../components/layout/PageHeader';
-import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
-import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
-import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
-import { apiFetchJson, toArray } from '../../../lib/api';
-import { formatDate, formatDateTime } from '../../../lib/utils/formatters';
-import type { PayrollRunRow } from '../../../lib/types/payroll';
-import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
+import LargePopup from '@/components/dialog/LargePopup';
+import PageHeader from '@/components/layout/PageHeader';
+import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
+import { useEscapeDismiss } from '@/hooks/useEscapeDismiss';
+import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
+import { apiFetchJson, toArray } from '@/lib/api/api';
+import { formatDate, formatDateTime } from '@/lib/utils/formatters';
+import type { PayrollRunRow } from '@/lib/types/payroll';
+import { getFriendlyErrorMessage } from '@/lib/uiErrors';
 import './AuditLogs.css';
 
 type ActivityLogRow = {

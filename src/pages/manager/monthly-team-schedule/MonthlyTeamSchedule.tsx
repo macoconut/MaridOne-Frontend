@@ -1,14 +1,14 @@
 import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FiCalendar, FiChevronDown, FiChevronLeft, FiChevronRight, FiFilter, FiSave, FiX } from 'react-icons/fi';
-import LargePopup from '../../../components/dialog/LargePopup';
-import { useUiDialog } from '../../../components/dialog/useUiDialog';
-import PageHeader from '../../../components/layout/PageHeader';
-import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
-import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
-import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
-import { apiFetchJson, toArray } from '../../../lib/api';
-import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
+import LargePopup from '@/components/dialog/LargePopup';
+import { useUiDialog } from '@/components/dialog/useUiDialog';
+import PageHeader from '@/components/layout/PageHeader';
+import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
+import { useEscapeDismiss } from '@/hooks/useEscapeDismiss';
+import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
+import { apiFetchJson, toArray } from '@/lib/api/api';
+import { getFriendlyErrorMessage } from '@/lib/uiErrors';
 import '../../hr/attendance-reports/AttendanceReports.css';
 import {
   buildDailyOverrideDraft,

@@ -13,7 +13,7 @@ import {
   sendEmailVerification,
   type TwoFactorSetupResponse,
 } from '../../lib/accountSecurity';
-import { apiFetchJson } from '../../lib/api';
+import { apiFetchJson } from '@/lib/api/api';
 import {
   getStoredReduceMotion,
   getStoredSidebarCollapsed,
@@ -21,8 +21,8 @@ import {
   setStoredSidebarCollapsed,
   subscribeToUiPreferencesChange,
 } from '../../lib/uiPreferences';
-import { getFriendlyErrorMessage } from '../../lib/uiErrors';
-import { clearSession, getUserEmail } from '../../lib/session';
+import { getFriendlyErrorMessage } from '@/lib/uiErrors';
+import { clearSession, getUserEmail } from '@/lib/session';
 import './SettingsPanel.css';
 
 type UserDetails = {

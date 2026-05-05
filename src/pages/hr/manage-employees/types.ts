@@ -1,4 +1,4 @@
-import type { EmployeeDetails, LeaveBalanceRow } from '../../../lib/types/employee';
+import type { EmployeeDetails, LeaveBalanceRow } from '@/lib/types/employee';
 
 export type ModalType = 'add' | 'edit' | 'delete' | null;
 export type ConfirmAction = 'edit' | 'delete';

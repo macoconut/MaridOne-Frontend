@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import useAnimatedPresence from '../../hooks/useAnimatedPresence';
+import useAnimatedPresence from '@/hooks/useAnimatedPresence';
 import './Landing.css';
 
 export default function Landing() {

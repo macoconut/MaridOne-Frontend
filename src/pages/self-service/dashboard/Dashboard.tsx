@@ -1,26 +1,26 @@
-import { useLoading } from '../../../context/useLoading';
+import { useLoading } from '@/context/useLoading';
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
-import { useUiDialog } from '../../../components/dialog/useUiDialog';
-import PageHeader from '../../../components/layout/PageHeader';
-import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
-import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
-import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
-import { useSensitiveAccessPrompt } from '../../../hooks/useSensitiveAccessPrompt';
-import SensitiveAccessModal from '../../../components/security/SensitiveAccessModal';
-import { apiFetchJson, toArray } from '../../../lib/api';
+import ConfirmDialog from '@/components/dialog/ConfirmDialog';
+import { useUiDialog } from '@/components/dialog/useUiDialog';
+import PageHeader from '@/components/layout/PageHeader';
+import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
+import { useEscapeDismiss } from '@/hooks/useEscapeDismiss';
+import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
+import { useSensitiveAccessPrompt } from '@/hooks/useSensitiveAccessPrompt';
+import SensitiveAccessModal from '@/components/security/SensitiveAccessModal';
+import { apiFetchJson, toArray } from '@/lib/api/api';
 import {
   downloadLibraryDocument,
   handbookLibraryCard,
   openLibraryDocument,
-} from '../../../lib/document/publicLibrary';
-import { getSelfServicePath } from '../../../lib/roleRoutes';
-import { getAuthToken, getUserEmail, getUserRole } from '../../../lib/session';
-import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
-import { getManilaNow } from '../../../lib/manilaTime';
-import type { AttendanceLeaveRequest as LeaveRequestRow, AttendanceLog, ShiftSchedule as ShiftScheduleRow } from '../../../lib/types/attendance';
-import type { LeaveBalanceRow } from '../../../lib/types/employee';
+} from '@/lib/document/publicLibrary';
+import { getSelfServicePath } from '@/lib/roleRoutes';
+import { getAuthToken, getUserEmail, getUserRole } from '@/lib/session';
+import { getFriendlyErrorMessage } from '@/lib/uiErrors';
+import { getManilaNow } from '@/lib/manilaTime';
+import type { AttendanceLeaveRequest as LeaveRequestRow, AttendanceLog, ShiftSchedule as ShiftScheduleRow } from '@/lib/types/attendance';
+import type { LeaveBalanceRow } from '@/lib/types/employee';
 import {
   createAnnouncementDraft,
   createBankAccountDrafts,
