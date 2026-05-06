@@ -1,5 +1,6 @@
-import { throwApiErrorIfNeeded, apiFetchRaw, ApiError } from '../api/api';
+import { ApiError } from '../../api';
 import type { Directory } from '@/enum/directories';
+import { batchUploadPrivateDocuments, uploadPublicDocument } from './document-api';
 
 const MAX_REQUEST_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 const MAX_ATTACHMENT_FILES = 5;
@@ -16,25 +17,13 @@ function validateFiles(files: File[]): void {
   if (totalSize > MAX_REQUEST_ATTACHMENT_BYTES) throw validationError(REQUEST_ATTACHMENT_TOO_LARGE_MESSAGE);
 }
 
-export async function batchUploadPrivateDocuments(files: File[], subDir: Directory, connectedId?: number): Promise<void> {
+
+export async function uploadPrivateDocuments(files: File[], subDir: Directory, connectedId?: number) {
   validateFiles(files);
+  return batchUploadPrivateDocuments(files, subDir, connectedId);
+}
 
-  const form = new FormData();
-  for (const file of files) {
-    form.append('files', file);
-  }
-  form.append('subDir', subDir);
-  if (connectedId != null) {
-    form.append('connectedId', String(connectedId));
-  }
-
-  const response = await apiFetchRaw('/api/document/private/upload/batch', {
-    method: 'POST',
-    body: form,
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throwApiErrorIfNeeded(response, text);
-  }
+export async function validateAndUploadPublicDocument(file: File) {
+  validateFiles([file]);
+  return uploadPublicDocument(file);
 }

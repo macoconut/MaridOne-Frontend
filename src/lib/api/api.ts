@@ -256,6 +256,7 @@ async function refreshAccessToken(): Promise<boolean> {
   return refreshPromise;
 }
 
+//use for auth related stuff or when you need the raw response for some reason
 export async function apiFetchRaw(path: string, init: RequestInit = {}, allowRetry = true): Promise<Response> {
   const token = getAuthToken();
   const method = String(init.method ?? 'GET').toUpperCase();
@@ -340,6 +341,7 @@ export async function apiFetchRaw(path: string, init: RequestInit = {}, allowRet
   return response;
 }
 
+//use this directly in most cases
 export async function apiFetchJson<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await apiFetchRaw(path, init);
   const text = await response.text();
@@ -349,6 +351,7 @@ export async function apiFetchJson<T>(path: string, init: RequestInit = {}): Pro
   return data as T;
 }
 
+//for edge cases
 export async function apiFetchText(path: string, init: RequestInit = {}): Promise<string> {
   const response = await apiFetchRaw(path, init);
   const text = await response.text();

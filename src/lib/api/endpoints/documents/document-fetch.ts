@@ -1,15 +1,14 @@
-import { apiFetchRaw, throwApiErrorIfNeeded } from '../api/api';
-import type { DocumentResponseDto } from './types/documentResponse';
+import type { DocumentResponseDto } from './types/document-types';
+import {
+  getPublicDocumentViewUrl,
+  getPublicDocumentDownloadUrl,
+  getPrivateDocumentViewUrl,
+  getPrivateDocumentDownloadUrl,
+  getPublicDocuments,
+  getPrivateDocuments,
+} from './document-api';
+import type { DocumentFilter } from './document-api';
 
-async function fetchPresignedUrl(endpoint: string): Promise<string> {
-  const response = await apiFetchRaw(endpoint, { method: 'GET' });
-  if (!response.ok) {
-    const errorBody = await response.text();
-    throwApiErrorIfNeeded(response, errorBody);
-    throw new Error('Unreachable'); 
-  }
-  return response.text();
-}
 
 export async function openDocumentAttachment(document: DocumentResponseDto): Promise<void> {
   const previewWindow = typeof window !== 'undefined' ? window.open('', '_blank') : null;
@@ -39,30 +38,26 @@ export async function downloadDocumentAttachment(document: DocumentResponseDto):
 }
 
 
-
-
 export async function fetchPublicDocumentList(): Promise<DocumentResponseDto[]> {
-  const response = await apiFetchRaw('/api/document/public/view/list', { method: 'GET' });
-  if (!response.ok) {
-    const text = await response.text();
-    throwApiErrorIfNeeded(response, text);
-    throw new Error('Unreachable');
-  }
-  return response.json() as Promise<DocumentResponseDto[]>;
+  return getPublicDocuments();
 }
 
-export async function fetchPublicDocumentViewUrl(pathId: number): Promise<string> {
-  return fetchPresignedUrl(`/api/document/public/view/${pathId}`);
+export async function fetchPublicDocumentViewUrl(pathId: number) {
+  return getPublicDocumentViewUrl(pathId);
 }
 
 export async function fetchPublicDocumentDownloadUrl(pathId: number): Promise<string> {
-  return fetchPresignedUrl(`/api/document/public/download/${pathId}`);
+  return getPublicDocumentDownloadUrl(pathId);
 }
 
 export async function fetchPrivateDocumentViewUrl(pathId: number): Promise<string> {
-  return fetchPresignedUrl(`/api/document/private/view/${pathId}`);
+  return getPrivateDocumentViewUrl(pathId);
 }
 
 export async function fetchPrivateDocumentDownloadUrl(pathId: number): Promise<string> {
-  return fetchPresignedUrl(`/api/document/private/download/${pathId}`);
+  return getPrivateDocumentDownloadUrl(pathId);
+}
+
+export async function fetchPrivateDocumentList(filter?: DocumentFilter): Promise<DocumentResponseDto[]> {
+  return getPrivateDocuments(filter);
 }

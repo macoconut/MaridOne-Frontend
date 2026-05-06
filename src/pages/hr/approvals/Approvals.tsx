@@ -9,7 +9,7 @@ import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '@/hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '@/lib/api/api';
-import {openDocumentAttachment} from '../../../lib/document/documentAttachments';
+import {openDocumentAttachment} from '@/lib/api/endpoints/documents/document-fetch';
 import {
   buildRequestSummaryMessage,
   formatLeaveDurationLabel,
@@ -272,7 +272,6 @@ export default function HrApprovals() {
       }
 
       const overtimeRows = toArray<OvertimeDto>(overtimeRes.value).map((item, idx) => {
-        const attachment = extractAttachmentReference(item.reason);
         const payLabel = item.paid === false ? 'Unpaid' : 'Paid';
         const overtimeTypeLabel = formatRequestTypeLabel(item.overtimeType || 'Overtime');
         return {
@@ -284,7 +283,7 @@ export default function HrApprovals() {
           type: 'Overtime' as const,
           source: 'overtime' as const,
           status: item.requestStatus || 'PENDING_MANAGER',
-          reason: attachment.cleanText,
+          reason: item.reason,
           referenceLabel: 'Work Date',
           referenceValue: formatRequestPeriodLabel('overtime', item.startTime, item.endTime, item.workDate),
           requestLabel: 'Overtime Request',
@@ -306,7 +305,6 @@ export default function HrApprovals() {
       });
 
       const leaveRows = toArray<LeaveDto>(leaveRes.value).map((item, idx) => {
-        const attachment = extractAttachmentReference(item.reason);
         const leaveTypeLabel = formatRequestTypeLabel(item.leaveType);
         const payLabel = item.paid === false ? 'Unpaid' : 'Paid';
         return {
@@ -319,7 +317,7 @@ export default function HrApprovals() {
           type: 'Leave' as const,
           source: 'leave' as const,
           status: item.requestStatus || 'PENDING_MANAGER',
-          reason: attachment.cleanText,
+          reason: item.reason,
           referenceLabel: 'Leave Period',
           referenceValue: formatRequestPeriodLabel('leave', item.startDateTime, item.endDateTime),
           requestLabel: 'Leave Request',

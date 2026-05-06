@@ -1,0 +1,12 @@
+export const LeaveType = {
+    VACATION_LEAVE: 'VACATION_LEAVE',
+    SICK_LEAVE: 'SICK_LEAVE',
+    MATERNITY_LEAVE: 'MATERNITY_LEAVE',
+    PATERNITY_LEAVE: 'PATERNITY_LEAVE',
+    SOLO_PARENT_LEAVE: 'SOLO_PARENT_LEAVE',
+    MAGNA_CARTA: 'MAGNA_CARTA',
+    RA9262: 'RA9262',
+    EMERGENCY_LEAVE: 'EMERGENCY_LEAVE'
+} as const;
+
+export type LeaveType = typeof LeaveType[keyof typeof LeaveType];
