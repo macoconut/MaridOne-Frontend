@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { resolveHeaderBadgeParts } from '@/lib/headerProfile';
-import { getUserEmail } from '@/lib/session';
+import { resolveHeaderBadgeParts } from '@/lib/utils/headerProfile';
+import { getUserEmail } from '@/lib/utils/session';
 
 export function useHeaderBadge(roleLabel: string) {
   const [headerBadge, setHeaderBadge] = useState(roleLabel);

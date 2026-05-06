@@ -15,7 +15,7 @@ import { apiFetchJson, toArray } from '@/lib/api/api';
 import { compareEmployees } from '@/lib/utils/employeeSort';
 import { openDocumentAttachment } from '@/lib/document/documentAttachments';
 import type { EmployeeDetails, EmployeeOption, LeaveBalanceRow } from '@/lib/types/employee';
-import { getFriendlyErrorMessage } from '@/lib/uiErrors';
+import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
 import { formatSss, formatPhilHealth, formatPagibig, formatTin, formatPhone, formatBankAccount } from '@/lib/utils/phIdFormatters';
 import { useEmployeeFilters } from './hooks/useEmployeeFilters';
 import EmployeeTable from './sections/EmployeeTable';

@@ -1,6 +1,6 @@
 import type { RefObject, WheelEvent } from 'react';
 import { FiBell, FiCheckCircle } from 'react-icons/fi';
-import type { NotificationItem } from '@/lib/notificationRouting';
+import type { NotificationItem } from '@/lib/utils/notificationRouting';
 
 type NotificationCenterProps = {
   bellRef: RefObject<HTMLButtonElement | null>;

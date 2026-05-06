@@ -4,9 +4,9 @@ import { FiAlertCircle, FiCheckCircle, FiChevronRight, FiDownload, FiPrinter, Fi
 import { apiFetchJson, apiFetchRaw, toArray } from '@/lib/api';
 import { uploadDocument } from '@lib/documentUpload';
 import ActionButton from '@/components/button/ActionButton';
-import { hasBonusEarning } from '@/lib/payrollRunLabels';
+import { hasBonusEarning } from '@/lib/utils/payrollRunLabels';
 import { sanitizeFileNamePart } from '@/lib/fileNames';
-import { getUserEmail } from '@/lib/session';
+import { getUserEmail } from '@/lib/utils/session';
 import FileUploadField from '@/components/form/FileUploadField';
 import ConfirmDialog from '@/components/dialog/ConfirmDialog';
 import LargePopup from '@/components/dialog/LargePopup';

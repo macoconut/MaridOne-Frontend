@@ -1,5 +1,5 @@
 import { toArray } from '@/lib/api/api';
-import { getManilaNow } from '@/lib/manilaTime';
+import { getManilaNow } from '@/lib/utils/manilaTime';
 import type { AttendanceLeaveRequest as LeaveRequestRow, ShiftSchedule as ShiftScheduleRow } from '@/lib/types/attendance';
 import { formatSss, formatPhilHealth, formatPagibig, formatTin, formatPhone, formatBankAccount } from '@/lib/utils/phIdFormatters';
 

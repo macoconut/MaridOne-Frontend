@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
 import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '@/lib/api/api';
-import { getManilaNow } from '@/lib/manilaTime';
+import { getManilaNow } from '@/lib/utils/manilaTime';
 import type {
   AttendanceEmployeeRow as EmployeeRow,
   AttendanceLeaveRequest as LeaveRequest,

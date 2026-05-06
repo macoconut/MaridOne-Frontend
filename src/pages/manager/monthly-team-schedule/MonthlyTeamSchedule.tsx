@@ -8,7 +8,7 @@ import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '@/hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '@/lib/api/api';
-import { getFriendlyErrorMessage } from '@/lib/uiErrors';
+import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
 import '../../hr/attendance-reports/AttendanceReports.css';
 import {
   buildDailyOverrideDraft,

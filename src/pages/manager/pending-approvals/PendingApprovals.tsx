@@ -17,9 +17,9 @@ import {
   formatRequestPeriodLabel,
   formatRequestTimeRangeLabel,
   formatRequestTypeLabel,
-} from '@/lib/requestPresentation';
+} from '@/lib/utils/requestPresentation';
 import type { LeaveApprovalRow as LeaveDto, OvertimeApprovalRow as OvertimeDto } from '@/lib/types/approval';
-import { getFriendlyErrorMessage } from '@/lib/uiErrors';
+import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
 import '@/self-service/approvals/Approval.css';
 import './PendingApprovals.css';
 import '../../hr/approvals/Approvals.css';

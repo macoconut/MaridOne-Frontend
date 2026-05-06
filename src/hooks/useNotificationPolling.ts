@@ -4,11 +4,11 @@ import {
   mapNotificationItem,
   type NotificationItem,
   type NotificationRole,
-} from '../lib/notificationRouting';
+} from '../lib/utils/notificationRouting';
 import {
   installNotificationSoundPrimer,
   playNotificationSound,
-} from '../lib/notificationSound';
+} from '../lib/utils/notificationSound';
 
 type UseNotificationPollingOptions = {
   intervalMs?: number;

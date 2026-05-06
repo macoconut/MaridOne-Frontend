@@ -1,5 +1,5 @@
 import { FiRefreshCw } from 'react-icons/fi';
-import { usePageRefresh } from '@/lib/usePageRefresh';
+import { usePageRefresh } from '@/lib/utils/usePageRefresh';
 
 export default function HeaderRefreshButton() {
   const { isRefreshing, refreshPage } = usePageRefresh();

@@ -3,8 +3,8 @@ import { useEscapeDismiss } from '@/hooks/useEscapeDismiss';
 import useAnimatedPresence from '@/hooks/useAnimatedPresence';
 import { useNotificationPolling } from '@/hooks/useNotificationPolling';
 import { apiFetchRaw } from '@/lib/api/api';
-import { routeWheelToScrollableChild } from '@/lib/scrollContain';
-import type { NotificationItem, NotificationRole } from '@/lib/notificationRouting';
+import { routeWheelToScrollableChild } from '@/lib/utils/scrollContain';
+import type { NotificationItem, NotificationRole } from '@/lib/utils/notificationRouting';
 
 export function useNotificationCenter(
   role: NotificationRole,

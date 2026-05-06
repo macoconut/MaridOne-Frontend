@@ -8,7 +8,7 @@ import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '@/lib/api/api';
 import { formatDate, formatDateTime } from '@/lib/utils/formatters';
 import type { PayrollRunRow } from '@/lib/types/payroll';
-import { getFriendlyErrorMessage } from '@/lib/uiErrors';
+import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
 import './AuditLogs.css';
 
 type ActivityLogRow = {

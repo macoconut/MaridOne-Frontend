@@ -1,4 +1,4 @@
-import { apiFetchJson, apiFetchText, getApiBaseUrl, throwApiErrorIfNeeded } from './api/api';
+import { apiFetchJson, apiFetchText, getApiBaseUrl, throwApiErrorIfNeeded } from '../api/api';
 
 export type TwoFactorSetupResponse = {
   qrCodeImageUri?: string;

@@ -9,7 +9,7 @@ import {
   setAuthToken,
   setRequiresPasswordChange,
   setRefreshToken,
-} from '../session';
+} from '../utils/session';
 import type { ErrorResponseDto } from '../types/error';
 
 type ApiLocation = Pick<Location, 'origin' | 'protocol' | 'hostname' | 'port'>;

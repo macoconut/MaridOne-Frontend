@@ -15,10 +15,10 @@ import {
   handbookLibraryCard,
   openLibraryDocument,
 } from '@/lib/document/publicLibrary';
-import { getSelfServicePath } from '@/lib/roleRoutes';
-import { getAuthToken, getUserEmail, getUserRole } from '@/lib/session';
-import { getFriendlyErrorMessage } from '@/lib/uiErrors';
-import { getManilaNow } from '@/lib/manilaTime';
+import { getSelfServicePath } from '@/lib/utils/roleRoutes';
+import { getAuthToken, getUserEmail, getUserRole } from '@/lib/utils/session';
+import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
+import { getManilaNow } from '@/lib/utils/manilaTime';
 import type { AttendanceLeaveRequest as LeaveRequestRow, AttendanceLog, ShiftSchedule as ShiftScheduleRow } from '@/lib/types/attendance';
 import type { LeaveBalanceRow } from '@/lib/types/employee';
 import {

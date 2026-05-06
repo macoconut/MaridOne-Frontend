@@ -16,15 +16,15 @@ import {
   formatRequestPeriodLabel,
   formatRequestTimeRangeLabel,
   formatRequestTypeLabel,
-} from '@/lib/requestPresentation';
+} from '@/lib/utils/requestPresentation';
 import type {
   ApprovalEmployeeDirectoryRow as EmployeeDirectoryRow,
   LeaveApprovalRow as LeaveDto,
   OvertimeApprovalRow as OvertimeDto,
 } from '@/lib/types/approval';
 import type { LeaveBalanceRow } from '@/lib/types/employee';
-import { getFriendlyErrorMessage } from '@/lib/uiErrors';
-import { employeeLabel, formatDateTime } from '@/lib/utils/formatters';
+import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
+import { formatDateTime, formatEmployeeLabel } from '@/lib/utils/formatters';
 import '@/self-service/approvals/Approval.css';
 import './Approvals.css';
 import '@/manager/pending-approvals/PendingApprovals.css';
@@ -76,23 +76,6 @@ type HrRequest = {
   sortStamp: number;
 };
 
-function employeeDirectoryLabel(row?: EmployeeDirectoryRow) {
-  if (!row) return '';
-  const fullName = [row.firstName, row.middleName, row.lastName]
-    .filter((value) => typeof value === 'string' && value.trim().length > 0)
-    .map((value) => value!.trim())
-    .join(' ');
-  return fullName;
-}
-
-function leaveEmployeeLabel(item: LeaveDto) {
-  const fullName = [item.firstName, item.lastName]
-    .filter((value) => typeof value === 'string' && value.trim().length > 0)
-    .map((value) => value!.trim())
-    .join(' ');
-  return fullName;
-}
-
 function resolvedEmployeeLabel(
   employeeNameById: Map<number, string>,
   employeeId?: number,
@@ -100,7 +83,7 @@ function resolvedEmployeeLabel(
 ) {
   const mappedLabel = typeof employeeId === 'number' ? employeeNameById.get(employeeId) : '';
   if (mappedLabel && mappedLabel.trim().length > 0) return mappedLabel.trim();
-  return employeeLabel(preferredLabel, employeeId);
+  return formatEmployeeLabel({ firstName: preferredLabel, employeeId });
 }
 
 function requestStatusPriority(status: string) {
@@ -162,6 +145,10 @@ function buildApiPath(path: string, params: Record<string, string | undefined>) 
 function normalizeText(value?: string) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
 }
+
+
+
+
 
 export default function HrApprovals() {
   const { showLoading, hideLoading } = useLoading();
@@ -233,6 +220,9 @@ export default function HrApprovals() {
 
   useEscapeDismiss(Boolean(selectedId), requestCloseModal, 10);
 
+
+
+
   async function loadRequests() {
     try {
       setLoadError('');
@@ -266,7 +256,7 @@ export default function HrApprovals() {
           const employeeId =
             typeof row.employeeId === 'number' ? row.employeeId : typeof row.id === 'number' ? row.id : null;
           if (employeeId === null) continue;
-          const label = employeeDirectoryLabel(row);
+          const label = formatEmployeeLabel({ firstName: row.firstName, middleName: row.middleName, lastName: row.lastName, employeeId});
           if (label) employeeNameById.set(employeeId, label);
         }
       }
@@ -311,7 +301,7 @@ export default function HrApprovals() {
           id: `leave-${item.requestId ?? idx}`,
           leaveRequestId: item.requestId,
           employeeId: item.empId,
-          employee: resolvedEmployeeLabel(employeeNameById, item.empId, leaveEmployeeLabel(item)),
+          employee: resolvedEmployeeLabel(employeeNameById, item.empId, formatEmployeeLabel({ firstName: item.firstName, middleName: item.middleName, lastName: item.lastName, employeeId: item.employeeId })),
           message: buildRequestSummaryMessage('leave', leaveTypeLabel, item.paid),
           submittedAt: formatDateTime(item.requestAt ?? item.startDateTime, '-'),
           type: 'Leave' as const,
@@ -353,6 +343,11 @@ export default function HrApprovals() {
       setLoadError(getFriendlyErrorMessage(error, 'employee-load'));
     }
   }
+
+
+
+
+
 
   const refreshRequests = useAutoRefreshingPage(loadRequests, { intervalMs: 10000 });
 

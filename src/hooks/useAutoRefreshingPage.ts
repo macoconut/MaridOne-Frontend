@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { useRegisterPageRefresh } from '../lib/usePageRefresh';
+import { useRegisterPageRefresh } from '../lib/utils/usePageRefresh';
 
 type UseAutoRefreshingPageOptions = {
   enabled?: boolean;

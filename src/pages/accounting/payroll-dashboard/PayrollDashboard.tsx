@@ -10,7 +10,7 @@ import { useSensitiveAccessPrompt } from '@/hooks/useSensitiveAccessPrompt';
 import { apiFetchJson, toArray } from '@/lib/api/api';
 import { formatDate } from '@/lib/utils/formatters';
 import type { PayTypeSummaryRow, PayrollItemRow, PayrollRunRow } from '@/lib/types/payroll';
-import { getFriendlyErrorMessage } from '@/lib/uiErrors';
+import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
 import './PayrollDashboard.css';
 
 type HistoryPoint = {

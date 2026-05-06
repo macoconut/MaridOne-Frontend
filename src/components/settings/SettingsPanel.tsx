@@ -12,7 +12,7 @@ import {
   disableTwoFactor,
   sendEmailVerification,
   type TwoFactorSetupResponse,
-} from '../../lib/accountSecurity';
+} from '../../lib/utils/accountSecurity';
 import { apiFetchJson } from '@/lib/api/api';
 import {
   getStoredReduceMotion,
@@ -20,9 +20,9 @@ import {
   setStoredReduceMotion,
   setStoredSidebarCollapsed,
   subscribeToUiPreferencesChange,
-} from '../../lib/uiPreferences';
-import { getFriendlyErrorMessage } from '@/lib/uiErrors';
-import { clearSession, getUserEmail } from '@/lib/session';
+} from '../../lib/utils/uiPreferences';
+import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
+import { clearSession, getUserEmail } from '@/lib/utils/session';
 import './SettingsPanel.css';
 
 type UserDetails = {

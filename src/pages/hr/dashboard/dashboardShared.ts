@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { toArray } from '@/lib/api/api';
-import { getManilaNow } from '@/lib/manilaTime';
+import { getManilaNow } from '@/lib/utils/manilaTime';
 import { evaluateDailyAttendanceCoverage } from '@/lib/attendance/dailyAttendanceEvaluator';
 import type {
   AttendanceEmployeeRow as EmployeeRow,

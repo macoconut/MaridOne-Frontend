@@ -7,7 +7,7 @@ import HeaderRefreshButton from '@/components/navigation/HeaderRefreshButton'
 import type { NavSection } from '@/components/navigation/SidebarNavSection'
 import RoleSidebar from '@/components/navigation/RoleSidebar'
 import SettingsModal from '@/components/settings/SettingsModal'
-import { PageRefreshProvider } from '@/lib/pageRefresh'
+import { PageRefreshProvider } from '@/lib/utils/pageRefresh'
 import './RoleLayout.css'
 
 type RoleShellProps = {

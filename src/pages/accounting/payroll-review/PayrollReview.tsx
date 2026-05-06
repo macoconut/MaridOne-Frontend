@@ -13,8 +13,8 @@ import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
 import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
 import { apiFetchJson, toArray } from '@/lib/api/api';
 import { compareEmployees, type EmployeeSortKey } from '@/lib/utils/employeeSort';
-import { getFriendlyErrorMessage } from '@/lib/uiErrors';
-import { getManilaNow } from '@/lib/manilaTime';
+import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
+import { getManilaNow } from '@/lib/utils/manilaTime';
 import {
   formatDateTime,
   toMoneyString,

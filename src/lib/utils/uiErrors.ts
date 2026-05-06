@@ -1,4 +1,4 @@
-import { ApiError } from './api/api';
+import { ApiError } from '../api/api';
 
 export type ErrorContext =
   | 'attendance'

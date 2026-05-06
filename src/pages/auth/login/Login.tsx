@@ -4,8 +4,8 @@ import { FiEye, FiEyeOff } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import { useUiDialog } from '@/components/dialog/useUiDialog';
 import { getApiBaseUrl } from '@/lib/api/api';
-import { clearSession, setSession } from '@/lib/session';
-import { getRoleHomePath } from '@/lib/roleRoutes';
+import { clearSession, setSession } from '@/lib/utils/session';
+import { getRoleHomePath } from '@/lib/utils/roleRoutes';
 import './Login.css';
 
 type UserRole = 'employee' | 'hr' | 'manager' | 'management' | 'accounting';

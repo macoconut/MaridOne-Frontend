@@ -16,7 +16,7 @@ import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
 import { useSensitiveAccessPrompt } from '@/hooks/useSensitiveAccessPrompt';
 import { apiFetchJson, toArray } from '@/lib/api/api';
 import { compareEmployees, type EmployeeSortKey } from '@/lib/utils/employeeSort';
-import { getFriendlyErrorMessage } from '@/lib/uiErrors';
+import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
 import {
   formatDate,
   formatDateTime,

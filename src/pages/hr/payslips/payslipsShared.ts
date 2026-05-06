@@ -2,15 +2,15 @@ import { ApiError, apiFetchJson, toArray } from '@/lib/api/api';
 import { extractAttachmentReference } from '@/lib/document/documentAttachments';
 import {
   employeeLabel,
-  employeeLabelFromParts,
+  formatEmployeeLabel as formatLabel,
   formatDate,
   formatDateTime,
   toMoneyString,
   toOptionalMoneyString,
   toOptionalText,
 } from '@/lib/utils/formatters';
-import { getManilaNow } from '@/lib/manilaTime';
-import { formatPayrollRunTypeLabel } from '@/lib/payrollRunLabels';
+import { getManilaNow } from '@/lib/utils/manilaTime';
+import { formatPayrollRunTypeLabel } from '@/lib/utils/payrollRunLabels';
 import type { EmployeeOption } from '@/lib/types/employee';
 import type {
   PayrollDisputeRow as DisputeDto,
@@ -459,7 +459,7 @@ export function mapPayrollItemSummaryRows(response: unknown) {
       return {
         itemId: row.itemId ?? idx + 1,
         empId: row.empId,
-        employee: employeeLabelFromParts(row.firstName, row.lastName, row.empId),
+        employee: formatLabel({firstName: row.firstName, lastName: row.lastName, employeeId: row.employeeId}),
         grossPay,
         deductions: Math.max(grossPay - netPay, 0),
         netPay,

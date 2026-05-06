@@ -40,24 +40,25 @@ export function formatDate(value?: string, fallback = 'Not available'): string {
   })
 }
 
-export function employeeLabel(employeeName?: string, employeeId?: number): string {
-  const trimmedName = typeof employeeName === 'string' ? employeeName.trim() : ''
-  if (trimmedName) return trimmedName
-  return typeof employeeId === 'number' ? `Employee #${employeeId}` : 'Employee unavailable'
-}
+export function formatEmployeeLabel(options: {
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  employeeId?: number;
+}): string {
+  const fullName = [options.firstName, options.middleName, options.lastName]
+    .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
+    .map((part) => part.trim())
+    .join(" ")
+    .trim();
 
-export function employeeLabelFromParts(
-  firstName?: string,
-  lastName?: string,
-  employeeId?: number,
-): string {
-  const fullName = [firstName, lastName]
-    .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
-    .join(' ')
-    .trim()
-  if (fullName) return fullName
-  if (typeof employeeId === 'number') return `EMP ID ${employeeId}`
-  return 'Employee unavailable'
+  if (fullName) return fullName;
+
+  if (typeof options.employeeId === "number") {
+    return `EMP ID ${options.employeeId}`;
+  }
+
+  return "Employee unavailable";
 }
 
 

@@ -18,14 +18,14 @@ import {
   formatRequestPeriodLabel,
   formatRequestTimeRangeLabel,
   formatRequestTypeLabel,
-} from '@/lib/requestPresentation';
-import { getUserEmail } from '@/lib/session';
+} from '@/lib/utils/requestPresentation';
+import { getUserEmail } from '@/lib/utils/session';
 import type {
   ApprovalEmployeeDirectoryRow as EmployeeDirectoryRow,
   LeaveApprovalRow as LeaveDto,
   OvertimeApprovalRow as OvertimeDto,
 } from '@/lib/types/approval';
-import { getFriendlyErrorMessage } from '@/lib/uiErrors';
+import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
 import '@/self-service/approvals/Approval.css';
 import '@/manager/pending-approvals/PendingApprovals.css';
 import '@/hr/approvals/Approvals.css';

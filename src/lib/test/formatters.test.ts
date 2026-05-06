@@ -5,8 +5,7 @@ import {
   toOptionalText,
   formatDateTime,
   formatDate,
-  employeeLabel,
-  employeeLabelFromParts,
+  employeeLabel
 } from '../utils/formatters'
 
 describe('toMoneyString', () => {
@@ -111,24 +110,5 @@ describe('employeeLabel', () => {
   it('final fallback when both missing', () => {
     expect(employeeLabel(undefined, undefined)).toBe('Employee unavailable')
     expect(employeeLabel('', undefined)).toBe('Employee unavailable')
-  })
-})
-
-describe('employeeLabelFromParts', () => {
-  it('joins first + last', () => {
-    expect(employeeLabelFromParts('Ana', 'Cruz', 3)).toBe('Ana Cruz')
-  })
-  it('handles missing pieces', () => {
-    expect(employeeLabelFromParts('Ana', undefined, 3)).toBe('Ana')
-    expect(employeeLabelFromParts(undefined, 'Cruz', 3)).toBe('Cruz')
-    expect(employeeLabelFromParts('Ana', '', 3)).toBe('Ana')
-  })
-  it('uses EMP ID fallback when both names empty', () => {
-    expect(employeeLabelFromParts('', '', 9)).toBe('EMP ID 9')
-    expect(employeeLabelFromParts(undefined, undefined, 9)).toBe('EMP ID 9')
-  })
-  it('final fallback when everything missing', () => {
-    expect(employeeLabelFromParts('', '', undefined)).toBe('Employee unavailable')
-    expect(employeeLabelFromParts(undefined, undefined, undefined)).toBe('Employee unavailable')
   })
 })

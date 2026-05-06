@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
-import type { TwoFactorSetupResponse } from '@/lib/accountSecurity';
+import type { TwoFactorSetupResponse } from '@/lib/utils/accountSecurity';
 import './AccountSecuritySection.css';
 
 type PasswordChangeRequest = {

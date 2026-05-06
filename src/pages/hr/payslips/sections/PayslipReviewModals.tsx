@@ -4,7 +4,7 @@ import { formatDate, formatDateTime } from '@/lib/utils/formatters';
 import {
   formatPayrollRunTypeLabel,
   formatPayrollStatusLabel,
-} from '@/lib/payrollRunLabels';
+} from '@/lib/utils/payrollRunLabels';
 import type { PayrollRunRow as PayrollRunDto } from '@/lib/types/payroll';
 import { formatCurrency } from '../payslipsShared';
 import type { CorrectionLine, DisputeRow, PayrollItemSummaryRow } from '../types';

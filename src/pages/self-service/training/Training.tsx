@@ -9,7 +9,7 @@ import {
   openLibraryDocument,
   type LibraryDocument,
 } from '@/lib/document/publicLibrary';
-import { getFriendlyErrorMessage } from '@/lib/uiErrors';
+import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
 import './Training.css';
 
 export default function Training() {
