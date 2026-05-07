@@ -6,11 +6,12 @@ import {
   getPrivateDocumentDownloadUrl,
   getPublicDocuments,
   getPrivateDocuments,
+  getPrivateDocumentByEntity,
 } from './document-api';
 import type { DocumentFilter } from './document-api';
 
 
-export async function openDocumentAttachment(document: DocumentResponseDto): Promise<void> {
+export async function openDocumentAttachment(document: Pick<DocumentResponseDto, 'isPublic' | 'pathId'>): Promise<void> {
   const previewWindow = typeof window !== 'undefined' ? window.open('', '_blank') : null;
 
   try {
@@ -30,7 +31,24 @@ export async function openDocumentAttachment(document: DocumentResponseDto): Pro
   }
 }
 
-export async function downloadDocumentAttachment(document: DocumentResponseDto): Promise<void> {
+export async function openDocumentUsingEntityFilter(connectedEntity: string, connectedId: number): Promise<void> {
+  const previewWindow = typeof window !== 'undefined' ? window.open('', '_blank') : null;
+  
+  try {
+    const url = await getPrivateDocumentByEntity({ connectedEntity, connectedId });
+    if (previewWindow) {
+      previewWindow.opener = null;
+      previewWindow.location.href = url;
+    } else {
+      window.location.href = url;
+    }
+  } catch (error) {
+    previewWindow?.close();
+    throw error;
+  }
+}
+
+export async function downloadDocumentAttachment(document: Pick<DocumentResponseDto, 'isPublic' | 'pathId'>): Promise<void> {
   const url = document.isPublic
     ? await fetchPublicDocumentDownloadUrl(document.pathId)
     : await fetchPrivateDocumentDownloadUrl(document.pathId);

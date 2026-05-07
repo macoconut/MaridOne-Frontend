@@ -10,6 +10,12 @@ export type DocumentFilter = {
 };
 
 
+export type EntityFilter = {
+  connectedEntity: string;
+  connectedId: number;
+};
+
+
 
 export function getPublicDocuments() {
   return apiFetchJson<DocumentResponseDto[]>(DOCUMENT_ENDPOINTS.listPublic);
@@ -33,12 +39,22 @@ export function uploadPublicDocument(file: File) {
   return apiFetchRaw(DOCUMENT_ENDPOINTS.uploadPublic, { method: 'POST', body: formData });
 }
 
+export function existsByEntity(filter: EntityFilter) {
+  return apiFetchJson<boolean>(buildUrl(DOCUMENT_ENDPOINTS.existsByEntity, filter));
+}
+
 
 
 // PRIVATE
 export function getPrivateDocuments(filter?: DocumentFilter) {
   return apiFetchJson<DocumentResponseDto[]>(
     buildUrl(DOCUMENT_ENDPOINTS.listPrivate, filter)
+  );
+}
+
+export function getPrivateDocumentByEntity(filter: EntityFilter) {
+  return apiFetchJson<string>(
+    buildUrl(DOCUMENT_ENDPOINTS.viewPrivateByEntity, filter)
   );
 }
 
@@ -49,6 +65,8 @@ export function getPrivateDocumentViewUrl(pathId: number) {
 export function getPrivateDocumentDownloadUrl(pathId: number) {
   return apiFetchJson<string>(DOCUMENT_ENDPOINTS.downloadPrivate(pathId));
 }
+
+
 
 export function batchUploadPrivateDocuments(files: File[], subDir: Directory, connectedId?: number) {
   const formData = new FormData();

@@ -9,8 +9,11 @@ export const DOCUMENT_ENDPOINTS = {
 
   listPrivate: `${BASE}/private/view/list`,
   viewPrivate:(pathId: number) => `${BASE}/private/view/${pathId}`,
+  viewPrivateByEntity: `${BASE}/private/view/entity`,
   downloadPrivate:(pathId: number) => `${BASE}/private/download/${pathId}`,
   uploadPrivate: `${BASE}/private/upload`,
   batchUploadPrivate: `${BASE}/private/upload/batch`,
   deletePrivate: (pathId: number) => `${BASE}/private/delete/${pathId}`,
+
+  existsByEntity: `${BASE}/exists`,
 } as const;
