@@ -1,7 +1,5 @@
 import { ApiError, apiFetchJson, toArray } from '@/lib/api/api';
-import { extractAttachmentReference } from '@/lib/document/documentAttachments';
 import {
-  employeeLabel,
   formatEmployeeLabel as formatLabel,
   formatDate,
   formatDateTime,
@@ -28,6 +26,7 @@ import type {
   PayrollItemSummaryRow,
   RunFormState,
 } from './types';
+import { Directories } from '@/enum/directories';
 
 const PAYROLL_RUN_STORAGE_KEY = 'maridone.hr.latestPayrollRun';
 const WAITING_DISPUTE_STORAGE_KEY = 'maridone.hr.waitingDisputes';
@@ -304,14 +303,13 @@ function toDisputeStatusTone(status: DisputeStatusCode): DisputeRow['statusTone'
 }
 
 export function toDisputeRow(item: DisputeDto, idx: number): DisputeRow {
-  const attachment = extractAttachmentReference(item.reason);
   const statusCode = toDisputeStatusCode(item.status);
   return {
     id: item.id ?? idx + 1,
     itemId: item.itemId,
     employeeId: item.employeeId,
     employeeName: item.employeeName,
-    employee: employeeLabel(item.employeeName, item.employeeId),
+    employee: formatLabel({ employeeId: item.employeeId, firstName: item.employeeName }),
     payrollPeriod: item.createdAt ? formatDate(item.createdAt) : 'No date',
     submittedAt: formatDateTime(item.createdAt),
     sortStamp: toSortStamp(item.createdAt),
@@ -319,9 +317,10 @@ export function toDisputeRow(item: DisputeDto, idx: number): DisputeRow {
     statusLabel: formatDisputeStatusLabel(statusCode),
     statusTone: toDisputeStatusTone(statusCode),
     subject: item.subject || 'Payroll dispute',
-    reason: attachment.cleanText,
+    reason: item.reason || '',
     decisionSummary: item.statusReason || '',
-    attachmentPathId: attachment.attachmentPathId ?? undefined,
+    connectedEntity: Directories.PAYROLL_ITEM,
+    connectedEntityId: item.disputeId,
   };
 }
 
@@ -337,7 +336,6 @@ export function createWaitingDisputeRow(row: DisputeRow, decisionSummary: string
     statusLabel: formatDisputeStatusLabel('WAITING_ADJUSTMENT'),
     statusTone: toDisputeStatusTone('WAITING_ADJUSTMENT'),
     decisionSummary,
-    attachmentPathId: row.attachmentPathId,
   };
 }
 
@@ -370,7 +368,8 @@ export function readWaitingDisputes() {
             subject: typeof row.subject === 'string' && row.subject.trim().length > 0 ? row.subject : 'Payroll dispute',
             reason: typeof row.reason === 'string' ? row.reason : '',
             decisionSummary: typeof row.decisionSummary === 'string' ? row.decisionSummary : '',
-            attachmentPathId: typeof row.attachmentPathId === 'number' ? row.attachmentPathId : undefined,
+            connectedEntity: typeof row.connectedEntity === 'string' ? row.connectedEntity : undefined,
+            connectedEntityId: typeof row.connectedEntityId === 'number' ? row.connectedEntityId : undefined,
           },
           typeof row.decisionSummary === 'string' ? row.decisionSummary : ''
         );

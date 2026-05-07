@@ -253,7 +253,7 @@ type PayslipDisputeModalProps = {
   isDisputeRemarksInvalid: boolean;
   isSaving: boolean;
   onClose: () => void;
-  onOpenAttachment: (pathId: number) => void | Promise<void>;
+  onOpenAttachment: (connectedEntity: string, connectedId: number) => void | Promise<void>;
   onOpenSelectedDisputeCorrection: () => void;
   onPendingDisputeDecisionChange: (value: 'APPROVED' | 'REJECTED') => void;
   onRemarksChange: (value: string) => void;
@@ -263,9 +263,11 @@ type PayslipDisputeModalProps = {
   pendingDisputeDecision: 'APPROVED' | 'REJECTED' | null;
   remarks: string;
   selectedDispute: DisputeRow | null;
+  attachmentExistsMap: Record<string, boolean | 'checking'>;
 };
 
 export function PayslipDisputeModal({
+  attachmentExistsMap,
   canReviewSelectedDispute,
   canStageSelectedDisputeCorrection,
   isDisputeRemarksInvalid,
@@ -351,24 +353,44 @@ export function PayslipDisputeModal({
         </label>
 
         <div className="hrApprAttachment hrApprAttachment--payroll">
-          <div className="hrApprAttachment__copy">
-            <span>Attachment:</span>
-            <p>
-              {typeof selectedDispute.attachmentPathId === 'number'
-                ? 'A supporting file was uploaded with this dispute.'
-                : 'No attachment was uploaded with this dispute.'}
-            </p>
-          </div>
-          {typeof selectedDispute.attachmentPathId === 'number' && (
-            <button
-              type="button"
-              className="hrApprAttachment__button"
-              onClick={() => void onOpenAttachment(selectedDispute.attachmentPathId!)}
-              disabled={openingAttachmentId === selectedDispute.attachmentPathId}
-            >
-              {openingAttachmentId === selectedDispute.attachmentPathId ? 'Opening...' : 'View Attachment'}
-            </button>
-          )}
+          {(() => {
+            const key = selectedDispute.connectedEntity && selectedDispute.connectedEntityId
+              ? `${selectedDispute.connectedEntity}-${selectedDispute.connectedEntityId}`
+              : null;
+            const existsState = key ? attachmentExistsMap[key] : false;
+            return (
+              <>
+                <div className="hrApprAttachment__copy">
+                  <span>Attachment:</span>
+                  <p>
+                    {existsState === true
+                      ? 'A supporting file was uploaded with this dispute.'
+                      : existsState === false
+                      ? 'No attachment was found for this dispute.'
+                      : 'Click to check for a supporting document.'}
+                  </p>
+                </div>
+                {existsState !== false && selectedDispute.connectedEntity && selectedDispute.connectedEntityId && (
+                  <button
+                    type="button"
+                    className="hrApprAttachment__button"
+                    onClick={() => void onOpenAttachment(
+                      selectedDispute.connectedEntity!,
+                      selectedDispute.connectedEntityId!
+                    )}
+                    disabled={
+                      existsState === 'checking' ||
+                      openingAttachmentId === selectedDispute.connectedEntityId
+                    }
+                  >
+                    {existsState === 'checking' || openingAttachmentId === selectedDispute.connectedEntityId
+                      ? 'Loading...'
+                      : 'View Attachment'}
+                  </button>
+                )}
+              </>
+            );
+          })()}
         </div>
 
         {selectedDispute.decisionSummary && (

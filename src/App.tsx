@@ -28,7 +28,6 @@ import Dashboard from './pages/self-service/dashboard/Dashboard';
 import Attendance from './pages/self-service/attendance/Attendance';
 import Approval from './pages/self-service/approvals/Approval';
 import Payslip from './pages/self-service/payslip/Payslip';
-import Training from './pages/self-service/training/Training';
 import HrLayout from './layouts/hr/HrLayout';
 import HrDashboard from './pages/hr/dashboard/Dashboard';
 import HrAttendanceReports from './pages/hr/attendance-reports/AttendanceReports';
@@ -167,8 +166,6 @@ function getSelfServiceElement(page: SelfServicePage) {
       return <Approval />;
     case 'payslip':
       return <Payslip />;
-    case 'training':
-      return <Training />;
   }
 }
 

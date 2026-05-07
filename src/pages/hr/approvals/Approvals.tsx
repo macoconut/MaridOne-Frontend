@@ -25,9 +25,9 @@ import type {
 import type { LeaveBalanceRow } from '@/lib/types/employee';
 import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
 import { formatDateTime, formatEmployeeLabel } from '@/lib/utils/formatters';
-import '@/self-service/approvals/Approval.css';
+import '@/pages/self-service/approvals/Approval.css';
 import './Approvals.css';
-import '@/manager/pending-approvals/PendingApprovals.css';
+import '@/pages/manager/pending-approvals/PendingApprovals.css';
 import { DocumentEntities } from '@/enum/directories';
 
 type RequestType = 'Overtime' | 'Leave';

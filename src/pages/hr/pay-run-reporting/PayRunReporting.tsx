@@ -829,7 +829,7 @@ export default function HrPayRunReporting() {
   }, [summaryDeductionRows, summaryEarningRows, summaryEmployerContributionRows]);
 
   const completePaySummary = useMemo(() => {
-    const { earningMap, deductionMap, employerMap } = summaryAmounts;
+    const { earningMap, deductionMap} = summaryAmounts;
     const basicPay = earningMap.get('Basic Pay') ?? 0;
     const lateAndAbsences =
       (deductionMap.get('Late Penalty') ?? 0) + (deductionMap.get('Absent Deduction') ?? 0);

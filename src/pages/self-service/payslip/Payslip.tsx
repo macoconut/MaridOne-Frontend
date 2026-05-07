@@ -1,11 +1,10 @@
 import { useLoading } from '@/context/useLoading';
 import { useEffect, useMemo, useState, useRef, useId } from 'react';
 import { FiAlertCircle, FiCheckCircle, FiChevronRight, FiDownload, FiPrinter, FiXCircle, FiCalendar } from 'react-icons/fi';
-import { apiFetchJson, apiFetchRaw, toArray } from '@/lib/api';
-import { uploadDocument } from '@lib/documentUpload';
+import { apiFetchJson, apiFetchRaw, toArray } from '@/lib/api/api';
+import { uploadPrivateDocuments } from '@/lib/api/endpoints/documents/document-upload';
 import ActionButton from '@/components/button/ActionButton';
 import { hasBonusEarning } from '@/lib/utils/payrollRunLabels';
-import { sanitizeFileNamePart } from '@/lib/fileNames';
 import { getUserEmail } from '@/lib/utils/session';
 import FileUploadField from '@/components/form/FileUploadField';
 import ConfirmDialog from '@/components/dialog/ConfirmDialog';
@@ -19,6 +18,7 @@ import { toMoneyString, toOptionalMoneyString, toOptionalText } from '@/lib/util
 import type { EmployeeDetails } from '@/lib/types/employee';
 import type { PayrollDisputeRow as DisputeRow, PayrollItemReference as PayrollItemRow } from '@/lib/types/payroll';
 import './Payslip.css';
+import { Directories } from '@/enum/directories';
 
 type DocumentRow = {
   pathId?: number;
@@ -42,7 +42,6 @@ const moneyFormatter = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
-const DISPUTE_UPLOAD_SUBDIR = 'dispute-request';
 const MARID_LOGO_URL = '/images/marid-logo-transparent.png';
 
 function formatAdjustmentTimestamp(value?: string) {
@@ -446,14 +445,13 @@ export default function Payslip() {
   }, [employeeId, selectedRun]);
 
   function buildPayslipPdfName(document?: DocumentRow) {
-    const lastName = sanitizeFileNamePart(employeeInfo?.lastName);
-    const firstName = sanitizeFileNamePart(employeeInfo?.firstName);
+    const lastName = employeeInfo?.lastName;
+    const firstName = employeeInfo?.firstName;
     const employeeSegment = [lastName, firstName].filter(Boolean).join('_');
     const periodStart = formatFileDate(selectedRun?.periodStart);
     const periodEnd = formatFileDate(selectedRun?.periodEnd);
-    const periodSegment =
-      periodStart && periodEnd ? `${periodStart}_to_${periodEnd}` : sanitizeFileNamePart(displayPayPeriod);
-    const documentName = sanitizeFileNamePart(document?.fileName?.replace(/\.pdf$/i, ''));
+    const periodSegment = periodStart && periodEnd ? `${periodStart}_to_${periodEnd}` : displayPayPeriod;
+    const documentName = document?.fileName
     const baseName =
       [employeeSegment, periodSegment].filter(Boolean).join('_') ||
       documentName ||
@@ -588,63 +586,63 @@ export default function Payslip() {
     setDisputeOpen(true);
   }
 
-  async function submitDispute() {
-    setDisputeSubmitAttempted(true);
-    setDisputeError('');
-    if (!selectedItemId) {
-      setDisputeError('No payroll item selected.');
-      return;
-    }
-    if (disputeReason.trim().length < 20) {
-      setDisputeError('Reason must be at least 20 characters.');
-      return;
-    }
-    if (!disputeFile) {
-      setDisputeError('Attachment is required.');
-      return;
-    }
+async function submitDispute() {
+  setDisputeSubmitAttempted(true);
+  setDisputeError('');
 
-    setConfirmDisputeSubmit(false);
-    showLoading();
-    setDisputeSubmitting(true);
-    showLoading();
+  if (!selectedItemId) {
+    setDisputeError('No payroll item selected.');
+    return;
+  }
+  if (disputeReason.trim().length < 20) {
+    setDisputeError('Reason must be at least 20 characters.');
+    return;
+  }
+  if (!disputeFile) {
+    setDisputeError('Attachment is required.');
+    return;
+  }
+
+  if (employeeId) {
     try {
-      const attachmentRef = await uploadDocument(disputeFile, DISPUTE_UPLOAD_SUBDIR);
-
-      if (employeeId) {
-        const existingDisputes = await apiFetchJson<unknown>(
-          `/api/payroll/item/dispute/self?empId=${employeeId}&status=PENDING&page=0&size=100`
-        );
-        const hasPendingForItem = toArray<DisputeRow>(existingDisputes).some(
-          (row) => row.itemId === selectedItemId && String(row.status ?? '').toUpperCase() === 'PENDING'
-        );
-        if (hasPendingForItem) {
-          setDisputeError('This payslip already has a pending dispute request.');
-          return;
-        }
+      const existingDisputes = await apiFetchJson<unknown>(
+        `/api/payroll/item/dispute/self?empId=${employeeId}&status=PENDING&page=0&size=100`
+      );
+      const hasPendingForItem = toArray<DisputeRow>(existingDisputes).some(
+        (row) => row.itemId === selectedItemId && String(row.status ?? '').toUpperCase() === 'PENDING'
+      );
+      if (hasPendingForItem) {
+        setDisputeError('This payslip already has a pending dispute request.');
+        return;
       }
-
-      await apiFetchJson(`/api/payroll/item/dispute/create/${selectedItemId}`, {
-        method: 'POST',
-        body: JSON.stringify({
-          subject: disputeSubject,
-          reason: [
-            disputeReason.trim(),
-            attachmentRef ? `(Attachment ID: ${attachmentRef})` : '',
-          ]
-            .filter(Boolean)
-            .join(' '),
-        }),
-      });
-      setDisputeOpen(false);
-    } catch (error) {
-      setDisputeError(error instanceof Error ? error.message : 'Failed to file dispute.');
-    } finally {
-      hideLoading();
-      hideLoading();
-      setDisputeSubmitting(false);
+    } catch {
+      // non-fatal, proceed with submission
     }
   }
+
+  setConfirmDisputeSubmit(false);
+  showLoading();
+  setDisputeSubmitting(true);
+
+  try {
+    await uploadPrivateDocuments([disputeFile], Directories.DISPUTE, selectedItemId);
+
+    await apiFetchJson(`/api/payroll/item/dispute/create/${selectedItemId}`, {
+      method: 'POST',
+      body: JSON.stringify({
+        subject: disputeSubject,
+        reason: disputeReason.trim(),
+      }),
+    });
+
+    setDisputeOpen(false);
+  } catch (error) {
+    setDisputeError(error instanceof Error ? error.message : 'Failed to file dispute.');
+  } finally {
+    hideLoading();
+    setDisputeSubmitting(false);
+  }
+}
 
   function requestDisputeConfirmation() {
     setDisputeSubmitAttempted(true);

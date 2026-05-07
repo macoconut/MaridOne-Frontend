@@ -1,3 +1,8 @@
+/*
+  //todo check MaterialArt. everything was hardcoded so i revised.
+  all documents are separated into private/public
+*/
+
 import { FiDownload, FiFileText } from 'react-icons/fi';
 
 import ActionButton from '@/components/button/ActionButton';

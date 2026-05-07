@@ -4,8 +4,7 @@ import {
   toOptionalMoneyString,
   toOptionalText,
   formatDateTime,
-  formatDate,
-  employeeLabel
+  formatDate
 } from '../utils/formatters'
 
 describe('toMoneyString', () => {
@@ -94,21 +93,5 @@ describe('formatDate', () => {
     expect(typeof out).toBe('string')
     expect(out).not.toBe('Not available')
     expect(out).toMatch(/\d{4}/)
-  })
-})
-
-describe('employeeLabel', () => {
-  it('prefers trimmed name', () => {
-    expect(employeeLabel('  Alice  ', 7)).toBe('Alice')
-    expect(employeeLabel('Bob', 3)).toBe('Bob')
-  })
-  it('falls back to #id when name empty', () => {
-    expect(employeeLabel('', 7)).toBe('Employee #7')
-    expect(employeeLabel('   ', 7)).toBe('Employee #7')
-    expect(employeeLabel(undefined, 7)).toBe('Employee #7')
-  })
-  it('final fallback when both missing', () => {
-    expect(employeeLabel(undefined, undefined)).toBe('Employee unavailable')
-    expect(employeeLabel('', undefined)).toBe('Employee unavailable')
   })
 })

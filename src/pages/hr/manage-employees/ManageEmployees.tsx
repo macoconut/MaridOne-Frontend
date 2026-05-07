@@ -13,7 +13,7 @@ import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
 import { useSensitiveAccessPrompt } from '@/hooks/useSensitiveAccessPrompt';
 import { apiFetchJson, toArray } from '@/lib/api/api';
 import { compareEmployees } from '@/lib/utils/employeeSort';
-import { openDocumentAttachment } from '@/lib/document/documentAttachments';
+import { openDocumentAttachment } from '@/lib/api/endpoints/documents/document-fetch';
 import type { EmployeeDetails, EmployeeOption, LeaveBalanceRow } from '@/lib/types/employee';
 import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
 import { formatSss, formatPhilHealth, formatPagibig, formatTin, formatPhone, formatBankAccount } from '@/lib/utils/phIdFormatters';
@@ -170,6 +170,7 @@ type FormState = {
   yearlySalary: string;
   managerId: string;
   username: string;
+  accountStatus: string;
   password: string;
   permanentAddress: string;
   temporaryAddress: string;
@@ -2231,7 +2232,7 @@ export default function HrManageEmp() {
                               <button
                                 type="button"
                                 className="hrEmpCompliance__action"
-                                onClick={() => void openDocumentAttachment(document.pathId!)}
+                                onClick={() => void openDocumentAttachment({ pathId: document.pathId!, isPublic: false})}
                               >
                                 View File
                               </button>

@@ -10,11 +10,6 @@ import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
 import { useSensitiveAccessPrompt } from '@/hooks/useSensitiveAccessPrompt';
 import SensitiveAccessModal from '@/components/security/SensitiveAccessModal';
 import { apiFetchJson, toArray } from '@/lib/api/api';
-import {
-  downloadLibraryDocument,
-  handbookLibraryCard,
-  openLibraryDocument,
-} from '@/lib/document/publicLibrary';
 import { getSelfServicePath } from '@/lib/utils/roleRoutes';
 import { getAuthToken, getUserEmail, getUserRole } from '@/lib/utils/session';
 import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
@@ -58,7 +53,7 @@ export default function Dashboard() {
 
   const location = useLocation();
   const navigate = useNavigate();
-  const { showError, showSuccess } = useUiDialog();
+  const { showSuccess } = useUiDialog();
   const userRole = getUserRole() ?? 'employee';
   const [profile, setProfile] = useState<UserDetails | null>(null);
   const [employee, setEmployee] = useState<UserDetails['employee'] | null>(null);
@@ -500,22 +495,6 @@ export default function Dashboard() {
     }
   }
 
-  async function openHandbook() {
-    try {
-      await openLibraryDocument(handbookLibraryCard.document);
-    } catch (error) {
-      showError(getFriendlyErrorMessage(error, 'generic'), 'Unable to open handbook');
-    }
-  }
-
-  async function downloadHandbook() {
-    try {
-      await downloadLibraryDocument(handbookLibraryCard.document);
-    } catch (error) {
-      showError(getFriendlyErrorMessage(error, 'generic'), 'Unable to download handbook');
-    }
-  }
-
   function openEditModal() {
     setEditError('');
     setEditDraft(createEditDraft(employee));
@@ -701,7 +680,8 @@ export default function Dashboard() {
             shiftSchedule={shiftSchedule}
             onViewAllBalances={() => navigate(selfServicePath('attendance'))}
           />
-          <DocumentsWidget onDownload={() => void downloadHandbook()} onOpen={() => void openHandbook()} />
+          {/*todo: fix documents*/}
+          {/* <DocumentsWidget onDownload={() => void downloadHandbook()} onOpen={() => void openHandbook()} /> */}
         </div>
         <CompanyEventsCalendar
           calendarEventsByDay={calendarEventsByDay}

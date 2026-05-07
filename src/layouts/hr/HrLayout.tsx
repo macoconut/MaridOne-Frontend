@@ -14,7 +14,7 @@ import {
 } from 'react-icons/fi';
 import BackendTestPanel from '@/components/layout/BackendTestPanel';
 import type { NavSection } from '@/components/navigation/SidebarNavSection';
-import '@/shared/hr-theme.css';
+import '@/layouts/shared/hr-theme.css';
 import { BACKEND_TEST_MODE } from '@/config/flags';
 import {
   extractFirstId,
