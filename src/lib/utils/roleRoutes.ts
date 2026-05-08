@@ -47,7 +47,7 @@ export const SELF_SERVICE_ROUTE_META: Record<SelfServicePage, SelfServiceRouteMe
   attendance: { page: 'attendance', path: 'attendance', label: 'Attendance' },
   approvals: { page: 'approvals', path: 'approvals', label: 'Approvals' },
   payslip: { page: 'payslip', path: 'payslip', label: 'Payslip' },
-  training: { page: 'training', path: 'training', label: 'Training' },
+  training: { page: 'training', path: 'training', label: 'Documents' },
 };
 
 export const SELF_SERVICE_ROUTE_ORDER = Object.keys(SELF_SERVICE_ROUTE_META) as SelfServicePage[];

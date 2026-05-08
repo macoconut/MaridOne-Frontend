@@ -66,7 +66,7 @@ const navSections: NavSection[] = [
       { to: '/management/self-service/attendance', label: 'Attendance', icon: FiCalendar },
       { to: '/management/self-service/approvals', label: 'View Approvals', icon: FiCheckSquare },
       { to: '/management/self-service/payslip', label: 'View Payslip', icon: FiFileText },
-      { to: '/management/self-service/training', label: 'Training Materials', icon: FiBookOpen },
+      { to: '/management/self-service/training', label: 'Documents', icon: FiBookOpen },
     ],
   },
   {

@@ -17,8 +17,8 @@ import {
   type SelfServiceRole,
 } from './lib/utils/roleRoutes';
 
-import Landing from './pages/Public/Landing';
-import VerifyEmail from './pages/Public/VerifyEmail';
+import Landing from './pages/public/Landing';
+import VerifyEmail from './pages/public/VerifyEmail';
 import EmployeeLogin from './pages/auth/login/Login';
 import ChangePassword from './pages/auth/change-password/ChangePassword';
 import ForgotPassword from './pages/auth/forgot-password/ForgotPassword';
@@ -28,6 +28,7 @@ import Dashboard from './pages/self-service/dashboard/Dashboard';
 import Attendance from './pages/self-service/attendance/Attendance';
 import Approval from './pages/self-service/approvals/Approval';
 import Payslip from './pages/self-service/payslip/Payslip';
+import Documents from './pages/self-service/training/Training';
 import HrLayout from './layouts/hr/HrLayout';
 import HrDashboard from './pages/hr/dashboard/Dashboard';
 import HrAttendanceReports from './pages/hr/attendance-reports/AttendanceReports';
@@ -166,6 +167,8 @@ function getSelfServiceElement(page: SelfServicePage) {
       return <Approval />;
     case 'payslip':
       return <Payslip />;
+    case 'training':
+      return <Documents />;
   }
 }
 

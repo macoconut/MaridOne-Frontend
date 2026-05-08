@@ -178,7 +178,7 @@ const navSections: NavSection[] = [
       { to: '/employee/attendance', label: 'Attendance', icon: FiCalendar },
       { to: '/employee/approvals', label: 'View Approvals', icon: FiCheckSquare },
       { to: '/employee/payslip', label: 'View Payslip', icon: FiFileText },
-      { to: '/employee/training', label: 'Training Materials', icon: FiBookOpen },
+      { to: '/employee/training', label: 'Documents', icon: FiBookOpen },
     ],
   },
 ];

@@ -18,8 +18,8 @@
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-  padding: 14px;
-  border-bottom: 1px solid var(--hr-line);
+  position: relative;
+  z-index: 2;
 }
 
 .hrAuditTable {
@@ -53,6 +53,10 @@
 
 .hrAuditRow:nth-child(odd) {
   background: #faf9fc;
+}
+
+.hrAuditTable__body .hrAuditRow:first-child {
+  border-top: 0;
 }
 
 .hrAuditRow:last-child {

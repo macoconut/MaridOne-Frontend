@@ -2661,7 +2661,7 @@ export function AttendanceReportsBoard({
           open
           ariaLabel="Import attendance CSV"
           title="Import Attendance CSV"
-          subtitle="Upload a CSV exported from this attendance report. The import expects Employee ID, Employee Name, Date, Time In, Time Out as the leading columns, allows extra export columns, and ignores the trailing summary section."
+          subtitle="Upload a CSV exported from this attendance report."
           size="lg"
           onClose={closeImportDialog}
           footer={(
@@ -2676,7 +2676,7 @@ export function AttendanceReportsBoard({
             </>
           )}
         >
-          <div className="hrAttModal hrAttModal--import">
+          <div className="hrAttReportModalBody hrAttReportModalBody--import">
             <div className="hrAttImport">
               <FileUploadField
                 label="Attendance CSV"
@@ -2689,7 +2689,7 @@ export function AttendanceReportsBoard({
                   setActionError('');
                 }}
                 accept=".csv,text/csv"
-                uploadLabel="Choose CSV"
+                uploadLabel="Upload CSV"
                 replaceLabel="Replace CSV"
                 emptyLabel="No CSV selected"
               />
@@ -2958,25 +2958,33 @@ export function AttendanceReportsBoard({
             </>
           )}
         >
-          <div className="hrAttModal hrAttModal--export">
+          <div className="hrAttReportModalBody hrAttReportModalBody--export">
             <div className="hrAttExportForm">
               <div className="hrAttExportForm__grid">
-                <label className="hrAttExportForm__field">
-                  <span>From Date</span>
-                  <input
-                    type="date"
-                    value={exportFromDate}
-                    onChange={(e) => setExportFromDate(e.target.value)}
-                  />
-                </label>
-                <label className="hrAttExportForm__field">
-                  <span>To Date</span>
-                  <input
-                    type="date"
-                    value={exportToDate}
-                    onChange={(e) => setExportToDate(e.target.value)}
-                  />
-                </label>
+                <div className="hrAttExportForm__field">
+                  <label htmlFor="attendance-export-from">From</label>
+                  <div className="hrAttExportForm__inputIcon">
+                    <input
+                      id="attendance-export-from"
+                      type="date"
+                      value={exportFromDate}
+                      onChange={(e) => setExportFromDate(e.target.value)}
+                    />
+                    <FiCalendar className="hrAttExportForm__icon" aria-hidden="true" />
+                  </div>
+                </div>
+                <div className="hrAttExportForm__field">
+                  <label htmlFor="attendance-export-to">To</label>
+                  <div className="hrAttExportForm__inputIcon">
+                    <input
+                      id="attendance-export-to"
+                      type="date"
+                      value={exportToDate}
+                      onChange={(e) => setExportToDate(e.target.value)}
+                    />
+                    <FiCalendar className="hrAttExportForm__icon" aria-hidden="true" />
+                  </div>
+                </div>
               </div>
             </div>
           </div>

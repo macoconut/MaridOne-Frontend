@@ -989,84 +989,84 @@ export default function HrAuditLogs() {
         />
       </div>
 
-      <section className="hrAuditTable">
-        <div className="hrAuditToolbar">
-          <label className="uSearch" aria-label="Search audit logs">
-            <FiSearch />
-            <input
-              value={searchValue}
-              onChange={(event) => setSearchValue(event.target.value)}
-              placeholder="Search name, action, area, or details"
-            />
-            {searchValue && (
-              <button type="button" aria-label="Clear search" onClick={() => setSearchValue('')}>
-                <FiXCircle />
-              </button>
-            )}
-          </label>
-
-          <div className="uFilter">
-            <button
-              type="button"
-              className={`uFilter__toggle ${filterOpen ? 'is-open' : ''} ${activeFilterCount > 0 ? 'is-active' : ''}`}
-              onClick={() => setFilterOpen((open) => !open)}
-            >
-              <FiFilter />
-              <span>Filter</span>
+      <div className="hrAuditToolbar">
+        <label className="uSearch" aria-label="Search audit logs">
+          <FiSearch />
+          <input
+            value={searchValue}
+            onChange={(event) => setSearchValue(event.target.value)}
+            placeholder="Search name, action, area, or details"
+          />
+          {searchValue && (
+            <button type="button" aria-label="Clear search" onClick={() => setSearchValue('')}>
+              <FiXCircle />
             </button>
+          )}
+        </label>
 
-            {filterOpen && (
-              <div className="uFilter__panel">
-                <label className="uFilter__field">
-                  <span>Log Type</span>
-                  <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value as TypeFilter)}>
-                    <option value="all">All Changes</option>
-                    <option value="CREATE">Created</option>
-                    <option value="MODIFY">Updated</option>
-                    <option value="DELETE">Deleted</option>
-                  </select>
-                </label>
+        <div className="uFilter">
+          <button
+            type="button"
+            className={`uFilter__toggle ${filterOpen ? 'is-open' : ''} ${activeFilterCount > 0 ? 'is-active' : ''}`}
+            onClick={() => setFilterOpen((open) => !open)}
+          >
+            <FiFilter />
+            <span>Filter</span>
+          </button>
 
-                <label className="uFilter__field">
-                  <span>Time Window</span>
-                  <select value={timeFilter} onChange={(event) => setTimeFilter(event.target.value as TimeFilter)}>
-                    <option value="all">All Time</option>
-                    <option value="today">Today</option>
-                    <option value="7d">Last 7 Days</option>
-                    <option value="30d">Last 30 Days</option>
-                  </select>
-                </label>
+          {filterOpen && (
+            <div className="uFilter__panel">
+              <label className="uFilter__field">
+                <span>Log Type</span>
+                <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value as TypeFilter)}>
+                  <option value="all">All Changes</option>
+                  <option value="CREATE">Created</option>
+                  <option value="MODIFY">Updated</option>
+                  <option value="DELETE">Deleted</option>
+                </select>
+              </label>
 
-                <label className="uFilter__field">
-                  <span>Start Date</span>
-                  <input
-                    type="date"
-                    value={startDateFilter}
-                    max={endDateFilter || undefined}
-                    onChange={(event) => setStartDateFilter(event.target.value)}
-                  />
-                </label>
+              <label className="uFilter__field">
+                <span>Time Window</span>
+                <select value={timeFilter} onChange={(event) => setTimeFilter(event.target.value as TimeFilter)}>
+                  <option value="all">All Time</option>
+                  <option value="today">Today</option>
+                  <option value="7d">Last 7 Days</option>
+                  <option value="30d">Last 30 Days</option>
+                </select>
+              </label>
 
-                <label className="uFilter__field">
-                  <span>End Date</span>
-                  <input
-                    type="date"
-                    value={endDateFilter}
-                    min={startDateFilter || undefined}
-                    onChange={(event) => setEndDateFilter(event.target.value)}
-                  />
-                </label>
+              <label className="uFilter__field">
+                <span>Start Date</span>
+                <input
+                  type="date"
+                  value={startDateFilter}
+                  max={endDateFilter || undefined}
+                  onChange={(event) => setStartDateFilter(event.target.value)}
+                />
+              </label>
 
-                <div className="uFilter__actions">
-                  <button type="button" onClick={clearFilters}>
-                    Clear Filters
-                  </button>
-                </div>
+              <label className="uFilter__field">
+                <span>End Date</span>
+                <input
+                  type="date"
+                  value={endDateFilter}
+                  min={startDateFilter || undefined}
+                  onChange={(event) => setEndDateFilter(event.target.value)}
+                />
+              </label>
+
+              <div className="uFilter__actions">
+                <button type="button" onClick={clearFilters}>
+                  Clear Filters
+                </button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
+      </div>
 
+      <section className="hrAuditTable">
         <div className="hrAuditTable__body">
           {isLoading ? (
             <div className="hrAuditRow">

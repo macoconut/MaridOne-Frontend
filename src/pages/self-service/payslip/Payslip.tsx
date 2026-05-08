@@ -2,6 +2,11 @@ import { useLoading } from '@/context/useLoading';
 import { useEffect, useMemo, useState, useRef, useId } from 'react';
 import { FiAlertCircle, FiCheckCircle, FiChevronRight, FiDownload, FiPrinter, FiXCircle, FiCalendar } from 'react-icons/fi';
 import { apiFetchJson, apiFetchRaw, toArray } from '@/lib/api/api';
+import {
+  fetchPrivateDocumentDownloadUrl,
+  fetchPrivateDocumentList,
+  fetchPrivateDocumentViewUrl,
+} from '@/lib/api/endpoints/documents/document-fetch';
 import { uploadPrivateDocuments } from '@/lib/api/endpoints/documents/document-upload';
 import ActionButton from '@/components/button/ActionButton';
 import { hasBonusEarning } from '@/lib/utils/payrollRunLabels';
@@ -26,6 +31,13 @@ type DocumentRow = {
   fileName?: string;
   fileType?: string;
   username?: string;
+};
+
+type PayslipPdfSource = {
+  file?: File;
+  fileName: string;
+  viewUrl?: string;
+  downloadUrl?: string;
 };
 
 type PayslipLine = {
@@ -460,7 +472,7 @@ export default function Payslip() {
     return `${baseName}.pdf`;
   }
 
-  async function loadSelectedPayslipPdf() {
+  async function loadSelectedPayslipPdf(): Promise<PayslipPdfSource> {
     try {
       if (!selectedItemId) {
         throw new Error('No payroll item selected.');
@@ -482,14 +494,7 @@ export default function Payslip() {
       // Fall back to the latest saved payslip document if on-demand PDF rendering fails.
     }
 
-    const username = getUserEmail();
-    if (!username) {
-      throw new Error('Missing username.');
-    }
-
-    const documents = await apiFetchJson<DocumentRow[]>(
-      `/api/user/documents/${encodeURIComponent(username)}?subDir=payslip`
-    );
+    const documents = await fetchPrivateDocumentList();
     const selectedDocument =
       documents.find((document) => matchesPayslipPeriod(document, selectedRun?.periodEnd)) ?? documents[0];
 
@@ -497,38 +502,13 @@ export default function Payslip() {
       throw new Error('No saved payslip PDF was found for this pay period yet.');
     }
 
-    const documentViewPaths = [
-      `/api/LOCAL/document/${selectedDocument.pathId}/view`,
-      `/api/document/${selectedDocument.pathId}/view`,
-    ];
-
-    let documentBlob: Blob | null = null;
-
-    for (const path of documentViewPaths) {
-      const response = await apiFetchRaw(path, { method: 'GET' });
-
-      if (response.ok) {
-        documentBlob = await response.blob();
-        break;
-      }
-
-      if (response.status !== 404) {
-        throw new Error(`Failed to open the saved payslip (${response.status}).`);
-      }
-    }
-
-    if (!documentBlob) {
-      throw new Error('The saved payslip document could not be opened.');
-    }
-
     const fileName = buildPayslipPdfName(selectedDocument);
-    const pdfFile = new File(
-      [documentBlob],
-      fileName,
-      { type: documentBlob.type || selectedDocument.fileType || 'application/pdf' }
-    );
+    const [viewUrl, downloadUrl] = await Promise.all([
+      fetchPrivateDocumentViewUrl(selectedDocument.pathId),
+      fetchPrivateDocumentDownloadUrl(selectedDocument.pathId),
+    ]);
 
-    return { file: pdfFile, fileName };
+    return { fileName, viewUrl, downloadUrl };
   }
 
   async function handleDownload() {
@@ -536,13 +516,25 @@ export default function Payslip() {
     setPrintingPayslip(true);
 
     try {
-      const { file, fileName } = await loadSelectedPayslipPdf();
-      const downloadUrl = URL.createObjectURL(file);
+      const { file, fileName, downloadUrl, viewUrl } = await loadSelectedPayslipPdf();
+      if (!file) {
+        const documentUrl = downloadUrl ?? viewUrl;
+        if (!documentUrl) throw new Error('The saved payslip document could not be opened.');
+
+        const anchor = document.createElement('a');
+        anchor.href = documentUrl;
+        anchor.download = fileName;
+        anchor.rel = 'noopener noreferrer';
+        anchor.click();
+        return;
+      }
+
+      const objectUrl = URL.createObjectURL(file);
       const anchor = document.createElement('a');
-      anchor.href = downloadUrl;
+      anchor.href = objectUrl;
       anchor.download = fileName;
       anchor.click();
-      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 60_000);
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
     } catch (error) {
       setPayslipActionError(error instanceof Error ? error.message : 'Failed to download the saved payslip.');
     } finally {
@@ -555,7 +547,18 @@ export default function Payslip() {
     setPrintingPayslip(true);
 
     try {
-      const { file } = await loadSelectedPayslipPdf();
+      const { file, viewUrl } = await loadSelectedPayslipPdf();
+      if (!file) {
+        if (!viewUrl) throw new Error('The saved payslip document could not be opened.');
+
+        const anchor = document.createElement('a');
+        anchor.href = viewUrl;
+        anchor.target = '_blank';
+        anchor.rel = 'noopener noreferrer';
+        anchor.click();
+        return;
+      }
+
       const documentUrl = URL.createObjectURL(file);
       const anchor = document.createElement('a');
       anchor.href = documentUrl;

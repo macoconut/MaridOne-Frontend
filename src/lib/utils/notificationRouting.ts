@@ -194,7 +194,7 @@ function resolveDestination(role: NotificationRole, message: string) {
     return '/management/attendance';
   }
 
-  if (includesAny(normalized, ['training', 'onboarding', 'handbook'])) {
+  if (includesAny(normalized, ['document', 'documents', 'policy', 'training', 'onboarding', 'handbook'])) {
     return selfServiceNotificationPath(selfServiceRole, 'training');
   }
 
