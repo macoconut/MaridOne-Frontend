@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FiCalendar, FiEye, FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
+import { FiCalendar, FiDownload, FiEye, FiFilter, FiMoreVertical, FiSearch, FiXCircle } from 'react-icons/fi';
 import LargePopup from '../../../components/dialog/LargePopup';
 
 type AggregatedEmployeeRow = EmployeeReportRow & {
@@ -16,6 +16,7 @@ import { compareEmployees, type EmployeeSortKey } from '@/lib/utils/employeeSort
 import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
 import { getManilaNow } from '@/lib/utils/manilaTime';
 import {
+  formatDate,
   formatDateTime,
   toMoneyString,
   toOptionalMoneyString,
@@ -33,7 +34,54 @@ import './PayrollReview.css';
 
 type ReportView = 'employee' | 'payType';
 
+type EmployeeReportExportRow = {
+  employeeId: string;
+  employeeName: string;
+  grossPay: string;
+  earningsTotal: string;
+  deductionsTotal: string;
+  employerContributionTotal: string;
+  netPay: string;
+  earnings: PayrollBreakdownLine[];
+  deductions: PayrollBreakdownLine[];
+  employerContributions: PayrollBreakdownLine[];
+};
+
 type PayTypeSortKey = 'name' | 'amount';
+
+const DEFAULT_EARNING_BREAKDOWN_LABELS = [
+  'Basic Pay',
+  'Bonus',
+  'Approved Overtime',
+  'Regular Holiday Premium',
+  'Special Holiday Premium',
+  'Rest Day Premium',
+  'Night Differential',
+  'OT Night Differential',
+  'Premium Pay',
+  'Manual Adjustment',
+];
+
+const DEFAULT_DEDUCTION_BREAKDOWN_LABELS = [
+  'SSS Contribution',
+  'PhilHealth Contribution',
+  'Pag-IBIG Contribution',
+  'Withholding Tax',
+  'Late Penalty',
+  'Absent Deduction',
+  'SSS Loan',
+  'Pag-IBIG Loan',
+  'Cash Advance',
+  'Manual Adjustment',
+  'Equipment Loss Penalty',
+  'HMO Upgrade',
+];
+
+const DEFAULT_EMPLOYER_CONTRIBUTION_BREAKDOWN_LABELS = [
+  'Employer SSS Contribution',
+  'Employer PhilHealth Contribution',
+  'Employer Pag-IBIG Contribution',
+];
 
 const PAY_TYPE_SORT_OPTIONS: Array<SortOption<PayTypeSortKey>> = [
   {
@@ -122,16 +170,26 @@ function buildEmployeeDirectory(response: unknown) {
 function formatSummaryLabel(value?: string, summaryKind?: PayrollBreakdownLine['lineType']) {
   const key = String(value ?? '').trim();
   if (!key) return 'Unknown line item';
-  const normalized = key.replace(/[\s_]+/g, '').toUpperCase();
+  const normalized = key.replace(/[\s_-]+/g, '').toUpperCase();
   if (summaryKind === 'EMPLOYER_CONTRIBUTION') {
-    if (normalized === 'PAGIBIG') return 'Employer Pag-IBIG Contribution';
-    if (normalized === 'PHILHEALTH') return 'Employer PhilHealth Contribution';
-    if (normalized === 'SSS') return 'Employer SSS Contribution';
+    if (normalized === 'PAGIBIG' || normalized === 'EMPLOYERPAGIBIGCONTRIBUTION') {
+      return 'Employer Pag-IBIG Contribution';
+    }
+    if (normalized === 'PHILHEALTH' || normalized === 'EMPLOYERPHILHEALTHCONTRIBUTION') {
+      return 'Employer PhilHealth Contribution';
+    }
+    if (normalized === 'SSS' || normalized === 'EMPLOYERSSSCONTRIBUTION') {
+      return 'Employer SSS Contribution';
+    }
   }
-  if (normalized === 'PAGIBIG') return 'Pag-IBIG Contribution';
-  if (normalized === 'PHILHEALTH') return 'PhilHealth Contribution';
-  if (normalized === 'SSS') return 'SSS Contribution';
+  if (summaryKind === 'DEDUCTION') {
+    if (normalized === 'WITHHOLDINGTAX' || normalized.startsWith('BRACKETLEVEL')) return 'Withholding Tax';
+  }
+  if (normalized === 'PAGIBIG' || normalized === 'PAGIBIGCONTRIBUTION') return 'PagIbig';
+  if (normalized === 'PHILHEALTH' || normalized === 'PHILHEALTHCONTRIBUTION') return 'PhilHealth';
+  if (normalized === 'SSS' || normalized === 'SSSCONTRIBUTION') return 'SSS';
   if (normalized === 'BONUS') return 'Bonus';
+  if (summaryKind === 'EARNING' && normalized === 'NIGHTDIFF') return 'Night Differential';
   return key
     .toLowerCase()
     .split('_')
@@ -140,8 +198,49 @@ function formatSummaryLabel(value?: string, summaryKind?: PayrollBreakdownLine['
     .join(' ');
 }
 
+function formatPayTypeDisplayLabel(row: PayTypeSummaryRow) {
+  const summaryKind = getSummaryKind(row) as PayrollBreakdownLine['lineType'] | undefined;
+  const normalized = String(row.payType ?? '')
+    .trim()
+    .replace(/[\s_-]+/g, '')
+    .toUpperCase();
+  const canonical = formatSummaryLabel(row.payType, summaryKind);
+
+  if (summaryKind === 'EMPLOYER_CONTRIBUTION') {
+    if (normalized === 'PAGIBIG' || canonical === 'Employer Pag-IBIG Contribution') return 'Employer PagIbig';
+    if (normalized === 'PHILHEALTH' || canonical === 'Employer PhilHealth Contribution') return 'Employer PhilHealth';
+    if (normalized === 'SSS' || canonical === 'Employer SSS Contribution') return 'Employer SSS';
+  }
+
+  return canonical;
+}
+
 function getSummaryKind(row: PayTypeSummaryRow) {
   return row.summaryKind ?? row.adjustment ?? row.adjustmentKind;
+}
+
+function mergePayTypeSummaryRows(rows: PayTypeSummaryRow[]) {
+  const merged = new Map<string, PayTypeSummaryRow>();
+
+  for (const row of rows) {
+    const summaryKind = getSummaryKind(row) as PayrollBreakdownLine['lineType'] | undefined;
+    const mergedPayType = formatSummaryLabel(row.payType, summaryKind);
+    const key = `${summaryKind ?? 'UNKNOWN'}::${mergedPayType}`;
+    const existing = merged.get(key);
+
+    if (existing) {
+      existing.total = toAmount(existing.total) + toAmount(row.total);
+      continue;
+    }
+
+    merged.set(key, {
+      ...row,
+      payType: mergedPayType,
+      summaryKind: row.summaryKind ?? summaryKind,
+    });
+  }
+
+  return Array.from(merged.values());
 }
 
 function normalizeBreakdownLabel(label: string, lineType: PayrollBreakdownLine['lineType']) {
@@ -186,10 +285,112 @@ function normalizeBreakdownLabel(label: string, lineType: PayrollBreakdownLine['
   if (lineType === 'EARNING') {
     if (normalized === 'basic salary') return 'Basic Pay';
     if (normalized === 'overtime' || normalized === 'approved overtime') return 'Approved Overtime';
+    if (normalized === 'nightdiff') return 'Night Differential';
     if (normalized === 'bonus') return 'Bonus';
   }
 
   return trimmed;
+}
+
+function toCsvValue(value: unknown) {
+  const text = String(value ?? '');
+  if (/[",\r\n]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`;
+  }
+  return text;
+}
+
+function buildCsvContent(rows: string[][]) {
+  return rows.map((row) => row.map(toCsvValue).join(',')).join('\r\n');
+}
+
+function sumBreakdownAmounts(response: unknown) {
+  return toArray<Record<string, unknown>>(response).reduce((sum, row) => sum + toAmount(row.amount), 0);
+}
+
+function orderBreakdownLabels(observedLabels: string[], defaultLabels: string[]) {
+  const uniqueObserved = Array.from(new Set(observedLabels.filter(Boolean)));
+  const remaining = uniqueObserved
+    .filter((label) => !defaultLabels.includes(label))
+    .sort((a, b) => a.localeCompare(b));
+  return [...defaultLabels, ...remaining];
+}
+
+function buildBreakdownAmountMap(lines: PayrollBreakdownLine[], lineType: PayrollBreakdownLine['lineType']) {
+  const amounts = new Map<string, number>();
+
+  for (const line of lines) {
+    const label = normalizeBreakdownLabel(line.label, lineType);
+    amounts.set(label, (amounts.get(label) ?? 0) + toAmount(line.amount));
+  }
+
+  return amounts;
+}
+
+function buildEmployeeReportRows(reportLabel: string, payrollStatus: string, rows: EmployeeReportExportRow[]) {
+  const earningsBreakdownLabels = orderBreakdownLabels(
+    rows.flatMap((row) => row.earnings.map((line) => normalizeBreakdownLabel(line.label, 'EARNING'))),
+    DEFAULT_EARNING_BREAKDOWN_LABELS
+  );
+  const deductionsBreakdownLabels = orderBreakdownLabels(
+    rows.flatMap((row) => row.deductions.map((line) => normalizeBreakdownLabel(line.label, 'DEDUCTION'))),
+    DEFAULT_DEDUCTION_BREAKDOWN_LABELS
+  );
+  const employerContributionBreakdownLabels = orderBreakdownLabels(
+    rows.flatMap((row) =>
+      row.employerContributions.map((line) => normalizeBreakdownLabel(line.label, 'EMPLOYER_CONTRIBUTION'))
+    ),
+    DEFAULT_EMPLOYER_CONTRIBUTION_BREAKDOWN_LABELS
+  );
+
+  return [
+    ['Report', reportLabel],
+    ['Status', payrollStatus],
+    [''],
+    ['Employee ID', 'Employee Name', 'Gross Pay', 'Earnings Total', 'Deductions Total', 'ER Contributions', 'Net Pay'],
+    ...rows.map((row) => [
+      row.employeeId,
+      row.employeeName,
+      row.grossPay,
+      row.earningsTotal,
+      row.deductionsTotal,
+      row.employerContributionTotal,
+      row.netPay,
+    ]),
+    [''],
+    ['Earnings Breakdown'],
+    ['Employee ID', 'Employee Name', ...earningsBreakdownLabels],
+    ...rows.map((row) => {
+      const earningsAmounts = buildBreakdownAmountMap(row.earnings, 'EARNING');
+      return [
+        row.employeeId,
+        row.employeeName,
+        ...earningsBreakdownLabels.map((label) => formatCurrency(earningsAmounts.get(label) ?? 0)),
+      ];
+    }),
+    [''],
+    ['Deductions Breakdown'],
+    ['Employee ID', 'Employee Name', ...deductionsBreakdownLabels],
+    ...rows.map((row) => {
+      const deductionsAmounts = buildBreakdownAmountMap(row.deductions, 'DEDUCTION');
+      return [
+        row.employeeId,
+        row.employeeName,
+        ...deductionsBreakdownLabels.map((label) => formatCurrency(deductionsAmounts.get(label) ?? 0)),
+      ];
+    }),
+    [''],
+    ['Employer Contributions Breakdown'],
+    ['Employee ID', 'Employee Name', ...employerContributionBreakdownLabels],
+    ...rows.map((row) => {
+      const contributionAmounts = buildBreakdownAmountMap(row.employerContributions, 'EMPLOYER_CONTRIBUTION');
+      return [
+        row.employeeId,
+        row.employeeName,
+        ...employerContributionBreakdownLabels.map((label) => formatCurrency(contributionAmounts.get(label) ?? 0)),
+      ];
+    }),
+  ];
 }
 
 function getEmptyRunMessage(run: PayrollRunRow | null, view: ReportView, availableRunCount: number) {
@@ -237,6 +438,7 @@ export default function AccountingPayrollReview() {
   const [payTypeRows, setPayTypeRows] = useState<PayTypeSummaryRow[]>([]);
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [roleFilter, setRoleFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [selectedBreakdownItem, setSelectedBreakdownItem] = useState<AggregatedEmployeeRow | null>(null);
@@ -246,10 +448,14 @@ export default function AccountingPayrollReview() {
   const [isLoadingBreakdown, setIsLoadingBreakdown] = useState(false);
   const [breakdownError, setBreakdownError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [loadError, setLoadError] = useState('');
+  const [actionError, setActionError] = useState('');
   const [refreshTick, setRefreshTick] = useState(0);
   const silentRefreshRef = useRef(false);
+  const actionMenuRef = useRef<HTMLDivElement | null>(null);
   useErrorDialogEffect(loadError, 'Payroll review data could not be loaded');
+  useErrorDialogEffect(actionError, 'Payslip review report could not be exported');
 
   const handlePageRefresh = useCallback(() => {
     silentRefreshRef.current = true;
@@ -263,6 +469,19 @@ export default function AccountingPayrollReview() {
   useEffect(() => {
     setSortMenuOpen(false);
   }, [view]);
+
+  useEffect(() => {
+    if (!actionMenuOpen) return undefined;
+
+    function handlePointerDown(event: MouseEvent) {
+      if (actionMenuRef.current && !actionMenuRef.current.contains(event.target as Node)) {
+        setActionMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [actionMenuOpen]);
 
   useEffect(() => {
     if (selectedBreakdownItem) document.body.classList.add('modal-open');
@@ -441,24 +660,31 @@ export default function AccountingPayrollReview() {
   }, [departmentFilter, employeeReportRows, roleFilter, employeeSort, normalizedFilter]);
 
   const visiblePayTypeRows = useMemo(() => {
+    const mergedRows = mergePayTypeSummaryRows(payTypeRows);
     const filtered =
       !normalizedFilter || normalizedFilter === 'all'
-        ? [...payTypeRows]
-        : payTypeRows.filter((row) => {
+        ? [...mergedRows]
+        : mergedRows.filter((row) => {
             const payType = String(row.payType ?? '').toLowerCase();
             const kind = String(getSummaryKind(row) ?? '').toLowerCase();
             const friendlyPayType = formatSummaryLabel(
               row.payType,
               getSummaryKind(row) as PayrollBreakdownLine['lineType'] | undefined
             ).toLowerCase();
-            return payType.includes(normalizedFilter) || kind.includes(normalizedFilter) || friendlyPayType.includes(normalizedFilter);
+            const displayPayType = formatPayTypeDisplayLabel(row).toLowerCase();
+            return (
+              payType.includes(normalizedFilter) ||
+              kind.includes(normalizedFilter) ||
+              friendlyPayType.includes(normalizedFilter) ||
+              displayPayType.includes(normalizedFilter)
+            );
           });
 
     return filtered.sort((a, b) => {
       if (payTypeSort === 'amount') {
         return toAmount(b.total) - toAmount(a.total);
       }
-      return formatSummaryLabel(a.payType).localeCompare(formatSummaryLabel(b.payType));
+      return formatPayTypeDisplayLabel(a).localeCompare(formatPayTypeDisplayLabel(b));
     });
   }, [normalizedFilter, payTypeRows, payTypeSort]);
 
@@ -492,6 +718,60 @@ export default function AccountingPayrollReview() {
     [visibleEmployerContributionRows]
   );
 
+  const reportLabel = useMemo(() => {
+    if (!fromDate || !toDate) return 'Payslip Review Report';
+    return `Report from ${formatDate(fromDate, '-')} to ${formatDate(toDate, '-')}`;
+  }, [fromDate, toDate]);
+
+  const reportFileStem = useMemo(() => {
+    return reportLabel
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'payslip-review-report';
+  }, [reportLabel]);
+
+  const payTypeReportRows = useMemo(() => {
+    return [
+      ['Report', reportLabel],
+      ['Status', selectedRun?.payrollStatus || 'Unknown status'],
+      [''],
+      ['Category', 'Type', 'Total'],
+      ...visibleEarningRows.map((row) => ['Earnings', formatPayTypeDisplayLabel(row), formatCurrency(row.total)]),
+      ['Earnings Total', '', formatCurrency(earningsTotal)],
+      ...visibleDeductionRows.map((row) => ['Deductions', formatPayTypeDisplayLabel(row), formatCurrency(row.total)]),
+      ['Deductions Total', '', formatCurrency(deductionsTotal)],
+      ...visibleEmployerContributionRows.map((row) => [
+        'Employer Contributions',
+        formatPayTypeDisplayLabel(row),
+        formatCurrency(row.total),
+      ]),
+      ['Employer Contributions Total', '', formatCurrency(employerContributionTotal)],
+    ];
+  }, [
+    deductionsTotal,
+    earningsTotal,
+    employerContributionTotal,
+    reportLabel,
+    selectedRun?.payrollStatus,
+    visibleDeductionRows,
+    visibleEarningRows,
+    visibleEmployerContributionRows,
+  ]);
+
+  const payTypeReportCsv = useMemo(() => buildCsvContent(payTypeReportRows), [payTypeReportRows]);
+
+  const hasDownloadableReport = useMemo(() => {
+    if (view === 'employee') {
+      return visibleEmployeeRows.length > 0;
+    }
+
+    return (
+      visibleEarningRows.length > 0 ||
+      visibleDeductionRows.length > 0 ||
+      visibleEmployerContributionRows.length > 0
+    );
+  }, [view, visibleDeductionRows.length, visibleEarningRows.length, visibleEmployeeRows.length, visibleEmployerContributionRows.length]);
+
   const activeFilterCount = [roleFilter, departmentFilter].filter(
     (value) => value !== 'all'
   ).length;
@@ -511,6 +791,7 @@ export default function AccountingPayrollReview() {
   }, []);
 
   useEscapeDismiss(Boolean(selectedBreakdownItem), closeBreakdownModal, 10);
+  useEscapeDismiss(actionMenuOpen, () => setActionMenuOpen(false), 11);
 
   useEffect(() => {
     closeBreakdownModal();
@@ -594,6 +875,135 @@ export default function AccountingPayrollReview() {
     }
   }
 
+  async function downloadCurrentReport() {
+    if (!hasDownloadableReport) return;
+
+    setActionError('');
+    setIsDownloading(true);
+
+    try {
+      const csvContent =
+        view === 'employee'
+          ? buildCsvContent(
+              buildEmployeeReportRows(
+                reportLabel,
+                selectedRun?.payrollStatus || 'Unknown status',
+                await Promise.all(
+                  visibleEmployeeRows.map(async (row) => {
+                    const itemIds = row.itemIds.length > 0
+                      ? row.itemIds
+                      : typeof row.itemId === 'number'
+                        ? [row.itemId]
+                        : [];
+                    const fallbackGross = toAmount(row.grossPay);
+                    const fallbackNet = toAmount(row.netPay);
+                    const fallbackDeductions = Math.max(fallbackGross - fallbackNet, 0);
+
+                    if (itemIds.length === 0) {
+                      return {
+                        employeeId: String(row.empId ?? '-'),
+                        employeeName: formatEmployeeName(row),
+                        grossPay: formatCurrency(row.grossPay),
+                        earningsTotal: formatCurrency(fallbackGross),
+                        deductionsTotal: formatCurrency(fallbackDeductions),
+                        employerContributionTotal: formatCurrency(row.employerContributionTotal),
+                        netPay: formatCurrency(row.netPay),
+                        earnings: [],
+                        deductions: [],
+                        employerContributions: [],
+                      };
+                    }
+
+                    const combinedResults = await Promise.all(
+                      itemIds.map(async (itemId) =>
+                        Promise.allSettled([
+                          apiFetchJson<unknown>(`/api/payroll/item/earnings/${itemId}`),
+                          apiFetchJson<unknown>(`/api/payroll/item/deductions/${itemId}`),
+                          apiFetchJson<unknown>(`/api/payroll/item/employer-contributions/${itemId}`),
+                        ])
+                      )
+                    );
+
+                    const rawEarningsResponses: unknown[] = [];
+                    const rawDeductionResponses: unknown[] = [];
+                    const rawEmployerContributionResponses: unknown[] = [];
+                    const earningsLines: PayrollBreakdownLine[] = [];
+                    const deductionLines: PayrollBreakdownLine[] = [];
+                    const employerContributionLines: PayrollBreakdownLine[] = [];
+
+                    for (const [earningsResult, deductionsResult, employerContributionResult] of combinedResults) {
+                      if (earningsResult.status === 'fulfilled') {
+                        rawEarningsResponses.push(earningsResult.value);
+                        earningsLines.push(...mapBreakdownLines(earningsResult.value, 'EARNING'));
+                      }
+                      if (deductionsResult.status === 'fulfilled') {
+                        rawDeductionResponses.push(deductionsResult.value);
+                        deductionLines.push(...mapBreakdownLines(deductionsResult.value, 'DEDUCTION'));
+                      }
+                      if (employerContributionResult.status === 'fulfilled') {
+                        rawEmployerContributionResponses.push(employerContributionResult.value);
+                        employerContributionLines.push(
+                          ...mapBreakdownLines(employerContributionResult.value, 'EMPLOYER_CONTRIBUTION')
+                        );
+                      }
+                    }
+
+                    const earningsTotalForRow =
+                      rawEarningsResponses.length > 0
+                        ? rawEarningsResponses.reduce<number>(
+                            (sum, response) => sum + sumBreakdownAmounts(response),
+                            0
+                          )
+                        : fallbackGross;
+                    const deductionsTotalForRow =
+                      rawDeductionResponses.length > 0
+                        ? rawDeductionResponses.reduce<number>(
+                            (sum, response) => sum + sumBreakdownAmounts(response),
+                            0
+                          )
+                        : fallbackDeductions;
+                    const employerContributionTotalForRow =
+                      rawEmployerContributionResponses.length > 0
+                        ? rawEmployerContributionResponses.reduce<number>(
+                            (sum, response) => sum + sumBreakdownAmounts(response),
+                            0
+                          )
+                        : toAmount(row.employerContributionTotal);
+
+                    return {
+                      employeeId: String(row.empId ?? '-'),
+                      employeeName: formatEmployeeName(row),
+                      grossPay: formatCurrency(row.grossPay),
+                      earningsTotal: formatCurrency(earningsTotalForRow),
+                      deductionsTotal: formatCurrency(deductionsTotalForRow),
+                      employerContributionTotal: formatCurrency(employerContributionTotalForRow),
+                      netPay: formatCurrency(row.netPay),
+                      earnings: earningsLines,
+                      deductions: deductionLines,
+                      employerContributions: employerContributionLines,
+                    };
+                  })
+                )
+              )
+            )
+          : payTypeReportCsv;
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${reportFileStem}-${view}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setActionError(getFriendlyErrorMessage(error, 'payroll-run'));
+    } finally {
+      setIsDownloading(false);
+    }
+  }
+
   function clearFilters() {
     setRoleFilter('all');
     setDepartmentFilter('all');
@@ -613,6 +1023,37 @@ export default function AccountingPayrollReview() {
               <option value="payType">By Pay Type</option>
             </select>
           </label>
+
+          <div className="aReviewRunMenu" ref={actionMenuRef}>
+            <button
+              type="button"
+              className={`aReviewRunMenu__toggle ${actionMenuOpen ? 'is-open' : ''}`}
+              onClick={() => setActionMenuOpen((open) => !open)}
+              aria-haspopup="menu"
+              aria-expanded={actionMenuOpen}
+              aria-label="Payslip review report actions"
+            >
+              <FiMoreVertical />
+            </button>
+
+            {actionMenuOpen ? (
+              <div className="aReviewRunMenu__panel" role="menu" aria-label="Payslip review report actions">
+                <button
+                  type="button"
+                  className="aReviewRunMenu__item"
+                  role="menuitem"
+                  onClick={() => {
+                    setActionMenuOpen(false);
+                    void downloadCurrentReport();
+                  }}
+                  disabled={isDownloading || !hasDownloadableReport}
+                >
+                  <FiDownload aria-hidden="true" />
+                  <span>{isDownloading ? 'Preparing CSV...' : 'Download Report'}</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -750,6 +1191,7 @@ export default function AccountingPayrollReview() {
                 </div>
               ) : null}
             </div>
+
           </div>
         </div>
       </div>
@@ -810,7 +1252,7 @@ export default function AccountingPayrollReview() {
                   {visibleEarningRows.length > 0 ? (
                     visibleEarningRows.map((row, index) => (
                       <article key={`earning-${row.payType ?? index}`} className="aReviewRunTypeRow aReviewRunTypeRow--table">
-                        <div className="aReviewRunTypeRow__label">{formatSummaryLabel(row.payType, 'EARNING')}</div>
+                        <div className="aReviewRunTypeRow__label">{formatPayTypeDisplayLabel(row)}</div>
                         <div className="aReviewRunTypeRow__value">{formatCurrency(row.total)}</div>
                       </article>
                     ))
@@ -836,7 +1278,7 @@ export default function AccountingPayrollReview() {
                   {visibleDeductionRows.length > 0 ? (
                     visibleDeductionRows.map((row, index) => (
                       <article key={`deduction-${row.payType ?? index}`} className="aReviewRunTypeRow aReviewRunTypeRow--table">
-                        <div className="aReviewRunTypeRow__label">{formatSummaryLabel(row.payType, 'DEDUCTION')}</div>
+                        <div className="aReviewRunTypeRow__label">{formatPayTypeDisplayLabel(row)}</div>
                         <div className="aReviewRunTypeRow__value">{formatCurrency(row.total)}</div>
                       </article>
                     ))
@@ -869,7 +1311,7 @@ export default function AccountingPayrollReview() {
                         className="aReviewRunTypeRow aReviewRunTypeRow--table"
                       >
                         <div className="aReviewRunTypeRow__label">
-                          {formatSummaryLabel(row.payType, 'EMPLOYER_CONTRIBUTION')}
+                          {formatPayTypeDisplayLabel(row)}
                         </div>
                         <div className="aReviewRunTypeRow__value">{formatCurrency(row.total)}</div>
                       </article>

@@ -20,125 +20,154 @@
   letter-spacing: -0.03em;
 }
 
-.aDashPay__controls {
+.aDashPayDateField {
   display: flex;
-  justify-content: flex-end;
-  margin-left: auto;
-  min-width: min(100%, 760px);
-}
-
-.aDashPayControlsCard {
-  width: min(100%, 760px);
-  border: 1.5px solid #dacde7;
-  border-radius: 14px;
-  background: #fff;
-  box-shadow: 0 8px 14px rgba(123, 74, 143, 0.12);
-  padding: 14px;
-}
-
-.aDashPayControlsGrid {
-  display: grid;
-  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr) minmax(220px, 280px);
+  align-items: flex-end;
   gap: 12px;
-  align-items: end;
+  flex-wrap: wrap;
+  margin-left: auto;
 }
 
-.aDashPaySelectField {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  width: 100%;
-}
-
-.aDashPaySelectField label {
-  font-size: 16px;
-  font-weight: 700;
-  color: #6a627c;
-}
-
-.aDashPaySelect {
-  position: relative;
-  display: flex;
-  align-items: center;
-  min-height: 38px;
-  border: 1px solid rgba(59, 34, 87, 0.16);
-  border-radius: 10px;
-  background: #fff;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-  overflow: hidden;
-}
-
-.aDashPaySelect::after {
-  content: '';
-  position: absolute;
-  right: 14px;
-  top: 50%;
-  width: 8px;
-  height: 8px;
-  border-right: 2px solid #645775;
-  border-bottom: 2px solid #645775;
-  transform: translateY(-65%) rotate(45deg);
-  pointer-events: none;
-}
-
-.aDashPaySelect select {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 100%;
-  min-width: 0;
-  height: 100%;
-  border: 0;
-  background: transparent;
-  padding: 0 40px 0 12px;
-  color: #2f2050;
+.aDashPayDateField label,
+.aDashPayPresetField label,
+.aDashPayRangeField label {
   font-size: 15px;
   font-weight: 700;
-  cursor: pointer;
+  color: #555066;
+  margin-left: 2px;
 }
 
-.aDashPaySelect select:focus {
-  outline: none;
+.aDashPayPresetField,
+.aDashPayRangeField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.aDashPayPresetField {
+  min-width: 190px;
 }
 
 .aDashPayDateGroup {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.aDashPayDateField {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
+  align-items: center;
+  gap: 10px;
 }
 
-.aDashPayDateField span {
-  font-size: 16px;
+.aDashPayPresetSelect {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: var(--ui-radius-md);
+  background: #fff;
+  box-shadow: var(--ui-shadow-soft);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.aDashPayPresetSelect:hover {
+  border-color: rgba(59, 34, 87, 0.24);
+}
+
+.aDashPayPresetSelect:focus-within {
+  border-color: rgba(123, 74, 143, 0.4);
+  box-shadow: 0 4px 14px rgba(123, 74, 143, 0.12);
+}
+
+.aDashPayPresetSelect select {
+  width: 100%;
+  min-height: 46px;
+  border: 0;
+  appearance: none;
+  background: transparent;
+  padding: 0 42px 0 14px;
+  color: var(--ui-title-color);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+}
+
+.aDashPayPresetSelect svg {
+  position: absolute;
+  right: 14px;
+  color: var(--app-label-color);
+  font-size: 15px;
+  pointer-events: none;
+}
+
+.aDashPayDateInput {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  width: 210px;
+  padding: 0 14px;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: var(--ui-radius-md);
+  background: #fff;
+  box-shadow: var(--ui-shadow-soft);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.aDashPayDateInput:hover {
+  border-color: rgba(59, 34, 87, 0.24);
+}
+
+.aDashPayDateInput:focus-within {
+  border-color: rgba(123, 74, 143, 0.4);
+  box-shadow: 0 4px 14px rgba(123, 74, 143, 0.12);
+}
+
+.aDashPayDateInput svg {
+  color: var(--app-label-color);
+  font-size: 15px;
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+
+.aDashPayDateInput__value {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ui-title-color);
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.aDashPayDateInput input[type='date'] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 5;
+}
+
+.aDashPayDateInput input[type='date']::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.aDashPayDateSeparator {
+  font-size: 14px;
   font-weight: 700;
   color: #6a627c;
-}
-
-.aDashPayDateField input[type='date'] {
-  min-height: 38px;
-  border: 1px solid rgba(59, 34, 87, 0.16);
-  border-radius: 10px;
-  background: #fff;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
-  padding: 0 12px;
-  color: #2f2050;
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.aDashPayDateField input[type='date']:focus {
-  outline: none;
-  border-color: rgba(123, 74, 143, 0.42);
-  box-shadow: 0 0 0 3px rgba(123, 74, 143, 0.12);
 }
 
 .aDashPaySummaryGrid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
 }
 
@@ -635,10 +664,6 @@
 }
 
 @media (max-width: 1400px) {
-  .aDashPayControlsGrid {
-    grid-template-columns: 1fr;
-  }
-
   .aDashPaySummaryGrid {
     grid-template-columns: 1fr;
   }
@@ -672,17 +697,13 @@
     align-items: stretch;
   }
 
-  .aDashPay__controls {
+  .aDashPayDateField {
     margin-left: 0;
-    width: 100%;
-  }
-
-  .aDashPaySelectField {
-    width: 100%;
+    align-items: stretch;
   }
 
   .aDashPayDateGroup {
-    grid-template-columns: 1fr;
+    flex-wrap: wrap;
   }
 
   .aDashPayDonutBlock {
@@ -719,13 +740,18 @@
 }
 
 @media (max-width: 560px) {
-  .aDashPay__controls,
-  .aDashPaySelectField {
+  .aDashPayPresetField,
+  .aDashPayRangeField,
+  .aDashPayPresetSelect {
     width: 100%;
   }
 
-  .aDashPayControlsCard {
-    padding: 12px;
+  .aDashPayDateInput {
+    width: 100%;
+  }
+
+  .aDashPayDateSeparator {
+    display: none;
   }
 
   .aDashPaySummaryCard {
