@@ -2784,8 +2784,8 @@ export default function Attendance() {
                   <FileUploadField
                     label="Supporting Documents (Optional)"
                     hint="Add medical certificates, screenshots, or other files only when they help validate this leave request."
-                    file={file}
-                    onChange={setFile}
+                    files={file ? [file] : []}
+                    onChange={files =>  setFile(files[0] ?? null)}
                     emptyLabel="Optional attachment"
                   />
                 </div>
@@ -2920,9 +2920,9 @@ export default function Attendance() {
                   <FileUploadField
                     label="Supporting Documents (Optional)"
                     hint="Attach schedules, work orders, or supporting proof only when they help explain this overtime request."
-                    file={otFile}
+                    files={otFile ? [otFile] : []}
                     disabled={isOtSubmitting}
-                    onChange={setOtFile}
+                    onChange={(files) => setOtFile(files[0] ?? null)}
                     emptyLabel="Optional attachment"
                   />
                 </div>

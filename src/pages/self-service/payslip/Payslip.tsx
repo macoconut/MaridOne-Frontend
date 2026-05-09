@@ -184,7 +184,7 @@ export default function Payslip() {
   const [disputeOpen, setDisputeOpen] = useState(false);
   const [disputeSubject, setDisputeSubject] = useState('Overtime pay dispute');
   const [disputeReason, setDisputeReason] = useState('');
-  const [disputeFile, setDisputeFile] = useState<File | null>(null);
+  const [disputeFiles, setDisputeFiles] = useState<File[]>([]);
   const [disputeError, setDisputeError] = useState('');
   const [disputeSubmitAttempted, setDisputeSubmitAttempted] = useState(false);
   const [disputeSubmitting, setDisputeSubmitting] = useState(false);
@@ -199,7 +199,7 @@ export default function Payslip() {
 
   const isDisputeDirty =
     disputeOpen &&
-    (disputeSubject !== 'Overtime pay dispute' || disputeReason.trim().length > 0 || disputeFile !== null);
+    (disputeSubject !== 'Overtime pay dispute' || disputeReason.trim().length > 0 || disputeFiles !== null);
   const disputeUnsavedPrompt = useUnsavedChangesPrompt({
     isOpen: disputeOpen,
     isDirty: isDisputeDirty,
@@ -583,7 +583,7 @@ export default function Payslip() {
   function openDisputeForm() {
     setDisputeSubject('Overtime pay dispute');
     setDisputeReason('');
-    setDisputeFile(null);
+    setDisputeFiles([]);
     setDisputeError('');
     setDisputeSubmitAttempted(false);
     setDisputeOpen(true);
@@ -601,7 +601,7 @@ async function submitDispute() {
     setDisputeError('Reason must be at least 20 characters.');
     return;
   }
-  if (!disputeFile) {
+  if (!disputeFiles || disputeFiles.length === 0) {
     setDisputeError('Attachment is required.');
     return;
   }
@@ -628,7 +628,7 @@ async function submitDispute() {
   setDisputeSubmitting(true);
 
   try {
-    await uploadPrivateDocuments([disputeFile], Directories.DISPUTE, selectedItemId);
+    await uploadPrivateDocuments(disputeFiles, Directories.PAYROLL_ITEM, selectedItemId);
 
     await apiFetchJson(`/api/payroll/item/dispute/create/${selectedItemId}`, {
       method: 'POST',
@@ -658,7 +658,7 @@ async function submitDispute() {
       setDisputeError('Reason must be at least 20 characters.');
       return;
     }
-    if (!disputeFile) {
+    if (!disputeFiles || disputeFiles.length === 0) {
       setDisputeError('Attachment is required.');
       return;
     }
@@ -988,11 +988,11 @@ async function submitDispute() {
 
           <div className="payModal__row">
             <FileUploadField
-              label="Supporting Documents (Required)"
+              label="Supporting Document/s (Required)"
               hint="Upload screenshots, payroll references, or other supporting files that directly explain the issue."
-              file={disputeFile}
-              onChange={setDisputeFile}
-              invalid={disputeSubmitAttempted && !disputeFile}
+              files={disputeFiles}
+              onChange={setDisputeFiles}
+              invalid={disputeSubmitAttempted && (!disputeFiles || disputeFiles.length === 0)}
               uploadLabel="Upload Attachment"
               replaceLabel="Replace Attachment"
               emptyLabel="Attachment required"

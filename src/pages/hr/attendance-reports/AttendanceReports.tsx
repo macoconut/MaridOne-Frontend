@@ -2681,10 +2681,10 @@ export function AttendanceReportsBoard({
               <FileUploadField
                 label="Attendance CSV"
                 hint="Use the exported attendance summary CSV from the previous system before migration."
-                file={importFile}
+                files={importFile ? [importFile] : []}
                 invalid={importSubmitAttempted && !importFile}
-                onChange={(file) => {
-                  setImportFile(file);
+                onChange={(files) => {
+                  setImportFile(files[0]);
                   setImportSummary(null);
                   setActionError('');
                 }}
