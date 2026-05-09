@@ -1,10 +1,10 @@
 type MaterialArtProps = {
-  kind: 'training' | 'onboarding' | 'handbook';
+  kind: 'public' | 'private';
   className?: string;
 };
 
 const palettes = {
-  training: {
+  public: {
     backdrop: '#efe4fb',
     panel: '#ffffff',
     panelSoft: '#d8c3f7',
@@ -13,7 +13,7 @@ const palettes = {
     stroke: '#3d2251',
     text: '#42265d',
   },
-  onboarding: {
+  private: {
     backdrop: '#eadcf9',
     panel: '#ffffff',
     panelSoft: '#d3b7f5',
@@ -21,22 +21,13 @@ const palettes = {
     accentSoft: '#b58ae2',
     stroke: '#4c2d69',
     text: '#4a2d66',
-  },
-  handbook: {
-    backdrop: '#f2e7fc',
-    panel: '#ffffff',
-    panelSoft: '#e0c9f8',
-    accent: '#744492',
-    accentSoft: '#aa80d6',
-    stroke: '#56316f',
-    text: '#52316b',
-  },
+  }
 } as const;
 
 export default function MaterialArt({ kind, className }: MaterialArtProps) {
   const palette = palettes[kind];
 
-  if (kind === 'training') {
+  if (kind === 'public') {
     return (
       <svg viewBox="0 0 120 92" className={className} aria-hidden="true">
         <rect x="8" y="10" width="104" height="72" rx="20" fill={palette.backdrop} />
@@ -69,7 +60,7 @@ export default function MaterialArt({ kind, className }: MaterialArtProps) {
     );
   }
 
-  if (kind === 'onboarding') {
+  if (kind === 'private') {
     return (
       <svg viewBox="0 0 120 92" className={className} aria-hidden="true">
         <rect x="8" y="10" width="104" height="72" rx="20" fill={palette.backdrop} />

@@ -1,7 +1,7 @@
 import type { RefObject } from 'react';
 import { FiDownload, FiFilter, FiMoreVertical, FiSearch, FiXCircle } from 'react-icons/fi';
-import EmployeeSortMenu from '../../../../components/layout/EmployeeSortMenu';
-import type { EmployeeSortKey } from '../../../../lib/employeeSort';
+import EmployeeSortMenu from '@/components/layout/EmployeeSortMenu';
+import type { EmployeeSortKey } from '@/lib/utils/employeeSort';
 
 type EmployeeToolbarProps = {
   activeFilterCount: number;

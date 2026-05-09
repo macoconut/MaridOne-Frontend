@@ -1,10 +1,10 @@
 import { useCallback, useState } from 'react';
-import { apiFetchRaw, getApiBaseUrl } from '../../lib/api';
+import { apiFetchRaw, getApiBaseUrl } from '@/lib/api/api';
 import {
   applyBodyPlaceholders,
   applyPathPlaceholders,
   type PlaceholderContext,
-} from '../../lib/backendTest';
+} from '@/lib/test/backendTest';
 
 export type BackendTestAction = {
   label: string;

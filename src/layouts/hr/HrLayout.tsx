@@ -12,16 +12,16 @@ import {
   FiCreditCard,
   FiActivity,
 } from 'react-icons/fi';
-import BackendTestPanel from '../../components/layout/BackendTestPanel';
-import type { NavSection } from '../../components/navigation/SidebarNavSection';
-import '../shared/hr-theme.css';
-import { BACKEND_TEST_MODE } from '../../config/flags';
+import BackendTestPanel from '@/components/layout/BackendTestPanel';
+import type { NavSection } from '@/components/navigation/SidebarNavSection';
+import '@/layouts/shared/hr-theme.css';
+import { BACKEND_TEST_MODE } from '@/config/flags';
 import {
   extractFirstId,
   firstFromCollection,
   type PlaceholderContext,
-} from '../../lib/backendTest';
-import { useRoleLayout } from '../../hooks/useRoleLayout';
+} from '@/lib/test/backendTest';
+import { useRoleLayout } from '@/hooks/useRoleLayout';
 import { RoleShell } from '../shared/RoleShell';
 import { useNotificationCenter } from '../shared/useNotificationCenter';
 import type { BackendTestAction } from '../shared/useBackendTestRunner';
@@ -295,7 +295,7 @@ const navSections: NavSection[] = [
       { to: '/hr/self-service/attendance', label: 'Attendance', icon: FiCalendar },
       { to: '/hr/self-service/approvals', label: 'View Approvals', icon: FiCheckSquare },
       { to: '/hr/self-service/payslip', label: 'View Payslip', icon: FiFileText },
-      { to: '/hr/self-service/training', label: 'Training Materials', icon: FiBookOpen },
+      { to: '/hr/self-service/training', label: 'Documents', icon: FiBookOpen },
     ],
   },
   {

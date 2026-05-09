@@ -1,33 +1,34 @@
-import { useLoading } from '../../../context/useLoading';
+import { useLoading } from '@/context/useLoading';
 import { useEffect, useMemo, useState } from 'react';
 import { FiSearch, FiFilter, FiXCircle } from 'react-icons/fi';
-import ApprovalStatusSummary from '../../../components/approvals/ApprovalStatusSummary';
-import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
-import LargePopup from '../../../components/dialog/LargePopup';
-import PageHeader from '../../../components/layout/PageHeader';
-import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
-import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
-import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
-import { apiFetchJson, toArray } from '../../../lib/api';
-import { extractAttachmentReference, openDocumentAttachment } from '../../../lib/documentAttachments';
+import ApprovalStatusSummary from '@/components/approvals/ApprovalStatusSummary';
+import ConfirmDialog from '@/components/dialog/ConfirmDialog';
+import LargePopup from '@/components/dialog/LargePopup';
+import PageHeader from '@/components/layout/PageHeader';
+import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
+import { useEscapeDismiss } from '@/hooks/useEscapeDismiss';
+import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
+import { apiFetchJson, toArray } from '@/lib/api/api';
+import {openDocumentUsingEntityFilter} from '@/lib/api/endpoints/documents/document-fetch';
 import {
   buildRequestSummaryMessage,
   formatLeaveDurationLabel,
   formatRequestPeriodLabel,
   formatRequestTimeRangeLabel,
   formatRequestTypeLabel,
-} from '../../../lib/requestPresentation';
+} from '@/lib/utils/requestPresentation';
 import type {
   ApprovalEmployeeDirectoryRow as EmployeeDirectoryRow,
   LeaveApprovalRow as LeaveDto,
   OvertimeApprovalRow as OvertimeDto,
-} from '../../../lib/types/approval';
-import type { LeaveBalanceRow } from '../../../lib/types/employee';
-import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
-import { employeeLabel, formatDateTime } from '../../../lib/formatters';
-import '../../self-service/approvals/Approval.css';
+} from '@/lib/types/approval';
+import type { LeaveBalanceRow } from '@/lib/types/employee';
+import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
+import { formatDateTime, formatEmployeeLabel } from '@/lib/utils/formatters';
+import '@/pages/self-service/approvals/Approval.css';
 import './Approvals.css';
-import '../../manager/pending-approvals/PendingApprovals.css';
+import '@/pages/manager/pending-approvals/PendingApprovals.css';
+import { DocumentEntities } from '@/enum/directories';
 
 type RequestType = 'Overtime' | 'Leave';
 type SourceType = 'overtime' | 'leave';
@@ -72,26 +73,12 @@ type HrRequest = {
   managerApprover?: string;
   managerDecisionSummary?: string;
   managerReviewedAt?: string;
-  attachmentPathId?: number;
+  attachmentConnectedEntity?: string;
+  attachmentConnectedId?: number;
   sortStamp: number;
 };
 
-function employeeDirectoryLabel(row?: EmployeeDirectoryRow) {
-  if (!row) return '';
-  const fullName = [row.firstName, row.middleName, row.lastName]
-    .filter((value) => typeof value === 'string' && value.trim().length > 0)
-    .map((value) => value!.trim())
-    .join(' ');
-  return fullName;
-}
 
-function leaveEmployeeLabel(item: LeaveDto) {
-  const fullName = [item.firstName, item.lastName]
-    .filter((value) => typeof value === 'string' && value.trim().length > 0)
-    .map((value) => value!.trim())
-    .join(' ');
-  return fullName;
-}
 
 function resolvedEmployeeLabel(
   employeeNameById: Map<number, string>,
@@ -100,7 +87,7 @@ function resolvedEmployeeLabel(
 ) {
   const mappedLabel = typeof employeeId === 'number' ? employeeNameById.get(employeeId) : '';
   if (mappedLabel && mappedLabel.trim().length > 0) return mappedLabel.trim();
-  return employeeLabel(preferredLabel, employeeId);
+  return formatEmployeeLabel({ firstName: preferredLabel, employeeId });
 }
 
 function requestStatusPriority(status: string) {
@@ -163,9 +150,18 @@ function normalizeText(value?: string) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
 }
 
+function buildAttachmentKey(entity: string, id: number) {
+  return `${entity}-${id}`;
+}
+
+
+
+
+
+
 export default function HrApprovals() {
   const { showLoading, hideLoading } = useLoading();
-
+  const [attachmentExistsMap, setAttachmentExistsMap] = useState<Record<string, boolean | 'checking'>>({});
   const [requests, setRequests] = useState<HrRequest[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -233,6 +229,41 @@ export default function HrApprovals() {
 
   useEscapeDismiss(Boolean(selectedId), requestCloseModal, 10);
 
+  async function validateAttachment(
+  connectedEntity: string,
+  connectedId: number
+) {
+  const key = buildAttachmentKey(connectedEntity, connectedId);
+
+  setAttachmentExistsMap((prev) => ({
+    ...prev,
+    [key]: 'checking',
+  }));
+
+  try {
+    const exists = await apiFetchJson<boolean>(
+      `/api/document/exists?connectedEntity=${connectedEntity}&connectedId=${connectedId}`
+    );
+
+    setAttachmentExistsMap((prev) => ({
+      ...prev,
+      [key]: exists,
+    }));
+
+    return exists;
+  } catch {
+    setAttachmentExistsMap((prev) => ({
+      ...prev,
+      [key]: false,
+    }));
+
+    return false;
+  }
+}
+
+
+
+
   async function loadRequests() {
     try {
       setLoadError('');
@@ -266,13 +297,12 @@ export default function HrApprovals() {
           const employeeId =
             typeof row.employeeId === 'number' ? row.employeeId : typeof row.id === 'number' ? row.id : null;
           if (employeeId === null) continue;
-          const label = employeeDirectoryLabel(row);
+          const label = formatEmployeeLabel({ firstName: row.firstName, middleName: row.middleName, lastName: row.lastName, employeeId});
           if (label) employeeNameById.set(employeeId, label);
         }
       }
 
       const overtimeRows = toArray<OvertimeDto>(overtimeRes.value).map((item, idx) => {
-        const attachment = extractAttachmentReference(item.reason);
         const payLabel = item.paid === false ? 'Unpaid' : 'Paid';
         const overtimeTypeLabel = formatRequestTypeLabel(item.overtimeType || 'Overtime');
         return {
@@ -284,7 +314,7 @@ export default function HrApprovals() {
           type: 'Overtime' as const,
           source: 'overtime' as const,
           status: item.requestStatus || 'PENDING_MANAGER',
-          reason: attachment.cleanText,
+          reason: item.reason || '',
           referenceLabel: 'Work Date',
           referenceValue: formatRequestPeriodLabel('overtime', item.startTime, item.endTime, item.workDate),
           requestLabel: 'Overtime Request',
@@ -300,26 +330,26 @@ export default function HrApprovals() {
           managerApprover: item.managerApprover,
           managerDecisionSummary: item.managerApproveReason || '',
           managerReviewedAt: formatDateTime(item.managerApprovedAt, '-'),
-          attachmentPathId: attachment.attachmentPathId ?? undefined,
+          attachmentConnectedEntity: DocumentEntities.OVERTIME,
+          attachmentConnectedId: item.overtimeId,
           sortStamp: item.requestAt ? Date.parse(item.requestAt) || 0 : 0,
         };
       });
 
       const leaveRows = toArray<LeaveDto>(leaveRes.value).map((item, idx) => {
-        const attachment = extractAttachmentReference(item.reason);
         const leaveTypeLabel = formatRequestTypeLabel(item.leaveType);
         const payLabel = item.paid === false ? 'Unpaid' : 'Paid';
         return {
           id: `leave-${item.requestId ?? idx}`,
           leaveRequestId: item.requestId,
           employeeId: item.empId,
-          employee: resolvedEmployeeLabel(employeeNameById, item.empId, leaveEmployeeLabel(item)),
+          employee: resolvedEmployeeLabel(employeeNameById, item.empId, formatEmployeeLabel({ firstName: item.firstName, middleName: item.middleName, lastName: item.lastName, employeeId: item.employeeId })),
           message: buildRequestSummaryMessage('leave', leaveTypeLabel, item.paid),
           submittedAt: formatDateTime(item.requestAt ?? item.startDateTime, '-'),
           type: 'Leave' as const,
           source: 'leave' as const,
           status: item.requestStatus || 'PENDING_MANAGER',
-          reason: attachment.cleanText,
+          reason: item.reason || '',
           referenceLabel: 'Leave Period',
           referenceValue: formatRequestPeriodLabel('leave', item.startDateTime, item.endDateTime),
           requestLabel: 'Leave Request',
@@ -335,7 +365,8 @@ export default function HrApprovals() {
           managerDecisionSummary: item.managerApproverReason || '',
           managerReviewedAt: formatDateTime(item.managerApprovedAt, '-'),
           leaveType: item.leaveType,
-          attachmentPathId: attachment.attachmentPathId ?? undefined,
+          attachmentConnectedEntity: DocumentEntities.LEAVE_REQUEST,
+          attachmentConnectedId: item.requestId,
           sortStamp:
             item.requestAt ? Date.parse(item.requestAt) || 0 : item.startDateTime ? Date.parse(item.startDateTime) || 0 : 0,
         };
@@ -355,6 +386,11 @@ export default function HrApprovals() {
       setLoadError(getFriendlyErrorMessage(error, 'employee-load'));
     }
   }
+
+
+
+
+
 
   const refreshRequests = useAutoRefreshingPage(loadRequests, { intervalMs: 10000 });
 
@@ -600,17 +636,34 @@ export default function HrApprovals() {
     setConfirmDecisionOpen(true);
   }
 
-  async function handleOpenAttachment(pathId: number) {
-    setAttachmentError('');
-    setOpeningAttachmentId(pathId);
-    try {
-      await openDocumentAttachment(pathId);
-    } catch (error) {
-      setAttachmentError(error instanceof Error ? error.message : 'Failed to open the attachment.');
-    } finally {
-      setOpeningAttachmentId(null);
-    }
+async function handleOpenAttachment(connectedEntity: string, connectedId: number) {
+  setAttachmentError('');
+  const key = buildAttachmentKey(connectedEntity, connectedId);
+  const cached = attachmentExistsMap[key];
+
+  if (cached === false) {
+    setAttachmentError('No supporting document was uploaded.');
+    return;
   }
+
+  if (cached === 'checking') return;
+
+  const exists = cached === true ? true : await validateAttachment(connectedEntity, connectedId);
+
+  if (!exists) {
+    setAttachmentError('No supporting document was uploaded.');
+    return;
+  }
+
+  setOpeningAttachmentId(connectedId);
+  try {
+    await openDocumentUsingEntityFilter(connectedEntity, connectedId);
+  } catch (error) {
+    setAttachmentError(error instanceof Error ? error.message : 'Failed to open attachment.');
+  } finally {
+    setOpeningAttachmentId(null);
+  }
+}
 
   return (
     <div className="hrAppr">
@@ -842,27 +895,43 @@ export default function HrApprovals() {
               </div>
 
               <div className="apprModal__message apprModal__message--attachment">
-                <div className="apprModal__documentRow">
-                  <div className="apprModal__documentCopy">
-                    <span>Supporting Document</span>
-                    <p>
-                      {typeof selected.attachmentPathId === 'number'
-                        ? 'A supporting file was uploaded with this request.'
-                        : 'No supporting file was uploaded with this request.'}
-                    </p>
-                  </div>
-                  {typeof selected.attachmentPathId === 'number' && (
-                    <button
-                      type="button"
-                      className="apprModal__documentButton"
-                      onClick={() => void handleOpenAttachment(selected.attachmentPathId!)}
-                      disabled={openingAttachmentId === selected.attachmentPathId}
-                    >
-                      {openingAttachmentId === selected.attachmentPathId ? 'Opening...' : 'View Attachment'}
-                    </button>
-                  )}
-                </div>
-              </div>
+                {(() => {
+                  const key = buildAttachmentKey(
+                    selected.attachmentConnectedEntity!,
+                    selected.attachmentConnectedId!
+                  );
+                  const existsState = attachmentExistsMap[key];
+                  return (
+                    <div className="apprModal__documentRow">
+                      <div className="apprModal__documentCopy">
+                        <span>Supporting Document</span>
+                        <p>
+                          {existsState === true
+                            ? 'A supporting file was uploaded with this request.'
+                            : existsState === false
+                            ? 'No supporting document was found for this request.'
+                            : 'Click to check for a supporting document.'}
+                        </p>
+                      </div>
+                      {existsState !== false && (
+                        <button
+                          type="button"
+                          className="apprModal__documentButton"
+                          onClick={() => void handleOpenAttachment(
+                            selected.attachmentConnectedEntity!,
+                            selected.attachmentConnectedId!
+                          )}
+                          disabled={existsState === 'checking' || openingAttachmentId === selected.attachmentConnectedId}
+                        >
+                          {existsState === 'checking' || openingAttachmentId === selected.attachmentConnectedId
+                            ? 'Loading...'
+                            : 'View Attachment'}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
+            </div>
 
               {(selected.managerApprover || selected.managerDecisionSummary) && (
                 <div className="apprModal__message apprModal__message--manager">

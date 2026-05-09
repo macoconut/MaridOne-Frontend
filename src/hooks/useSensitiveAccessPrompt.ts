@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { isSensitiveAccessRequired } from '../lib/sensitiveAccess';
-import { getSensitiveAccessToken, SENSITIVE_ACCESS_CHANGE_EVENT } from '../lib/session';
+import { isSensitiveAccessRequired } from '../lib/utils/sensitiveAccess';
+import { getSensitiveAccessToken, SENSITIVE_ACCESS_CHANGE_EVENT } from '../lib/utils/session';
 
 type SensitiveAccessPromptOptions = {
   entryNotice?: string;

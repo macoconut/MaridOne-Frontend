@@ -1,6 +1,6 @@
 import { FiLock, FiMinus, FiPlus } from 'react-icons/fi';
-import LargePopup from '../../../../components/dialog/LargePopup';
-import { formatSss, formatPhilHealth, formatPagibig, formatTin, formatPhone, formatBankAccount } from '../../../../lib/phIdFormatters';
+import LargePopup from '@/components/dialog/LargePopup';
+import { formatSss, formatPhilHealth, formatPagibig, formatTin, formatPhone, formatBankAccount } from '@/lib/utils/phIdFormatters';
 
 function maskAccountNumber(num: string): string {
   if (!num) return '—';

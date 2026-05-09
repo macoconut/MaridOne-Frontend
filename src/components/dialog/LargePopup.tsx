@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import ModalCloseButton from './ModalCloseButton';
-import useAnimatedPresence from '../../hooks/useAnimatedPresence';
-import { useEscapeDismiss } from '../../hooks/useEscapeDismiss';
+import useAnimatedPresence from '@/hooks/useAnimatedPresence';
+import { useEscapeDismiss } from '@/hooks/useEscapeDismiss';
 
 type LargePopupProps = {
   open: boolean;

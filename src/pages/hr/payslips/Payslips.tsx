@@ -1,23 +1,23 @@
-import { useLoading } from '../../../context/useLoading';
+import { useLoading } from '@/context/useLoading';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ApiError, apiFetchJson, toArray } from '../../../lib/api';
-import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
-import SensitiveAccessIndicator from '../../../components/security/SensitiveAccessIndicator';
-import SensitiveAccessModal from '../../../components/security/SensitiveAccessModal';
-import { useUiDialog } from '../../../components/dialog/useUiDialog';
-import PageHeader from '../../../components/layout/PageHeader';
-import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
-import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
-import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
-import { useSensitiveAccessPrompt } from '../../../hooks/useSensitiveAccessPrompt';
-import { useUnsavedChangesPrompt } from '../../../hooks/useUnsavedChangesPrompt';
-import { compareEmployees } from '../../../lib/employeeSort';
-import { hasBonusEarning } from '../../../lib/payrollRunLabels';
-import { openDocumentAttachment } from '../../../lib/documentAttachments';
-import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
-import { formatDate } from '../../../lib/formatters';
-import type { EmployeeOption } from '../../../lib/types/employee';
-import type { PayrollRunRow as PayrollRunDto } from '../../../lib/types/payroll';
+import { ApiError, apiFetchJson, toArray } from '@/lib/api/api';
+import ConfirmDialog from '@/components/dialog/ConfirmDialog';
+import SensitiveAccessIndicator from '@/components/security/SensitiveAccessIndicator';
+import SensitiveAccessModal from '@/components/security/SensitiveAccessModal';
+import { useUiDialog } from '@/components/dialog/useUiDialog';
+import PageHeader from '@/components/layout/PageHeader';
+import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
+import { useEscapeDismiss } from '@/hooks/useEscapeDismiss';
+import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
+import { useSensitiveAccessPrompt } from '@/hooks/useSensitiveAccessPrompt';
+import { useUnsavedChangesPrompt } from '@/hooks/useUnsavedChangesPrompt';
+import { compareEmployees } from '@/lib/utils/employeeSort';
+import { hasBonusEarning } from '@/lib/utils/payrollRunLabels';
+import { openDocumentUsingEntityFilter } from '@/lib/api/endpoints/documents/document-fetch';
+import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
+import { formatDate } from '@/lib/utils/formatters';
+import type { EmployeeOption } from '@/lib/types/employee';
+import type { PayrollRunRow as PayrollRunDto } from '@/lib/types/payroll';
 import { usePayslipFilters } from './hooks/usePayslipFilters';
 import {
   applyStandardPaymentDate,
@@ -100,7 +100,7 @@ export default function HrPayslips() {
   const [actionError, setActionError] = useState('');
   const [loadError, setLoadError] = useState('');
   const [refreshTick, setRefreshTick] = useState(0);
-
+  const [attachmentExistsMap, setAttachmentExistsMap] = useState<Record<string, boolean | 'checking'>>({});
   const [runModalOpen, setRunModalOpen] = useState(false);
   const [confirmRunOpen, setConfirmRunOpen] = useState(false);
   const [postModalOpen, setPostModalOpen] = useState(false);
@@ -250,6 +250,25 @@ export default function HrPayslips() {
       !isPostingRun &&
       !isSubmittingCorrection,
   });
+
+  function buildAttachmentKey(entity: string, id: number) {
+  return `${entity}-${id}`;
+}
+
+async function validateAttachment(connectedEntity: string, connectedId: number) {
+  const key = buildAttachmentKey(connectedEntity, connectedId);
+  setAttachmentExistsMap((prev) => ({ ...prev, [key]: 'checking' }));
+  try {
+    const exists = await apiFetchJson<boolean>(
+      `/api/document/exists?connectedEntity=${connectedEntity}&connectedId=${connectedId}`
+    );
+    setAttachmentExistsMap((prev) => ({ ...prev, [key]: exists }));
+    return exists;
+  } catch {
+    setAttachmentExistsMap((prev) => ({ ...prev, [key]: false }));
+    return false;
+  }
+}
 
   const syncRunForm = useCallback((run: PayrollRunDto) => {
     setRunForm((prev) => ({
@@ -1311,17 +1330,34 @@ export default function HrPayslips() {
     setConfirmDisputeDecisionOpen(true);
   }
 
-  async function handleOpenAttachment(pathId: number) {
-    setAttachmentError('');
-    setOpeningAttachmentId(pathId);
-    try {
-      await openDocumentAttachment(pathId);
-    } catch (error) {
-      setAttachmentError(error instanceof Error ? error.message : 'Failed to open the attachment.');
-    } finally {
-      setOpeningAttachmentId(null);
-    }
+async function handleOpenAttachment(connectedEntity: string, connectedId: number) {
+  setAttachmentError('');
+  const key = buildAttachmentKey(connectedEntity, connectedId);
+  const cached = attachmentExistsMap[key];
+
+  if (cached === false) {
+    setAttachmentError('No supporting document was uploaded.');
+    return;
   }
+
+  if (cached === 'checking') return;
+
+  const exists = cached === true ? true : await validateAttachment(connectedEntity, connectedId);
+
+  if (!exists) {
+    setAttachmentError('No supporting document was uploaded.');
+    return;
+  }
+
+  setOpeningAttachmentId(connectedId);
+  try {
+    await openDocumentUsingEntityFilter(connectedEntity, connectedId);
+  } catch (error) {
+    setAttachmentError(error instanceof Error ? error.message : 'Failed to open attachment.');
+  } finally {
+    setOpeningAttachmentId(null);
+  }
+}
 
   function requestPayrollRunConfirmation() {
     setRunSubmitAttempted(true);
@@ -1611,18 +1647,19 @@ export default function HrPayslips() {
       />
 
       <PayslipDisputeModal
+        attachmentExistsMap={attachmentExistsMap}
+        onOpenAttachment={handleOpenAttachment}
+        openingAttachmentId={openingAttachmentId}
         canReviewSelectedDispute={canReviewSelectedDispute}
         canStageSelectedDisputeCorrection={canStageSelectedDisputeCorrection}
         isDisputeRemarksInvalid={isDisputeRemarksInvalid}
         isSaving={isSaving}
         onClose={disputeReviewUnsavedPrompt.requestClose}
-        onOpenAttachment={handleOpenAttachment}
         onOpenSelectedDisputeCorrection={openSelectedDisputeCorrection}
         onPendingDisputeDecisionChange={(value) => setPendingDisputeDecision(value)}
         onRemarksChange={setRemarks}
         onRequestDisputeDecisionConfirmation={requestDisputeDecisionConfirmation}
         open={Boolean(selectedDispute)}
-        openingAttachmentId={openingAttachmentId}
         pendingDisputeDecision={pendingDisputeDecision}
         remarks={remarks}
         selectedDispute={selectedDispute}

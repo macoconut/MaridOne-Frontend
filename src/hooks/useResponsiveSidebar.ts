@@ -3,7 +3,7 @@ import {
   getStoredSidebarCollapsed,
   setStoredSidebarCollapsed,
   subscribeToUiPreferencesChange,
-} from '../lib/uiPreferences';
+} from '../lib/utils/uiPreferences';
 
 const MOBILE_LAYOUT_QUERY = '(max-width: 1024px)';
 

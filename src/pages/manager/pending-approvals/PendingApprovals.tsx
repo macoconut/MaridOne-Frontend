@@ -1,26 +1,27 @@
-import { useLoading } from '../../../context/useLoading';
+import { useLoading } from '@/context/useLoading';
 import { useEffect, useMemo, useState } from 'react';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
-import ApprovalStatusSummary from '../../../components/approvals/ApprovalStatusSummary';
-import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
-import LargePopup from '../../../components/dialog/LargePopup';
-import PageHeader from '../../../components/layout/PageHeader';
-import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
-import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
-import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
-import { apiFetchJson, toArray } from '../../../lib/api';
-import { extractAttachmentReference, openDocumentAttachment } from '../../../lib/documentAttachments';
-import { formatDateTime } from '../../../lib/formatters';
+import ApprovalStatusSummary from '@/components/approvals/ApprovalStatusSummary';
+import ConfirmDialog from '@/components/dialog/ConfirmDialog';
+import LargePopup from '@/components/dialog/LargePopup';
+import PageHeader from '@/components/layout/PageHeader';
+import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
+import { useEscapeDismiss } from '@/hooks/useEscapeDismiss';
+import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
+import { apiFetchJson, toArray } from '@/lib/api/api';
+import { openDocumentUsingEntityFilter } from '@/lib/api/endpoints/documents/document-fetch';
+import { formatDateTime } from '@/lib/utils/formatters';
 import {
   buildRequestSummaryMessage,
   formatLeaveDurationLabel,
   formatRequestPeriodLabel,
   formatRequestTimeRangeLabel,
   formatRequestTypeLabel,
-} from '../../../lib/requestPresentation';
-import type { LeaveApprovalRow as LeaveDto, OvertimeApprovalRow as OvertimeDto } from '../../../lib/types/approval';
-import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
-import '../../self-service/approvals/Approval.css';
+} from '@/lib/utils/requestPresentation';
+import { Directories } from '@/enum/directories';
+import type { LeaveApprovalRow as LeaveDto, OvertimeApprovalRow as OvertimeDto } from '@/lib/types/approval';
+import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
+import '@/pages/self-service/approvals/Approval.css';
 import './PendingApprovals.css';
 import '../../hr/approvals/Approvals.css';
 
@@ -60,7 +61,8 @@ type ManagerRequest = {
   startDateTime?: string;
   endDateTime?: string;
   overtimeId?: number;
-  attachmentPathId?: number;
+  attachmentConnectedEntity?: string;
+  attachmentConnectedId?: number;
 };
 
 function employeeLabel(employeeById: Map<number, EmployeeRow>, employeeId?: number) {
@@ -123,8 +125,8 @@ function rosterMap(payload: unknown) {
 }
 
 export default function ManagerPendingApprovals() {
-  const { showLoading, hideLoading } = useLoading();
-
+  const { showLoading, hideLoading } = useLoading(); 
+  const [attachmentExistsMap, setAttachmentExistsMap] = useState<Record<string, boolean | 'checking'>>({});
   const [requests, setRequests] = useState<ManagerRequest[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -183,6 +185,45 @@ export default function ManagerPendingApprovals() {
 
   useEscapeDismiss(Boolean(selectedId), requestCloseModal, 10);
 
+
+  function buildAttachmentKey(entity: string, id: number) {
+    return `${entity}-${id}`;
+  }
+
+  useEscapeDismiss(Boolean(selectedId), requestCloseModal, 10);
+
+    async function validateAttachment(
+    connectedEntity: string,
+    connectedId: number
+  ) {
+    const key = buildAttachmentKey(connectedEntity, connectedId);
+  
+    setAttachmentExistsMap((prev) => ({
+      ...prev,
+      [key]: 'checking',
+    }));
+  
+    try {
+      const exists = await apiFetchJson<boolean>(
+        `/api/document/exists?connectedEntity=${connectedEntity}&connectedId=${connectedId}`
+      );
+  
+      setAttachmentExistsMap((prev) => ({
+        ...prev,
+        [key]: exists,
+      }));
+  
+      return exists;
+    } catch {
+      setAttachmentExistsMap((prev) => ({
+        ...prev,
+        [key]: false,
+      }));
+  
+      return false;
+    }
+  }
+
   async function loadRequests() {
     try {
       setLoadError('');
@@ -195,7 +236,6 @@ export default function ManagerPendingApprovals() {
       const employeeById = rosterMap(employeesRes);
 
       const leaveRows = toArray<LeaveDto>(leaveRes).map((item, idx) => {
-        const attachment = extractAttachmentReference(item.reason);
         const leaveTypeLabel = formatRequestTypeLabel(item.leaveType);
         const payLabel = item.paid === false ? 'Unpaid' : 'Paid';
         return {
@@ -207,7 +247,7 @@ export default function ManagerPendingApprovals() {
           type: 'Leave' as const,
           source: 'leave' as const,
           status: item.requestStatus || 'PENDING_MANAGER',
-          reason: attachment.cleanText,
+          reason: item.reason || '',
           referenceLabel: 'Leave Period',
           referenceValue: formatRequestPeriodLabel('leave', item.startDateTime, item.endDateTime),
           requestLabel: 'Leave Request',
@@ -224,12 +264,12 @@ export default function ManagerPendingApprovals() {
           leaveType: item.leaveType,
           startDateTime: item.startDateTime,
           endDateTime: item.endDateTime,
-          attachmentPathId: attachment.attachmentPathId ?? undefined,
+          connectedEntity: Directories.LEAVE_REQUEST,
+          connectedId: item.requestId,
         };
       });
 
       const overtimeRows = toArray<OvertimeDto>(overtimeRes).map((item, idx) => {
-        const attachment = extractAttachmentReference(item.reason);
         const payLabel = item.paid === false ? 'Unpaid' : 'Paid';
         const overtimeTypeLabel = formatRequestTypeLabel(item.overtimeType || 'Overtime');
         return {
@@ -241,7 +281,7 @@ export default function ManagerPendingApprovals() {
           type: 'Overtime' as const,
           source: 'overtime' as const,
           status: item.requestStatus || 'PENDING_MANAGER',
-          reason: attachment.cleanText,
+          reason: item.reason || '',
           referenceLabel: 'Work Window',
           referenceValue: `${formatDateTime(item.startTime, '-')} to ${formatDateTime(item.endTime, '-')}`,
           requestLabel: 'Overtime Request',
@@ -254,7 +294,8 @@ export default function ManagerPendingApprovals() {
           managerReviewer: item.managerApprover || '',
           managerReviewedAt: formatDateTime(item.managerApprovedAt, '-'),
           sortStamp: item.requestAt ? Date.parse(item.requestAt) || 0 : 0,
-          attachmentPathId: attachment.attachmentPathId ?? undefined,
+          connectedEntity: Directories.OVERTIME,
+          connectedId: item.overtimeId,
         };
       });
 
@@ -410,13 +451,30 @@ export default function ManagerPendingApprovals() {
     setConfirmDecisionOpen(true);
   }
 
-  async function handleOpenAttachment(pathId: number) {
+  async function handleOpenAttachment(connectedEntity: string, connectedId: number) {
     setAttachmentError('');
-    setOpeningAttachmentId(pathId);
+    const key = buildAttachmentKey(connectedEntity, connectedId);
+    const cached = attachmentExistsMap[key];
+
+    if (cached === false) {
+      setAttachmentError('No supporting document was uploaded.');
+      return;
+    }
+
+    if (cached === 'checking') return;
+
+    const exists = cached === true ? true : await validateAttachment(connectedEntity, connectedId);
+
+    if (!exists) {
+      setAttachmentError('No supporting document was uploaded.');
+      return;
+    }
+
+    setOpeningAttachmentId(connectedId);
     try {
-      await openDocumentAttachment(pathId);
+      await openDocumentUsingEntityFilter(connectedEntity, connectedId);
     } catch (error) {
-      setAttachmentError(error instanceof Error ? error.message : 'Failed to open the attachment.');
+      setAttachmentError(error instanceof Error ? error.message : 'Failed to open attachment.');
     } finally {
       setOpeningAttachmentId(null);
     }
@@ -623,28 +681,44 @@ export default function ManagerPendingApprovals() {
                 <p>{selected.reason || 'No reason provided.'}</p>
               </div>
 
-              <div className="apprModal__message apprModal__message--attachment">
-                <div className="apprModal__documentRow">
-                  <div className="apprModal__documentCopy">
-                    <span>Supporting Document</span>
-                    <p>
-                      {typeof selected.attachmentPathId === 'number'
-                        ? 'A supporting file was uploaded with this request.'
-                        : 'No supporting file was uploaded with this request.'}
-                    </p>
-                  </div>
-                  {typeof selected.attachmentPathId === 'number' && (
-                    <button
-                      type="button"
-                      className="apprModal__documentButton"
-                      onClick={() => void handleOpenAttachment(selected.attachmentPathId!)}
-                      disabled={openingAttachmentId === selected.attachmentPathId}
-                    >
-                      {openingAttachmentId === selected.attachmentPathId ? 'Opening...' : 'View Attachment'}
-                    </button>
-                  )}
-                </div>
-              </div>
+             <div className="apprModal__message apprModal__message--attachment">
+                {(() => {
+                  const key = buildAttachmentKey(
+                    selected.attachmentConnectedEntity!,
+                    selected.attachmentConnectedId!
+                  );
+                  const existsState = attachmentExistsMap[key];
+                  return (
+                    <div className="apprModal__documentRow">
+                      <div className="apprModal__documentCopy">
+                        <span>Supporting Document</span>
+                        <p>
+                          {existsState === true
+                            ? 'A supporting file was uploaded with this request.'
+                            : existsState === false
+                            ? 'No supporting document was found for this request.'
+                            : 'Click to check for a supporting document.'}
+                        </p>
+                      </div>
+                      {existsState !== false && (
+                        <button
+                          type="button"
+                          className="apprModal__documentButton"
+                          onClick={() => void handleOpenAttachment(
+                            selected.attachmentConnectedEntity!,
+                            selected.attachmentConnectedId!
+                          )}
+                          disabled={existsState === 'checking' || openingAttachmentId === selected.attachmentConnectedId}
+                        >
+                          {existsState === 'checking' || openingAttachmentId === selected.attachmentConnectedId
+                            ? 'Loading...'
+                            : 'View Attachment'}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
+            </div>
 
               {selected.managerDecisionSummary && (
                 <div className="apprModal__message apprModal__message--manager">

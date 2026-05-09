@@ -1,23 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
-import LargePopup from '../../../components/dialog/LargePopup';
-import PageHeader from '../../../components/layout/PageHeader';
-import SensitiveAccessIndicator from '../../../components/security/SensitiveAccessIndicator';
-import SensitiveAccessModal from '../../../components/security/SensitiveAccessModal';
-import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
-import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
-import { useSensitiveAccessPrompt } from '../../../hooks/useSensitiveAccessPrompt';
-import { apiFetchJson, toArray } from '../../../lib/api';
-import { formatDate } from '../../../lib/formatters';
-import type { PayTypeSummaryRow, PayrollItemRow, PayrollRunRow } from '../../../lib/types/payroll';
-import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
+import { FiCalendar, FiChevronDown, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import LargePopup from '@/components/dialog/LargePopup';
+import PageHeader from '@/components/layout/PageHeader';
+import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
+import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
+import { apiFetchJson, toArray } from '@/lib/api/api';
+import { formatDate } from '@/lib/utils/formatters';
+import type { PayTypeSummaryRow, PayrollItemRow, PayrollRunRow } from '@/lib/types/payroll';
+import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
 import './PayrollDashboard.css';
 
 type HistoryPoint = {
   payId: number;
   label: string;
   grossTotal: number;
-  totalPayrollCost: number;
+  employerContributionTotal: number;
 };
 
 type BreakdownPoint = {
@@ -43,12 +40,13 @@ type DashboardBreakdownState = {
 
 type RangePreset = 'lastWeek' | 'lastMonth' | 'lastQuarter' | 'lastYear' | 'custom';
 
-type AccountingPayrollDashboardProps = {
-  showSensitiveAccessIndicator?: boolean;
-};
-
-const LOCKED_PAGE_MESSAGE =
-  'Verify your access first by clicking the lock button beside the page title to view this data.';
+const RANGE_PRESET_OPTIONS: Array<{ value: RangePreset; label: string }> = [
+  { value: 'lastWeek', label: 'Last Week' },
+  { value: 'lastMonth', label: 'Last Month' },
+  { value: 'lastQuarter', label: 'Last Quarter' },
+  { value: 'lastYear', label: 'Last Year' },
+  { value: 'custom', label: 'Custom Range' },
+];
 
 const BREAKDOWN_COLORS: Record<BreakdownPoint['tone'], string> = {
   t1: '#b83573',
@@ -73,6 +71,17 @@ function formatCurrency(value: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+}
+
+function formatDateHuman(isoDate: string) {
+  if (!isoDate) return 'Select date';
+  const date = new Date(isoDate);
+  if (Number.isNaN(date.getTime())) return isoDate;
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
 }
 
 function formatShareLabel(share: number) {
@@ -185,9 +194,7 @@ function buildDonutBackground(points: BreakdownPoint[]) {
   ].join(', ');
 }
 
-export default function AccountingPayrollDashboard({
-  showSensitiveAccessIndicator = false,
-}: AccountingPayrollDashboardProps) {
+export default function AccountingPayrollDashboard() {
   const [runs, setRuns] = useState<PayrollRunRow[]>([]);
   const defaultRange = useMemo(() => createPresetRange('lastMonth'), []);
   const [rangePreset, setRangePreset] = useState<RangePreset>('lastMonth');
@@ -205,10 +212,6 @@ export default function AccountingPayrollDashboard({
   const [canScrollHistoryRight, setCanScrollHistoryRight] = useState(false);
   const [selectedBreakdown, setSelectedBreakdown] = useState<DashboardBreakdownState | null>(null);
   const silentRefreshRef = useRef(false);
-  const sensitiveAccess = useSensitiveAccessPrompt({
-    entryNotice: 'Enter your password to verify before viewing the payroll dashboard.',
-  });
-  const handleSensitiveAccessError = sensitiveAccess.handleProtectedError;
   useErrorDialogEffect(loadError, 'Payroll dashboard could not be loaded');
   const handlePageRefresh = useCallback(() => {
     silentRefreshRef.current = true;
@@ -217,22 +220,9 @@ export default function AccountingPayrollDashboard({
 
   useAutoRefreshingPage(handlePageRefresh, {
     intervalMs: 15000,
-    enabled: sensitiveAccess.isVerified && !sensitiveAccess.open,
   });
 
   useEffect(() => {
-    if (!sensitiveAccess.isVerified) {
-      setRuns([]);
-      setSelectedPayId(null);
-      setSelectedItems([]);
-      setSelectedSummary([]);
-      setHistoryPoints([]);
-      setLoadError('');
-      setIsLoading(false);
-      silentRefreshRef.current = false;
-      return;
-    }
-
     let cancelled = false;
 
     async function loadRuns() {
@@ -259,15 +249,6 @@ export default function AccountingPayrollDashboard({
         });
       } catch (error) {
         if (cancelled) return;
-        if (
-          handleSensitiveAccessError(
-            error,
-            loadRuns,
-            'Verify access before opening the payroll dashboard.'
-          )
-        ) {
-          return;
-        }
         if (!isSilentRefresh) {
           setRuns([]);
           setSelectedPayId(null);
@@ -286,7 +267,7 @@ export default function AccountingPayrollDashboard({
     return () => {
       cancelled = true;
     };
-  }, [refreshTick, handleSensitiveAccessError, sensitiveAccess.isVerified]);
+  }, [refreshTick]);
 
   const filteredRuns = useMemo(
     () => runs.filter((run) => runMatchesDateRange(run, fromDate, toDate)),
@@ -294,7 +275,7 @@ export default function AccountingPayrollDashboard({
   );
 
   useEffect(() => {
-    if (!sensitiveAccess.isVerified || filteredRuns.length === 0) {
+    if (filteredRuns.length === 0) {
       setSelectedItems([]);
       setSelectedSummary([]);
       setHistoryPoints([]);
@@ -321,9 +302,9 @@ export default function AccountingPayrollDashboard({
         const runDataPromises = runsInRange.map(async (run) => {
           const response = await apiFetchJson<unknown>(`/api/payroll/run/${run.payId}/items?page=0&size=1000`);
           const rows = toArray<PayrollItemRow>(response);
-          const grossTotal = rows.reduce((sum, row) => sum + toAmount(row.grossPay), 0);
+          const grossTotal = rows.reduce((sum: number, row: PayrollItemRow) => sum + toAmount(row.grossPay), 0);
           const employerContributionTotal = rows.reduce(
-            (sum, row) => sum + toAmount(row.employerContributionTotal),
+            (sum: number, row: PayrollItemRow) => sum + toAmount(row.employerContributionTotal),
             0
           );
           return {
@@ -333,7 +314,7 @@ export default function AccountingPayrollDashboard({
               payId: run.payId,
               label: describeRun(run),
               grossTotal,
-              totalPayrollCost: grossTotal + employerContributionTotal,
+              employerContributionTotal,
             } satisfies HistoryPoint,
           };
         });
@@ -376,15 +357,6 @@ export default function AccountingPayrollDashboard({
         setLoadError('');
       } catch (error) {
         if (cancelled) return;
-        if (
-          handleSensitiveAccessError(
-            error,
-            loadDashboardData,
-            'Verify access before opening payroll dashboard details.'
-          )
-        ) {
-          return;
-        }
         if (!isSilentRefresh) {
           setSelectedItems([]);
           setSelectedSummary([]);
@@ -403,7 +375,7 @@ export default function AccountingPayrollDashboard({
     return () => {
       cancelled = true;
     };
-  }, [filteredRuns, handleSensitiveAccessError, sensitiveAccess.isVerified]);
+  }, [filteredRuns]);
 
   useEffect(() => {
     if (filteredRuns.length === 0) {
@@ -436,11 +408,6 @@ export default function AccountingPayrollDashboard({
   const employerStatutoryCost = useMemo(
     () => selectedItems.reduce((sum, row) => sum + toAmount(row.employerContributionTotal), 0),
     [selectedItems]
-  );
-
-  const totalPayrollCost = useMemo(
-    () => totalGrossWages + employerStatutoryCost,
-    [employerStatutoryCost, totalGrossWages]
   );
 
   const breakdownPoints = useMemo<BreakdownPoint[]>(() => {
@@ -511,21 +478,8 @@ export default function AccountingPayrollDashboard({
     [selectedSummary]
   );
 
-  const totalPayrollCostRows = useMemo<DashboardBreakdownRow[]>(
-    () =>
-      selectedItems
-        .map((row) => ({
-          label: row.employeeName?.trim() || `${row.firstName ?? ''} ${row.lastName ?? ''}`.trim() || `Employee #${row.empId ?? row.employeeId ?? '-'}`,
-          value: toAmount(row.grossPay) + toAmount(row.employerContributionTotal),
-          note: `Gross ${formatCurrency(toAmount(row.grossPay))} + Employer cost ${formatCurrency(toAmount(row.employerContributionTotal))}`,
-        }))
-        .filter((row) => row.value > 0)
-        .sort((left, right) => right.value - left.value),
-    [selectedItems]
-  );
-
   const historyScale = useMemo(
-    () => Math.max(...historyPoints.flatMap((point) => [point.grossTotal, point.totalPayrollCost]), 0),
+    () => Math.max(...historyPoints.flatMap((point) => [point.grossTotal, point.employerContributionTotal]), 0),
     [historyPoints]
   );
 
@@ -584,7 +538,7 @@ export default function AccountingPayrollDashboard({
   }, []);
 
   const openBreakdown = useCallback(
-    (kind: 'net' | 'gross' | 'employer' | 'total') => {
+    (kind: 'net' | 'gross' | 'employer') => {
       if (selectedItems.length === 0) return;
 
       if (kind === 'net') {
@@ -617,16 +571,7 @@ export default function AccountingPayrollDashboard({
           totalValue: employerStatutoryCost,
           rows: employerCostRows,
         });
-        return;
       }
-
-      setSelectedBreakdown({
-        title: 'Total Payroll Cost Breakdown',
-        subtitle: `${activeRangeLabel} by employee payroll cost.`,
-        totalLabel: 'Total Payroll Cost',
-        totalValue: totalPayrollCost,
-        rows: totalPayrollCostRows,
-      });
     },
     [
       activeRangeLabel,
@@ -637,8 +582,6 @@ export default function AccountingPayrollDashboard({
       netPayoutRows,
       selectedItems.length,
       totalGrossWages,
-      totalPayrollCost,
-      totalPayrollCostRows,
     ]
   );
 
@@ -648,85 +591,57 @@ export default function AccountingPayrollDashboard({
         <PageHeader
           title="Overall Payroll Costs"
           description="Compare payroll cost trends, pay-type breakdowns, and accounting date ranges at a glance."
-          titleMeta={showSensitiveAccessIndicator || !sensitiveAccess.isVerified ? (
-            <SensitiveAccessIndicator
-              onActivate={() =>
-                sensitiveAccess.requestVerification(
-                  async () => Promise.resolve(),
-                  'Enter your password to unlock payroll dashboard access.'
-                )
-              }
-            />
-          ) : null}
         />
 
-        <div className="aDashPay__controls">
-          <div className="aDashPayControlsCard">
-            <div className="aDashPayControlsGrid">
-              <div className="aDashPaySelectField">
-                <label htmlFor="aDashPayRangePreset">Financial calendar</label>
-                <div className="aDashPaySelect">
-                  <select
-                    id="aDashPayRangePreset"
-                    value={rangePreset}
-                    onChange={(event) => applyPresetRange(event.target.value as RangePreset)}
-                    aria-label="Financial calendar preset"
-                  >
-                    <option value="lastWeek">Last Week</option>
-                    <option value="lastMonth">Last Month</option>
-                    <option value="lastQuarter">Last Quarter</option>
-                    <option value="lastYear">Last Year</option>
-                    <option value="custom">Custom Range</option>
-                  </select>
-                </div>
-              </div>
+        <div className="aDashPayDateField">
+          <div className="aDashPayPresetField">
+            <label htmlFor="aDashPayPreset">Preset:</label>
+            <div className="aDashPayPresetSelect">
+              <select
+                id="aDashPayPreset"
+                value={rangePreset}
+                onChange={(event) => applyPresetRange(event.target.value as RangePreset)}
+                aria-label="Quick date range preset"
+              >
+                {RANGE_PRESET_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <FiChevronDown aria-hidden="true" />
+            </div>
+          </div>
 
-              <div className="aDashPayDateGroup" aria-label="Payroll dashboard date range">
-                <label className="aDashPayDateField">
-                  <span>Start date</span>
-                  <input
-                    type="date"
-                    value={fromDate}
-                    onChange={(event) => {
-                      setRangePreset('custom');
-                      setFromDate(event.target.value);
-                    }}
-                  />
-                </label>
-                <label className="aDashPayDateField">
-                  <span>End date</span>
-                  <input
-                    type="date"
-                    value={toDate}
-                    onChange={(event) => {
-                      setRangePreset('custom');
-                      setToDate(event.target.value);
-                    }}
-                  />
-                </label>
+          <div className="aDashPayRangeField">
+            <label>Date Range:</label>
+            <div className="aDashPayDateGroup" aria-label="Payroll dashboard date range">
+              <div className="aDashPayDateInput">
+                <FiCalendar />
+                <span className="aDashPayDateInput__value">{formatDateHuman(fromDate)}</span>
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={(event) => {
+                    setRangePreset('custom');
+                    setFromDate(event.target.value);
+                  }}
+                  aria-label="Start date"
+                />
               </div>
-
-              <div className="aDashPaySelectField">
-                <label htmlFor="aDashPayRunSelect">Focused payroll run</label>
-                <div className="aDashPaySelect">
-                  <select
-                    id="aDashPayRunSelect"
-                    value={selectedPayId ?? ''}
-                    onChange={(event) => setSelectedPayId(event.target.value ? Number(event.target.value) : null)}
-                    aria-label="Focused payroll run"
-                    disabled={filteredRuns.length === 0}
-                  >
-                    {filteredRuns.length > 0 ? (
-                      filteredRuns.map((run) => (
-                        <option key={run.payId ?? `run-${run.periodEnd}`} value={run.payId}>
-                          {describeRun(run)}
-                        </option>
-                      ))
-                    ) : (
-                      <option value="">No payroll runs in range</option>
-                    )}
-                  </select>
-                </div>
+              <span className="aDashPayDateSeparator">to</span>
+              <div className="aDashPayDateInput">
+                <FiCalendar />
+                <span className="aDashPayDateInput__value">{formatDateHuman(toDate)}</span>
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={(event) => {
+                    setRangePreset('custom');
+                    setToDate(event.target.value);
+                  }}
+                  aria-label="End date"
+                />
               </div>
             </div>
           </div>
@@ -752,11 +667,6 @@ export default function AccountingPayrollDashboard({
           <p>Employer SSS, PhilHealth, and Pag-IBIG costs captured in this range.</p>
         </button>
 
-        <button type="button" className="aDashPaySummaryCard aDashPaySummaryCard--button" onClick={() => openBreakdown('total')} disabled={selectedItems.length === 0}>
-          <h3>Total Payroll Cost</h3>
-          <div className="aDashPaySummaryCard__value">{formatCurrency(totalPayrollCost)}</div>
-          <p>Gross wages plus employer statutory contributions across the selected range.</p>
-        </button>
       </section>
 
       <section className="aDashPayChartsGrid">
@@ -798,7 +708,7 @@ export default function AccountingPayrollDashboard({
                       <strong>{item.label}</strong>
                     </div>
 
-                    <div className="aDashPayHistoryCard__bars" aria-label={`Gross wages and total payroll cost for ${item.label}`}>
+                    <div className="aDashPayHistoryCard__bars" aria-label={`Gross wages and employer statutory cost for ${item.label}`}>
                       <div className="aDashPayHistoryMetric">
                         <strong className="aDashPayHistoryMetric__value">{formatCurrency(item.grossTotal)}</strong>
                         <div className="aDashPayHistoryMetric__plot">
@@ -817,20 +727,20 @@ export default function AccountingPayrollDashboard({
                       </div>
 
                       <div className="aDashPayHistoryMetric">
-                        <strong className="aDashPayHistoryMetric__value">{formatCurrency(item.totalPayrollCost)}</strong>
+                        <strong className="aDashPayHistoryMetric__value">{formatCurrency(item.employerContributionTotal)}</strong>
                         <div className="aDashPayHistoryMetric__plot">
                           <div
                             className="aDashPayHistoryMetric__bar aDashPayHistoryMetric__bar--cost"
                             style={{
                               height:
                                 historyScale > 0
-                                  ? `${Math.max((item.totalPayrollCost / historyScale) * 100, item.totalPayrollCost > 0 ? 12 : 0)}%`
+                                  ? `${Math.max((item.employerContributionTotal / historyScale) * 100, item.employerContributionTotal > 0 ? 12 : 0)}%`
                                   : '0%',
                             }}
-                            title={`Total payroll cost: ${formatCurrency(item.totalPayrollCost)}`}
+                            title={`Employer statutory cost: ${formatCurrency(item.employerContributionTotal)}`}
                           />
                         </div>
-                        <span className="aDashPayHistoryMetric__label">Total Payroll Cost</span>
+                        <span className="aDashPayHistoryMetric__label">Employer Cost</span>
                       </div>
                     </div>
                   </button>
@@ -839,9 +749,7 @@ export default function AccountingPayrollDashboard({
                 <div className="aDashPayHistory__empty">
                   {isLoading
                     ? 'Loading payroll history...'
-                    : !sensitiveAccess.isVerified
-                      ? LOCKED_PAGE_MESSAGE
-                      : runs.length > 0
+                    : runs.length > 0
                         ? 'No payroll runs matched this date range yet.'
                         : 'No payroll totals are available yet.'}
                 </div>
@@ -881,22 +789,13 @@ export default function AccountingPayrollDashboard({
                 <div className="aDashPayLegend__empty">
                   {isLoading
                     ? 'Loading pay type totals...'
-                    : !sensitiveAccess.isVerified
-                      ? LOCKED_PAGE_MESSAGE
-                      : 'No pay type totals are available for this date range yet.'}
+                    : 'No pay type totals are available for this date range yet.'}
                 </div>
               )}
             </div>
           </div>
         </article>
       </section>
-
-      <SensitiveAccessModal
-        open={sensitiveAccess.open}
-        onClose={sensitiveAccess.close}
-        onVerified={sensitiveAccess.handleVerified}
-        notice={sensitiveAccess.notice}
-      />
 
       {selectedBreakdown ? (
         <LargePopup

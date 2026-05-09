@@ -1,8 +1,8 @@
 import type {
   AttendanceLeaveRequest as LeaveRequestRow,
   ShiftSchedule as ShiftScheduleRow,
-} from '../../../../lib/types/attendance';
-import type { LeaveBalanceRow } from '../../../../lib/types/employee';
+} from '@/lib/types/attendance';
+import type { LeaveBalanceRow } from '@/lib/types/employee';
 
 import {
   calculateNextDayOff,

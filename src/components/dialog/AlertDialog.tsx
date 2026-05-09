@@ -1,6 +1,6 @@
 import { useId } from 'react';
 import { createPortal } from 'react-dom';
-import { useEscapeDismiss } from '../../hooks/useEscapeDismiss';
+import { useEscapeDismiss } from '@/hooks/useEscapeDismiss';
 
 export type AlertDialogVariant = 'error' | 'info' | 'success';
 

@@ -1,23 +1,24 @@
-import { useLoading } from '../../../context/useLoading';
+import { useLoading } from '@/context/useLoading';
 import { useEffect, useMemo, useState } from 'react';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
-import ApprovalStatusSummary from '../../../components/approvals/ApprovalStatusSummary';
-import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
-import LargePopup from '../../../components/dialog/LargePopup';
-import { useUiDialog } from '../../../components/dialog/useUiDialog';
-import PageHeader from '../../../components/layout/PageHeader';
-import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
-import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
-import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
-import { apiFetchJson, toArray } from '../../../lib/api';
-import { extractAttachmentReference, openDocumentAttachment } from '../../../lib/documentAttachments';
-import { getManilaNow } from '../../../lib/manilaTime';
-import { getUserEmail } from '../../../lib/session';
-import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
-import { formatDate, formatDateTime } from '../../../lib/formatters';
-import type { LeaveApprovalRow as LeaveRow, OvertimeApprovalRow as OvertimeRow } from '../../../lib/types/approval';
-import type { PayrollDisputeRow as DisputeRow, PayrollItemReference as PayrollItemRow } from '../../../lib/types/payroll';
+import ApprovalStatusSummary from '@/components/approvals/ApprovalStatusSummary';
+import ConfirmDialog from '@/components/dialog/ConfirmDialog';
+import LargePopup from '@/components/dialog/LargePopup';
+import { useUiDialog } from '@/components/dialog/useUiDialog';
+import PageHeader from '@/components/layout/PageHeader';
+import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
+import { useEscapeDismiss } from '@/hooks/useEscapeDismiss';
+import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
+import { apiFetchJson, toArray } from '@/lib/api/api';
+import { openDocumentAttachment } from '@/lib/api/endpoints/documents/document-fetch';
+import { getManilaNow } from '@/lib/utils/manilaTime';
+import { getUserEmail } from '@/lib/utils/session';
+import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
+import { formatDate, formatDateTime } from '@/lib/utils/formatters';
+import type { LeaveApprovalRow as LeaveRow, OvertimeApprovalRow as OvertimeRow } from '@/lib/types/approval';
+import type { PayrollDisputeRow as DisputeRow, PayrollItemReference as PayrollItemRow } from '@/lib/types/payroll';
 import './Approval.css';
+import { Directories } from '@/enum/directories';
 
 type ApprovalSource = 'leave' | 'overtime' | 'dispute';
 type ApprovalStatus =
@@ -314,8 +315,7 @@ export default function Approval() {
         const requestId = row.requestId ?? index;
         const startDateStr = formatDate(row.startDateTime, '-');
         const endDateStr = formatDate(row.endDateTime, '-');
-        const requestTarget = startDateStr === endDateStr ? startDateStr : `${startDateStr} to ${endDateStr}`;
-        const attachment = extractAttachmentReference(row.reason);
+        const requestTarget = startDateStr === endDateStr ? startDateStr : `${startDateStr} to ${endDateStr}`;;
 
         const managerNote = (row.managerApproverReason || '').trim();
         const rawDecisionNote = (row.approverReason || '').trim();
@@ -346,13 +346,14 @@ export default function Approval() {
           durationLabel: formatLeaveDuration(row.startDateTime, row.endDateTime),
           status,
           approvedBy: status.startsWith('Pending') ? '-' : status === 'Cancelled' ? '-' : row.approver?.trim() || '-',
-          requestReason: attachment.cleanText || '-',
+          requestReason: row.reason || '-',
           decisionReason: finalDecisionReason,
           decisionDate: formatDateTime(row.approvedAt, '-'),
           managerApprover: row.managerApprover,
           managerDecisionReason: managerNote,
           managerDecisionDate: formatDateTime(row.managerApprovedAt, '-'),
-          attachmentPathId: attachment.attachmentPathId ?? undefined,
+          connectedEntity: Directories.LEAVE_REQUEST,
+          connectedId: row.requestId,
         };
       });
 
@@ -360,8 +361,6 @@ export default function Approval() {
         const status = mapApprovalStatus(row.requestStatus);
         const overtimeId = row.overtimeId ?? index;
         const workDateStr = formatDate(row.workDate, '-');
-        const attachment = extractAttachmentReference(row.reason);
-
         const managerNote = (row.managerApproveReason || '').trim();
         const rawDecisionNote = (row.approveReason || '').trim();
         const hasHrApprover = row.approver && row.approver !== '-' && row.approver !== row.managerApprover;
@@ -393,13 +392,14 @@ export default function Approval() {
           durationLabel: formatClockWindow(row.startTime, row.endTime),
           status,
           approvedBy: status.startsWith('Pending') ? '-' : status === 'Cancelled' ? '-' : row.approver ?? '-',
-          requestReason: attachment.cleanText || '-',
+          requestReason: row.reason || '-',
           decisionReason: finalDecisionReason,
           decisionDate: formatDateTime(row.approvedAt, '-'),
           managerApprover: row.managerApprover,
           managerDecisionReason: managerNote,
           managerDecisionDate: formatDateTime(row.managerApprovedAt, '-'),
-          attachmentPathId: attachment.attachmentPathId ?? undefined,
+          connectedEntity: Directories.OVERTIME,
+          connectedId: row.overtimeId,
         };
       });
 
@@ -407,7 +407,6 @@ export default function Approval() {
         const status = mapApprovalStatus(row.status);
         const disputeId = row.id ?? index;
         const rawDecisionNote = (row.statusReason || '').trim();
-        const attachment = extractAttachmentReference(row.reason);
 
         let finalDecisionReason = '';
         if (status === 'Cancelled') {
@@ -434,10 +433,11 @@ export default function Approval() {
               : 'Payroll period unavailable',
           status,
           approvedBy: status.startsWith('Pending') ? '-' : status === 'Cancelled' ? '-' : resolveDisputeApprover(row),
-          requestReason: attachment.cleanText || '-',
+          requestReason: row.reason || '-',
           decisionReason: finalDecisionReason,
           decisionDate: formatDateTime(row.updatedAt, '-'),
-          attachmentPathId: attachment.attachmentPathId ?? undefined,
+          connectedEntity: Directories.DISPUTE,
+          connectedId: row.id,
         };
       });
 
@@ -496,7 +496,7 @@ export default function Approval() {
     setAttachmentError('');
     setOpeningAttachmentId(pathId);
     try {
-      await openDocumentAttachment(pathId);
+      await openDocumentAttachment({pathId: pathId, isPublic: false});
     } catch (error) {
       setAttachmentError(error instanceof Error ? error.message : 'Failed to open the attachment.');
     } finally {

@@ -1,22 +1,21 @@
-import { useLoading } from '../../../context/useLoading';
+import { useLoading } from '@/context/useLoading';
 import type { CSSProperties } from 'react';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import './Attendance.css';
 import { FiCalendar, FiCheckCircle, FiChevronLeft, FiChevronRight, FiClock, FiDownload, FiInfo, FiPlusSquare, FiPrinter, FiXCircle } from 'react-icons/fi';
-import ActionButton from '../../../components/button/ActionButton';
-import FileUploadField from '../../../components/form/FileUploadField';
-import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
-import LargePopup from '../../../components/dialog/LargePopup';
-import { useUiDialog } from '../../../components/dialog/useUiDialog';
-import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
-import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
-import { useUnsavedChangesPrompt } from '../../../hooks/useUnsavedChangesPrompt';
-import { ApiError, apiFetchJson, apiFetchRaw, toArray } from '../../../lib/api';
-import { uploadDocument } from '../../../lib/documentUpload';
-import { sanitizeFileNamePart } from '../../../lib/fileNames';
-import { getUserEmail, getUserRole } from '../../../lib/session';
-import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
-import { getManilaNow } from '../../../lib/manilaTime';
+import ActionButton from '@/components/button/ActionButton';
+import FileUploadField from '@/components/form/FileUploadField';
+import ConfirmDialog from '@/components/dialog/ConfirmDialog';
+import LargePopup from '@/components/dialog/LargePopup';
+import { useUiDialog } from '@/components/dialog/useUiDialog';
+import { useEscapeDismiss } from '@/hooks/useEscapeDismiss';
+import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
+import { useUnsavedChangesPrompt } from '@/hooks/useUnsavedChangesPrompt';
+import { ApiError, apiFetchJson, apiFetchRaw, throwApiErrorIfNeeded, toArray } from '@/lib/api/api';
+import { uploadPrivateDocuments } from '@/lib/api/endpoints/documents/document-upload';
+import { getUserEmail, getUserRole } from '@/lib/utils/session';
+import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
+import { getManilaNow } from '@/lib/utils/manilaTime';
 import { useAttendanceRequestForm } from './hooks/useAttendanceRequestForm';
 import AttendanceHeader from './sections/AttendanceHeader';
 import AttendanceSummary from './sections/AttendanceSummary';
@@ -27,8 +26,9 @@ import type {
   AttendanceOvertimeRequest as OvertimeRequestRow,
   DailyShift as DailyShiftRow,
   ShiftSchedule as ShiftScheduleRow,
-} from '../../../lib/types/attendance';
-import type { EmployeeDetails, LeaveBalanceRow } from '../../../lib/types/employee';
+} from '@/lib/types/attendance';
+import type { EmployeeDetails, LeaveBalanceRow } from '@/lib/types/employee';
+import { Directories } from '@/enum/directories';
 
 type LeaveType =
   | 'SICK_LEAVE'
@@ -122,8 +122,6 @@ type OvertimeDraftState = {
   file: File | null;
 };
 
-const LEAVE_UPLOAD_SUBDIR = 'leave-request';
-const OVERTIME_UPLOAD_SUBDIR = 'overtime-request';
 const NON_SICK_LEAVE_NOTICE_DAYS = 7;
 
 const LEAVE_TYPE_OPTIONS: Array<{ label: string; value: LeaveType }> = [
@@ -426,12 +424,12 @@ function parseHolidayLookup(payload: unknown) {
     ? [...new Set(object.regularHolidayDates.map((value) => localDateKey(value)).filter(Boolean))]
     : [];
   const holidayNamesByDate =
-    object.holidayNamesByDate && typeof object.holidayNamesByDate === 'object'
+    object.holidays && typeof object.holidays === 'object'
       ? Object.fromEntries(
-          Object.entries(object.holidayNamesByDate).flatMap(([dateKey, name]) => {
+          Object.entries(object.holidays).flatMap(([dateKey, name]) => {
             const normalizedDateKey = localDateKey(dateKey);
             if (!normalizedDateKey || typeof name !== 'string') return [];
-            const normalizedName = name.trim();
+            const normalizedName = name;
             if (!normalizedName) return [];
             return [[normalizedDateKey, normalizedName]];
           })
@@ -1860,7 +1858,7 @@ export default function Attendance() {
       });
       if (!response.ok) {
         const text = await response.text();
-        throw new ApiError(response.status, text || `Attendance log failed (${response.status})`);
+        throwApiErrorIfNeeded(response, text);
       }
 
       const updatedHistory = await fetchAttendanceHistory(employeeId);
@@ -1994,9 +1992,7 @@ export default function Attendance() {
   }
 
   async function submitOt() {
-    if (!validateOtForm()) {
-      return;
-    }
+    if (!validateOtForm()) return;
     setConfirmOtSubmit(false);
     setIsOtSubmitting(true);
     showLoading();
@@ -2005,26 +2001,31 @@ export default function Attendance() {
     const endDateTime = `${otEndDate}T${otEndTime}`;
 
     try {
-      let attachmentRef: number | null = null;
-      if (otFile) {
-        attachmentRef = await uploadDocument(otFile, OVERTIME_UPLOAD_SUBDIR);
-      }
-
-      await apiFetchJson('/api/overtime/create', {
+      const response = await apiFetchRaw('/api/overtime/create', {
         method: 'POST',
         body: JSON.stringify({
           workDate: otStartDate,
           startTime: startDateTime,
           endTime: endDateTime,
           overtimeType: otType,
-          reason: [
-            otReason.trim(),
-            attachmentRef ? `(Attachment ID: ${attachmentRef})` : '',
-          ]
-            .filter(Boolean)
-            .join(' '),
+          reason: otReason.trim(),
         }),
       });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throwApiErrorIfNeeded(response, text);
+      }
+
+      const createdRequest = await response.json() as Record<string, unknown>;
+      const overtimeId = typeof createdRequest.overtimeId === 'number'
+        ? createdRequest.overtimeId
+        : null;
+
+      if (otFile && overtimeId) {
+        await uploadPrivateDocuments([otFile], Directories.OVERTIME, overtimeId);
+      }
+
       setOtOpen(false);
       setRequestEntries((prev) => [
         ...prev,
@@ -2143,7 +2144,7 @@ export default function Attendance() {
     setConfirmLeaveSubmit(true);
   }
 
-  async function submitLeave() {
+    async function submitLeave() {
     if (!validateLeaveForm()) {
       return;
     }
@@ -2155,47 +2156,53 @@ export default function Attendance() {
     const endDateTime = `${endDate}T${endTime}:00`;
 
     try {
-      let attachmentRef: number | null = null;
-      if (file) {
-        attachmentRef = await uploadDocument(file, LEAVE_UPLOAD_SUBDIR);
-      }
+    let attachmentConnectedId: number | null = null;
+    const payload = {
+      startDateTime,
+      endDateTime,
+      leaveType,
+      reason: [
+        reason.trim(),
 
-      const payload = {
-        startDateTime,
-        endDateTime,
-        leaveType,
-        reason: [
-          reason.trim(),
-          attachmentRef ? `(Attachment ID: ${attachmentRef})` : '',
-        ]
-          .filter(Boolean)
-          .join(' '),
+      ]
+        .filter(Boolean)
+        .join(' '),
       };
 
-      const response = await apiFetchRaw(`/api/leave/create/${employeeId}`, {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
+    const response = await apiFetchRaw(`/api/leave/create/${employeeId}`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
 
-      if (!response.ok) {
-        const text = await response.text();
-        throw new ApiError(response.status, text || `Request failed (${response.status})`);
-      }
+    if (!response.ok) {
+      const text = await response.text();
+      throwApiErrorIfNeeded(response, text);
+    }
 
-      const createdRequests = (await response.json()) as unknown;
-      setLeaveOpen(false);
-      setRequestEntries((prev) => [...prev, ...mapLeaveRequestEntries(createdRequests)]);
-    } catch (error) {
+    const createdRequests = (await response.json()) as unknown;
+    
+    // extract the requestId from the response
+    const firstCreated = toArray<LeaveRequestRow>(createdRequests)[0];
+    attachmentConnectedId = typeof firstCreated?.requestId === 'number' 
+      ? firstCreated.requestId 
+      : null;
+
+    if (file && attachmentConnectedId) {
+      await uploadPrivateDocuments(
+        [file],
+        Directories.LEAVE_REQUEST,
+        attachmentConnectedId
+      );
+    }
+
+    setLeaveOpen(false);
+    setRequestEntries((prev) => [...prev, ...mapLeaveRequestEntries(createdRequests)]);
+  } catch (error) {
       setSubmitError(getFriendlyErrorMessage(error, 'leave-request'));
     } finally {
       setIsLeaveSubmitting(false);
       hideLoading();
     }
-  }
-
-  function buildTimecardPdfName() {
-    const employeeSegment = sanitizeFileNamePart(employeeName) || `employee-${employeeId ?? 'timecard'}`;
-    return `timecard_${employeeSegment}_${timecardFromDate || 'from'}_to_${timecardToDate || 'to'}.pdf`;
   }
 
   async function loadSelectedTimecardPdf() {
@@ -2223,12 +2230,13 @@ export default function Attendance() {
         }
       }
 
-      throw new ApiError(response.status, errorMessage, errorMessage);
+      throwApiErrorIfNeeded(response, errorMessage);
     }
 
     const pdfBlob = await response.blob();
     const fileName =
-      parseContentDispositionFileName(response.headers.get('Content-Disposition')) || buildTimecardPdfName();
+      parseContentDispositionFileName(response.headers.get('Content-Disposition'))  ||
+      `timecard_${employeeId}_${timecardFromDate}_to_${timecardToDate}.pdf`;
     const pdfFile = new File([pdfBlob], fileName, {
       type: pdfBlob.type || 'application/pdf',
     });
@@ -2776,8 +2784,8 @@ export default function Attendance() {
                   <FileUploadField
                     label="Supporting Documents (Optional)"
                     hint="Add medical certificates, screenshots, or other files only when they help validate this leave request."
-                    file={file}
-                    onChange={setFile}
+                    files={file ? [file] : []}
+                    onChange={files =>  setFile(files[0] ?? null)}
                     emptyLabel="Optional attachment"
                   />
                 </div>
@@ -2912,9 +2920,9 @@ export default function Attendance() {
                   <FileUploadField
                     label="Supporting Documents (Optional)"
                     hint="Attach schedules, work orders, or supporting proof only when they help explain this overtime request."
-                    file={otFile}
+                    files={otFile ? [otFile] : []}
                     disabled={isOtSubmitting}
-                    onChange={setOtFile}
+                    onChange={(files) => setOtFile(files[0] ?? null)}
                     emptyLabel="Optional attachment"
                   />
                 </div>

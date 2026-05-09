@@ -8,6 +8,7 @@
   display:flex;
   align-items:center;
   justify-content:space-between;
+  gap:16px;
 }
 
 .trainingPage__title{
@@ -23,6 +24,18 @@
   display:flex;
   flex-direction:column;
   gap:28px;
+}
+
+.trainingPage__status{
+  margin:-8px 0 0;
+  border:1px solid rgba(123, 74, 143, .16);
+  border-radius:14px;
+  background:linear-gradient(135deg, rgba(123, 74, 143, .08), rgba(255, 255, 255, .88));
+  color:#4a2d66;
+  font-size:14px;
+  font-weight:700;
+  line-height:1.5;
+  padding:12px 14px;
 }
 
 .tmCard{
@@ -45,11 +58,35 @@
   cursor:pointer;
 }
 
+.tmCard__headingGroup{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  min-width:0;
+}
+
 .tmCard__title{
   font-size:22px;
   font-weight:800;
   line-height:1.1;
   text-align:left;
+}
+
+.tmCard__headerMeta{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex:0 0 auto;
+}
+
+.tmCard__count{
+  border:1px solid rgba(255,255,255,.34);
+  border-radius:999px;
+  color:rgba(255,255,255,.92);
+  font-size:12px;
+  font-weight:900;
+  padding:5px 9px;
+  white-space:nowrap;
 }
 
 .tmCard__chevron{
@@ -81,6 +118,52 @@
   display:flex;
   align-items:center;
   gap:16px;
+}
+
+.tmRow__details{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  min-width:0;
+}
+
+.tmRow__titleLine{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+}
+
+.tmRow__name{
+  color:#2b1b3f;
+  font-size:15px;
+  line-height:1.35;
+  font-weight:900;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.tmRow__meta{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:7px;
+  color:rgba(43, 27, 63, .58);
+  font-size:12px;
+  font-weight:800;
+}
+
+.tmRow__badge{
+  border-radius:999px;
+  background:rgba(123, 74, 143, .12);
+  color:#5f2f78;
+  flex:0 0 auto;
+  font-size:12px;
+  font-weight:900;
+  line-height:1.2;
+  padding:3px 8px;
 }
 
 .tmRow:nth-child(even){
@@ -157,13 +240,6 @@
 }
 
 
-.trainingPage__error{
-  margin:-4px 0 0;
-  color:#9e2f2f;
-  font-size:14px;
-  font-weight:700;
-}
-
 @media (max-width: 1200px){
   .trainingPage__title{
     font-size:32px;
@@ -183,6 +259,11 @@
     gap:18px;
   }
 
+  .trainingPage__head{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+
   .trainingPage__title{
     font-size:32px;
   }
@@ -198,6 +279,14 @@
   .tmCard__title{
     font-size:18px;
     line-height:1.15;
+  }
+
+  .tmCard__headerMeta{
+    gap:8px;
+  }
+
+  .tmCard__count{
+    display:none;
   }
 
   .tmCard__chevron{
@@ -224,6 +313,14 @@
 
   .tmRow__label{
     font-size:15px;
+  }
+
+  .tmRow__name{
+    font-size:15px;
+  }
+
+  .tmRow__meta{
+    font-size:12px;
   }
 
   .tmRow__download.tmRow__download{

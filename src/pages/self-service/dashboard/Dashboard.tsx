@@ -1,26 +1,28 @@
-import { useLoading } from '../../../context/useLoading';
+import { useLoading } from '@/context/useLoading';
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
-import { useUiDialog } from '../../../components/dialog/useUiDialog';
-import PageHeader from '../../../components/layout/PageHeader';
-import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
-import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
-import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
-import { useSensitiveAccessPrompt } from '../../../hooks/useSensitiveAccessPrompt';
-import SensitiveAccessModal from '../../../components/security/SensitiveAccessModal';
-import { apiFetchJson, toArray } from '../../../lib/api';
+import ConfirmDialog from '@/components/dialog/ConfirmDialog';
+import { useUiDialog } from '@/components/dialog/useUiDialog';
+import PageHeader from '@/components/layout/PageHeader';
+import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
+import { useEscapeDismiss } from '@/hooks/useEscapeDismiss';
+import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
+import { useSensitiveAccessPrompt } from '@/hooks/useSensitiveAccessPrompt';
+import SensitiveAccessModal from '@/components/security/SensitiveAccessModal';
+import { apiFetchJson, toArray } from '@/lib/api/api';
+import { getSelfServicePath } from '@/lib/utils/roleRoutes';
+import { getAuthToken, getUserEmail, getUserRole } from '@/lib/utils/session';
+import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
+import { getManilaNow } from '@/lib/utils/manilaTime';
+import type { AttendanceLeaveRequest as LeaveRequestRow, AttendanceLog, ShiftSchedule as ShiftScheduleRow } from '@/lib/types/attendance';
+import type { LeaveBalanceRow } from '@/lib/types/employee';
 import {
   downloadLibraryDocument,
-  handbookLibraryCard,
+  getEmployeeHandbookDocument,
+  loadDocumentLibrary,
   openLibraryDocument,
-} from '../../../lib/materialLibrary';
-import { getSelfServicePath } from '../../../lib/roleRoutes';
-import { getAuthToken, getUserEmail, getUserRole } from '../../../lib/session';
-import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
-import { getManilaNow } from '../../../lib/manilaTime';
-import type { AttendanceLeaveRequest as LeaveRequestRow, AttendanceLog, ShiftSchedule as ShiftScheduleRow } from '../../../lib/types/attendance';
-import type { LeaveBalanceRow } from '../../../lib/types/employee';
+  type DocumentLibraryItem,
+} from '@/lib/document/documentLibrary';
 import {
   createAnnouncementDraft,
   createBankAccountDrafts,
@@ -41,9 +43,9 @@ import AnnouncementDayModal from './sections/AnnouncementDayModal';
 import CompanyEventsCalendar from './sections/CompanyEventsCalendar';
 import CreateAnnouncementModal from './sections/CreateAnnouncementModal';
 import DashboardActions from './sections/DashboardActions';
-import DocumentsWidget from './sections/DocumentsWidget';
 import EditInfoModal from './sections/EditInfoModal';
 import EmployeeSummaryCard from './sections/EmployeeSummaryCard';
+import HandbookWidget from './sections/HandbookWidget';
 import TimeOffBalancesCard from './sections/TimeOffBalancesCard';
 import './Dashboard.css';
 
@@ -58,7 +60,7 @@ export default function Dashboard() {
 
   const location = useLocation();
   const navigate = useNavigate();
-  const { showError, showSuccess } = useUiDialog();
+  const { showSuccess } = useUiDialog();
   const userRole = getUserRole() ?? 'employee';
   const [profile, setProfile] = useState<UserDetails | null>(null);
   const [employee, setEmployee] = useState<UserDetails['employee'] | null>(null);
@@ -89,6 +91,10 @@ export default function Dashboard() {
   const [announcementActionError, setAnnouncementActionError] = useState('');
   const [announcementPendingDelete, setAnnouncementPendingDelete] = useState<CalendarDayEvent | null>(null);
   const [deletingAnnouncementId, setDeletingAnnouncementId] = useState<number | null>(null);
+  const [handbookDocument, setHandbookDocument] = useState<DocumentLibraryItem | null>(null);
+  const [documentsLoading, setDocumentsLoading] = useState(true);
+  const [documentActionKey, setDocumentActionKey] = useState<string | null>(null);
+  const [documentActionError, setDocumentActionError] = useState('');
   const [announcementDraft, setAnnouncementDraft] = useState<AnnouncementDraft>(() => createAnnouncementDraft());
   const [editDraft, setEditDraft] = useState({
     gender: '',
@@ -114,6 +120,7 @@ export default function Dashboard() {
   useErrorDialogEffect(editError, 'Profile changes could not be saved');
   useErrorDialogEffect(createAnnouncementError, 'Announcement could not be created');
   useErrorDialogEffect(announcementActionError, 'Announcement action failed');
+  useErrorDialogEffect(documentActionError, 'Document action unavailable');
   const handlePageRefresh = () => {
     setRefreshTick((tick) => tick + 1);
   };
@@ -253,6 +260,33 @@ export default function Dashboard() {
       }
     })();
   }, [calendarMonthIndex, calendarYear, refreshTick]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      setDocumentsLoading(true);
+
+      try {
+        const library = await loadDocumentLibrary();
+        if (!cancelled) {
+          setHandbookDocument(getEmployeeHandbookDocument(library.publicDocuments));
+        }
+      } catch {
+        if (!cancelled) {
+          setHandbookDocument(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setDocumentsLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshTick]);
 
   const monthLabel = new Date(calendarYear, calendarMonthIndex, 1).toLocaleDateString(undefined, {
     month: 'long',
@@ -500,19 +534,24 @@ export default function Dashboard() {
     }
   }
 
-  async function openHandbook() {
-    try {
-      await openLibraryDocument(handbookLibraryCard.document);
-    } catch (error) {
-      showError(getFriendlyErrorMessage(error, 'generic'), 'Unable to open handbook');
-    }
-  }
+  async function handleDashboardDocumentAction(
+    action: 'view' | 'download',
+    document: DocumentLibraryItem
+  ) {
+    const actionKey = `${action}-${document.scope}-${document.pathId}`;
+    setDocumentActionKey(actionKey);
+    setDocumentActionError('');
 
-  async function downloadHandbook() {
     try {
-      await downloadLibraryDocument(handbookLibraryCard.document);
+      if (action === 'view') {
+        await openLibraryDocument(document);
+      } else {
+        await downloadLibraryDocument(document);
+      }
     } catch (error) {
-      showError(getFriendlyErrorMessage(error, 'generic'), 'Unable to download handbook');
+      setDocumentActionError(getFriendlyErrorMessage(error, 'generic'));
+    } finally {
+      setDocumentActionKey(null);
     }
   }
 
@@ -701,7 +740,13 @@ export default function Dashboard() {
             shiftSchedule={shiftSchedule}
             onViewAllBalances={() => navigate(selfServicePath('attendance'))}
           />
-          <DocumentsWidget onDownload={() => void downloadHandbook()} onOpen={() => void openHandbook()} />
+          <HandbookWidget
+            document={handbookDocument}
+            loading={documentsLoading}
+            activeActionKey={documentActionKey}
+            onDownload={(document) => void handleDashboardDocumentAction('download', document)}
+            onOpen={(document) => void handleDashboardDocumentAction('view', document)}
+          />
         </div>
         <CompanyEventsCalendar
           calendarEventsByDay={calendarEventsByDay}

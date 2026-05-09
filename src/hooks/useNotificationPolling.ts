@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { apiFetchRaw } from '../lib/api';
+import { apiFetchRaw } from '../lib/api/api';
 import {
   mapNotificationItem,
   type NotificationItem,
   type NotificationRole,
-} from '../lib/notificationRouting';
+} from '../lib/utils/notificationRouting';
 import {
   installNotificationSoundPrimer,
   playNotificationSound,
-} from '../lib/notificationSound';
+} from '../lib/utils/notificationSound';
 
 type UseNotificationPollingOptions = {
   intervalMs?: number;

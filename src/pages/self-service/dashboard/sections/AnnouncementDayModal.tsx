@@ -1,6 +1,6 @@
 import { FiTrash2 } from 'react-icons/fi';
 
-import LargePopup from '../../../../components/dialog/LargePopup';
+import LargePopup from '@/components/dialog/LargePopup';
 
 import {
   formatAnnouncementEventDuration,

@@ -581,6 +581,7 @@ body.modal-open :where(
   overflow-y:auto;
   overflow-x:hidden;
   position:relative;
+  isolation:isolate;
 }
 
 /* top bar like figma (no white header block) */
@@ -592,6 +593,8 @@ body.modal-open :where(
   align-items:center;
   justify-content:space-between;
   gap:16px;
+  position:relative;
+  z-index:2;
 }
 
 .eTop__left{
@@ -824,6 +827,8 @@ body.modal-open :where(
   max-width: var(--contentW);
   margin: 0 auto;
   padding: 8px var(--contentPadX) 40px;
+  position:relative;
+  z-index:1;
 }
 
 .eContent > *{

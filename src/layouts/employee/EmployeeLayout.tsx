@@ -8,15 +8,15 @@ import {
   FiBookOpen,
 } from 'react-icons/fi';
 
-import BackendTestPanel from '../../components/layout/BackendTestPanel';
-import { BACKEND_TEST_MODE } from '../../config/flags';
+import BackendTestPanel from '@/components/layout/BackendTestPanel';
+import { BACKEND_TEST_MODE } from '@/config/flags';
 import {
   extractFirstId,
   firstFromCollection,
   type PlaceholderContext,
-} from '../../lib/backendTest';
-import type { NavSection } from '../../components/navigation/SidebarNavSection';
-import { useRoleLayout } from '../../hooks/useRoleLayout';
+} from '@/lib/test/backendTest';
+import type { NavSection } from '@/components/navigation/SidebarNavSection';
+import { useRoleLayout } from '@/hooks/useRoleLayout';
 import { RoleShell } from '../shared/RoleShell';
 import { useNotificationCenter } from '../shared/useNotificationCenter';
 import type { BackendTestAction } from '../shared/useBackendTestRunner';
@@ -178,7 +178,7 @@ const navSections: NavSection[] = [
       { to: '/employee/attendance', label: 'Attendance', icon: FiCalendar },
       { to: '/employee/approvals', label: 'View Approvals', icon: FiCheckSquare },
       { to: '/employee/payslip', label: 'View Payslip', icon: FiFileText },
-      { to: '/employee/training', label: 'Training Materials', icon: FiBookOpen },
+      { to: '/employee/training', label: 'Documents', icon: FiBookOpen },
     ],
   },
 ];

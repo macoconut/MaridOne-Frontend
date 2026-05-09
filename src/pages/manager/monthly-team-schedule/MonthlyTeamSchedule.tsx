@@ -1,14 +1,14 @@
 import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FiCalendar, FiChevronDown, FiChevronLeft, FiChevronRight, FiFilter, FiSave, FiX } from 'react-icons/fi';
-import LargePopup from '../../../components/dialog/LargePopup';
-import { useUiDialog } from '../../../components/dialog/useUiDialog';
-import PageHeader from '../../../components/layout/PageHeader';
-import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
-import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
-import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
-import { apiFetchJson, toArray } from '../../../lib/api';
-import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
+import LargePopup from '@/components/dialog/LargePopup';
+import { useUiDialog } from '@/components/dialog/useUiDialog';
+import PageHeader from '@/components/layout/PageHeader';
+import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
+import { useEscapeDismiss } from '@/hooks/useEscapeDismiss';
+import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
+import { apiFetchJson, toArray } from '@/lib/api/api';
+import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
 import '../../hr/attendance-reports/AttendanceReports.css';
 import {
   buildDailyOverrideDraft,
@@ -420,9 +420,7 @@ export function MonthlyScheduleBoard({
       ? editorDraft.dayOff
         ? 'Date override'
         : 'Custom date override'
-      : editorDraft.hasTemplate
-        ? 'Template shift'
-        : 'No template shift';
+      : '';
   const canClearEmployeePicker = employeeSearch.trim().length > 0;
   const canClearTemplateTargetSearch = templateTargetSearch.trim().length > 0;
   const canOpenTemplateEditor = defaultTemplateEmployees.length > 0;
@@ -1488,9 +1486,22 @@ export function MonthlyScheduleBoard({
               <div className="mgrMonth__segmentList">
                 {editorDraft.segments.map((segment, index) => (
                   <div className="mgrMonth__segmentRow" key={`${selectedDateKey}-segment-${index}`}>
+                    {!selectedDateIsLocked ? (
+                      <button
+                        type="button"
+                        className="mgrMonth__segmentRemoveIcon"
+                        onClick={() => removeSegment(index)}
+                        disabled={savingDate || loadingMonth || editorDraft.dayOff || editorDraft.segments.length === 1}
+                        aria-label={`Remove shift ${index + 1}`}
+                        title={`Remove shift ${index + 1}`}
+                      >
+                        <FiX aria-hidden="true" />
+                      </button>
+                    ) : null}
+
                     <div className="mgrMonth__timeGrid">
                       <label className={`mgrMonth__field ${editorSegmentErrors[index]?.startTime ? 'is-invalid' : ''}`}>
-                        <span>Start Time</span>
+                        <span>Start</span>
                         <input
                           type="time"
                           value={segment.startTime}
@@ -1503,7 +1514,7 @@ export function MonthlyScheduleBoard({
                       </label>
 
                       <label className={`mgrMonth__field ${editorSegmentErrors[index]?.endTime ? 'is-invalid' : ''}`}>
-                        <span>End Time</span>
+                        <span>End</span>
                         <input
                           type="time"
                           value={segment.endTime}
@@ -1515,17 +1526,6 @@ export function MonthlyScheduleBoard({
                         ) : null}
                       </label>
                     </div>
-
-                    {!selectedDateIsLocked ? (
-                      <button
-                        type="button"
-                        className="btn btn--ghost mgrMonth__segmentRemove"
-                        onClick={() => removeSegment(index)}
-                        disabled={savingDate || loadingMonth || editorDraft.dayOff || editorDraft.segments.length === 1}
-                      >
-                        Remove Segment
-                      </button>
-                    ) : null}
                   </div>
                 ))}
               </div>
@@ -1538,7 +1538,7 @@ export function MonthlyScheduleBoard({
                     onClick={addSegment}
                     disabled={savingDate || loadingMonth || editorDraft.dayOff}
                   >
-                    Add Segment
+                    Add Shift
                   </button>
                 </div>
               ) : null}
@@ -1806,7 +1806,7 @@ export function MonthlyScheduleBoard({
 
                 <div className="mgrMonth__timeGrid mgrMonth__timeGrid--stacked">
                   <label className="mgrMonth__field">
-                    <span>Start Time</span>
+                    <span>Start</span>
                     <input
                       type="time"
                       value={templateStartTime}
@@ -1816,7 +1816,7 @@ export function MonthlyScheduleBoard({
                   </label>
 
                   <label className="mgrMonth__field">
-                    <span>End Time</span>
+                    <span>End</span>
                     <input
                       type="time"
                       value={templateEndTime}

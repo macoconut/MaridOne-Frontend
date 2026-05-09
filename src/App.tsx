@@ -7,15 +7,15 @@ import {
   getRequiresPasswordChange,
   getUserRole,
   type UserRole,
-} from './lib/session';
-import { FORCED_LOGOUT_EVENT } from './lib/api';
+} from './lib/utils/session';
+import { FORCED_LOGOUT_EVENT } from './lib/api/api';
 import {
   getAllLoginAliases,
   getRoleHomePath,
   getSelfServiceRouteMetadata,
   type SelfServicePage,
   type SelfServiceRole,
-} from './lib/roleRoutes';
+} from './lib/utils/roleRoutes';
 
 import Landing from './pages/Public/Landing';
 import VerifyEmail from './pages/Public/VerifyEmail';
@@ -28,7 +28,7 @@ import Dashboard from './pages/self-service/dashboard/Dashboard';
 import Attendance from './pages/self-service/attendance/Attendance';
 import Approval from './pages/self-service/approvals/Approval';
 import Payslip from './pages/self-service/payslip/Payslip';
-import Training from './pages/self-service/training/Training';
+import Documents from './pages/self-service/training/Training';
 import HrLayout from './layouts/hr/HrLayout';
 import HrDashboard from './pages/hr/dashboard/Dashboard';
 import HrAttendanceReports from './pages/hr/attendance-reports/AttendanceReports';
@@ -57,7 +57,7 @@ import { LoadingProvider } from './context/LoadingContext';
 import {
   applyUiPreferences,
   subscribeToUiPreferencesChange,
-} from './lib/uiPreferences';
+} from './lib/utils/uiPreferences';
 import './styles/tokens.css';
 import './styles/modals.css';
 import './styles/forms.css';
@@ -168,7 +168,7 @@ function getSelfServiceElement(page: SelfServicePage) {
     case 'payslip':
       return <Payslip />;
     case 'training':
-      return <Training />;
+      return <Documents />;
   }
 }
 

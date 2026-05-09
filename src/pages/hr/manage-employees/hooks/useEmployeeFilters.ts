@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { EmployeeSortKey } from '../../../../lib/employeeSort';
+import type { EmployeeSortKey } from '@/lib/utils/employeeSort';
 import { normalizeText } from '../manageEmployeesShared';
 import type { EmployeeRow } from '../types';
 

@@ -1,4 +1,4 @@
-import { type EmployeeSortKey } from '../../lib/employeeSort';
+import { type EmployeeSortKey } from '@/lib/utils/employeeSort';
 import SortMenu, { type SortOption } from './SortMenu';
 
 type EmployeeSortMenuProps = {

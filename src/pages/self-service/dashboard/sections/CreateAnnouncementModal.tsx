@@ -1,4 +1,4 @@
-import LargePopup from '../../../../components/dialog/LargePopup';
+import LargePopup from '@/components/dialog/LargePopup';
 
 import type { AnnouncementDraft } from '../dashboardShared';
 

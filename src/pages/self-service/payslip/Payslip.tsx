@@ -1,24 +1,29 @@
-import { useLoading } from '../../../context/useLoading';
+import { useLoading } from '@/context/useLoading';
 import { useEffect, useMemo, useState, useRef, useId } from 'react';
 import { FiAlertCircle, FiCheckCircle, FiChevronRight, FiDownload, FiPrinter, FiXCircle, FiCalendar } from 'react-icons/fi';
-import { apiFetchJson, apiFetchRaw, toArray } from '../../../lib/api';
-import { uploadDocument } from '../../../lib/documentUpload';
-import ActionButton from '../../../components/button/ActionButton';
-import { hasBonusEarning } from '../../../lib/payrollRunLabels';
-import { sanitizeFileNamePart } from '../../../lib/fileNames';
-import { getUserEmail } from '../../../lib/session';
-import FileUploadField from '../../../components/form/FileUploadField';
-import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
-import LargePopup from '../../../components/dialog/LargePopup';
-import PageHeader from '../../../components/layout/PageHeader';
-import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
-import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
-import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
-import { useUnsavedChangesPrompt } from '../../../hooks/useUnsavedChangesPrompt';
-import { toMoneyString, toOptionalMoneyString, toOptionalText } from '../../../lib/formatters';
-import type { EmployeeDetails } from '../../../lib/types/employee';
-import type { PayrollDisputeRow as DisputeRow, PayrollItemReference as PayrollItemRow } from '../../../lib/types/payroll';
+import { apiFetchJson, apiFetchRaw, toArray } from '@/lib/api/api';
+import {
+  fetchPrivateDocumentDownloadUrl,
+  fetchPrivateDocumentList,
+  fetchPrivateDocumentViewUrl,
+} from '@/lib/api/endpoints/documents/document-fetch';
+import { uploadPrivateDocuments } from '@/lib/api/endpoints/documents/document-upload';
+import ActionButton from '@/components/button/ActionButton';
+import { hasBonusEarning } from '@/lib/utils/payrollRunLabels';
+import { getUserEmail } from '@/lib/utils/session';
+import FileUploadField from '@/components/form/FileUploadField';
+import ConfirmDialog from '@/components/dialog/ConfirmDialog';
+import LargePopup from '@/components/dialog/LargePopup';
+import PageHeader from '@/components/layout/PageHeader';
+import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
+import { useEscapeDismiss } from '@/hooks/useEscapeDismiss';
+import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
+import { useUnsavedChangesPrompt } from '@/hooks/useUnsavedChangesPrompt';
+import { toMoneyString, toOptionalMoneyString, toOptionalText } from '@/lib/utils/formatters';
+import type { EmployeeDetails } from '@/lib/types/employee';
+import type { PayrollDisputeRow as DisputeRow, PayrollItemReference as PayrollItemRow } from '@/lib/types/payroll';
 import './Payslip.css';
+import { Directories } from '@/enum/directories';
 
 type DocumentRow = {
   pathId?: number;
@@ -26,6 +31,13 @@ type DocumentRow = {
   fileName?: string;
   fileType?: string;
   username?: string;
+};
+
+type PayslipPdfSource = {
+  file?: File;
+  fileName: string;
+  viewUrl?: string;
+  downloadUrl?: string;
 };
 
 type PayslipLine = {
@@ -42,7 +54,6 @@ const moneyFormatter = new Intl.NumberFormat('en-US', {
   minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 });
-const DISPUTE_UPLOAD_SUBDIR = 'dispute-request';
 const MARID_LOGO_URL = '/images/marid-logo-transparent.png';
 
 function formatAdjustmentTimestamp(value?: string) {
@@ -173,7 +184,7 @@ export default function Payslip() {
   const [disputeOpen, setDisputeOpen] = useState(false);
   const [disputeSubject, setDisputeSubject] = useState('Overtime pay dispute');
   const [disputeReason, setDisputeReason] = useState('');
-  const [disputeFile, setDisputeFile] = useState<File | null>(null);
+  const [disputeFiles, setDisputeFiles] = useState<File[]>([]);
   const [disputeError, setDisputeError] = useState('');
   const [disputeSubmitAttempted, setDisputeSubmitAttempted] = useState(false);
   const [disputeSubmitting, setDisputeSubmitting] = useState(false);
@@ -188,7 +199,7 @@ export default function Payslip() {
 
   const isDisputeDirty =
     disputeOpen &&
-    (disputeSubject !== 'Overtime pay dispute' || disputeReason.trim().length > 0 || disputeFile !== null);
+    (disputeSubject !== 'Overtime pay dispute' || disputeReason.trim().length > 0 || disputeFiles !== null);
   const disputeUnsavedPrompt = useUnsavedChangesPrompt({
     isOpen: disputeOpen,
     isDirty: isDisputeDirty,
@@ -446,14 +457,13 @@ export default function Payslip() {
   }, [employeeId, selectedRun]);
 
   function buildPayslipPdfName(document?: DocumentRow) {
-    const lastName = sanitizeFileNamePart(employeeInfo?.lastName);
-    const firstName = sanitizeFileNamePart(employeeInfo?.firstName);
+    const lastName = employeeInfo?.lastName;
+    const firstName = employeeInfo?.firstName;
     const employeeSegment = [lastName, firstName].filter(Boolean).join('_');
     const periodStart = formatFileDate(selectedRun?.periodStart);
     const periodEnd = formatFileDate(selectedRun?.periodEnd);
-    const periodSegment =
-      periodStart && periodEnd ? `${periodStart}_to_${periodEnd}` : sanitizeFileNamePart(displayPayPeriod);
-    const documentName = sanitizeFileNamePart(document?.fileName?.replace(/\.pdf$/i, ''));
+    const periodSegment = periodStart && periodEnd ? `${periodStart}_to_${periodEnd}` : displayPayPeriod;
+    const documentName = document?.fileName
     const baseName =
       [employeeSegment, periodSegment].filter(Boolean).join('_') ||
       documentName ||
@@ -462,7 +472,7 @@ export default function Payslip() {
     return `${baseName}.pdf`;
   }
 
-  async function loadSelectedPayslipPdf() {
+  async function loadSelectedPayslipPdf(): Promise<PayslipPdfSource> {
     try {
       if (!selectedItemId) {
         throw new Error('No payroll item selected.');
@@ -484,14 +494,7 @@ export default function Payslip() {
       // Fall back to the latest saved payslip document if on-demand PDF rendering fails.
     }
 
-    const username = getUserEmail();
-    if (!username) {
-      throw new Error('Missing username.');
-    }
-
-    const documents = await apiFetchJson<DocumentRow[]>(
-      `/api/user/documents/${encodeURIComponent(username)}?subDir=payslip`
-    );
+    const documents = await fetchPrivateDocumentList();
     const selectedDocument =
       documents.find((document) => matchesPayslipPeriod(document, selectedRun?.periodEnd)) ?? documents[0];
 
@@ -499,38 +502,13 @@ export default function Payslip() {
       throw new Error('No saved payslip PDF was found for this pay period yet.');
     }
 
-    const documentViewPaths = [
-      `/api/LOCAL/document/${selectedDocument.pathId}/view`,
-      `/api/document/${selectedDocument.pathId}/view`,
-    ];
-
-    let documentBlob: Blob | null = null;
-
-    for (const path of documentViewPaths) {
-      const response = await apiFetchRaw(path, { method: 'GET' });
-
-      if (response.ok) {
-        documentBlob = await response.blob();
-        break;
-      }
-
-      if (response.status !== 404) {
-        throw new Error(`Failed to open the saved payslip (${response.status}).`);
-      }
-    }
-
-    if (!documentBlob) {
-      throw new Error('The saved payslip document could not be opened.');
-    }
-
     const fileName = buildPayslipPdfName(selectedDocument);
-    const pdfFile = new File(
-      [documentBlob],
-      fileName,
-      { type: documentBlob.type || selectedDocument.fileType || 'application/pdf' }
-    );
+    const [viewUrl, downloadUrl] = await Promise.all([
+      fetchPrivateDocumentViewUrl(selectedDocument.pathId),
+      fetchPrivateDocumentDownloadUrl(selectedDocument.pathId),
+    ]);
 
-    return { file: pdfFile, fileName };
+    return { fileName, viewUrl, downloadUrl };
   }
 
   async function handleDownload() {
@@ -538,13 +516,25 @@ export default function Payslip() {
     setPrintingPayslip(true);
 
     try {
-      const { file, fileName } = await loadSelectedPayslipPdf();
-      const downloadUrl = URL.createObjectURL(file);
+      const { file, fileName, downloadUrl, viewUrl } = await loadSelectedPayslipPdf();
+      if (!file) {
+        const documentUrl = downloadUrl ?? viewUrl;
+        if (!documentUrl) throw new Error('The saved payslip document could not be opened.');
+
+        const anchor = document.createElement('a');
+        anchor.href = documentUrl;
+        anchor.download = fileName;
+        anchor.rel = 'noopener noreferrer';
+        anchor.click();
+        return;
+      }
+
+      const objectUrl = URL.createObjectURL(file);
       const anchor = document.createElement('a');
-      anchor.href = downloadUrl;
+      anchor.href = objectUrl;
       anchor.download = fileName;
       anchor.click();
-      window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 60_000);
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
     } catch (error) {
       setPayslipActionError(error instanceof Error ? error.message : 'Failed to download the saved payslip.');
     } finally {
@@ -557,7 +547,18 @@ export default function Payslip() {
     setPrintingPayslip(true);
 
     try {
-      const { file } = await loadSelectedPayslipPdf();
+      const { file, viewUrl } = await loadSelectedPayslipPdf();
+      if (!file) {
+        if (!viewUrl) throw new Error('The saved payslip document could not be opened.');
+
+        const anchor = document.createElement('a');
+        anchor.href = viewUrl;
+        anchor.target = '_blank';
+        anchor.rel = 'noopener noreferrer';
+        anchor.click();
+        return;
+      }
+
       const documentUrl = URL.createObjectURL(file);
       const anchor = document.createElement('a');
       anchor.href = documentUrl;
@@ -582,69 +583,69 @@ export default function Payslip() {
   function openDisputeForm() {
     setDisputeSubject('Overtime pay dispute');
     setDisputeReason('');
-    setDisputeFile(null);
+    setDisputeFiles([]);
     setDisputeError('');
     setDisputeSubmitAttempted(false);
     setDisputeOpen(true);
   }
 
-  async function submitDispute() {
-    setDisputeSubmitAttempted(true);
-    setDisputeError('');
-    if (!selectedItemId) {
-      setDisputeError('No payroll item selected.');
-      return;
-    }
-    if (disputeReason.trim().length < 20) {
-      setDisputeError('Reason must be at least 20 characters.');
-      return;
-    }
-    if (!disputeFile) {
-      setDisputeError('Attachment is required.');
-      return;
-    }
+async function submitDispute() {
+  setDisputeSubmitAttempted(true);
+  setDisputeError('');
 
-    setConfirmDisputeSubmit(false);
-    showLoading();
-    setDisputeSubmitting(true);
-    showLoading();
+  if (!selectedItemId) {
+    setDisputeError('No payroll item selected.');
+    return;
+  }
+  if (disputeReason.trim().length < 20) {
+    setDisputeError('Reason must be at least 20 characters.');
+    return;
+  }
+  if (!disputeFiles || disputeFiles.length === 0) {
+    setDisputeError('Attachment is required.');
+    return;
+  }
+
+  if (employeeId) {
     try {
-      const attachmentRef = await uploadDocument(disputeFile, DISPUTE_UPLOAD_SUBDIR);
-
-      if (employeeId) {
-        const existingDisputes = await apiFetchJson<unknown>(
-          `/api/payroll/item/dispute/self?empId=${employeeId}&status=PENDING&page=0&size=100`
-        );
-        const hasPendingForItem = toArray<DisputeRow>(existingDisputes).some(
-          (row) => row.itemId === selectedItemId && String(row.status ?? '').toUpperCase() === 'PENDING'
-        );
-        if (hasPendingForItem) {
-          setDisputeError('This payslip already has a pending dispute request.');
-          return;
-        }
+      const existingDisputes = await apiFetchJson<unknown>(
+        `/api/payroll/item/dispute/self?empId=${employeeId}&status=PENDING&page=0&size=100`
+      );
+      const hasPendingForItem = toArray<DisputeRow>(existingDisputes).some(
+        (row) => row.itemId === selectedItemId && String(row.status ?? '').toUpperCase() === 'PENDING'
+      );
+      if (hasPendingForItem) {
+        setDisputeError('This payslip already has a pending dispute request.');
+        return;
       }
-
-      await apiFetchJson(`/api/payroll/item/dispute/create/${selectedItemId}`, {
-        method: 'POST',
-        body: JSON.stringify({
-          subject: disputeSubject,
-          reason: [
-            disputeReason.trim(),
-            attachmentRef ? `(Attachment ID: ${attachmentRef})` : '',
-          ]
-            .filter(Boolean)
-            .join(' '),
-        }),
-      });
-      setDisputeOpen(false);
-    } catch (error) {
-      setDisputeError(error instanceof Error ? error.message : 'Failed to file dispute.');
-    } finally {
-      hideLoading();
-      hideLoading();
-      setDisputeSubmitting(false);
+    } catch {
+      // non-fatal, proceed with submission
     }
   }
+
+  setConfirmDisputeSubmit(false);
+  showLoading();
+  setDisputeSubmitting(true);
+
+  try {
+    await uploadPrivateDocuments(disputeFiles, Directories.PAYROLL_ITEM, selectedItemId);
+
+    await apiFetchJson(`/api/payroll/item/dispute/create/${selectedItemId}`, {
+      method: 'POST',
+      body: JSON.stringify({
+        subject: disputeSubject,
+        reason: disputeReason.trim(),
+      }),
+    });
+
+    setDisputeOpen(false);
+  } catch (error) {
+    setDisputeError(error instanceof Error ? error.message : 'Failed to file dispute.');
+  } finally {
+    hideLoading();
+    setDisputeSubmitting(false);
+  }
+}
 
   function requestDisputeConfirmation() {
     setDisputeSubmitAttempted(true);
@@ -657,7 +658,7 @@ export default function Payslip() {
       setDisputeError('Reason must be at least 20 characters.');
       return;
     }
-    if (!disputeFile) {
+    if (!disputeFiles || disputeFiles.length === 0) {
       setDisputeError('Attachment is required.');
       return;
     }
@@ -987,11 +988,11 @@ export default function Payslip() {
 
           <div className="payModal__row">
             <FileUploadField
-              label="Supporting Documents (Required)"
+              label="Supporting Document/s (Required)"
               hint="Upload screenshots, payroll references, or other supporting files that directly explain the issue."
-              file={disputeFile}
-              onChange={setDisputeFile}
-              invalid={disputeSubmitAttempted && !disputeFile}
+              files={disputeFiles}
+              onChange={setDisputeFiles}
+              invalid={disputeSubmitAttempted && (!disputeFiles || disputeFiles.length === 0)}
               uploadLabel="Upload Attachment"
               replaceLabel="Replace Attachment"
               emptyLabel="Attachment required"

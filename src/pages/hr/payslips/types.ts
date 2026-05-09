@@ -37,7 +37,8 @@ export type DisputeRow = {
   subject: string;
   reason: string;
   decisionSummary?: string;
-  attachmentPathId?: number;
+  connectedEntity?: string;
+  connectedEntityId?: number;
 };
 
 export type RunFormState = {

@@ -1,22 +1,22 @@
-import { useLoading } from '../../../context/useLoading';
+import { useLoading } from '@/context/useLoading';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FiChevronDown, FiMinus, FiPlus, FiX } from 'react-icons/fi';
-import ConfirmDialog from '../../../components/dialog/ConfirmDialog';
-import LargePopup from '../../../components/dialog/LargePopup';
-import SensitiveAccessIndicator from '../../../components/security/SensitiveAccessIndicator';
-import SensitiveAccessModal from '../../../components/security/SensitiveAccessModal';
-import { useUiDialog } from '../../../components/dialog/useUiDialog';
-import PageHeader from '../../../components/layout/PageHeader';
-import { useAutoRefreshingPage } from '../../../hooks/useAutoRefreshingPage';
-import { useEscapeDismiss } from '../../../hooks/useEscapeDismiss';
-import { useErrorDialogEffect } from '../../../hooks/useErrorDialogEffect';
-import { useSensitiveAccessPrompt } from '../../../hooks/useSensitiveAccessPrompt';
-import { apiFetchJson, toArray } from '../../../lib/api';
-import { compareEmployees } from '../../../lib/employeeSort';
-import { openDocumentAttachment } from '../../../lib/documentAttachments';
-import type { EmployeeDetails, EmployeeOption, LeaveBalanceRow } from '../../../lib/types/employee';
-import { getFriendlyErrorMessage } from '../../../lib/uiErrors';
-import { formatSss, formatPhilHealth, formatPagibig, formatTin, formatPhone, formatBankAccount } from '../../../lib/phIdFormatters';
+import ConfirmDialog from '@/components/dialog/ConfirmDialog';
+import LargePopup from '@/components/dialog/LargePopup';
+import SensitiveAccessIndicator from '@/components/security/SensitiveAccessIndicator';
+import SensitiveAccessModal from '@/components/security/SensitiveAccessModal';
+import { useUiDialog } from '@/components/dialog/useUiDialog';
+import PageHeader from '@/components/layout/PageHeader';
+import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
+import { useEscapeDismiss } from '@/hooks/useEscapeDismiss';
+import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
+import { useSensitiveAccessPrompt } from '@/hooks/useSensitiveAccessPrompt';
+import { apiFetchJson, toArray } from '@/lib/api/api';
+import { compareEmployees } from '@/lib/utils/employeeSort';
+import { openDocumentAttachment } from '@/lib/api/endpoints/documents/document-fetch';
+import type { EmployeeDetails, EmployeeOption, LeaveBalanceRow } from '@/lib/types/employee';
+import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
+import { formatSss, formatPhilHealth, formatPagibig, formatTin, formatPhone, formatBankAccount } from '@/lib/utils/phIdFormatters';
 import { useEmployeeFilters } from './hooks/useEmployeeFilters';
 import EmployeeTable from './sections/EmployeeTable';
 import EmployeeToolbar from './sections/EmployeeToolbar';
@@ -170,6 +170,7 @@ type FormState = {
   yearlySalary: string;
   managerId: string;
   username: string;
+  accountStatus: string;
   password: string;
   permanentAddress: string;
   temporaryAddress: string;
@@ -2231,7 +2232,7 @@ export default function HrManageEmp() {
                               <button
                                 type="button"
                                 className="hrEmpCompliance__action"
-                                onClick={() => void openDocumentAttachment(document.pathId!)}
+                                onClick={() => void openDocumentAttachment({ pathId: document.pathId!, isPublic: false})}
                               >
                                 View File
                               </button>
