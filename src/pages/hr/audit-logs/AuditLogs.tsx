@@ -1,7 +1,8 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
+import { FiCalendar, FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
 import LargePopup from '@/components/dialog/LargePopup';
 import PageHeader from '@/components/layout/PageHeader';
+import SortMenu, { type SortOption } from '@/components/layout/SortMenu';
 import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '@/hooks/useEscapeDismiss';
 import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
@@ -54,6 +55,7 @@ type EmployeeDirectory = {
 type ChangeType = 'CREATE' | 'MODIFY' | 'DELETE';
 type TypeFilter = 'all' | ChangeType;
 type TimeFilter = 'all' | 'today' | '7d' | '30d';
+type AuditSortKey = 'newest' | 'oldest' | 'actor' | 'topic';
 
 type AuditEntry = {
   id: string;
@@ -83,6 +85,28 @@ type AuditModalDetails = {
 const SERVER_PAGE_SIZE = 200;
 const MAX_SERVER_PAGES = 100;
 const CHANGE_TYPES: ChangeType[] = ['CREATE', 'MODIFY', 'DELETE'];
+const AUDIT_SORT_OPTIONS: Array<SortOption<AuditSortKey>> = [
+  {
+    value: 'newest',
+    label: 'Newest',
+    hint: 'Show the latest audit logs first.',
+  },
+  {
+    value: 'oldest',
+    label: 'Oldest',
+    hint: 'Show the earliest audit logs first.',
+  },
+  {
+    value: 'actor',
+    label: 'Name',
+    hint: 'Group logs alphabetically by actor.',
+  },
+  {
+    value: 'topic',
+    label: 'Topic',
+    hint: 'Group logs alphabetically by topic.',
+  },
+];
 
 const endpointDescriptions: Array<{
   pattern: RegExp;
@@ -125,6 +149,22 @@ function normalizeWhitespace(value?: string) {
 
 function normalizeSearch(value?: string) {
   return normalizeWhitespace(value).toLowerCase();
+}
+
+function formatDateInputLabel(value: string, fallback: string) {
+  if (!value) return fallback;
+
+  const [year, month, day] = value.split('-').map(Number);
+  const date = Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)
+    ? new Date(year, month - 1, day)
+    : new Date(value);
+
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
 }
 
 function isChangeType(value?: string): value is ChangeType {
@@ -851,10 +891,13 @@ export default function HrAuditLogs() {
   const [loadError, setLoadError] = useState('');
   const [searchValue, setSearchValue] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [topicFilter, setTopicFilter] = useState('all');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const [startDateFilter, setStartDateFilter] = useState('');
   const [endDateFilter, setEndDateFilter] = useState('');
+  const [sortKey, setSortKey] = useState<AuditSortKey>('newest');
   const [refreshTick, setRefreshTick] = useState(0);
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const silentRefreshRef = useRef(false);
@@ -935,20 +978,50 @@ export default function HrAuditLogs() {
     [directory, payrollRunsById, rows]
   );
 
+  const topicOptions = useMemo(() => {
+    const topics = new Set(entries.map((entry) => entry.area).filter(Boolean));
+    if (topicFilter !== 'all') topics.add(topicFilter);
+    return [...topics].sort((left, right) => left.localeCompare(right));
+  }, [entries, topicFilter]);
+
   const visibleEntries = useMemo(() => {
-    return entries.filter((entry) => {
+    const filtered = entries.filter((entry) => {
       if (typeFilter !== 'all' && entry.activityType !== typeFilter) return false;
+      if (topicFilter !== 'all' && entry.area !== topicFilter) return false;
       if (!matchesTimeWindow(entry.timestampValue, timeFilter)) return false;
       if (deferredSearch && !entry.searchIndex.includes(deferredSearch)) return false;
       return true;
     });
-  }, [deferredSearch, entries, timeFilter, typeFilter]);
+
+    return [...filtered].sort((left, right) => {
+      if (sortKey === 'oldest') {
+        return left.timestampValue - right.timestampValue || left.id.localeCompare(right.id);
+      }
+
+      if (sortKey === 'actor') {
+        return (
+          left.actorName.localeCompare(right.actorName) ||
+          right.timestampValue - left.timestampValue ||
+          left.id.localeCompare(right.id)
+        );
+      }
+
+      if (sortKey === 'topic') {
+        return (
+          left.area.localeCompare(right.area) ||
+          right.timestampValue - left.timestampValue ||
+          left.actorName.localeCompare(right.actorName)
+        );
+      }
+
+      return right.timestampValue - left.timestampValue || right.id.localeCompare(left.id);
+    });
+  }, [deferredSearch, entries, sortKey, timeFilter, topicFilter, typeFilter]);
 
   const activeFilterCount = [
     typeFilter !== 'all',
+    topicFilter !== 'all',
     timeFilter !== 'all',
-    Boolean(startDateFilter),
-    Boolean(endDateFilter),
   ].filter(Boolean).length;
   const selectedEntry = useMemo(
     () => visibleEntries.find((entry) => entry.id === selectedEntryId) ?? null,
@@ -975,9 +1048,8 @@ export default function HrAuditLogs() {
 
   function clearFilters() {
     setTypeFilter('all');
+    setTopicFilter('all');
     setTimeFilter('all');
-    setStartDateFilter('');
-    setEndDateFilter('');
   }
 
   return (
@@ -990,32 +1062,88 @@ export default function HrAuditLogs() {
       </div>
 
       <div className="hrAuditToolbar">
-        <label className="uSearch" aria-label="Search audit logs">
-          <FiSearch />
-          <input
-            value={searchValue}
-            onChange={(event) => setSearchValue(event.target.value)}
-            placeholder="Search name, action, area, or details"
-          />
-          {searchValue && (
-            <button type="button" aria-label="Clear search" onClick={() => setSearchValue('')}>
-              <FiXCircle />
-            </button>
-          )}
-        </label>
+        <div className="hrAuditToolbar__field hrAuditToolbar__field--search">
+          <label>Search:</label>
+          <label className="uSearch" aria-label="Search audit logs">
+            <FiSearch />
+            <input
+              value={searchValue}
+              onChange={(event) => setSearchValue(event.target.value)}
+              placeholder="Search name, action, area, or details"
+            />
+            {searchValue && (
+              <button type="button" aria-label="Clear search" onClick={() => setSearchValue('')}>
+                <FiXCircle />
+              </button>
+            )}
+          </label>
+        </div>
 
-        <div className="uFilter">
-          <button
-            type="button"
-            className={`uFilter__toggle ${filterOpen ? 'is-open' : ''} ${activeFilterCount > 0 ? 'is-active' : ''}`}
-            onClick={() => setFilterOpen((open) => !open)}
-          >
-            <FiFilter />
-            <span>Filter</span>
-          </button>
+        <div className="hrAuditToolbar__field hrAuditToolbar__field--dates">
+          <label>Date Range:</label>
+          <div className="hrAuditDateGroup">
+            <div className="hrAuditDateInput">
+              <FiCalendar />
+              <span className="hrAuditDateInput__value">
+                {formatDateInputLabel(startDateFilter, 'Start Date')}
+              </span>
+              <input
+                type="date"
+                value={startDateFilter}
+                max={endDateFilter || undefined}
+                onChange={(event) => setStartDateFilter(event.target.value)}
+                aria-label="Start date"
+              />
+            </div>
+            <span className="hrAuditDateGroup__separator">to</span>
+            <div className="hrAuditDateInput">
+              <FiCalendar />
+              <span className="hrAuditDateInput__value">
+                {formatDateInputLabel(endDateFilter, 'End Date')}
+              </span>
+              <input
+                type="date"
+                value={endDateFilter}
+                min={startDateFilter || undefined}
+                onChange={(event) => setEndDateFilter(event.target.value)}
+                aria-label="End date"
+              />
+            </div>
+          </div>
+        </div>
 
-          {filterOpen && (
-            <div className="uFilter__panel">
+        <div className="hrAuditToolbar__field hrAuditToolbar__field--actions">
+          <label>Sort By:</label>
+          <div className="hrAuditToolbar__actions">
+            <SortMenu
+              value={sortKey}
+              onChange={setSortKey}
+              options={AUDIT_SORT_OPTIONS}
+              panelLabel="Sort audit logs"
+              open={sortMenuOpen}
+              onOpenChange={(open) => {
+                setSortMenuOpen(open);
+                if (open) {
+                  setFilterOpen(false);
+                }
+              }}
+            />
+
+            <div className="uFilter">
+              <button
+                type="button"
+                className={`uFilter__toggle ${filterOpen ? 'is-open' : ''} ${activeFilterCount > 0 ? 'is-active' : ''}`}
+                onClick={() => {
+                  setFilterOpen((open) => !open);
+                  setSortMenuOpen(false);
+                }}
+              >
+                <FiFilter />
+                <span>Filter</span>
+              </button>
+
+              {filterOpen && (
+                <div className="uFilter__panel">
               <label className="uFilter__field">
                 <span>Log Type</span>
                 <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value as TypeFilter)}>
@@ -1023,6 +1151,18 @@ export default function HrAuditLogs() {
                   <option value="CREATE">Created</option>
                   <option value="MODIFY">Updated</option>
                   <option value="DELETE">Deleted</option>
+                </select>
+              </label>
+
+              <label className="uFilter__field">
+                <span>Topic</span>
+                <select value={topicFilter} onChange={(event) => setTopicFilter(event.target.value)}>
+                  <option value="all">All Topics</option>
+                  {topicOptions.map((topic) => (
+                    <option key={topic} value={topic}>
+                      {topic}
+                    </option>
+                  ))}
                 </select>
               </label>
 
@@ -1036,33 +1176,15 @@ export default function HrAuditLogs() {
                 </select>
               </label>
 
-              <label className="uFilter__field">
-                <span>Start Date</span>
-                <input
-                  type="date"
-                  value={startDateFilter}
-                  max={endDateFilter || undefined}
-                  onChange={(event) => setStartDateFilter(event.target.value)}
-                />
-              </label>
-
-              <label className="uFilter__field">
-                <span>End Date</span>
-                <input
-                  type="date"
-                  value={endDateFilter}
-                  min={startDateFilter || undefined}
-                  onChange={(event) => setEndDateFilter(event.target.value)}
-                />
-              </label>
-
               <div className="uFilter__actions">
                 <button type="button" onClick={clearFilters}>
                   Clear Filters
                 </button>
               </div>
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
 

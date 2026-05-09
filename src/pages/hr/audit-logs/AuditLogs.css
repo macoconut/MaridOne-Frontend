@@ -13,13 +13,125 @@
 }
 
 .hrAuditToolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto auto;
+  gap: 12px 18px;
+  align-items: end;
   position: relative;
   z-index: 2;
+}
+
+.hrAuditToolbar__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.hrAuditToolbar__field > label:first-child {
+  color: var(--app-label-color) !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.08em !important;
+  margin-left: 2px;
+  text-transform: uppercase !important;
+}
+
+.hrAuditToolbar__field--search .uSearch {
+  flex: 0 0 auto !important;
+  width: 100% !important;
+  min-height: 48px !important;
+  height: 48px !important;
+}
+
+.hrAuditToolbar__actions,
+.hrAuditDateGroup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hrAuditToolbar__actions .uiEmployeeSort {
+  width: 220px;
+}
+
+.hrAuditToolbar__actions .uiEmployeeSort__toggle,
+.hrAuditToolbar__actions .uFilter__toggle {
+  width: 100%;
+}
+
+.hrAuditToolbar__actions .uFilter__toggle {
+  min-width: 112px;
+  justify-content: center;
+}
+
+.hrAuditDateInput {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  width: 190px;
+  padding: 0 14px;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: var(--ui-radius-md);
+  background: #fff;
+  box-shadow: var(--ui-shadow-soft);
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hrAuditDateInput:hover {
+  border-color: rgba(59, 34, 87, 0.24);
+}
+
+.hrAuditDateInput:focus-within {
+  border-color: rgba(123, 74, 143, 0.4);
+  box-shadow: 0 4px 14px rgba(123, 74, 143, 0.12);
+}
+
+.hrAuditDateInput svg {
+  color: var(--app-label-color);
+  font-size: 15px;
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+
+.hrAuditDateInput__value {
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ui-title-color);
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hrAuditDateInput input[type="date"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 5;
+}
+
+.hrAuditDateInput input[type="date"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.hrAuditDateGroup__separator {
+  color: var(--hr-muted);
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .hrAuditTable {
@@ -261,25 +373,26 @@
 }
 
 @media (max-width: 980px) {
-  .hrAuditSearch {
-    min-width: 0;
-    flex: 1 1 100%;
-  }
-
   .hrAuditToolbar {
+    grid-template-columns: 1fr;
     align-items: stretch;
   }
 
-  .hrAuditFilter {
+  .hrAuditDateGroup,
+  .hrAuditToolbar__actions {
+    align-items: stretch;
+  }
+
+  .hrAuditDateInput,
+  .hrAuditToolbar__actions .uiEmployeeSort,
+  .hrAuditToolbar__actions .uiEmployeeSort__toggle,
+  .hrAuditToolbar__actions .uFilter,
+  .hrAuditToolbar__actions .uFilter__toggle {
     width: 100%;
   }
 
-  .hrAuditFilter__toggle {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .hrAuditFilter__panel {
+  .hrAuditToolbar__actions .uFilter__panel,
+  .hrAuditToolbar__actions .uiEmployeeSort__panel {
     left: 0;
     right: 0;
     min-width: 0;
@@ -322,6 +435,15 @@
 }
 
 @media (max-width: 560px) {
+  .hrAuditDateGroup,
+  .hrAuditToolbar__actions {
+    flex-direction: column;
+  }
+
+  .hrAuditDateGroup__separator {
+    align-self: center;
+  }
+
   .hrAuditRow {
     padding: 10px 12px;
   }
