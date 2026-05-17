@@ -1,5 +1,6 @@
 import { ApiError } from '../../api';
 import type { Directory } from '@/enum/directories';
+import { Directories } from '@/enum/directories';
 import { batchUploadPrivateDocuments, uploadPublicDocument } from './document-api';
 
 const MAX_REQUEST_ATTACHMENT_BYTES = 10 * 1024 * 1024;
@@ -21,6 +22,10 @@ function validateFiles(files: File[]): void {
 export async function uploadPrivateDocuments(files: File[], subDir: Directory, connectedId?: number) {
   validateFiles(files);
   return batchUploadPrivateDocuments(files, subDir, connectedId);
+}
+
+export async function uploadPersonalDocuments(files: File[]) {
+  return uploadPrivateDocuments(files, Directories.PERSONAL);
 }
 
 export async function validateAndUploadPublicDocument(file: File) {

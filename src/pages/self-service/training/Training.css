@@ -11,6 +11,18 @@
   gap:16px;
 }
 
+.trainingPage__actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:12px;
+  flex:0 0 auto;
+}
+
+.trainingPage__fileInput{
+  display:none;
+}
+
 .trainingPage__title{
   margin:0;
   font-size:32px;
@@ -262,6 +274,11 @@
   .trainingPage__head{
     align-items:flex-start;
     flex-direction:column;
+  }
+
+  .trainingPage__actions{
+    width:100%;
+    justify-content:flex-start;
   }
 
   .trainingPage__title{

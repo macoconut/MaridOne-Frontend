@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
-import { FiChevronDown, FiDownload, FiFileText } from 'react-icons/fi';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { FiChevronDown, FiDownload, FiFileText, FiUpload } from 'react-icons/fi';
 import ActionButton from '@/components/button/ActionButton';
+import { useUiDialog } from '@/components/dialog/useUiDialog';
 import PageHeader from '@/components/layout/PageHeader';
 import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
 import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
+import { uploadPersonalDocuments } from '@/lib/api/endpoints/documents/document-upload';
 import {
   downloadLibraryDocument,
   isDocumentsMockMode,
@@ -47,6 +49,8 @@ function formatDocumentDate(value: string) {
 }
 
 export default function Documents() {
+  const { showSuccess } = useUiDialog();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [openSections, setOpenSections] = useState<Record<DocumentSection['id'], boolean>>({
     public: true,
     private: true,
@@ -67,6 +71,7 @@ export default function Documents() {
   const [loadError, setLoadError] = useState('');
   const [activeActionKey, setActiveActionKey] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
 
   useErrorDialogEffect(loadError, 'Documents could not be loaded');
   useErrorDialogEffect(actionError, 'Document action unavailable');
@@ -125,6 +130,36 @@ export default function Documents() {
     }
   }
 
+  function handleUploadButtonClick() {
+    if (isDocumentsMockMode() || isUploading) return;
+    fileInputRef.current?.click();
+  }
+
+  async function handleFileSelection(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (files.length === 0) return;
+
+    setIsUploading(true);
+    setActionError('');
+
+    try {
+      await uploadPersonalDocuments(files);
+      await refreshDocuments();
+      showSuccess(
+        files.length === 1
+          ? 'Your document was uploaded to My Documents.'
+          : `${files.length} documents were uploaded to My Documents.`,
+        'Upload Complete'
+      );
+      setOpenSections((prev) => ({ ...prev, private: true }));
+    } catch (error) {
+      setActionError(getFriendlyErrorMessage(error, 'generic'));
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
   return (
     <div className="trainingPage">
       <div className="trainingPage__head">
@@ -132,6 +167,24 @@ export default function Documents() {
           title="Documents"
           description="Open shared company files and documents assigned to you from one workspace."
         />
+        <div className="trainingPage__actions">
+          <input
+            ref={fileInputRef}
+            className="trainingPage__fileInput"
+            type="file"
+            multiple
+            onChange={(event) => void handleFileSelection(event)}
+            disabled={isUploading || isDocumentsMockMode()}
+          />
+          <ActionButton
+            type="button"
+            icon={<FiUpload />}
+            onClick={handleUploadButtonClick}
+            disabled={isUploading || isDocumentsMockMode()}
+          >
+            {isUploading ? 'Uploading...' : 'Upload to My Documents'}
+          </ActionButton>
+        </div>
       </div>
 
       {isDocumentsMockMode() ? (
