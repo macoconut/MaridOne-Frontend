@@ -1,0 +1,62 @@
+name: Deploy frontend
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: frontend-production
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: us-east-1
+  AWS_DEPLOY_ROLE_ARN: arn:aws:iam::379264687366:role/MaridOneFrontendGitHubDeployRole
+  FRONTEND_S3_BUCKET: maridone-bucket
+  CLOUDFRONT_DISTRIBUTION_ID: E2EQ71U8FR05ED
+  VITE_API_BASE_URL: https://d3idr10dt23ah7.cloudfront.net
+  VITE_BACKEND_TEST_MODE: "false"
+  VITE_DOCUMENTS_MOCK_MODE: "false"
+
+jobs:
+  deploy:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: ${{ env.VITE_API_BASE_URL }}
+          VITE_BACKEND_TEST_MODE: ${{ env.VITE_BACKEND_TEST_MODE }}
+          VITE_DOCUMENTS_MOCK_MODE: ${{ env.VITE_DOCUMENTS_MOCK_MODE }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload static files to S3
+        run: aws s3 sync dist "s3://${{ env.FRONTEND_S3_BUCKET }}" --delete
+
+      - name: Refresh CloudFront cache
+        run: aws cloudfront create-invalidation --distribution-id "${{ env.CLOUDFRONT_DISTRIBUTION_ID }}" --paths "/*"
