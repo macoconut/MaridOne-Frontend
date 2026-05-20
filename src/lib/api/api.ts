@@ -152,6 +152,27 @@ function fallbackRequestMessage(fallbackStatus: number) {
   return fallbackStatus > 0 ? `Request failed (${fallbackStatus})` : 'Something went wrong';
 }
 
+function isHtmlErrorPayload(text: string) {
+  const normalized = text.trim().toLowerCase();
+  return normalized.startsWith('<!doctype html')
+    || normalized.startsWith('<html')
+    || normalized.includes('<title>')
+    || normalized.includes('<body>');
+}
+
+function fallbackMessageForStatus(status: number) {
+  switch (status) {
+    case 502:
+      return 'The server gateway returned an invalid response. Please try again in a moment.';
+    case 503:
+      return 'The server is temporarily unavailable. Please try again in a moment.';
+    case 504:
+      return 'The payroll request timed out before the server could finish. Please refresh the payroll runs before trying again.';
+    default:
+      return fallbackRequestMessage(status);
+  }
+}
+
 function toDisplayErrorFromPayload(
   data: unknown,
   fallbackStatus: number,
@@ -169,12 +190,12 @@ function toDisplayErrorFromPayload(
     }
   }
 
-  if (rawText && rawText.trim().length <= 250) {
+  if (rawText && !isHtmlErrorPayload(rawText) && rawText.trim().length <= 250) {
     return { message: rawText.trim() };
   }
 
   return {
-    message: fallbackRequestMessage(fallbackStatus),
+    message: fallbackMessageForStatus(fallbackStatus),
   };
 }
 
@@ -209,7 +230,9 @@ export function throwApiErrorIfNeeded(response: Response, text: string): void {
 
   const errorDto: ErrorResponseDto = {
     code: typeof dto?.code === 'string' ? dto.code : 'UNKNOWN_ERROR',
-    message: typeof dto?.message === 'string' ? dto.message : text || 'Something went wrong',
+    message: typeof dto?.message === 'string'
+      ? dto.message
+      : toDisplayErrorFromPayload(data, response.status, text).message,
     status: response.status,
     timestamp: typeof dto?.timestamp === 'string' ? dto.timestamp : new Date().toISOString(),
   };

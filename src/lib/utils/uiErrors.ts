@@ -157,6 +157,15 @@ export function getFriendlyErrorMessage(error: unknown, context: ErrorContext = 
       }
     case 500:
       return error.rawMessage || 'An unexpected server error occurred. Please try again.';
+    case 502:
+    case 503:
+    case 504:
+      switch (context) {
+        case 'payroll-run':
+          return 'The payroll run is taking longer than the server allows. Refresh the payroll runs first; if it did not finish, try a shorter period or try again later.';
+        default:
+          return error.rawMessage || 'The server is temporarily unavailable. Please try again in a moment.';
+      }
     default:
       return error.rawMessage || `Request failed (${error.status}).`;
   }
