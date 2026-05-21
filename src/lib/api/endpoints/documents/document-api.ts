@@ -1,7 +1,7 @@
 // document.api.ts
 import { DOCUMENT_ENDPOINTS } from './document-endpoints';
 import { buildUrl } from '@/lib/api/utils/build-url';
-import { apiFetchJson, apiFetchRaw } from '../../api';
+import { apiFetchJson, apiFetchRaw, apiFetchText } from '../../api';
 import type { Directory } from '@/enum/directories';
 import type { DocumentResponseDto } from './types/document-types';
 
@@ -22,11 +22,11 @@ export function getPublicDocuments() {
 }
 
 export function getPublicDocumentViewUrl(pathId: number) {
-  return apiFetchJson<string>(DOCUMENT_ENDPOINTS.viewPublic(pathId));
+  return apiFetchText(DOCUMENT_ENDPOINTS.viewPublic(pathId));
 }
 
 export function getPublicDocumentDownloadUrl(pathId: number) {
-  return apiFetchJson<string>(DOCUMENT_ENDPOINTS.downloadPublic(pathId));
+  return apiFetchText(DOCUMENT_ENDPOINTS.downloadPublic(pathId));
 }
 
 export function deletePublicDocument(pathId: number) {
@@ -53,17 +53,17 @@ export function getPrivateDocuments(filter?: DocumentFilter) {
 }
 
 export function getPrivateDocumentByEntity(filter: EntityFilter) {
-  return apiFetchJson<string>(
+  return apiFetchText(
     buildUrl(DOCUMENT_ENDPOINTS.viewPrivateByEntity, filter)
   );
 }
 
 export function getPrivateDocumentViewUrl(pathId: number) {
-  return apiFetchJson<string>(DOCUMENT_ENDPOINTS.viewPrivate(pathId));
+  return apiFetchText(DOCUMENT_ENDPOINTS.viewPrivate(pathId));
 }
 
 export function getPrivateDocumentDownloadUrl(pathId: number) {
-  return apiFetchJson<string>(DOCUMENT_ENDPOINTS.downloadPrivate(pathId));
+  return apiFetchText(DOCUMENT_ENDPOINTS.downloadPrivate(pathId));
 }
 
 
