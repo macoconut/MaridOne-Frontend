@@ -19,7 +19,7 @@ The deploy values are defined in `.github/workflows/deploy-frontend.yml`:
 - AWS region: `us-east-1`
 - Frontend S3 bucket: `maridone-bucket`
 - CloudFront distribution: `E2EQ71U8FR05ED`
-- Frontend API base URL: `https://d3idr10dt23ah7.cloudfront.net`
+- Frontend API base URL: `https://marid.global`
 
 ## Required IAM Role
 

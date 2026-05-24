@@ -19,7 +19,7 @@ env:
   AWS_DEPLOY_ROLE_ARN: arn:aws:iam::379264687366:role/MaridOneFrontendGitHubDeployRole
   FRONTEND_S3_BUCKET: maridone-bucket
   CLOUDFRONT_DISTRIBUTION_ID: E2EQ71U8FR05ED
-  VITE_API_BASE_URL: https://d3idr10dt23ah7.cloudfront.net
+  VITE_API_BASE_URL: https://marid.global
   VITE_BACKEND_TEST_MODE: "false"
   VITE_DOCUMENTS_MOCK_MODE: "false"
 
