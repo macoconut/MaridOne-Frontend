@@ -35,7 +35,12 @@ export async function openDocumentUsingEntityFilter(connectedEntity: string, con
   const previewWindow = typeof window !== 'undefined' ? window.open('', '_blank') : null;
   
   try {
-    const url = await getPrivateDocumentByEntity({ connectedEntity, connectedId });
+    const urls = await getPrivateDocumentByEntity({ connectedEntity, connectedId });
+    const url = urls[0];
+    if (!url) {
+      throw new Error('No document URL was returned.');
+    }
+
     if (previewWindow) {
       previewWindow.opener = null;
       previewWindow.location.href = url;

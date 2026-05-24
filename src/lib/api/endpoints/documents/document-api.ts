@@ -53,7 +53,7 @@ export function getPrivateDocuments(filter?: DocumentFilter) {
 }
 
 export function getPrivateDocumentByEntity(filter: EntityFilter) {
-  return apiFetchText(
+  return apiFetchJson<string[]>(
     buildUrl(DOCUMENT_ENDPOINTS.viewPrivateByEntity, filter)
   );
 }
