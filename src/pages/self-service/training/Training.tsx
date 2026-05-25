@@ -5,6 +5,7 @@ import { useUiDialog } from '@/components/dialog/useUiDialog';
 import PageHeader from '@/components/layout/PageHeader';
 import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
 import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
+import { ApiError } from '@/lib/api/api';
 import {
   uploadPersonalDocuments,
   validateAndUploadPublicDocument,
@@ -17,7 +18,7 @@ import {
   type DocumentLibraryItem,
 } from '@/lib/document/documentLibrary';
 import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
-import { getUserRole } from '@/lib/utils/session';
+import { getAuthToken, getUserRole } from '@/lib/utils/session';
 import './Training.css';
 
 type DocumentSection = {
@@ -52,11 +53,42 @@ function formatDocumentDate(value: string) {
   });
 }
 
+function parseJwtPayload(token: string | null): Record<string, unknown> | null {
+  if (!token || token === 'authenticated-session') return null;
+
+  const [, payload] = token.split('.');
+  if (!payload) return null;
+
+  try {
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+    return JSON.parse(window.atob(padded)) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function tokenHasRole(token: string | null, role: string) {
+  const payload = parseJwtPayload(token);
+  const roles = payload?.roles;
+  return Array.isArray(roles) && roles.includes(role);
+}
+
+function getDocumentUploadErrorMessage(error: unknown) {
+  if (error instanceof ApiError && error.status === 403) {
+    return error.rawMessage
+      ? `You do not have permission to perform this action. Server said: ${error.rawMessage}`
+      : 'You do not have permission to perform this action. Please sign out and sign in again with an HR account.';
+  }
+
+  return getFriendlyErrorMessage(error, 'generic');
+}
+
 export default function Documents() {
   const { showSuccess } = useUiDialog();
   const personalFileInputRef = useRef<HTMLInputElement | null>(null);
   const companyFileInputRef = useRef<HTMLInputElement | null>(null);
-  const isHr = getUserRole() === 'hr';
+  const canUploadCompanyDocuments = getUserRole() === 'hr' && tokenHasRole(getAuthToken(), 'ROLE_HR');
   const [openSections, setOpenSections] = useState<Record<DocumentSection['id'], boolean>>({
     public: true,
     private: true,
@@ -131,7 +163,7 @@ export default function Documents() {
         await downloadLibraryDocument(document);
       }
     } catch (error) {
-      setActionError(getFriendlyErrorMessage(error, 'generic'));
+      setActionError(getDocumentUploadErrorMessage(error));
     } finally {
       setActiveActionKey(null);
     }
@@ -166,7 +198,7 @@ export default function Documents() {
       );
       setOpenSections((prev) => ({ ...prev, private: true }));
     } catch (error) {
-      setActionError(getFriendlyErrorMessage(error, 'generic'));
+      setActionError(getDocumentUploadErrorMessage(error));
     } finally {
       setIsUploading(false);
     }
@@ -186,7 +218,7 @@ export default function Documents() {
       showSuccess('The company document was uploaded.', 'Upload Complete');
       setOpenSections((prev) => ({ ...prev, public: true }));
     } catch (error) {
-      setActionError(getFriendlyErrorMessage(error, 'generic'));
+      setActionError(getDocumentUploadErrorMessage(error));
     } finally {
       setIsUploadingCompanyDocument(false);
     }
@@ -208,7 +240,7 @@ export default function Documents() {
             onChange={(event) => void handleFileSelection(event)}
             disabled={isUploading || isDocumentsMockMode()}
           />
-          {isHr ? (
+          {canUploadCompanyDocuments ? (
             <input
               ref={companyFileInputRef}
               className="trainingPage__fileInput"
@@ -217,7 +249,7 @@ export default function Documents() {
               disabled={isUploadingCompanyDocument || isDocumentsMockMode()}
             />
           ) : null}
-          {isHr ? (
+          {canUploadCompanyDocuments ? (
             <ActionButton
               type="button"
               icon={<FiUpload />}
