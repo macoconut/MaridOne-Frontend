@@ -68,10 +68,10 @@ function parseJwtPayload(token: string | null): Record<string, unknown> | null {
   }
 }
 
-function tokenHasRole(token: string | null, role: string) {
+function tokenHasAnyRole(token: string | null, rolesToMatch: string[]) {
   const payload = parseJwtPayload(token);
   const roles = payload?.roles;
-  return Array.isArray(roles) && roles.includes(role);
+  return Array.isArray(roles) && rolesToMatch.some((role) => roles.includes(role));
 }
 
 function getDocumentUploadErrorMessage(error: unknown) {
@@ -88,7 +88,10 @@ export default function Documents() {
   const { showSuccess } = useUiDialog();
   const personalFileInputRef = useRef<HTMLInputElement | null>(null);
   const companyFileInputRef = useRef<HTMLInputElement | null>(null);
-  const canUploadCompanyDocuments = getUserRole() === 'hr' && tokenHasRole(getAuthToken(), 'ROLE_HR');
+  const role = getUserRole();
+  const canUploadCompanyDocuments =
+    (role === 'hr' || role === 'management') &&
+    tokenHasAnyRole(getAuthToken(), ['ROLE_HR', 'ROLE_MANAGEMENT']);
   const [openSections, setOpenSections] = useState<Record<DocumentSection['id'], boolean>>({
     public: true,
     private: true,
