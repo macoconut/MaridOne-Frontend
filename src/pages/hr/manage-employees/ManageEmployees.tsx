@@ -1523,6 +1523,13 @@ export default function HrManageEmp() {
         country: form.country.trim() || undefined,
         zipCode: form.zipCode.trim() || undefined,
       },
+      ...(isCreate
+        ? {
+            username: form.username.trim(),
+            password: form.password.trim(),
+            accountStatus: form.accountStatus || 'ACTIVE',
+          }
+        : {}),
     };
   }
 
@@ -1616,7 +1623,6 @@ export default function HrManageEmp() {
         let followupSaveError = '';
         try {
           await syncFormBankAccounts(employeeId);
-          await saveUserAccount(employeeId, 'add');
         } catch (error) {
           followupSaveError = getFriendlyErrorMessage(error, 'employee-save');
         }
