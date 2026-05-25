@@ -48,6 +48,7 @@ let forcedLogoutTimer: number | null = null;
 export const FORCED_LOGOUT_EVENT = 'maridone:forced-logout';
 const FORCED_LOGOUT_HEADER = 'X-Session-Ended-Reason';
 const PORTAL_ACCESS_REMOVED_REASON = 'portal-access-removed';
+const PASSWORD_CHANGE_REQUIRED_HEADER = 'X-Password-Change-Required';
 
 export class ApiError extends Error {
   status: number;
@@ -335,12 +336,17 @@ export async function apiFetchRaw(path: string, init: RequestInit = {}, allowRet
       }
     }
 
+    const passwordChangeRequired =
+      response.headers.get(PASSWORD_CHANGE_REQUIRED_HEADER)?.trim().toLowerCase() === 'true' ||
+      getRequiresPasswordChange();
+
     if (
       response.status === 403 &&
-      getRequiresPasswordChange() &&
+      passwordChangeRequired &&
       path !== '/api/user/password/change' &&
       path !== '/api/auth/logout'
     ) {
+      setRequiresPasswordChange(true);
       redirectToPasswordChange();
     }
 
