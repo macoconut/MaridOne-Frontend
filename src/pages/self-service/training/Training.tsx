@@ -5,7 +5,10 @@ import { useUiDialog } from '@/components/dialog/useUiDialog';
 import PageHeader from '@/components/layout/PageHeader';
 import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
 import { useErrorDialogEffect } from '@/hooks/useErrorDialogEffect';
-import { uploadPersonalDocuments } from '@/lib/api/endpoints/documents/document-upload';
+import {
+  uploadPersonalDocuments,
+  validateAndUploadPublicDocument,
+} from '@/lib/api/endpoints/documents/document-upload';
 import {
   downloadLibraryDocument,
   isDocumentsMockMode,
@@ -14,6 +17,7 @@ import {
   type DocumentLibraryItem,
 } from '@/lib/document/documentLibrary';
 import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
+import { getUserRole } from '@/lib/utils/session';
 import './Training.css';
 
 type DocumentSection = {
@@ -50,7 +54,9 @@ function formatDocumentDate(value: string) {
 
 export default function Documents() {
   const { showSuccess } = useUiDialog();
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const personalFileInputRef = useRef<HTMLInputElement | null>(null);
+  const companyFileInputRef = useRef<HTMLInputElement | null>(null);
+  const isHr = getUserRole() === 'hr';
   const [openSections, setOpenSections] = useState<Record<DocumentSection['id'], boolean>>({
     public: true,
     private: true,
@@ -72,6 +78,7 @@ export default function Documents() {
   const [activeActionKey, setActiveActionKey] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [isUploadingCompanyDocument, setIsUploadingCompanyDocument] = useState(false);
 
   useErrorDialogEffect(loadError, 'Documents could not be loaded');
   useErrorDialogEffect(actionError, 'Document action unavailable');
@@ -132,7 +139,12 @@ export default function Documents() {
 
   function handleUploadButtonClick() {
     if (isDocumentsMockMode() || isUploading) return;
-    fileInputRef.current?.click();
+    personalFileInputRef.current?.click();
+  }
+
+  function handleCompanyUploadButtonClick() {
+    if (isDocumentsMockMode() || isUploadingCompanyDocument) return;
+    companyFileInputRef.current?.click();
   }
 
   async function handleFileSelection(event: ChangeEvent<HTMLInputElement>) {
@@ -160,6 +172,26 @@ export default function Documents() {
     }
   }
 
+  async function handleCompanyFileSelection(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null;
+    event.target.value = '';
+    if (!file) return;
+
+    setIsUploadingCompanyDocument(true);
+    setActionError('');
+
+    try {
+      await validateAndUploadPublicDocument(file);
+      await refreshDocuments();
+      showSuccess('The company document was uploaded.', 'Upload Complete');
+      setOpenSections((prev) => ({ ...prev, public: true }));
+    } catch (error) {
+      setActionError(getFriendlyErrorMessage(error, 'generic'));
+    } finally {
+      setIsUploadingCompanyDocument(false);
+    }
+  }
+
   return (
     <div className="trainingPage">
       <div className="trainingPage__head">
@@ -169,13 +201,32 @@ export default function Documents() {
         />
         <div className="trainingPage__actions">
           <input
-            ref={fileInputRef}
+            ref={personalFileInputRef}
             className="trainingPage__fileInput"
             type="file"
             multiple
             onChange={(event) => void handleFileSelection(event)}
             disabled={isUploading || isDocumentsMockMode()}
           />
+          {isHr ? (
+            <input
+              ref={companyFileInputRef}
+              className="trainingPage__fileInput"
+              type="file"
+              onChange={(event) => void handleCompanyFileSelection(event)}
+              disabled={isUploadingCompanyDocument || isDocumentsMockMode()}
+            />
+          ) : null}
+          {isHr ? (
+            <ActionButton
+              type="button"
+              icon={<FiUpload />}
+              onClick={handleCompanyUploadButtonClick}
+              disabled={isUploadingCompanyDocument || isDocumentsMockMode()}
+            >
+              {isUploadingCompanyDocument ? 'Uploading...' : 'Upload Company Document'}
+            </ActionButton>
+          ) : null}
           <ActionButton
             type="button"
             icon={<FiUpload />}

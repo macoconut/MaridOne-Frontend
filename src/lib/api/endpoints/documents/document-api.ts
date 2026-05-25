@@ -1,7 +1,7 @@
 // document.api.ts
 import { DOCUMENT_ENDPOINTS } from './document-endpoints';
 import { buildUrl } from '@/lib/api/utils/build-url';
-import { apiFetchJson, apiFetchRaw, apiFetchText } from '../../api';
+import { apiFetchJson, apiFetchRaw, apiFetchText, throwApiErrorIfNeeded } from '../../api';
 import type { Directory } from '@/enum/directories';
 import type { DocumentResponseDto } from './types/document-types';
 
@@ -30,13 +30,13 @@ export function getPublicDocumentDownloadUrl(pathId: number) {
 }
 
 export function deletePublicDocument(pathId: number) {
-  return apiFetchRaw(DOCUMENT_ENDPOINTS.deletePublic(pathId), { method: 'DELETE' });
+  return apiFetchVoid(DOCUMENT_ENDPOINTS.deletePublic(pathId), { method: 'DELETE' });
 }
 
-export function uploadPublicDocument(file: File) {
+export async function uploadPublicDocument(file: File) {
   const formData = new FormData();
   formData.append('file', file);
-  return apiFetchRaw(DOCUMENT_ENDPOINTS.uploadPublic, { method: 'POST', body: formData });
+  return apiFetchVoid(DOCUMENT_ENDPOINTS.uploadPublic, { method: 'POST', body: formData });
 }
 
 export function existsByEntity(filter: EntityFilter) {
@@ -68,14 +68,20 @@ export function getPrivateDocumentDownloadUrl(pathId: number) {
 
 
 
-export function batchUploadPrivateDocuments(files: File[], subDir: Directory, connectedId?: number) {
+export async function batchUploadPrivateDocuments(files: File[], subDir: Directory, connectedId?: number) {
   const formData = new FormData();
   files.forEach(file => formData.append('files', file));
   formData.append('subDir', subDir);
   if (connectedId != null) formData.append('connectedId', String(connectedId));
-  return apiFetchRaw(DOCUMENT_ENDPOINTS.batchUploadPrivate, { method: 'POST', body: formData });
+  return apiFetchVoid(DOCUMENT_ENDPOINTS.batchUploadPrivate, { method: 'POST', body: formData });
 }
 
 export function deletePrivateDocument(pathId: number) {
-  return apiFetchRaw(DOCUMENT_ENDPOINTS.deletePrivate(pathId), { method: 'DELETE' });
+  return apiFetchVoid(DOCUMENT_ENDPOINTS.deletePrivate(pathId), { method: 'DELETE' });
+}
+
+async function apiFetchVoid(path: string, init: RequestInit) {
+  const response = await apiFetchRaw(path, init);
+  const text = await response.text();
+  throwApiErrorIfNeeded(response, text);
 }
