@@ -17,6 +17,7 @@ import {
   openLibraryDocument,
   type DocumentLibraryItem,
 } from '@/lib/document/documentLibrary';
+import { canUploadCompanyDocuments } from '@/lib/document/documentPermissions';
 import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
 import { getAuthToken, getUserRole } from '@/lib/utils/session';
 import './Training.css';
@@ -53,32 +54,15 @@ function formatDocumentDate(value: string) {
   });
 }
 
-function parseJwtPayload(token: string | null): Record<string, unknown> | null {
-  if (!token || token === 'authenticated-session') return null;
-
-  const [, payload] = token.split('.');
-  if (!payload) return null;
-
-  try {
-    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
-    return JSON.parse(window.atob(padded)) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
-
-function tokenHasAnyRole(token: string | null, rolesToMatch: string[]) {
-  const payload = parseJwtPayload(token);
-  const roles = payload?.roles;
-  return Array.isArray(roles) && rolesToMatch.some((role) => roles.includes(role));
-}
-
 function getDocumentUploadErrorMessage(error: unknown) {
+  if (error instanceof ApiError && error.status === 428) {
+    return 'Sensitive access verification is required before opening this HR data.';
+  }
+
   if (error instanceof ApiError && error.status === 403) {
     return error.rawMessage
       ? `You do not have permission to perform this action. Server said: ${error.rawMessage}`
-      : 'You do not have permission to perform this action. Please sign out and sign in again with an HR account.';
+      : 'You do not have permission to perform this action.';
   }
 
   return getFriendlyErrorMessage(error, 'generic');
@@ -89,9 +73,7 @@ export default function Documents() {
   const personalFileInputRef = useRef<HTMLInputElement | null>(null);
   const companyFileInputRef = useRef<HTMLInputElement | null>(null);
   const role = getUserRole();
-  const canUploadCompanyDocuments =
-    (role === 'hr' || role === 'management') &&
-    tokenHasAnyRole(getAuthToken(), ['ROLE_HR', 'ROLE_MANAGEMENT']);
+  const canUploadCompanyFiles = canUploadCompanyDocuments(role, getAuthToken());
   const [openSections, setOpenSections] = useState<Record<DocumentSection['id'], boolean>>({
     public: true,
     private: true,
@@ -243,7 +225,7 @@ export default function Documents() {
             onChange={(event) => void handleFileSelection(event)}
             disabled={isUploading || isDocumentsMockMode()}
           />
-          {canUploadCompanyDocuments ? (
+          {canUploadCompanyFiles ? (
             <input
               ref={companyFileInputRef}
               className="trainingPage__fileInput"
@@ -252,7 +234,7 @@ export default function Documents() {
               disabled={isUploadingCompanyDocument || isDocumentsMockMode()}
             />
           ) : null}
-          {canUploadCompanyDocuments ? (
+          {canUploadCompanyFiles ? (
             <ActionButton
               type="button"
               icon={<FiUpload />}
