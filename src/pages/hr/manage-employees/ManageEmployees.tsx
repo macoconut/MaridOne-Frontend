@@ -193,7 +193,6 @@ type FormState = {
 const employmentStatusOptions = ['REGULAR', 'NEW_HIRE', 'PART_TIME', 'SUSPENDED', 'TERMINATED'] as const;
 const accountStatusOptions = ['ACTIVE', 'INACTIVE'] as const;
 const exemptionStatusOptions = ['EXEMPT', 'NON_EXEMPT'] as const;
-const positionOptions = ['EMPLOYEE', 'MANAGER', 'HR', 'MANAGEMENT', 'ACCOUNTING', 'UNKNOWN'] as const;
 const separationReasonOptions: Array<{ label: string; value: SeparationReason }> = [
   { label: 'Terminated', value: 'TERMINATED' },
   { label: 'Voluntary Resignation', value: 'VOLUNTARY_RESIGNATION' },
@@ -344,7 +343,10 @@ function buildEmployeeSearchIndex(row: Omit<EmployeeRow, 'searchIndex'>) {
 }
 
 function getDefaultExemptionStatus(position: string) {
-  return position === 'EMPLOYEE' || position === 'UNKNOWN' ? 'NON_EXEMPT' : 'EXEMPT';
+  const normalizedPosition = position.trim().toUpperCase();
+  return normalizedPosition === 'MANAGER' || normalizedPosition === 'MANAGEMENT' || normalizedPosition === 'HR'
+    ? 'EXEMPT'
+    : 'NON_EXEMPT';
 }
 
 function isEmployeePosition(position?: string | null) {
@@ -510,6 +512,19 @@ function toBankAccountDrafts(details?: EmployeeDetails | null): BankAccountDraft
   }
 
   return [{ ...emptyBankAccountDraft }];
+}
+
+function requiredFieldLabel(label: string, isRequired = true) {
+  return (
+    <>
+      {label}
+      {isRequired ? (
+        <span className="hrEmpField__required" aria-label="required">
+          *
+        </span>
+      ) : null}
+    </>
+  );
 }
 
 export default function HrManageEmp() {
@@ -687,10 +702,11 @@ export default function HrManageEmp() {
     shouldHighlightRequiredFields && showManagerPicker && managerSearch.trim().length > 0 && !form.managerId.trim();
   const departmentMissing = shouldHighlightRequiredFields && showDepartmentPicker && form.department.trim().length === 0;
   const usernameMissing = shouldHighlightRequiredFields && form.username.trim().length === 0;
+  const passwordFieldRequired = modal === 'add' || (modal === 'edit' && !hasExistingUserAccount);
   const passwordMissing =
     shouldHighlightRequiredFields &&
-    ((modal === 'add' && form.password.trim().length === 0) ||
-      (modal === 'edit' && !hasExistingUserAccount && form.password.trim().length === 0));
+    passwordFieldRequired &&
+    form.password.trim().length === 0;
   const phoneInputInvalid = phoneHasError || phoneMissing;
   const rosterLoadError = loadMessage.startsWith('Unable to load the employee roster') ? loadMessage : '';
 
@@ -905,7 +921,7 @@ export default function HrManageEmp() {
     if (visibleEmployeeRows.length === 0) return;
 
     const rows = [
-      ['Employee ID', 'Name', 'Username', 'Status', 'Company Email', 'Personal Email', 'Phone', 'Position', 'Department'],
+      ['Employee ID', 'Name', 'Username', 'Status', 'Company Email', 'Personal Email', 'Phone', 'Designation', 'Department'],
       ...visibleEmployeeRows
         .map((row) => [row.id, row.name, row.username, row.status, row.email, row.personalEmail, row.phone, row.position, row.department]),
     ];
@@ -1453,7 +1469,7 @@ export default function HrManageEmp() {
     }
 
     if (showDepartmentPicker && !form.department.trim()) {
-      setSubmitError('Department is required when the selected position is MANAGER or EMPLOYEE.');
+      setSubmitError('Department is required when the selected designation is MANAGER or EMPLOYEE.');
       return false;
     }
 
@@ -1486,7 +1502,7 @@ export default function HrManageEmp() {
     }
 
     if (showDepartmentPicker && !form.department.trim()) {
-      throw new Error('Department is required when the selected position is MANAGER or EMPLOYEE.');
+      throw new Error('Department is required when the selected designation is MANAGER or EMPLOYEE.');
     }
 
     const shouldDefaultEmploymentEndDate =
@@ -2076,7 +2092,7 @@ export default function HrManageEmp() {
                 <strong>{formatEmploymentStatusLabel(details.employmentStatus)}</strong>
               </div>
               <div className="hrEmpDetails__item">
-                <span>Position</span>
+                <span>Designation</span>
                 <strong>{displayValue(details.position)}</strong>
               </div>
               <div className="hrEmpDetails__item">
@@ -2550,7 +2566,7 @@ export default function HrManageEmp() {
                                 <strong>{selectedEmployee.id}</strong>
                               </div>
                               <div className="hrEmpDelete__summaryItem">
-                                <span>Role</span>
+                                <span>Designation</span>
                                 <strong>{displayValue(selectedEmployee.position)}</strong>
                               </div>
                               {selectedEmployee.department && selectedEmployee.department !== '-' ? (
@@ -2571,9 +2587,10 @@ export default function HrManageEmp() {
 
                         <div className="hrEmpForm__grid hrEmpForm__grid--delete">
                           <div className="hrEmpField">
-                            <label>Separation Reason</label>
+                            <label>{requiredFieldLabel('Separation Reason')}</label>
                             <select
                               value={form.separationReason}
+                              aria-required="true"
                               onChange={(event) =>
                                 setField('separationReason', event.target.value as FormState['separationReason'])
                               }
@@ -2588,9 +2605,10 @@ export default function HrManageEmp() {
                           </div>
 
                           <div className="hrEmpField">
-                            <label>Eligible for Rehire</label>
+                            <label>{requiredFieldLabel('Eligible for Rehire')}</label>
                             <select
                               value={form.eligibleForRehire}
+                              aria-required="true"
                               onChange={(event) =>
                                 setField('eligibleForRehire', event.target.value as FormState['eligibleForRehire'])
                               }
@@ -2639,17 +2657,13 @@ export default function HrManageEmp() {
                           </div>
 
                           <div className="hrEmpField">
-                            <label>Position</label>
-                            <select
+                            <label>Designation</label>
+                            <input
                               value={form.position}
+                              maxLength={100}
+                              placeholder="e.g. Production Specialist"
                               onChange={(event) => handlePositionChange(event.target.value)}
-                            >
-                              {positionOptions.map((option) => (
-                                <option key={option} value={option}>
-                                  {option}
-                                </option>
-                              ))}
-                            </select>
+                            />
                           </div>
 
                           <div className="hrEmpField">
@@ -2799,9 +2813,10 @@ export default function HrManageEmp() {
 
                           {showDepartmentPicker ? (
                             <div className="hrEmpField">
-                              <label>Department</label>
+                              <label>{requiredFieldLabel('Department')}</label>
                               <select
                                 value={form.department}
+                                aria-required="true"
                                 aria-invalid={departmentMissing ? 'true' : undefined}
                                 onChange={(event) => setField('department', event.target.value)}
                               >
@@ -2833,9 +2848,10 @@ export default function HrManageEmp() {
                         <div className="hrEmpForm__sectionTitle">Personal Information</div>
                         <div className="hrEmpForm__grid">
                           <div className="hrEmpField">
-                            <label>First Name</label>
+                            <label>{requiredFieldLabel('First Name')}</label>
                             <input
                               value={form.firstName}
+                              aria-required="true"
                               aria-invalid={firstNameMissing ? 'true' : undefined}
                               onChange={(event) => setField('firstName', event.target.value)}
                             />
@@ -2851,29 +2867,32 @@ export default function HrManageEmp() {
                           </div>
 
                           <div className="hrEmpField">
-                            <label>Last Name</label>
+                            <label>{requiredFieldLabel('Last Name')}</label>
                             <input
                               value={form.lastName}
+                              aria-required="true"
                               aria-invalid={lastNameMissing ? 'true' : undefined}
                               onChange={(event) => setField('lastName', event.target.value)}
                             />
                           </div>
 
                           <div className="hrEmpField">
-                            <label>Birth Date</label>
+                            <label>{requiredFieldLabel('Birth Date')}</label>
                             <input
                               type="date"
                               value={form.birthDate}
+                              aria-required="true"
                               aria-invalid={birthDateMissing ? 'true' : undefined}
                               onChange={(event) => setField('birthDate', event.target.value)}
                             />
                           </div>
 
                       <div className="hrEmpField">
-                        <label>Company Email</label>
+                        <label>{requiredFieldLabel('Company Email')}</label>
                         <input
                           type="email"
                           value={form.companyEmail}
+                          aria-required="true"
                           aria-invalid={companyEmailMissing ? 'true' : undefined}
                           onChange={(event) => setField('companyEmail', event.target.value)}
                         />
@@ -2890,12 +2909,13 @@ export default function HrManageEmp() {
                       </div>
 
                       <div className="hrEmpField">
-                        <label>Phone Number</label>
+                        <label>{requiredFieldLabel('Phone Number', modal === 'add')}</label>
                         <input
                           type="tel"
                           inputMode="numeric"
                           maxLength={11}
                           placeholder={modal === 'add' ? 'Required 11-digit mobile number' : 'Optional 11-digit mobile number'}
+                          aria-required={modal === 'add' ? 'true' : undefined}
                           aria-invalid={phoneInputInvalid ? 'true' : undefined}
                           value={form.phoneNumber}
                           onChange={(event) => setField('phoneNumber', formatPhone(event.target.value))}
@@ -3036,10 +3056,11 @@ export default function HrManageEmp() {
                     <div className="hrEmpForm__sectionTitle">Account Access</div>
                     <div className="hrEmpForm__grid hrEmpForm__grid--account">
                       <div className="hrEmpField">
-                        <label>Username</label>
+                        <label>{requiredFieldLabel('Username')}</label>
                         <input
                           autoComplete="off"
                           value={form.username}
+                          aria-required="true"
                           aria-invalid={usernameMissing ? 'true' : undefined}
                           onChange={(event) => setField('username', event.target.value)}
                           placeholder="Required"
@@ -3061,11 +3082,12 @@ export default function HrManageEmp() {
                       </div>
 
                       <div className="hrEmpField">
-                        <label>{modal === 'add' ? 'Password' : 'Password Reset'}</label>
+                        <label>{requiredFieldLabel(modal === 'add' ? 'Password' : 'Password Reset', passwordFieldRequired)}</label>
                         <input
                           type="password"
                           autoComplete="new-password"
                           value={form.password}
+                          aria-required={passwordFieldRequired ? 'true' : undefined}
                           aria-invalid={passwordMissing ? 'true' : undefined}
                           onChange={(event) => setField('password', event.target.value)}
                           placeholder={modal === 'add' ? 'Required' : 'Leave blank to keep current password'}

@@ -63,7 +63,7 @@ export default function EmployeeToolbar({
         <input
           value={searchValue}
           onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Search by employee name, ID, username, company or personal email, phone, role, or department"
+          placeholder="Search by employee name, ID, username, company or personal email, phone, designation, or department"
         />
         {searchValue ? (
           <button type="button" aria-label="Clear employee search" onClick={onClearSearch}>
@@ -105,9 +105,9 @@ export default function EmployeeToolbar({
               </label>
 
               <label className="uFilter__field">
-                <span>Role</span>
+                <span>Designation</span>
                 <select value={positionFilter} onChange={(event) => onPositionFilterChange(event.target.value)}>
-                  <option value="all">All Roles</option>
+                  <option value="all">All Designations</option>
                   {filterPositionOptions.map((option) => (
                     <option key={option} value={option}>
                       {option}

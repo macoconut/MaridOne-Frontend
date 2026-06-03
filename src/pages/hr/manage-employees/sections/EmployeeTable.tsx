@@ -24,7 +24,7 @@ export default function EmployeeTable({
         <div>NAME</div>
         <div>Username</div>
         <div className="hrEmpTable__headCell--status">Status</div>
-        <div>Position</div>
+        <div>Designation</div>
         <div>Company Email</div>
         <div className="hrEmpTable__headCell--actions" />
       </div>

@@ -937,6 +937,14 @@
   letter-spacing: 0.04em;
 }
 
+.hrEmpField__required {
+  color: #b24651;
+  display: inline-block;
+  font-weight: 900;
+  letter-spacing: 0;
+  margin-left: 4px;
+}
+
 .hrEmpField__labelRow {
   display: flex;
   align-items: center;
