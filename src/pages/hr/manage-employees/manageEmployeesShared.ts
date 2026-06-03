@@ -49,6 +49,7 @@ export const emptyForm: FormState = {
   companyEmail: '',
   personalEmail: '',
   phoneNumber: '',
+  designation: '',
   position: 'EMPLOYEE',
   department: '',
   yearlySalary: '',
@@ -156,7 +157,18 @@ export function isLongSeparationNote(value?: string | null) {
 
 export function buildEmployeeSearchIndex(row: Omit<EmployeeRow, 'searchIndex'>) {
   return normalizeText(
-    [row.id, row.name, row.username, row.status, row.email, row.personalEmail, row.phone, row.position, row.department].join(' ')
+    [
+      row.id,
+      row.name,
+      row.username,
+      row.status,
+      row.email,
+      row.personalEmail,
+      row.phone,
+      row.designation,
+      row.position,
+      row.department,
+    ].join(' ')
   );
 }
 
@@ -271,6 +283,11 @@ export function mergeRowWithDetails(row: EmployeeRow, details: EmployeeDetails):
     email: details.companyEmail?.trim() ? details.companyEmail : row.email,
     personalEmail: details.personalEmail?.trim() ? details.personalEmail : row.personalEmail,
     phone: details.phoneNumber?.trim() ? details.phoneNumber : row.phone,
+    designation: details.designation?.trim()
+      ? details.designation
+      : details.position?.trim()
+        ? details.position
+        : row.designation,
     position: details.position?.trim() ? details.position : row.position,
     department: details.department?.trim() ? details.department : row.department,
     exemptionStatus: details.exemptionStatus?.trim() ? details.exemptionStatus : row.exemptionStatus,

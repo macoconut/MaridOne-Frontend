@@ -18,6 +18,7 @@ import type { EmployeeDetails, EmployeeOption, LeaveBalanceRow } from '@/lib/typ
 import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
 import { formatSss, formatPhilHealth, formatPagibig, formatTin, formatPhone, formatBankAccount } from '@/lib/utils/phIdFormatters';
 import { useEmployeeFilters } from './hooks/useEmployeeFilters';
+import { positionOptions as permissionAccessOptions } from './manageEmployeesShared';
 import EmployeeTable from './sections/EmployeeTable';
 import EmployeeToolbar from './sections/EmployeeToolbar';
 import './ManageEmployees.css';
@@ -49,6 +50,7 @@ type EmployeeRow = {
   email: string;
   personalEmail: string;
   phone: string;
+  designation: string;
   position: string;
   department: string;
   exemptionStatus: string;
@@ -119,6 +121,7 @@ type ComplianceRecord = {
   employeeName?: string;
   username?: string;
   employmentStatus?: string;
+  designation?: string;
   position?: string;
   department?: string;
   employmentDateStart?: string;
@@ -165,6 +168,7 @@ type FormState = {
   companyEmail: string;
   personalEmail: string;
   phoneNumber: string;
+  designation: string;
   position: string;
   department: string;
   yearlySalary: string;
@@ -231,6 +235,7 @@ const emptyForm: FormState = {
   companyEmail: '',
   personalEmail: '',
   phoneNumber: '',
+  designation: '',
   position: 'EMPLOYEE',
   department: '',
   yearlySalary: '',
@@ -338,7 +343,18 @@ function isLongSeparationNote(value?: string | null) {
 
 function buildEmployeeSearchIndex(row: Omit<EmployeeRow, 'searchIndex'>) {
   return normalizeText(
-    [row.id, row.name, row.username, row.status, row.email, row.personalEmail, row.phone, row.position, row.department].join(' ')
+    [
+      row.id,
+      row.name,
+      row.username,
+      row.status,
+      row.email,
+      row.personalEmail,
+      row.phone,
+      row.designation,
+      row.position,
+      row.department,
+    ].join(' ')
   );
 }
 
@@ -479,6 +495,11 @@ function mergeRowWithDetails(row: EmployeeRow, details: EmployeeDetails): Employ
     email: details.companyEmail?.trim() ? details.companyEmail : row.email,
     personalEmail: details.personalEmail?.trim() ? details.personalEmail : row.personalEmail,
     phone: details.phoneNumber?.trim() ? details.phoneNumber : row.phone,
+    designation: details.designation?.trim()
+      ? details.designation
+      : details.position?.trim()
+        ? details.position
+        : row.designation,
     position: details.position?.trim() ? details.position : row.position,
     department: details.department?.trim() ? details.department : row.department,
     exemptionStatus: details.exemptionStatus?.trim() ? details.exemptionStatus : row.exemptionStatus,
@@ -643,7 +664,7 @@ export default function HrManageEmp() {
     const filtered = employeeRows.filter((row) => {
       if (normalizedSearch && !row.searchIndex.includes(normalizedSearch)) return false;
       if (statusFilter !== 'all' && row.status !== statusFilter) return false;
-      if (positionFilter !== 'all' && row.position !== positionFilter) return false;
+      if (positionFilter !== 'all' && row.designation !== positionFilter) return false;
       if (departmentFilter !== 'all' && row.department !== departmentFilter) return false;
       return true;
     });
@@ -822,6 +843,7 @@ export default function HrManageEmp() {
           email: String(item.companyEmail ?? item.email ?? '-'),
           personalEmail: String(item.personalEmail ?? '-'),
           phone: String(item.phoneNumber ?? '-'),
+          designation: String(item.designation ?? item.position ?? '-'),
           position: String(item.position ?? '-'),
           department: String(item.department ?? '-'),
           exemptionStatus: String(item.exemptionStatus ?? getDefaultExemptionStatus(String(item.position ?? ''))),
@@ -923,7 +945,7 @@ export default function HrManageEmp() {
     const rows = [
       ['Employee ID', 'Name', 'Username', 'Status', 'Company Email', 'Personal Email', 'Phone', 'Designation', 'Department'],
       ...visibleEmployeeRows
-        .map((row) => [row.id, row.name, row.username, row.status, row.email, row.personalEmail, row.phone, row.position, row.department]),
+        .map((row) => [row.id, row.name, row.username, row.status, row.email, row.personalEmail, row.phone, row.designation, row.department]),
     ];
 
     const csvContent = buildCsvContent(rows);
@@ -1355,6 +1377,7 @@ export default function HrManageEmp() {
         companyEmail: payload.companyEmail ?? '',
         personalEmail: payload.personalEmail ?? '',
         phoneNumber: formatPhone(payload.phoneNumber ?? ''),
+        designation: payload.designation ?? payload.position ?? '',
         position: payload.position ?? 'EMPLOYEE',
         department: payload.department ?? '',
         yearlySalary:
@@ -1469,7 +1492,7 @@ export default function HrManageEmp() {
     }
 
     if (showDepartmentPicker && !form.department.trim()) {
-      setSubmitError('Department is required when the selected designation is MANAGER or EMPLOYEE.');
+      setSubmitError('Department is required when the selected permission access is MANAGER or EMPLOYEE.');
       return false;
     }
 
@@ -1502,7 +1525,7 @@ export default function HrManageEmp() {
     }
 
     if (showDepartmentPicker && !form.department.trim()) {
-      throw new Error('Department is required when the selected designation is MANAGER or EMPLOYEE.');
+      throw new Error('Department is required when the selected permission access is MANAGER or EMPLOYEE.');
     }
 
     const shouldDefaultEmploymentEndDate =
@@ -1520,6 +1543,7 @@ export default function HrManageEmp() {
       companyEmail: form.companyEmail.trim(),
       personalEmail: form.personalEmail.trim() || undefined,
       phoneNumber: isCreate || form.phoneNumber.trim() ? validatePhoneNumber(form.phoneNumber) : undefined,
+      designation: form.designation.trim() || undefined,
       position: form.position || undefined,
       department: showDepartmentPicker ? form.department.trim() || undefined : undefined,
       yearlySalary: parseYearlySalary(form.yearlySalary),
@@ -2093,6 +2117,10 @@ export default function HrManageEmp() {
               </div>
               <div className="hrEmpDetails__item">
                 <span>Designation</span>
+                <strong>{displayValue(details.designation ?? details.position)}</strong>
+              </div>
+              <div className="hrEmpDetails__item">
+                <span>Permission Access</span>
                 <strong>{displayValue(details.position)}</strong>
               </div>
               <div className="hrEmpDetails__item">
@@ -2567,7 +2595,7 @@ export default function HrManageEmp() {
                               </div>
                               <div className="hrEmpDelete__summaryItem">
                                 <span>Designation</span>
-                                <strong>{displayValue(selectedEmployee.position)}</strong>
+                                <strong>{displayValue(selectedEmployee.designation)}</strong>
                               </div>
                               {selectedEmployee.department && selectedEmployee.department !== '-' ? (
                                 <div className="hrEmpDelete__summaryItem">
@@ -2659,10 +2687,10 @@ export default function HrManageEmp() {
                           <div className="hrEmpField">
                             <label>Designation</label>
                             <input
-                              value={form.position}
+                              value={form.designation}
                               maxLength={100}
                               placeholder="e.g. Production Specialist"
-                              onChange={(event) => handlePositionChange(event.target.value)}
+                              onChange={(event) => setField('designation', event.target.value)}
                             />
                           </div>
 
@@ -3074,6 +3102,20 @@ export default function HrManageEmp() {
                           onChange={(event) => setField('accountStatus', event.target.value)}
                         >
                           {accountStatusOptions.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="hrEmpField">
+                        <label>Permission Access</label>
+                        <select
+                          value={form.position}
+                          onChange={(event) => handlePositionChange(event.target.value)}
+                        >
+                          {permissionAccessOptions.map((option) => (
                             <option key={option} value={option}>
                               {option}
                             </option>

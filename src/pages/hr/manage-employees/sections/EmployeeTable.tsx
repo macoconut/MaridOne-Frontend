@@ -56,7 +56,7 @@ export default function EmployeeTable({
                 <div className="hrEmpRow__statusCell">
                   {isTerminated ? 'RELEASED' : formatEmploymentStatusLabel(row.status)}
                 </div>
-                <div className="hrEmpRow__positionCell">{row.position}</div>
+                <div className="hrEmpRow__positionCell">{row.designation}</div>
                 <div className="hrEmpRow__emailCell">{row.email}</div>
                 <div className="hrEmpRow__actions" onClick={(event) => event.stopPropagation()}>
                   {!isTerminated ? (

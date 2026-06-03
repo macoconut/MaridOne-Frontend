@@ -18,7 +18,7 @@ export function useEmployeeFilters(employeeRows: EmployeeRow[]) {
     [employeeRows]
   );
   const filterPositionOptions = useMemo(
-    () => Array.from(new Set(employeeRows.map((row) => row.position).filter((value) => value && value !== '-'))).sort(),
+    () => Array.from(new Set(employeeRows.map((row) => row.designation).filter((value) => value && value !== '-'))).sort(),
     [employeeRows]
   );
   const filterDepartmentOptions = useMemo(
@@ -96,7 +96,7 @@ export function matchesEmployeeFilters(row: EmployeeRow, filters: Pick<ReturnTyp
   const normalizedSearch = normalizeText(filters.searchValue);
   if (normalizedSearch && !row.searchIndex.includes(normalizedSearch)) return false;
   if (filters.statusFilter !== 'all' && row.status !== filters.statusFilter) return false;
-  if (filters.positionFilter !== 'all' && row.position !== filters.positionFilter) return false;
+  if (filters.positionFilter !== 'all' && row.designation !== filters.positionFilter) return false;
   if (filters.departmentFilter !== 'all' && row.department !== filters.departmentFilter) return false;
   return true;
 }

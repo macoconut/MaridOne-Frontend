@@ -32,6 +32,7 @@ export type EmployeeDetails = {
   personalEmail?: string
   contactNumber?: string
   phoneNumber?: string
+  designation?: string
   position?: string
   department?: string
   userAccountName?: string

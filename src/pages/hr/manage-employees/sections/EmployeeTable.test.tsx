@@ -11,6 +11,7 @@ const rows = [
     email: 'alice@example.com',
     personalEmail: 'alice.personal@example.com',
     phone: '09171234567',
+    designation: 'EMPLOYEE',
     position: 'EMPLOYEE',
     department: 'People Operations Department',
     exemptionStatus: 'NON_EXEMPT',
