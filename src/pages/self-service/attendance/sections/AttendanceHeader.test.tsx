@@ -52,4 +52,27 @@ describe('AttendanceHeader', () => {
     fireEvent.click(button);
     expect(onRequestAttendanceConfirmation).not.toHaveBeenCalled();
   });
+
+  it('disables attendance tracking while employee access is loading', () => {
+    const onRequestAttendanceConfirmation = vi.fn();
+
+    render(
+      <AttendanceHeader
+        clockDisabledReason="Preparing attendance access."
+        isClockOutAction={false}
+        isClocking={false}
+        onOpenSchedule={vi.fn()}
+        onRequestAttendanceConfirmation={onRequestAttendanceConfirmation}
+        onTimecardModeChange={vi.fn()}
+        timecardMode="calendar"
+      />
+    );
+
+    const button = screen.getByRole('button', { name: 'Time In' });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('title', 'Preparing attendance access.');
+
+    fireEvent.click(button);
+    expect(onRequestAttendanceConfirmation).not.toHaveBeenCalled();
+  });
 });

@@ -1708,7 +1708,9 @@ export default function Attendance() {
   }, [requestEntries, todayKey]);
   const isAttendanceTrackingVerified = isEmployeeVerified(employeeInfo);
   const clockDisabledReason =
-    employeeInfo && !isAttendanceTrackingVerified
+    !employeeInfo
+      ? 'Preparing attendance access.'
+      : !isAttendanceTrackingVerified
       ? 'Verify your account before starting attendance tracking.'
       : '';
 
