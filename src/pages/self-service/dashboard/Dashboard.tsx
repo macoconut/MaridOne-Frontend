@@ -559,6 +559,7 @@ export default function Dashboard() {
     setEditError('');
     setEditDraft(createEditDraft(employee));
     setEditBankAccounts(createBankAccountDrafts(employee));
+    setBankRevealed(false);
     setEditIsDirty(false);
     setEditOpen(true);
   }
@@ -600,6 +601,7 @@ export default function Dashboard() {
   }
 
   function setEditBankAccountField(index: number, key: keyof BankAccountDraft, value: string) {
+    if (!bankRevealed) return;
     setEditIsDirty(true);
     setEditBankAccounts((prev) =>
       prev.map((entry, entryIndex) =>
@@ -614,11 +616,16 @@ export default function Dashboard() {
   }
 
   function addEditBankAccount() {
+    if (!bankRevealed) {
+      revealBankNumbers();
+      return;
+    }
     setEditIsDirty(true);
     setEditBankAccounts((prev) => [...prev, { bankName: '', accountNumber: '' }]);
   }
 
   function removeEditBankAccount(index: number) {
+    if (!bankRevealed) return;
     setEditIsDirty(true);
     setEditBankAccounts((prev) => prev.filter((_, i) => i !== index));
   }
@@ -682,12 +689,15 @@ export default function Dashboard() {
           },
         }),
       });
-      await syncBankAccounts(employeeId);
+      if (bankRevealed) {
+        await syncBankAccounts(employeeId);
+      }
       const refreshed = await apiFetchJson<UserDetails['employee']>(`/api/employees/${employeeId}`);
       setEmployee(refreshed);
       setEditDraft(createEditDraft(refreshed));
       setEditBankAccounts(createBankAccountDrafts(refreshed));
       setEditIsDirty(false);
+      setBankRevealed(false);
       setEditOpen(false);
       if (emailChanged) {
         showSuccess(
@@ -698,6 +708,16 @@ export default function Dashboard() {
         );
       }
     } catch (error) {
+      if (
+        bankRevealed &&
+        sensitiveAccess.handleProtectedError(
+          error,
+          async () => { await runEditInfoSubmit(); },
+          'Enter your password to save bank account changes.'
+        )
+      ) {
+        return;
+      }
       setEditError(getFriendlyErrorMessage(error, 'profile-update'));
     } finally {
       hideLoading();
