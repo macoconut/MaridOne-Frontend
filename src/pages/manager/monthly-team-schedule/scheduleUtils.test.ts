@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildDailyOverrideDraft, groupDailyShiftsByWorkDate } from './scheduleUtils';
+import { buildDailyOverrideDraft, groupDailyShiftsByWorkDate, parseTeamEmployees } from './scheduleUtils';
 
 describe('scheduleUtils daily override helpers', () => {
   it('builds a multi-segment custom override draft for broken shifts', () => {
@@ -105,5 +105,35 @@ describe('scheduleUtils daily override helpers', () => {
 
     expect(grouped.get('2026-05-04')?.map((shift) => shift.dailyShiftId)).toEqual([1, 2]);
     expect(grouped.get('2026-05-05')?.map((shift) => shift.dailyShiftId)).toEqual([3]);
+  });
+
+  it('treats a recurring template marked as day off as a day off', () => {
+    const [employee] = parseTeamEmployees(
+      [
+        {
+          employeeId: 12,
+          firstName: 'Nina',
+          lastName: 'Santos',
+          shiftSchedules: [
+            {
+              shiftId: 44,
+              employeeId: 12,
+              dayOfWeek: 'FRIDAY',
+              startTime: '08:00:00',
+              endTime: '17:00:00',
+              dayOff: true,
+            },
+          ],
+        },
+      ],
+      (input) => (Array.isArray(input) ? input : [])
+    );
+
+    const draft = buildDailyOverrideDraft(employee ?? null, '2026-05-08', []);
+
+    expect(draft.isOverride).toBe(false);
+    expect(draft.hasTemplate).toBe(true);
+    expect(draft.dayOff).toBe(true);
+    expect(draft.segments).toEqual([]);
   });
 });

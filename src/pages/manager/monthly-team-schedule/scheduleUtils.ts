@@ -4,6 +4,7 @@ export type ShiftSchedule = {
   startTime?: string;
   endTime?: string;
   dayOfWeek?: string;
+  dayOff?: boolean;
 };
 
 export type TeamEmployee = {
@@ -195,11 +196,12 @@ export function groupDailyShiftsByWorkDate(dailyShifts: DailyShift[]) {
 export function resolveTemplateShiftForDate(employee: TeamEmployee | null, workDate: string) {
   const dayName = parseIsoDate(workDate).toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase();
   const template = employee?.shiftSchedules.find((item) => String(item.dayOfWeek ?? '').toUpperCase() === dayName);
+  const templateDayOff = Boolean(template?.dayOff);
 
   return {
     hasTemplate: Boolean(template),
     segments:
-      template?.startTime && template?.endTime
+      !templateDayOff && template?.startTime && template?.endTime
         ? [
             {
               startTime: template.startTime.slice(0, 5),
@@ -207,6 +209,7 @@ export function resolveTemplateShiftForDate(employee: TeamEmployee | null, workD
             },
           ]
         : [],
+    dayOff: templateDayOff,
   };
 }
 
@@ -234,7 +237,7 @@ export function buildDailyOverrideDraft(
     workDate,
     segments: overrideSegments.length > 0 ? overrideSegments : template.segments,
     isOverride: dailyShiftsForDate.length > 0,
-    dayOff: hasDayOffOverride ? true : !template.hasTemplate && dailyShiftsForDate.length === 0,
+    dayOff: hasDayOffOverride ? true : template.dayOff || (!template.hasTemplate && dailyShiftsForDate.length === 0),
     hasTemplate: template.hasTemplate,
   };
 }
@@ -266,6 +269,7 @@ export function parseTeamEmployees(payload: unknown, toArray: <T>(input: unknown
         startTime: typeof schedule.startTime === 'string' ? schedule.startTime : undefined,
         endTime: typeof schedule.endTime === 'string' ? schedule.endTime : undefined,
         dayOfWeek: typeof schedule.dayOfWeek === 'string' ? schedule.dayOfWeek : undefined,
+        dayOff: typeof schedule.dayOff === 'boolean' ? schedule.dayOff : undefined,
       })),
     }))
     .filter((employee) => Number.isFinite(employee.id));

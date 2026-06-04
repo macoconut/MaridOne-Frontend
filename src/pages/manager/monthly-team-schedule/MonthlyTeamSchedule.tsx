@@ -239,7 +239,7 @@ function buildLockedDayDrafts(
   todayKey: string
 ) {
   return getMonthDates(monthStart)
-    .filter((workDate) => workDate <= todayKey)
+    .filter((workDate) => workDate < todayKey)
     .reduce<Record<string, EditorDraft>>((next, workDate) => {
       next[workDate] = buildEditorDraft(employee, workDate, dailyShiftsByDate.get(workDate) ?? []);
       return next;
@@ -398,7 +398,7 @@ export function MonthlyScheduleBoard({
   const dailyShiftsByDate = useMemo(() => groupDailyShiftsByWorkDate(dailyShifts), [dailyShifts]);
   const holidayDateSet = useMemo(() => new Set(holidayDateKeys), [holidayDateKeys]);
   const regularHolidayDateSet = useMemo(() => new Set(regularHolidayDateKeys), [regularHolidayDateKeys]);
-  const selectedDateIsLocked = Boolean(selectedDateKey && selectedDateKey <= todayKey);
+  const selectedDateIsLocked = Boolean(selectedDateKey && selectedDateKey < todayKey);
   const selectedDateIsHoliday = Boolean(selectedDateKey && holidayDateSet.has(selectedDateKey));
   const selectedHolidayName = selectedDateKey ? holidayNamesByDate[selectedDateKey] ?? '' : '';
   const selectedDateDayTypeLabel = !selectedDateKey
@@ -450,7 +450,7 @@ export function MonthlyScheduleBoard({
     (showDepartmentFilter && templateDepartmentFilter !== 'all' ? 1 : 0);
   const resolveDisplayedDraft = useCallback(
     (workDate: string) => {
-      if (workDate <= todayKey && lockedDayDrafts[workDate]) {
+      if (workDate < todayKey && lockedDayDrafts[workDate]) {
         return lockedDayDrafts[workDate];
       }
       return buildEditorDraft(selectedEmployee, workDate, dailyShiftsByDate.get(workDate) ?? []);
@@ -468,6 +468,11 @@ export function MonthlyScheduleBoard({
     setEditorOpen(false);
     setSaveError('');
     setEditorSegmentErrors({});
+  }
+
+  function openEmployeePicker() {
+    setEmployeeSearch('');
+    setEmployeePickerOpen(true);
   }
 
   function closeTemplateEditor() {
@@ -965,8 +970,8 @@ export function MonthlyScheduleBoard({
   async function saveSelectedDate() {
     if (!selectedEmployee || !selectedDateKey || !editorDraft) return;
 
-    if (selectedDateKey <= todayKey) {
-      setSaveError('Schedule changes can only be made starting tomorrow.');
+    if (selectedDateKey < todayKey) {
+      setSaveError('Past schedule dates can no longer be changed.');
       return;
     }
 
@@ -1132,7 +1137,7 @@ export function MonthlyScheduleBoard({
                 aria-expanded={employeePickerOpen}
                 aria-haspopup="listbox"
                 value={employeeSearch}
-                onFocus={() => setEmployeePickerOpen(true)}
+                onFocus={openEmployeePicker}
                 onChange={(event) => {
                   setEmployeeSearch(event.target.value);
                   setEmployeePickerOpen(true);
@@ -1176,8 +1181,11 @@ export function MonthlyScheduleBoard({
                 className="hrEmpCombo__toggle"
                 onClick={() => {
                   if (loadingTeam || sortedEmployees.length === 0) return;
-                  setEmployeeSearch(enableBatchSelection ? '' : selectedEmployee?.name ?? '');
-                  setEmployeePickerOpen((current) => !current);
+                  if (employeePickerOpen) {
+                    closeEmployeePicker();
+                  } else {
+                    openEmployeePicker();
+                  }
                 }}
                 disabled={loadingTeam || sortedEmployees.length === 0}
                 aria-label={employeePickerOpen ? `Close ${employeeSingularLabel} list` : `Open ${employeeSingularLabel} list`}
@@ -1343,7 +1351,7 @@ export function MonthlyScheduleBoard({
 
                     const dayDraft = resolveDisplayedDraft(cell);
                     const isDefaultDayOff = !dayDraft.isOverride && !dayDraft.hasTemplate && dayDraft.dayOff;
-                    const isLocked = cell <= todayKey;
+                    const isLocked = cell < todayKey;
                     const isSelected = cell === selectedDateKey;
                     const isToday = cell === todayKey;
                     const isHoliday = holidayDateSet.has(cell);
