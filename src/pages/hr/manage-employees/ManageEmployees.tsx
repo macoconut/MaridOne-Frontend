@@ -1047,7 +1047,12 @@ export default function HrManageEmp() {
   }
 
   function setField<K extends keyof FormState>(key: K, value: FormState[K]) {
-    setForm((current) => ({ ...current, [key]: value }));
+    setForm((current) => {
+      if (key === 'employmentStatus' && isTerminatedStatus(String(value))) {
+        return { ...current, [key]: value, accountStatus: 'INACTIVE' };
+      }
+      return { ...current, [key]: value };
+    });
   }
 
   function setBankAccountField(index: number, key: keyof BankAccountDraft, value: string) {
@@ -1408,7 +1413,9 @@ export default function HrManageEmp() {
           payload.yearlySalary !== undefined && payload.yearlySalary !== null ? String(payload.yearlySalary) : '',
         managerId: payload.managerId !== undefined && payload.managerId !== null ? String(payload.managerId) : '',
         username: payload.userAccountName ?? (row.username === '-' ? '' : row.username),
-        accountStatus: payload.accountStatus ?? 'ACTIVE',
+        accountStatus: isTerminatedStatus(payload.employmentStatus ?? row.status)
+          ? 'INACTIVE'
+          : payload.accountStatus ?? 'ACTIVE',
         password: '',
         permanentAddress: payload.address?.permanentAddress ?? '',
         temporaryAddress: payload.address?.temporaryAddress ?? '',
@@ -1592,7 +1599,7 @@ export default function HrManageEmp() {
         ? {
             username: form.username.trim(),
             password: form.password.trim(),
-            accountStatus: form.accountStatus || 'ACTIVE',
+            accountStatus: isTerminatedStatus(form.employmentStatus) ? 'INACTIVE' : form.accountStatus || 'ACTIVE',
           }
         : {}),
     };
@@ -1602,6 +1609,7 @@ export default function HrManageEmp() {
     const username = form.username.trim();
     const password = form.password.trim();
     const hasExistingAccount = hasExistingUserAccount;
+    const accountStatus = isTerminatedStatus(form.employmentStatus) ? 'INACTIVE' : form.accountStatus || 'ACTIVE';
 
     if (!username) {
       throw new Error('Username is required for the employee account.');
@@ -1619,7 +1627,7 @@ export default function HrManageEmp() {
         body: JSON.stringify({
           employeeId,
           username,
-          accountStatus: form.accountStatus || 'ACTIVE',
+          accountStatus,
           password,
         }),
       });
@@ -1631,7 +1639,7 @@ export default function HrManageEmp() {
       body: JSON.stringify({
         employeeId,
         username,
-        accountStatus: form.accountStatus || 'ACTIVE',
+        accountStatus,
         password: password || undefined,
       }),
     });
@@ -3139,6 +3147,7 @@ export default function HrManageEmp() {
                         <select
                           value={form.accountStatus}
                           onChange={(event) => setField('accountStatus', event.target.value)}
+                          disabled={isTerminatedStatus(form.employmentStatus)}
                         >
                           {accountStatusOptions.map((option) => (
                             <option key={option} value={option}>
