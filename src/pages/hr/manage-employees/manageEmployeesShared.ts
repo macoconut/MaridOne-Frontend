@@ -77,7 +77,6 @@ export const emptyForm: FormState = {
   permanentAddress: '',
   temporaryAddress: '',
   city: '',
-  state: '',
   country: '',
   zipCode: '',
   sssNumber: '',

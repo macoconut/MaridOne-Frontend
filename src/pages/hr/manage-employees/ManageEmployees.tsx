@@ -190,7 +190,6 @@ type FormState = {
   permanentAddress: string;
   temporaryAddress: string;
   city: string;
-  state: string;
   country: string;
   zipCode: string;
   sssNumber: string;
@@ -257,7 +256,6 @@ const emptyForm: FormState = {
   permanentAddress: '',
   temporaryAddress: '',
   city: '',
-  state: '',
   country: '',
   zipCode: '',
   sssNumber: '',
@@ -1415,7 +1413,6 @@ export default function HrManageEmp() {
         permanentAddress: payload.address?.permanentAddress ?? '',
         temporaryAddress: payload.address?.temporaryAddress ?? '',
         city: payload.address?.city ?? '',
-        state: payload.address?.state ?? '',
         country: payload.address?.country ?? '',
         zipCode: payload.address?.zipCode ?? '',
         sssNumber: formatSss(payload.sssNumber ?? ''),
@@ -1588,7 +1585,6 @@ export default function HrManageEmp() {
         permanentAddress: form.permanentAddress.trim() || undefined,
         temporaryAddress: form.temporaryAddress.trim() || undefined,
         city: form.city.trim() || undefined,
-        state: form.state.trim() || undefined,
         country: form.country.trim() || undefined,
         zipCode: form.zipCode.trim() || undefined,
       },
@@ -2460,10 +2456,6 @@ export default function HrManageEmp() {
                 <strong>{displayValue(details.address?.city)}</strong>
               </div>
               <div className="hrEmpDetails__item">
-                <span>State</span>
-                <strong>{displayValue(details.address?.state)}</strong>
-              </div>
-              <div className="hrEmpDetails__item">
                 <span>Country</span>
                 <strong>{displayValue(details.address?.country)}</strong>
               </div>
@@ -3223,15 +3215,6 @@ export default function HrManageEmp() {
                           value={form.city}
                           placeholder="Optional city"
                           onChange={(event) => setField('city', event.target.value)}
-                        />
-                      </div>
-
-                      <div className="hrEmpField">
-                        <label>State</label>
-                        <input
-                          value={form.state}
-                          placeholder="Optional state"
-                          onChange={(event) => setField('state', event.target.value)}
                         />
                       </div>
 
