@@ -22,6 +22,7 @@ export type EmployeeDetails = {
   fullName?: string
   birthDate?: string
   employmentStatus?: string
+  employmentType?: string
   exemptionStatus?: string
   employmentDateStart?: string
   employmentDateEnd?: string

@@ -17,6 +17,13 @@ export const employmentStatusFilterOptions = [
   { label: 'Suspended', value: 'SUSPENDED' },
   { label: 'Terminated', value: 'TERMINATED' },
 ] as const;
+export const employmentTypeOptions = [
+  { label: 'Regular Full-Time', value: 'REGULAR_FULL_TIME' },
+  { label: 'Probationary Full-Time', value: 'PROBATIONARY_FULL_TIME' },
+  { label: 'Part-time', value: 'PART_TIME' },
+  { label: 'On-call', value: 'ON_CALL' },
+  { label: 'Contractual', value: 'CONTRACTUAL' },
+] as const;
 export const accountStatusOptions = ['ACTIVE', 'INACTIVE'] as const;
 export const exemptionStatusOptions = ['EXEMPT', 'NON_EXEMPT'] as const;
 export const positionOptions = ['EMPLOYEE', 'MANAGER', 'HR', 'MANAGEMENT', 'ACCOUNTING', 'UNKNOWN'] as const;
@@ -52,6 +59,7 @@ export const emptyForm: FormState = {
   lastName: '',
   birthDate: '',
   employmentStatus: 'REGULAR',
+  employmentType: 'REGULAR_FULL_TIME',
   exemptionStatus: 'NON_EXEMPT',
   employmentDateStart: '',
   employmentDateEnd: '',
@@ -161,6 +169,20 @@ export function matchesEmploymentStatusFilter(status: string | null | undefined,
   return normalized === filter;
 }
 
+export function inferEmploymentTypeFromStatus(status?: string | null) {
+  const normalized = String(status ?? '').trim().toUpperCase();
+  if (normalized === 'NEW_HIRE') return 'PROBATIONARY_FULL_TIME';
+  if (normalized === 'PART_TIME') return 'PART_TIME';
+  return 'REGULAR_FULL_TIME';
+}
+
+export function formatEmploymentTypeLabel(value?: string | null) {
+  const normalized = String(value ?? '').trim().toUpperCase();
+  const match = employmentTypeOptions.find((option) => option.value === normalized);
+  if (match) return match.label;
+  return normalized ? normalized.replace(/_/g, ' ') : '-';
+}
+
 export function formatSeparationReasonLabel(value?: SeparationReason | string | null) {
   const normalized = String(value ?? '').trim().toUpperCase();
   const match = separationReasonOptions.find((option) => option.value === normalized);
@@ -179,6 +201,7 @@ export function buildEmployeeSearchIndex(row: Omit<EmployeeRow, 'searchIndex'>) 
       row.name,
       row.username,
       row.status,
+      formatEmploymentTypeLabel(row.employmentType),
       row.email,
       row.personalEmail,
       row.phone,
@@ -297,6 +320,9 @@ export function mergeRowWithDetails(row: EmployeeRow, details: EmployeeDetails):
     name: row.name,
     username: details.userAccountName?.trim() ? details.userAccountName : row.username,
     status: details.employmentStatus?.trim() ? details.employmentStatus : row.status,
+    employmentType: details.employmentType?.trim()
+      ? details.employmentType
+      : row.employmentType || inferEmploymentTypeFromStatus(details.employmentStatus ?? row.status),
     email: details.companyEmail?.trim() ? details.companyEmail : row.email,
     personalEmail: details.personalEmail?.trim() ? details.personalEmail : row.personalEmail,
     phone: details.phoneNumber?.trim() ? details.phoneNumber : row.phone,

@@ -24,6 +24,7 @@ export type EmployeeRow = {
   name: string;
   username: string;
   status: string;
+  employmentType: string;
   email: string;
   personalEmail: string;
   phone: string;
@@ -132,6 +133,7 @@ export type FormState = {
   lastName: string;
   birthDate: string;
   employmentStatus: string;
+  employmentType: string;
   exemptionStatus: string;
   employmentDateStart: string;
   employmentDateEnd: string;

@@ -19,8 +19,11 @@ import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
 import { formatSss, formatPhilHealth, formatPagibig, formatTin, formatPhone, formatBankAccount } from '@/lib/utils/phIdFormatters';
 import { useEmployeeFilters } from './hooks/useEmployeeFilters';
 import {
+  employmentTypeOptions,
   employmentStatusOptions,
+  formatEmploymentTypeLabel,
   formatEmploymentStatusLabel,
+  inferEmploymentTypeFromStatus,
   matchesEmploymentStatusFilter,
   positionOptions as permissionAccessOptions,
 } from './manageEmployeesShared';
@@ -52,6 +55,7 @@ type EmployeeRow = {
   name: string;
   username: string;
   status: string;
+  employmentType: string;
   email: string;
   personalEmail: string;
   phone: string;
@@ -126,6 +130,7 @@ type ComplianceRecord = {
   employeeName?: string;
   username?: string;
   employmentStatus?: string;
+  employmentType?: string;
   designation?: string;
   position?: string;
   department?: string;
@@ -167,6 +172,7 @@ type FormState = {
   lastName: string;
   birthDate: string;
   employmentStatus: string;
+  employmentType: string;
   exemptionStatus: string;
   employmentDateStart: string;
   employmentDateEnd: string;
@@ -233,6 +239,7 @@ const emptyForm: FormState = {
   lastName: '',
   birthDate: '',
   employmentStatus: 'REGULAR',
+  employmentType: 'REGULAR_FULL_TIME',
   exemptionStatus: 'NON_EXEMPT',
   employmentDateStart: '',
   employmentDateEnd: '',
@@ -345,6 +352,7 @@ function buildEmployeeSearchIndex(row: Omit<EmployeeRow, 'searchIndex'>) {
       row.name,
       row.username,
       row.status,
+      formatEmploymentTypeLabel(row.employmentType),
       row.email,
       row.personalEmail,
       row.phone,
@@ -489,6 +497,9 @@ function mergeRowWithDetails(row: EmployeeRow, details: EmployeeDetails): Employ
     name: row.name,
     username: details.userAccountName?.trim() ? details.userAccountName : row.username,
     status: details.employmentStatus?.trim() ? details.employmentStatus : row.status,
+    employmentType: details.employmentType?.trim()
+      ? details.employmentType
+      : row.employmentType || inferEmploymentTypeFromStatus(details.employmentStatus ?? row.status),
     email: details.companyEmail?.trim() ? details.companyEmail : row.email,
     personalEmail: details.personalEmail?.trim() ? details.personalEmail : row.personalEmail,
     phone: details.phoneNumber?.trim() ? details.phoneNumber : row.phone,
@@ -837,6 +848,9 @@ export default function HrManageEmp() {
               .join(' ') || `Employee #${item.employeeId ?? item.id ?? index + 1}`,
           username: String(item.userAccountName ?? item.username ?? '-'),
           status: String(item.employmentStatus ?? '-'),
+          employmentType: String(
+            item.employmentType ?? inferEmploymentTypeFromStatus(String(item.employmentStatus ?? ''))
+          ),
           email: String(item.companyEmail ?? item.email ?? '-'),
           personalEmail: String(item.personalEmail ?? '-'),
           phone: String(item.phoneNumber ?? '-'),
@@ -940,9 +954,20 @@ export default function HrManageEmp() {
     if (visibleEmployeeRows.length === 0) return;
 
     const rows = [
-      ['Employee ID', 'Name', 'Username', 'Employment Status', 'Company Email', 'Personal Email', 'Phone', 'Designation', 'Department'],
+      ['Employee ID', 'Name', 'Username', 'Employment Status', 'Employment Type', 'Company Email', 'Personal Email', 'Phone', 'Designation', 'Department'],
       ...visibleEmployeeRows
-        .map((row) => [row.id, row.name, row.username, row.status, row.email, row.personalEmail, row.phone, row.designation, row.department]),
+        .map((row) => [
+          row.id,
+          row.name,
+          row.username,
+          formatEmploymentStatusLabel(row.status),
+          formatEmploymentTypeLabel(row.employmentType),
+          row.email,
+          row.personalEmail,
+          row.phone,
+          row.designation,
+          row.department,
+        ]),
     ];
 
     const csvContent = buildCsvContent(rows);
@@ -1368,6 +1393,7 @@ export default function HrManageEmp() {
         lastName: payload.lastName ?? '',
         birthDate: payload.birthDate ?? '',
         employmentStatus: payload.employmentStatus ?? 'REGULAR',
+        employmentType: payload.employmentType ?? inferEmploymentTypeFromStatus(payload.employmentStatus ?? row.status),
         exemptionStatus: payload.exemptionStatus ?? getDefaultExemptionStatus(payload.position ?? 'EMPLOYEE'),
         employmentDateStart: payload.employmentDateStart ?? '',
         employmentDateEnd: payload.employmentDateEnd ?? '',
@@ -1534,6 +1560,7 @@ export default function HrManageEmp() {
       lastName: form.lastName.trim(),
       birthDate: form.birthDate || undefined,
       employmentStatus: form.employmentStatus || undefined,
+      employmentType: form.employmentType || undefined,
       exemptionStatus: form.exemptionStatus || undefined,
       employmentDateStart: form.employmentDateStart || undefined,
       employmentDateEnd: form.employmentDateEnd || (shouldDefaultEmploymentEndDate ? todayDateValue() : undefined),
@@ -2113,6 +2140,10 @@ export default function HrManageEmp() {
                 <strong>{formatEmploymentStatusLabel(details.employmentStatus)}</strong>
               </div>
               <div className="hrEmpDetails__item">
+                <span>Employment Type</span>
+                <strong>{formatEmploymentTypeLabel(details.employmentType)}</strong>
+              </div>
+              <div className="hrEmpDetails__item">
                 <span>Designation</span>
                 <strong>{displayValue(details.designation ?? details.position)}</strong>
               </div>
@@ -2674,6 +2705,20 @@ export default function HrManageEmp() {
                               onChange={(event) => setField('employmentStatus', event.target.value)}
                             >
                               {employmentStatusOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="hrEmpField">
+                            <label>Employment Type</label>
+                            <select
+                              value={form.employmentType}
+                              onChange={(event) => setField('employmentType', event.target.value)}
+                            >
+                              {employmentTypeOptions.map((option) => (
                                 <option key={option.value} value={option.value}>
                                   {option.label}
                                 </option>
