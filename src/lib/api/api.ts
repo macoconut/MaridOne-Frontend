@@ -10,9 +10,13 @@ import {
   setRequiresPasswordChange,
   setRefreshToken,
 } from '../utils/session';
+import { setGlobalLoadingActive } from '@/context/loadingEvents';
 import type { ErrorResponseDto } from '../types/error';
 
 type ApiLocation = Pick<Location, 'origin' | 'protocol' | 'hostname' | 'port'>;
+export type ApiFetchInit = RequestInit & {
+  globalLoading?: boolean;
+};
 
 function normalizeBaseUrl(value: string | null | undefined) {
   const trimmed = value?.trim() ?? '';
@@ -281,13 +285,15 @@ async function refreshAccessToken(): Promise<boolean> {
 }
 
 //use for auth related stuff or when you need the raw response for some reason
-export async function apiFetchRaw(path: string, init: RequestInit = {}, allowRetry = true): Promise<Response> {
+export async function apiFetchRaw(path: string, init: ApiFetchInit = {}, allowRetry = true): Promise<Response> {
+  const { globalLoading = true, ...requestInit } = init;
+  const shouldTrackGlobalLoading = globalLoading && allowRetry;
   const token = getAuthToken();
-  const method = String(init.method ?? 'GET').toUpperCase();
-  const headers = new Headers(init.headers ?? {});
-  const isFormDataBody = typeof FormData !== 'undefined' && init.body instanceof FormData;
+  const method = String(requestInit.method ?? 'GET').toUpperCase();
+  const headers = new Headers(requestInit.headers ?? {});
+  const isFormDataBody = typeof FormData !== 'undefined' && requestInit.body instanceof FormData;
 
-  if (!headers.has('Content-Type') && init.body && !isFormDataBody) {
+  if (!headers.has('Content-Type') && requestInit.body && !isFormDataBody) {
     headers.set('Content-Type', 'application/json');
   }
 
@@ -304,13 +310,13 @@ export async function apiFetchRaw(path: string, init: RequestInit = {}, allowRet
   const canDeduplicateGet =
     method === 'GET' &&
     allowRetry &&
-    !init.body &&
-    !init.signal;
+    !requestInit.body &&
+    !requestInit.signal;
   const requestKey = canDeduplicateGet ? `${method} ${requestUrl}` : null;
 
   const performRequest = async () => {
     const response = await fetch(requestUrl, {
-      ...init,
+      ...requestInit,
       headers,
       credentials: 'include',
     });
@@ -353,25 +359,35 @@ export async function apiFetchRaw(path: string, init: RequestInit = {}, allowRet
     return response;
   };
 
-  let response: Response;
-  if (requestKey) {
-    let pending = inflightGetRequests.get(requestKey);
-    if (!pending) {
-      pending = performRequest().finally(() => {
-        inflightGetRequests.delete(requestKey);
-      });
-      inflightGetRequests.set(requestKey, pending);
-    }
-    response = (await pending).clone();
-  } else {
-    response = await performRequest();
+  if (shouldTrackGlobalLoading) {
+    setGlobalLoadingActive(true);
   }
 
-  return response;
+  try {
+    let response: Response;
+    if (requestKey) {
+      let pending = inflightGetRequests.get(requestKey);
+      if (!pending) {
+        pending = performRequest().finally(() => {
+          inflightGetRequests.delete(requestKey);
+        });
+        inflightGetRequests.set(requestKey, pending);
+      }
+      response = (await pending).clone();
+    } else {
+      response = await performRequest();
+    }
+
+    return response;
+  } finally {
+    if (shouldTrackGlobalLoading) {
+      setGlobalLoadingActive(false);
+    }
+  }
 }
 
 //use this directly in most cases
-export async function apiFetchJson<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function apiFetchJson<T>(path: string, init: ApiFetchInit = {}): Promise<T> {
   const response = await apiFetchRaw(path, init);
   const text = await response.text();
   throwApiErrorIfNeeded(response, text);
@@ -381,7 +397,7 @@ export async function apiFetchJson<T>(path: string, init: RequestInit = {}): Pro
 }
 
 //for edge cases
-export async function apiFetchText(path: string, init: RequestInit = {}): Promise<string> {
+export async function apiFetchText(path: string, init: ApiFetchInit = {}): Promise<string> {
   const response = await apiFetchRaw(path, init);
   const text = await response.text();
   throwApiErrorIfNeeded(response, text);

@@ -34,6 +34,7 @@ export function useNotificationPolling(
       lastLoadAtRef.current = Date.now();
       const response = await apiFetchRaw('/api/notifications?page=0&size=20', {
         method: 'GET',
+        globalLoading: false,
       });
 
       if (!response.ok) {

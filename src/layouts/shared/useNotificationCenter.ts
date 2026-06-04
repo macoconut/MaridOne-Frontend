@@ -34,6 +34,7 @@ export function useNotificationCenter(
         numericIds.map(async ({ numericId }) => {
           const response = await apiFetchRaw(`/api/notifications?notificationId=${numericId}`, {
             method: 'PATCH',
+            globalLoading: false,
           });
 
           if (!response.ok) {

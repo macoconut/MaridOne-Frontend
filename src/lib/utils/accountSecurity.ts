@@ -1,4 +1,5 @@
 import { apiFetchJson, apiFetchText, getApiBaseUrl, throwApiErrorIfNeeded } from '../api/api';
+import { setGlobalLoadingActive } from '@/context/loadingEvents';
 
 export type TwoFactorSetupResponse = {
   qrCodeImageUri?: string;
@@ -45,18 +46,24 @@ export function verifyEmailToken(token: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers ?? {});
   headers.set('Content-Type', 'text/plain');
 
+  setGlobalLoadingActive(true);
+
   return fetch(`${getApiBaseUrl()}/api/auth/verify-email`, {
     ...init,
     method: 'POST',
     headers,
     body: token.trim(),
-  }).then(async (response) => {
-    const text = await response.text();
+  })
+    .then(async (response) => {
+      const text = await response.text();
 
-    if (!response.ok) {
-      throw throwApiErrorIfNeeded(response, text);
-    }
+      if (!response.ok) {
+        throw throwApiErrorIfNeeded(response, text);
+      }
 
-    return text;
-  });
+      return text;
+    })
+    .finally(() => {
+      setGlobalLoadingActive(false);
+    });
 }

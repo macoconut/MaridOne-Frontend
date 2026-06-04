@@ -22,5 +22,8 @@ function tokenHasRole(token: string | null, roleToMatch: string) {
 }
 
 export function canUploadCompanyDocuments(role: UserRole | null, token: string | null) {
-  return role === 'hr' && tokenHasRole(token, 'ROLE_HR');
+  return (
+    (role === 'hr' && tokenHasRole(token, 'ROLE_HR')) ||
+    (role === 'management' && tokenHasRole(token, 'ROLE_MANAGEMENT'))
+  );
 }
