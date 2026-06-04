@@ -365,6 +365,10 @@ function requiresAdvanceLeaveNotice(leaveType: LeaveType | string) {
   return leaveType !== 'SICK_LEAVE' && leaveType !== 'EMERGENCY_LEAVE';
 }
 
+function allowsPastLeaveFiling(leaveType: LeaveType | string) {
+  return leaveType === 'SICK_LEAVE' || leaveType === 'EMERGENCY_LEAVE';
+}
+
 function isAdvanceBookingRestricted(leaveType: LeaveType | string) {
   return (
     leaveType === 'SICK_LEAVE' ||
@@ -942,9 +946,12 @@ export default function Attendance() {
   const maxOtEndDate = otStartDate ? addDays(otStartDate, 1) : '';
   const isOtNextDay = Boolean(otStartDate && otEndDate && otEndDate === maxOtEndDate);
   const isTimecardRangeInvalid = !timecardFromDate || !timecardToDate || timecardToDate < timecardFromDate;
-  const minimumLeaveStartDate = requiresAdvanceLeaveNotice(leaveType) ? nonSickLeaveMinDate : todayKey;
-  const minimumLeaveEndDate =
-    startDate && startDate >= minimumLeaveStartDate ? startDate : minimumLeaveStartDate;
+  const minimumLeaveStartDate = allowsPastLeaveFiling(leaveType)
+    ? undefined
+    : requiresAdvanceLeaveNotice(leaveType)
+      ? nonSickLeaveMinDate
+      : todayKey;
+  const minimumLeaveEndDate = startDate || minimumLeaveStartDate;
   const isLeaveStartDateInvalid = leaveSubmitAttempted && !startDate;
   const isLeaveStartTimeInvalid = leaveSubmitAttempted && !startTime;
   const isLeaveEndDateInvalid = leaveSubmitAttempted && !endDate;
@@ -1015,7 +1022,13 @@ export default function Attendance() {
       return;
     }
 
-    const normalizedStartDate = startDate && startDate >= minimumLeaveStartDate ? startDate : minimumLeaveStartDate;
+    const normalizedStartDate =
+      minimumLeaveStartDate && (!startDate || startDate < minimumLeaveStartDate)
+        ? minimumLeaveStartDate
+        : startDate;
+    if (!normalizedStartDate) {
+      return;
+    }
     if (normalizedStartDate !== startDate) {
       setStartDate(normalizedStartDate);
       return;
@@ -2133,7 +2146,7 @@ export default function Attendance() {
       return false;
     }
 
-    if (startDate < todayKey) {
+    if (!allowsPastLeaveFiling(leaveType) && startDate < todayKey) {
       setSubmitError('Start date cannot be earlier than today.');
       return false;
     }
@@ -2245,15 +2258,20 @@ export default function Attendance() {
       : null;
 
     if (file && attachmentConnectedId) {
-      await uploadPrivateDocuments(
-        [file],
-        Directories.LEAVE_REQUEST,
-        attachmentConnectedId
-      );
+      try {
+        await uploadPrivateDocuments(
+          [file],
+          Directories.LEAVE_REQUEST,
+          attachmentConnectedId
+        );
+      } catch {
+        // The leave request already exists; an optional attachment failure should not look like a failed submission.
+      }
     }
 
     setLeaveOpen(false);
     setRequestEntries((prev) => [...prev, ...mapLeaveRequestEntries(createdRequests)]);
+    showSuccess('Leave request submitted successfully.', 'Leave Request Submitted');
   } catch (error) {
       setSubmitError(getFriendlyErrorMessage(error, 'leave-request'));
     } finally {

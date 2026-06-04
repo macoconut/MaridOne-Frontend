@@ -108,6 +108,11 @@ function buildLeaveDetail(leaveType?: string, isPaid?: boolean) {
   return `${formatLeaveType(leaveType)}${payLabel}`;
 }
 
+function resolveLeaveApprover(row: LeaveRow, status: ApprovalStatus) {
+  if (status.startsWith('Pending') || status === 'Cancelled') return '-';
+  return row.managerApprover?.trim() || row.approver?.trim() || '-';
+}
+
 function buildOvertimeDetail(overtimeType?: string, isPaid?: boolean) {
   const payLabel = isPaid === false ? ' - Unpaid' : ' - Paid';
   return `${formatLeaveType(overtimeType || 'OT')}${payLabel}`;
@@ -345,7 +350,7 @@ export default function Approval() {
           requestTarget,
           durationLabel: formatLeaveDuration(row.startDateTime, row.endDateTime),
           status,
-          approvedBy: status.startsWith('Pending') ? '-' : status === 'Cancelled' ? '-' : row.approver?.trim() || '-',
+          approvedBy: resolveLeaveApprover(row, status),
           requestReason: row.reason || '-',
           decisionReason: finalDecisionReason,
           decisionDate: formatDateTime(row.approvedAt, '-'),
