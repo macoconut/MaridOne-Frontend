@@ -978,6 +978,42 @@
   color: #b24651;
 }
 
+.hrEmpPasswordInput {
+  position: relative;
+}
+
+.hrEmpPasswordInput input {
+  width: 100%;
+  padding-right: 44px;
+}
+
+.hrEmpPasswordInput__toggle {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--hr-muted);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.hrEmpPasswordInput__toggle:hover {
+  background: rgba(123, 74, 143, 0.1);
+  color: var(--hr-primary);
+}
+
+.hrEmpPasswordInput__toggle svg {
+  width: 18px;
+  height: 18px;
+}
+
 .hrEmpField--full {
   grid-column: 1 / -1;
 }

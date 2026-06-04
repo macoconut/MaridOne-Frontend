@@ -1,6 +1,6 @@
 import { useLoading } from '@/context/useLoading';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FiChevronDown, FiMinus, FiPlus, FiX } from 'react-icons/fi';
+import { FiChevronDown, FiEye, FiEyeOff, FiMinus, FiPlus, FiX } from 'react-icons/fi';
 import ConfirmDialog from '@/components/dialog/ConfirmDialog';
 import LargePopup from '@/components/dialog/LargePopup';
 import SensitiveAccessIndicator from '@/components/security/SensitiveAccessIndicator';
@@ -590,6 +590,7 @@ export default function HrManageEmp() {
   const [submitError, setSubmitError] = useState('');
   const [formSubmitAttempted, setFormSubmitAttempted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showAccountPassword, setShowAccountPassword] = useState(false);
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
   const [employeeOptions, setEmployeeOptions] = useState<EmployeeOption[]>([]);
@@ -1111,6 +1112,7 @@ export default function HrManageEmp() {
     setConfirmAction(null);
     setConfirmDiscardOpen(false);
     setFormSubmitAttempted(false);
+    setShowAccountPassword(false);
     setHasExistingUserAccount(false);
     setManagerSearch('');
     setInitialManagerSearch('');
@@ -1127,6 +1129,7 @@ export default function HrManageEmp() {
     setConfirmAction(null);
     setConfirmDiscardOpen(false);
     setFormSubmitAttempted(false);
+    setShowAccountPassword(false);
     setHasExistingUserAccount(false);
     setManagerSearch('');
     setInitialManagerSearch('');
@@ -1438,6 +1441,7 @@ export default function HrManageEmp() {
       setManagerSearch(nextManagerSearch);
       setInitialManagerSearch(nextManagerSearch);
       setConfirmDiscardOpen(false);
+      setShowAccountPassword(false);
       setHasExistingUserAccount(Boolean(payload.userAccountName?.trim() || (row.username !== '-' && row.username.trim())));
       setManagerPickerOpen(false);
       setModal('edit');
@@ -1465,6 +1469,7 @@ export default function HrManageEmp() {
     setConfirmAction(null);
     setConfirmDiscardOpen(false);
     setFormSubmitAttempted(false);
+    setShowAccountPassword(false);
     setHasExistingUserAccount(Boolean(row.username !== '-' && row.username.trim()));
     if (isTerminatedStatus(row.status)) {
       setSubmitError('This employee is already marked inactive.');
@@ -3167,15 +3172,26 @@ export default function HrManageEmp() {
 
                       <div className="hrEmpField">
                         <label>{requiredFieldLabel(modal === 'add' ? 'Password' : 'Password Reset', passwordFieldRequired)}</label>
-                        <input
-                          type="password"
-                          autoComplete="new-password"
-                          value={form.password}
-                          aria-required={passwordFieldRequired ? 'true' : undefined}
-                          aria-invalid={passwordMissing ? 'true' : undefined}
-                          onChange={(event) => setField('password', event.target.value)}
-                          placeholder={modal === 'add' ? 'Required' : 'Leave blank to keep current password'}
-                        />
+                        <div className="hrEmpPasswordInput">
+                          <input
+                            type={showAccountPassword ? 'text' : 'password'}
+                            autoComplete="new-password"
+                            value={form.password}
+                            aria-required={passwordFieldRequired ? 'true' : undefined}
+                            aria-invalid={passwordMissing ? 'true' : undefined}
+                            onChange={(event) => setField('password', event.target.value)}
+                            placeholder={modal === 'add' ? 'Required' : 'Leave blank to keep current password'}
+                          />
+                          <button
+                            type="button"
+                            className="hrEmpPasswordInput__toggle"
+                            aria-label={showAccountPassword ? 'Hide password' : 'Show password'}
+                            title={showAccountPassword ? 'Hide password' : 'Show password'}
+                            onClick={() => setShowAccountPassword((value) => !value)}
+                          >
+                            {showAccountPassword ? <FiEyeOff aria-hidden="true" /> : <FiEye aria-hidden="true" />}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
