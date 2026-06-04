@@ -151,7 +151,6 @@ export type FormState = {
   permanentAddress: string;
   temporaryAddress: string;
   city: string;
-  state: string;
   country: string;
   zipCode: string;
   sssNumber: string;
