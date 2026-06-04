@@ -72,6 +72,28 @@ function fromOvertimeMessage(error: ApiError) {
   return null;
 }
 
+function fromEmployeeEmailMessage(error: ApiError) {
+  const message = error.rawMessage.toLowerCase();
+
+  if (
+    message.includes('personal email is already used') ||
+    message.includes('employee_personal_email_key') ||
+    message.includes('key (personal_email)')
+  ) {
+    return 'That personal email is already used by another employee profile. Please use a different email address or leave the current one unchanged.';
+  }
+
+  if (
+    message.includes('company email is already used') ||
+    message.includes('employee_company_email_key') ||
+    message.includes('key (company_email)')
+  ) {
+    return 'That company email is already used by another employee profile. Please use a different company email address.';
+  }
+
+  return null;
+}
+
 export function getFriendlyErrorMessage(error: unknown, context: ErrorContext = 'generic') {
   if (!(error instanceof ApiError)) {
     return error instanceof Error ? error.message : 'Something went wrong. Please try again.';
@@ -84,6 +106,11 @@ export function getFriendlyErrorMessage(error: unknown, context: ErrorContext = 
 
   if (context === 'overtime-request') {
     const specific = fromOvertimeMessage(error);
+    if (specific) return specific;
+  }
+
+  if (context === 'profile-update' || context === 'employee-save') {
+    const specific = fromEmployeeEmailMessage(error);
     if (specific) return specific;
   }
 
