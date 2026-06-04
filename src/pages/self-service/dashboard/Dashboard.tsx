@@ -349,26 +349,30 @@ export default function Dashboard() {
     return selfServicePath('attendance');
   }
 
+  function attendanceRequestPath(request: 'leave' | 'overtime') {
+    return `${selfServicePath('attendance')}?request=${request}`;
+  }
+
   const dashboardActions =
     userRole === 'manager'
       ? [
           { label: 'View Payslip', path: selfServicePath('payslip') },
           { label: 'View My Attendance', path: selfServicePath('attendance') },
           { label: 'View Team Attendance', path: attendanceOverviewPath() },
-          { label: 'Request Leave', path: selfServicePath('attendance') },
+          { label: 'Request Leave', path: attendanceRequestPath('leave') },
         ]
       : userRole === 'hr' || userRole === 'management'
         ? [
             { label: 'View Payslip', path: selfServicePath('payslip') },
             { label: 'View My Attendance', path: selfServicePath('attendance') },
             { label: 'View Company Attendance', path: attendanceOverviewPath() },
-            { label: 'Request Leave', path: selfServicePath('attendance') },
+            { label: 'Request Leave', path: attendanceRequestPath('leave') },
           ]
         : [
             { label: 'View Payslip', path: selfServicePath('payslip') },
             { label: 'View Attendance', path: selfServicePath('attendance') },
-            { label: 'Request Overtime', path: selfServicePath('attendance') },
-            { label: 'Request Leave', path: selfServicePath('attendance') },
+            { label: 'Request Overtime', path: attendanceRequestPath('overtime') },
+            { label: 'Request Leave', path: attendanceRequestPath('leave') },
           ];
 
   function shiftCalendarMonth(offset: number) {

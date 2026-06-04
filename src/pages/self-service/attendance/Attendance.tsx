@@ -1,6 +1,7 @@
 import { useLoading } from '@/context/useLoading';
 import type { CSSProperties } from 'react';
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import './Attendance.css';
 import { FiCalendar, FiCheckCircle, FiChevronLeft, FiChevronRight, FiClock, FiDownload, FiInfo, FiPlusSquare, FiPrinter, FiXCircle } from 'react-icons/fi';
 import ActionButton from '@/components/button/ActionButton';
@@ -780,6 +781,7 @@ function buildAttendanceHistory(logs: unknown): AttendanceHistory {
 export default function Attendance() {
   const { showLoading, hideLoading } = useLoading();
   const { showSuccess } = useUiDialog();
+  const [searchParams, setSearchParams] = useSearchParams();
   const todayKey = useMemo(() => getManilaNow().dateKey, []);
   const initialTimecardRange = useMemo(() => resolveDefaultTimecardRange(), []);
   const nonSickLeaveMinDate = useMemo(
@@ -896,6 +898,7 @@ export default function Attendance() {
   const userRole = getUserRole();
   const canRequestOvertime = !['hr', 'management', 'manager'].includes(userRole ?? '');
   const canRequestTimecardOvertime = userRole === 'employee';
+  const requestedForm = searchParams.get('request')?.trim().toLowerCase() ?? '';
   const maxOtEndDate = otStartDate ? addDays(otStartDate, 1) : '';
   const isOtNextDay = Boolean(otStartDate && otEndDate && otEndDate === maxOtEndDate);
   const isTimecardRangeInvalid = !timecardFromDate || !timecardToDate || timecardToDate < timecardFromDate;
@@ -1826,6 +1829,22 @@ export default function Attendance() {
     setOtSubmitAttempted(false);
     setOtOpen(false);
   }
+
+  useEffect(() => {
+    if (requestedForm !== 'leave' && requestedForm !== 'overtime') {
+      return;
+    }
+
+    if (requestedForm === 'leave') {
+      openLeaveForToday();
+    } else {
+      openOtForToday();
+    }
+
+    const nextSearchParams = new URLSearchParams(searchParams);
+    nextSearchParams.delete('request');
+    setSearchParams(nextSearchParams, { replace: true });
+  }, [requestedForm]);
 
   function requestAttendanceConfirmation() {
     setClockError('');
