@@ -51,6 +51,7 @@ export type ApprovalEmployeeDirectoryRow = {
   firstName?: string
   middleName?: string
   lastName?: string
+  position?: string
   username?: string
   userName?: string
   userAccountName?: string

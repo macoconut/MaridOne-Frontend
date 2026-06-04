@@ -433,7 +433,7 @@ export function PayslipDisputeModal({
             <label className="hrPayModal__area">
               <span>Reason for Approval / Denial:</span>
               <textarea
-                placeholder="Type at least 20 characters explaining the decision"
+                placeholder="Optional note for approving or denying the dispute"
                 value={remarks}
                 aria-invalid={isDisputeRemarksInvalid ? 'true' : undefined}
                 onChange={(event) => onRemarksChange(event.target.value)}

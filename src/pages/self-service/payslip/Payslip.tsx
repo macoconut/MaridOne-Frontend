@@ -597,8 +597,8 @@ async function submitDispute() {
     setDisputeError('No payroll item selected.');
     return;
   }
-  if (disputeReason.trim().length < 20) {
-    setDisputeError('Reason must be at least 20 characters.');
+  if (disputeReason.trim().length < 5) {
+    setDisputeError('Reason must be at least 5 characters.');
     return;
   }
   if (!disputeFiles || disputeFiles.length === 0) {
@@ -654,8 +654,8 @@ async function submitDispute() {
       setDisputeError('No payroll item selected.');
       return;
     }
-    if (disputeReason.trim().length < 20) {
-      setDisputeError('Reason must be at least 20 characters.');
+    if (disputeReason.trim().length < 5) {
+      setDisputeError('Reason must be at least 5 characters.');
       return;
     }
     if (!disputeFiles || disputeFiles.length === 0) {

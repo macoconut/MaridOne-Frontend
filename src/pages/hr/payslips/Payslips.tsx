@@ -2,6 +2,7 @@ import { useLoading } from '@/context/useLoading';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ApiError, apiFetchJson, toArray } from '@/lib/api/api';
 import ConfirmDialog from '@/components/dialog/ConfirmDialog';
+import WorkflowHelpButton from '@/components/help/WorkflowHelpButton';
 import SensitiveAccessIndicator from '@/components/security/SensitiveAccessIndicator';
 import SensitiveAccessModal from '@/components/security/SensitiveAccessModal';
 import { useUiDialog } from '@/components/dialog/useUiDialog';
@@ -73,6 +74,12 @@ import type {
 import '../approvals/Approvals.css';
 import '../../manager/pending-approvals/PendingApprovals.css';
 import './Payslips.css';
+
+const PAYSLIP_WORKFLOW_HELP = [
+  'Employees file payroll disputes from posted payslips and HR reviews those pending disputes here.',
+  'Approving a dispute moves it to Waiting for Adjustment so HR can stage the payroll correction later.',
+  'Denying a dispute closes it and notifies the employee without creating an adjustment.',
+];
 
 export default function HrPayslips() {
   const { showLoading, hideLoading } = useLoading();
@@ -158,7 +165,7 @@ export default function HrPayslips() {
   const [adjustmentRunId, setAdjustmentRunId] = useState<number | null>(null);
   const [pendingDisputeDecision, setPendingDisputeDecision] = useState<'APPROVED' | 'REJECTED' | null>(null);
   const [confirmDisputeDecisionOpen, setConfirmDisputeDecisionOpen] = useState(false);
-  const [disputeDecisionSubmitAttempted, setDisputeDecisionSubmitAttempted] = useState(false);
+  const [, setDisputeDecisionSubmitAttempted] = useState(false);
   const [attachmentError, setAttachmentError] = useState('');
   const [openingAttachmentId, setOpeningAttachmentId] = useState<number | null>(null);
   const manualEmployeePickerRef = useRef<HTMLDivElement | null>(null);
@@ -713,7 +720,7 @@ async function validateAttachment(connectedEntity: string, connectedId: number) 
   const isManualAmountInvalid = manualLineSubmitAttempted && manualLineForm.amount.trim().length === 0;
   const isCorrectionAmountInvalid =
     correctionSubmitAttempted && Boolean(selectedCorrectionLine) && correctedAmount.trim().length === 0;
-  const isDisputeRemarksInvalid = disputeDecisionSubmitAttempted && remarks.trim().length < 20;
+  const isDisputeRemarksInvalid = false;
 
   function showAdjacentInProgressRun(direction: -1 | 1) {
     if (currentInProgressRunIndex < 0) return;
@@ -1238,10 +1245,6 @@ async function validateAttachment(connectedEntity: string, connectedId: number) 
     if (!selectedDispute) return;
     setDisputeDecisionSubmitAttempted(true);
     const trimmedRemarks = remarks.trim();
-    if (trimmedRemarks.length < 20) {
-      setActionError('Please enter at least 20 characters explaining the approval or denial.');
-      return;
-    }
 
     setIsSaving(true);
     setActionError('');
@@ -1320,10 +1323,6 @@ async function validateAttachment(connectedEntity: string, connectedId: number) 
     setDisputeDecisionSubmitAttempted(true);
     if (!pendingDisputeDecision) {
       setActionError('Choose approve or deny before confirming the dispute decision.');
-      return;
-    }
-    if (remarks.trim().length < 20) {
-      setActionError('Please enter at least 20 characters explaining the approval or denial.');
       return;
     }
     setActionError('');
@@ -1470,14 +1469,21 @@ async function handleOpenAttachment(connectedEntity: string, connectedId: number
           title="Manage Payslips"
           description="Manage payroll runs, review disputes, and publish finalized payslips."
           titleMeta={
-            <SensitiveAccessIndicator
-              onActivate={() =>
-                sensitiveAccess.requestVerification(
-                  async () => Promise.resolve(),
-                  'Enter your password to unlock payslip management.'
-                )
-              }
-            />
+            <>
+              <SensitiveAccessIndicator
+                onActivate={() =>
+                  sensitiveAccess.requestVerification(
+                    async () => Promise.resolve(),
+                    'Enter your password to unlock payslip management.'
+                  )
+                }
+              />
+              <WorkflowHelpButton
+                title="Dispute Workflow"
+                items={PAYSLIP_WORKFLOW_HELP}
+                ariaLabel="Show payroll dispute workflow"
+              />
+            </>
           }
         />
       </div>

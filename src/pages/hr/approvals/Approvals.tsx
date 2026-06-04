@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { FiSearch, FiFilter, FiXCircle } from 'react-icons/fi';
 import ApprovalStatusSummary from '@/components/approvals/ApprovalStatusSummary';
 import ConfirmDialog from '@/components/dialog/ConfirmDialog';
+import WorkflowHelpButton from '@/components/help/WorkflowHelpButton';
 import LargePopup from '@/components/dialog/LargePopup';
 import PageHeader from '@/components/layout/PageHeader';
 import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
@@ -154,6 +155,12 @@ function buildAttachmentKey(entity: string, id: number) {
   return `${entity}-${id}`;
 }
 
+const HR_APPROVAL_WORKFLOW_HELP = [
+  'Managers review direct team requests first; Management reviews requests from employees without assigned managers.',
+  'Endorsed leave and overtime requests arrive here for final HR paid or unpaid treatment.',
+  'Leave requests filed by HR personnel are finalized by Management instead, so HR never processes their own leave.',
+];
+
 
 
 
@@ -170,7 +177,7 @@ export default function HrApprovals() {
   const [pendingPaidDecision, setPendingPaidDecision] = useState<boolean | null>(null);
   const [paidOverrideReason, setPaidOverrideReason] = useState('');
   const [leaveBalanceLabel, setLeaveBalanceLabel] = useState('Not available');
-  const [decisionSubmitAttempted, setDecisionSubmitAttempted] = useState(false);
+  const [, setDecisionSubmitAttempted] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [confirmDecisionOpen, setConfirmDecisionOpen] = useState(false);
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
@@ -292,6 +299,7 @@ export default function HrApprovals() {
       }
 
       const employeeNameById = new Map<number, string>();
+      const employeePositionById = new Map<number, string>();
       if (employeesRes.status === 'fulfilled') {
         for (const row of toArray<EmployeeDirectoryRow>(employeesRes.value)) {
           const employeeId =
@@ -299,6 +307,7 @@ export default function HrApprovals() {
           if (employeeId === null) continue;
           const label = formatEmployeeLabel({ firstName: row.firstName, middleName: row.middleName, lastName: row.lastName, employeeId});
           if (label) employeeNameById.set(employeeId, label);
+          employeePositionById.set(employeeId, String(row.position ?? '').trim().toUpperCase());
         }
       }
 
@@ -336,41 +345,47 @@ export default function HrApprovals() {
         };
       });
 
-      const leaveRows = toArray<LeaveDto>(leaveRes.value).map((item, idx) => {
-        const leaveTypeLabel = formatRequestTypeLabel(item.leaveType);
-        const payLabel = item.paid === false ? 'Unpaid' : 'Paid';
-        return {
-          id: `leave-${item.requestId ?? idx}`,
-          leaveRequestId: item.requestId,
-          employeeId: item.empId,
-          employee: resolvedEmployeeLabel(employeeNameById, item.empId, formatEmployeeLabel({ firstName: item.firstName, middleName: item.middleName, lastName: item.lastName, employeeId: item.employeeId })),
-          message: buildRequestSummaryMessage('leave', leaveTypeLabel, item.paid),
-          submittedAt: formatDateTime(item.requestAt ?? item.startDateTime, '-'),
-          type: 'Leave' as const,
-          source: 'leave' as const,
-          status: item.requestStatus || 'PENDING_MANAGER',
-          reason: item.reason || '',
-          referenceLabel: 'Leave Period',
-          referenceValue: formatRequestPeriodLabel('leave', item.startDateTime, item.endDateTime),
-          requestLabel: 'Leave Request',
-          requestKind: `${leaveTypeLabel} - ${payLabel}`,
-          requestDate: formatRequestPeriodLabel('leave', item.startDateTime, item.endDateTime),
-          requestTime: formatRequestTimeRangeLabel(item.startDateTime, item.endDateTime),
-          durationLabel: formatLeaveDurationLabel(item.startDateTime, item.endDateTime),
-          decisionSummary: item.approverReason || '',
-          paid: item.paid,
-          suggestedPaid: item.suggestedPaid,
-          paidOverrideReason: item.paidOverrideReason,
-          managerApprover: item.managerApprover,
-          managerDecisionSummary: item.managerApproverReason || '',
-          managerReviewedAt: formatDateTime(item.managerApprovedAt, '-'),
-          leaveType: item.leaveType,
-          attachmentConnectedEntity: DocumentEntities.LEAVE_REQUEST,
-          attachmentConnectedId: item.requestId,
-          sortStamp:
-            item.requestAt ? Date.parse(item.requestAt) || 0 : item.startDateTime ? Date.parse(item.startDateTime) || 0 : 0,
-        };
-      });
+      const leaveRows = toArray<LeaveDto>(leaveRes.value)
+        .filter((item) => {
+          const isHrEmployee = employeePositionById.get(Number(item.empId)) === 'HR';
+          const status = String(item.requestStatus ?? '').toUpperCase();
+          return !(isHrEmployee && status === 'PENDING_HR');
+        })
+        .map((item, idx) => {
+          const leaveTypeLabel = formatRequestTypeLabel(item.leaveType);
+          const payLabel = item.paid === false ? 'Unpaid' : 'Paid';
+          return {
+            id: `leave-${item.requestId ?? idx}`,
+            leaveRequestId: item.requestId,
+            employeeId: item.empId,
+            employee: resolvedEmployeeLabel(employeeNameById, item.empId, formatEmployeeLabel({ firstName: item.firstName, middleName: item.middleName, lastName: item.lastName, employeeId: item.employeeId })),
+            message: buildRequestSummaryMessage('leave', leaveTypeLabel, item.paid),
+            submittedAt: formatDateTime(item.requestAt ?? item.startDateTime, '-'),
+            type: 'Leave' as const,
+            source: 'leave' as const,
+            status: item.requestStatus || 'PENDING_MANAGER',
+            reason: item.reason || '',
+            referenceLabel: 'Leave Period',
+            referenceValue: formatRequestPeriodLabel('leave', item.startDateTime, item.endDateTime),
+            requestLabel: 'Leave Request',
+            requestKind: `${leaveTypeLabel} - ${payLabel}`,
+            requestDate: formatRequestPeriodLabel('leave', item.startDateTime, item.endDateTime),
+            requestTime: formatRequestTimeRangeLabel(item.startDateTime, item.endDateTime),
+            durationLabel: formatLeaveDurationLabel(item.startDateTime, item.endDateTime),
+            decisionSummary: item.approverReason || '',
+            paid: item.paid,
+            suggestedPaid: item.suggestedPaid,
+            paidOverrideReason: item.paidOverrideReason,
+            managerApprover: item.managerApprover,
+            managerDecisionSummary: item.managerApproverReason || '',
+            managerReviewedAt: formatDateTime(item.managerApprovedAt, '-'),
+            leaveType: item.leaveType,
+            attachmentConnectedEntity: DocumentEntities.LEAVE_REQUEST,
+            attachmentConnectedId: item.requestId,
+            sortStamp:
+              item.requestAt ? Date.parse(item.requestAt) || 0 : item.startDateTime ? Date.parse(item.startDateTime) || 0 : 0,
+          };
+        });
 
       const merged = [...leaveRows, ...overtimeRows]
         .filter((request) => String(request.status ?? '').toUpperCase() !== 'PENDING_MANAGER')
@@ -547,18 +562,10 @@ export default function HrApprovals() {
       return;
     }
     const trimmedReason = decisionReason.trim();
-    if (trimmedReason.length < 20) {
-      setSubmitError('Please enter at least 20 characters explaining the decision.');
-      return;
-    }
 
     if (selected.source === 'leave' || selected.source === 'overtime') {
       if (pendingPaidDecision == null) {
         setSubmitError('Choose whether this approved request should be treated as paid or unpaid.');
-        return;
-      }
-      if (pendingPaidDecision !== selectedSuggestedPaid && paidOverrideReason.trim().length < 20) {
-        setSubmitError('Please explain why HR is overriding the paid or unpaid treatment.');
         return;
       }
     }
@@ -617,18 +624,9 @@ export default function HrApprovals() {
       setSubmitError('This request can only be finalized as approved.');
       return;
     }
-    const trimmedReason = decisionReason.trim();
-    if (trimmedReason.length < 20) {
-      setSubmitError('Please enter at least 20 characters explaining the decision.');
-      return;
-    }
     if (selected.source === 'leave' || selected.source === 'overtime') {
       if (pendingPaidDecision == null) {
         setSubmitError('Choose whether this approved request should be treated as paid or unpaid.');
-        return;
-      }
-      if (pendingPaidDecision !== selectedSuggestedPaid && paidOverrideReason.trim().length < 20) {
-        setSubmitError('Please explain why HR is overriding the paid or unpaid treatment.');
         return;
       }
     }
@@ -671,6 +669,13 @@ async function handleOpenAttachment(connectedEntity: string, connectedId: number
         <PageHeader
           title='Manage Leave Requests'
           description='Review manager recommendations, confirm paid or unpaid treatment, and record the final HR decision for employee leave requests.'
+          titleMeta={
+            <WorkflowHelpButton
+              title="Approval Routing"
+              items={HR_APPROVAL_WORKFLOW_HELP}
+              ariaLabel="Show approval routing logic"
+            />
+          }
         />
 
         <div className="hrAppr__toolbar">
@@ -1015,8 +1020,7 @@ async function handleOpenAttachment(connectedEntity: string, connectedId: number
                         <textarea
                           value={paidOverrideReason}
                           onChange={(e) => setPaidOverrideReason(e.target.value)}
-                          placeholder="Explain why HR is overriding the paid or unpaid treatment"
-                          aria-invalid={decisionSubmitAttempted && paidOverrideReason.trim().length < 5 ? 'true' : undefined}
+                          placeholder="Optional note for changing the paid or unpaid treatment"
                         />
                       </label>
                     )}
@@ -1030,8 +1034,7 @@ async function handleOpenAttachment(connectedEntity: string, connectedId: number
                     <textarea
                       value={decisionReason}
                       onChange={(e) => setDecisionReason(e.target.value)}
-                      placeholder="Type the note for finalizing this request"
-                      aria-invalid={decisionSubmitAttempted && decisionReason.trim().length < 5 ? 'true' : undefined}
+                      placeholder="Optional note for finalizing this request"
                     />
                   </label>
 

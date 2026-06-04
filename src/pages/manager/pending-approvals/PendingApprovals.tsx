@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { FiFilter, FiSearch, FiXCircle } from 'react-icons/fi';
 import ApprovalStatusSummary from '@/components/approvals/ApprovalStatusSummary';
 import ConfirmDialog from '@/components/dialog/ConfirmDialog';
+import WorkflowHelpButton from '@/components/help/WorkflowHelpButton';
 import LargePopup from '@/components/dialog/LargePopup';
 import PageHeader from '@/components/layout/PageHeader';
 import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
@@ -28,6 +29,7 @@ import '../../hr/approvals/Approvals.css';
 type EmployeeRow = {
   id: number;
   name: string;
+  position?: string;
 };
 
 type RequestType = 'Leave' | 'Overtime';
@@ -63,6 +65,7 @@ type ManagerRequest = {
   overtimeId?: number;
   attachmentConnectedEntity?: string;
   attachmentConnectedId?: number;
+  isHrOwnedLeave?: boolean;
 };
 
 function employeeLabel(employeeById: Map<number, EmployeeRow>, employeeId?: number) {
@@ -115,6 +118,7 @@ function rosterMap(payload: unknown) {
       [row.firstName, row.middleName, row.lastName]
         .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
         .join(' ') || 'Employee unavailable',
+    position: String(row.position ?? '').trim().toUpperCase(),
   }));
 
   return new Map(
@@ -124,6 +128,13 @@ function rosterMap(payload: unknown) {
   );
 }
 
+const MANAGER_APPROVAL_WORKFLOW_HELP = [
+  'Managers review only requests from their assigned team members.',
+  'Approving here endorses the request and forwards it to HR for final paid or unpaid review.',
+  'If the requester is HR, endorsed leave routes to Management instead so HR does not process their own leave.',
+  'Denying here closes the request and notifies the employee without sending it to HR.',
+];
+
 export default function ManagerPendingApprovals() {
   const { showLoading, hideLoading } = useLoading(); 
   const [attachmentExistsMap, setAttachmentExistsMap] = useState<Record<string, boolean | 'checking'>>({});
@@ -132,7 +143,7 @@ export default function ManagerPendingApprovals() {
   const [isSaving, setIsSaving] = useState(false);
   const [pendingDecision, setPendingDecision] = useState<'APPROVED' | 'REJECTED' | null>(null);
   const [decisionReason, setDecisionReason] = useState('');
-  const [decisionSubmitAttempted, setDecisionSubmitAttempted] = useState(false);
+  const [, setDecisionSubmitAttempted] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [confirmDecisionOpen, setConfirmDecisionOpen] = useState(false);
   const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
@@ -162,6 +173,7 @@ export default function ManagerPendingApprovals() {
     : false;
   const selectedStatusTone = selected ? approvalStatusTone(selected.status) : 'pending';
   const selectedRequestKind = splitRequestKind(selected?.requestKind);
+  const selectedForwardDestination = selected?.isHrOwnedLeave ? 'Management' : 'HR';
 
   const isDirty = useMemo(() => {
     if (!selected || !canReviewSelected) return false;
@@ -238,6 +250,7 @@ export default function ManagerPendingApprovals() {
       const leaveRows = toArray<LeaveDto>(leaveRes).map((item, idx) => {
         const leaveTypeLabel = formatRequestTypeLabel(item.leaveType);
         const payLabel = item.paid === false ? 'Unpaid' : 'Paid';
+        const requester = employeeById.get(Number(item.empId));
         return {
           id: `leave-${item.requestId ?? idx}`,
           requestId: item.requestId,
@@ -264,8 +277,9 @@ export default function ManagerPendingApprovals() {
           leaveType: item.leaveType,
           startDateTime: item.startDateTime,
           endDateTime: item.endDateTime,
-          connectedEntity: Directories.LEAVE_REQUEST,
-          connectedId: item.requestId,
+          attachmentConnectedEntity: Directories.LEAVE_REQUEST,
+          attachmentConnectedId: item.requestId,
+          isHrOwnedLeave: requester?.position === 'HR',
         };
       });
 
@@ -294,8 +308,8 @@ export default function ManagerPendingApprovals() {
           managerReviewer: item.managerApprover || '',
           managerReviewedAt: formatDateTime(item.managerApprovedAt, '-'),
           sortStamp: item.requestAt ? Date.parse(item.requestAt) || 0 : 0,
-          connectedEntity: Directories.OVERTIME,
-          connectedId: item.overtimeId,
+          attachmentConnectedEntity: Directories.OVERTIME,
+          attachmentConnectedId: item.overtimeId,
         };
       });
 
@@ -393,10 +407,6 @@ export default function ManagerPendingApprovals() {
       return;
     }
     const trimmedReason = decisionReason.trim();
-    if (trimmedReason.length < 20) {
-      setSubmitError('Please enter at least 20 characters explaining the decision.');
-      return;
-    }
 
     setSubmitError('');
     showLoading();
@@ -441,12 +451,6 @@ export default function ManagerPendingApprovals() {
       return;
     }
 
-    const trimmedReason = decisionReason.trim();
-    if (trimmedReason.length < 20) {
-      setSubmitError('Please enter at least 20 characters explaining the decision.');
-      return;
-    }
-
     setSubmitError('');
     setConfirmDecisionOpen(true);
   }
@@ -485,6 +489,13 @@ export default function ManagerPendingApprovals() {
       <div className="hrAppr__head">
         <PageHeader
           title={selected ? 'Review Team Request' : 'Requests from Team Members'}
+          titleMeta={
+            <WorkflowHelpButton
+              title="Approval Routing"
+              items={MANAGER_APPROVAL_WORKFLOW_HELP}
+              ariaLabel="Show approval routing logic"
+            />
+          }
         />
 
         <div className="hrAppr__toolbar">
@@ -599,7 +610,7 @@ export default function ManagerPendingApprovals() {
         title={selected ? `${selected.employee} - ${selected.type}` : 'Leave request review'}
         subtitle={
           canReviewSelected
-            ? 'Review the team request details, then either forward the request to HR or deny it here.'
+            ? `Review the team request details, then either forward the request to ${selectedForwardDestination} or deny it here.`
             : 'Review the submitted details, supporting documents, and recorded decision history for this team request.'
         }
         size="lg"
@@ -615,7 +626,7 @@ export default function ManagerPendingApprovals() {
                 {isSaving
                   ? 'Saving...'
                   : pendingDecision === 'APPROVED'
-                    ? 'Confirm Forward to HR'
+                    ? `Confirm Forward to ${selectedForwardDestination}`
                     : pendingDecision === 'REJECTED'
                       ? 'Confirm Denial'
                       : 'Confirm Decision'}
@@ -763,7 +774,7 @@ export default function ManagerPendingApprovals() {
                         disabled={isSaving}
                         onClick={() => setPendingDecision('APPROVED')}
                       >
-                        Forward to HR
+                        Forward to {selectedForwardDestination}
                       </button>
                       <button
                         type="button"
@@ -780,8 +791,7 @@ export default function ManagerPendingApprovals() {
                     <textarea
                       value={decisionReason}
                       onChange={(e) => setDecisionReason(e.target.value)}
-                      placeholder="Type the reason for approving or denying this request"
-                      aria-invalid={decisionSubmitAttempted && decisionReason.trim().length < 5 ? 'true' : undefined}
+                      placeholder="Optional note for approving or denying this request"
                     />
                   </label>
 
@@ -803,15 +813,15 @@ export default function ManagerPendingApprovals() {
       />
       <ConfirmDialog
         open={confirmDecisionOpen}
-        title={pendingDecision === 'REJECTED' ? 'Confirm Denial' : 'Confirm Forward to HR'}
+        title={pendingDecision === 'REJECTED' ? 'Confirm Denial' : `Confirm Forward to ${selectedForwardDestination}`}
         message={
           selected
             ? pendingDecision === 'REJECTED'
               ? `Deny ${selected.employee}'s ${selected.type.toLowerCase()} request now?`
-              : `Forward ${selected.employee}'s ${selected.type.toLowerCase()} request to HR for the final decision?`
+              : `Forward ${selected.employee}'s ${selected.type.toLowerCase()} request to ${selectedForwardDestination} for the final decision?`
             : 'Confirm this team request decision?'
         }
-        confirmLabel={pendingDecision === 'REJECTED' ? 'Confirm Denial' : 'Forward to HR'}
+        confirmLabel={pendingDecision === 'REJECTED' ? 'Confirm Denial' : `Forward to ${selectedForwardDestination}`}
         cancelLabel="Go Back"
         isBusy={isSaving}
         onConfirm={() => {
