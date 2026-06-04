@@ -2,6 +2,7 @@ import { FiCalendar, FiPlusSquare } from 'react-icons/fi';
 import PageHeader from '@/components/layout/PageHeader';
 
 type AttendanceHeaderProps = {
+  clockDisabledReason?: string;
   isClockOutAction: boolean;
   isClocking: boolean;
   onOpenSchedule: () => void;
@@ -11,6 +12,7 @@ type AttendanceHeaderProps = {
 };
 
 export default function AttendanceHeader({
+  clockDisabledReason = '',
   isClockOutAction,
   isClocking,
   onOpenSchedule,
@@ -18,6 +20,9 @@ export default function AttendanceHeader({
   onTimecardModeChange,
   timecardMode,
 }: AttendanceHeaderProps) {
+  const isClockDisabled = isClocking || Boolean(clockDisabledReason);
+  const clockTitle = clockDisabledReason || (isClocking ? 'Submitting attendance' : isClockOutAction ? 'Time Out' : 'Time In');
+
   return (
     <div className="att__head">
       <PageHeader
@@ -41,8 +46,8 @@ export default function AttendanceHeader({
           className="attClockBtn"
           type="button"
           onClick={onRequestAttendanceConfirmation}
-          disabled={isClocking}
-          title={isClocking ? 'Submitting attendance' : isClockOutAction ? 'Time Out' : 'Time In'}
+          disabled={isClockDisabled}
+          title={clockTitle}
         >
           <span>{isClocking ? 'Submitting...' : isClockOutAction ? 'Time Out' : 'Time In'}</span>
           <span className="attClockBtn__icon">

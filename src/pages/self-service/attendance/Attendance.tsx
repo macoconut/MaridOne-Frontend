@@ -712,6 +712,17 @@ function formatAttendanceSession(session: AttendanceSession) {
   return 'Attendance logged';
 }
 
+function isEmployeeVerified(employee?: EmployeeDetails | null) {
+  const rawValue = employee?.isVerified;
+  if (typeof rawValue === 'boolean') return rawValue;
+  if (typeof rawValue === 'string') {
+    const normalized = rawValue.trim().toLowerCase();
+    if (normalized === 'true' || normalized === 'verified') return true;
+    if (normalized === 'false' || normalized === 'unverified') return false;
+  }
+  return false;
+}
+
 function formatHiddenAttendanceCount(count: number) {
   return `+${count} more log${count === 1 ? '' : 's'}`;
 }
@@ -1695,6 +1706,11 @@ export default function Attendance() {
         entry.status.toUpperCase() === 'APPROVED'
     );
   }, [requestEntries, todayKey]);
+  const isAttendanceTrackingVerified = isEmployeeVerified(employeeInfo);
+  const clockDisabledReason =
+    employeeInfo && !isAttendanceTrackingVerified
+      ? 'Verify your account before starting attendance tracking.'
+      : '';
 
   const todayAttendanceSessions = attendanceByDate[attendanceDayKey] ?? [];
   const latestTodayAttendanceSession = todayAttendanceSessions[todayAttendanceSessions.length - 1];
@@ -1902,6 +1918,10 @@ export default function Attendance() {
     setClockError('');
     if (!employeeId) {
       setClockError('Employee record could not be resolved.');
+      return false;
+    }
+    if (!isAttendanceTrackingVerified) {
+      setClockError('Verify your account before starting attendance tracking.');
       return false;
     }
     if (hasApprovedTodayLeave) {
@@ -2369,6 +2389,7 @@ export default function Attendance() {
   return (
     <div className="att">
       <AttendanceHeader
+        clockDisabledReason={clockDisabledReason}
         isClockOutAction={isClockOutAction}
         isClocking={isClocking}
         onOpenSchedule={openSchedule}

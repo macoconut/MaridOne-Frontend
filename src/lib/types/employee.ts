@@ -31,6 +31,7 @@ export type EmployeeDetails = {
   yearlySalary?: number | string
   companyEmail?: string
   personalEmail?: string
+  isVerified?: boolean | string
   contactNumber?: string
   phoneNumber?: string
   designation?: string

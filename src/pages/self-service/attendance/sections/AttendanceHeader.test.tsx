@@ -29,4 +29,27 @@ describe('AttendanceHeader', () => {
     expect(onRequestAttendanceConfirmation).toHaveBeenCalledTimes(1);
     expect(onTimecardModeChange).toHaveBeenCalledWith('timecard');
   });
+
+  it('disables attendance tracking when verification is required', () => {
+    const onRequestAttendanceConfirmation = vi.fn();
+
+    render(
+      <AttendanceHeader
+        clockDisabledReason="Verify your account before starting attendance tracking."
+        isClockOutAction={false}
+        isClocking={false}
+        onOpenSchedule={vi.fn()}
+        onRequestAttendanceConfirmation={onRequestAttendanceConfirmation}
+        onTimecardModeChange={vi.fn()}
+        timecardMode="calendar"
+      />
+    );
+
+    const button = screen.getByRole('button', { name: 'Time In' });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('title', 'Verify your account before starting attendance tracking.');
+
+    fireEvent.click(button);
+    expect(onRequestAttendanceConfirmation).not.toHaveBeenCalled();
+  });
 });
