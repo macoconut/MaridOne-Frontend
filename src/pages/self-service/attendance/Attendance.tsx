@@ -67,7 +67,7 @@ type TimecardMode = 'calendar' | 'timecard';
 
 type TimecardSession = {
   inAt: Date;
-  outAt: Date;
+  outAt?: Date;
 };
 
 type TimecardRange = {
@@ -93,9 +93,9 @@ type AttendanceSession = {
 
 type AttendanceHistory = {
   sessionsByDate: Record<string, AttendanceSession[]>;
-  latestDirection: 'IN' | 'OUT' | null;
 };
 
+const ATTENDANCE_DAY_RESET_HOUR = 6;
 const MAX_VISIBLE_CALENDAR_LOGS = 3;
 
 type LeaveShiftWindow = {
@@ -161,10 +161,6 @@ const WEEKDAY_DATE_LABEL_FORMATTER = new Intl.DateTimeFormat(undefined, {
 });
 const DISPLAY_TIME_FORMATTER = new Intl.DateTimeFormat(undefined, {
   hour: 'numeric',
-  minute: '2-digit',
-});
-const SESSION_TIME_FORMATTER = new Intl.DateTimeFormat(undefined, {
-  hour: '2-digit',
   minute: '2-digit',
 });
 const MANILA_DATE_PARTS_FORMATTER = new Intl.DateTimeFormat('en-US', {
@@ -476,6 +472,19 @@ function formatManilaTime(date: Date) {
   return MANILA_TIME_FORMATTER.format(date);
 }
 
+function resolveAttendanceDayKey(value: Date | string) {
+  const manilaParts = toManilaDateParts(value);
+  if (!manilaParts) return null;
+
+  return manilaParts.hour < ATTENDANCE_DAY_RESET_HOUR
+    ? subtractDays(manilaParts.dateKey, 1)
+    : manilaParts.dateKey;
+}
+
+function resolveCurrentAttendanceDayKey() {
+  return resolveAttendanceDayKey(new Date()) ?? getManilaNow().dateKey;
+}
+
 function resolveDefaultTimecardRange(now = getManilaNow()): TimecardRange {
   const currentMonthIndex = now.month - 1;
   const currentDateKey = toISODate(now.year, currentMonthIndex, now.day);
@@ -505,6 +514,7 @@ function resolveDefaultTimecardRange(now = getManilaNow()): TimecardRange {
 }
 
 function calculateSessionHours(session: TimecardSession) {
+  if (!session.outAt) return 0;
   return (session.outAt.getTime() - session.inAt.getTime()) / (1000 * 60 * 60);
 }
 
@@ -525,6 +535,7 @@ function calculateWorkedHoursWithinWindow(
 
   return Number(
     sessions.reduce((sum, session) => {
+      if (!session.outAt) return sum;
       const overlapStart = Math.max(session.inAt.getTime(), windowStart.getTime());
       const overlapEnd = Math.min(session.outAt.getTime(), windowEnd.getTime());
       if (overlapEnd <= overlapStart) return sum;
@@ -565,7 +576,21 @@ function isEligibleTimecardClockOut(workDate: string, log: ParsedTimecardLog) {
   const nextDate = addDays(workDate, 1);
   if (log.manilaDateKey !== nextDate) return false;
 
-  return log.manilaHour < 6 || (log.manilaHour === 6 && log.manilaMinute === 0);
+  return log.manilaHour < ATTENDANCE_DAY_RESET_HOUR;
+}
+
+function appendTimecardSession(
+  sessionsByDate: Map<string, TimecardSession[]>,
+  workDate: string,
+  session: TimecardSession
+) {
+  const sessions = sessionsByDate.get(workDate);
+  if (sessions) {
+    sessions.push(session);
+    return;
+  }
+
+  sessionsByDate.set(workDate, [session]);
 }
 
 function buildTimecardSessionsByWorkDate(logs: AttendanceLog[]) {
@@ -599,14 +624,12 @@ function buildTimecardSessionsByWorkDate(logs: AttendanceLog[]) {
       continue;
     }
 
-    const sessions = sessionsByDate.get(currentIn.workDate);
-    const nextSession = { inAt: currentIn.date, outAt: log.date };
-    if (sessions) {
-      sessions.push(nextSession);
-    } else {
-      sessionsByDate.set(currentIn.workDate, [nextSession]);
-    }
+    appendTimecardSession(sessionsByDate, currentIn.workDate, { inAt: currentIn.date, outAt: log.date });
     currentIn = null;
+  }
+
+  if (currentIn) {
+    appendTimecardSession(sessionsByDate, currentIn.workDate, { inAt: currentIn.date });
   }
 
   return sessionsByDate;
@@ -732,23 +755,29 @@ function buildAttendanceHistory(logs: unknown): AttendanceHistory {
       if (typeof row.timestamp !== 'string') return null;
       const date = new Date(row.timestamp);
       if (Number.isNaN(date.getTime())) return null;
+      const manilaParts = toManilaDateParts(date);
+      if (!manilaParts) return null;
+      const attendanceDayKey =
+        manilaParts.hour < ATTENDANCE_DAY_RESET_HOUR
+          ? subtractDays(manilaParts.dateKey, 1)
+          : manilaParts.dateKey;
 
       return {
         date,
+        dateKey: attendanceDayKey,
         direction: String(row.direction ?? '').toUpperCase(),
       };
     })
     .filter(
-      (entry): entry is { date: Date; direction: string } =>
+      (entry): entry is { date: Date; dateKey: string; direction: string } =>
         entry !== null
     )
     .sort((a, b) => a.date.getTime() - b.date.getTime());
 
   const next: Record<string, AttendanceSession[]> = {};
-  const latestDirection = parsedLogs[parsedLogs.length - 1]?.direction;
   for (const entry of parsedLogs) {
-    const dateKey = `${entry.date.getFullYear()}-${pad2(entry.date.getMonth() + 1)}-${pad2(entry.date.getDate())}`;
-    const timeLabel = SESSION_TIME_FORMATTER.format(entry.date);
+    const dateKey = entry.dateKey;
+    const timeLabel = formatManilaTime(entry.date);
     const current = next[dateKey] ?? [];
     const lastSession = current[current.length - 1];
 
@@ -774,7 +803,6 @@ function buildAttendanceHistory(logs: unknown): AttendanceHistory {
 
   return {
     sessionsByDate: next,
-    latestDirection: latestDirection === 'IN' || latestDirection === 'OUT' ? latestDirection : null,
   };
 }
 
@@ -782,8 +810,21 @@ export default function Attendance() {
   const { showLoading, hideLoading } = useLoading();
   const { showSuccess } = useUiDialog();
   const [searchParams, setSearchParams] = useSearchParams();
-  const todayKey = useMemo(() => getManilaNow().dateKey, []);
+  const [todayKey, setTodayKey] = useState(() => getManilaNow().dateKey);
+  const [attendanceDayKey, setAttendanceDayKey] = useState(resolveCurrentAttendanceDayKey);
   const initialTimecardRange = useMemo(() => resolveDefaultTimecardRange(), []);
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      const nextTodayKey = getManilaNow().dateKey;
+      const nextAttendanceDayKey = resolveCurrentAttendanceDayKey();
+      setTodayKey((currentTodayKey) => (currentTodayKey === nextTodayKey ? currentTodayKey : nextTodayKey));
+      setAttendanceDayKey((currentAttendanceDayKey) =>
+        currentAttendanceDayKey === nextAttendanceDayKey ? currentAttendanceDayKey : nextAttendanceDayKey
+      );
+    }, 60_000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
   const nonSickLeaveMinDate = useMemo(
     () => addDays(todayKey, NON_SICK_LEAVE_NOTICE_DAYS),
     [todayKey]
@@ -881,7 +922,6 @@ export default function Attendance() {
   const [otSubmitAttempted, setOtSubmitAttempted] = useState(false);
   const [isClocking, setIsClocking] = useState(false);
   const [clockError, setClockError] = useState('');
-  const [latestAttendanceDirection, setLatestAttendanceDirection] = useState<'IN' | 'OUT' | null>(null);
   const currentScheduleWeekStart = useMemo(() => startOfWeekSunday(todayKey), [todayKey]);
   const [selectedScheduleWeekStart, setSelectedScheduleWeekStart] = useState(currentScheduleWeekStart);
   const scheduleWeekCacheRef = useRef<Map<string, DailyShiftRow[]>>(new Map());
@@ -965,7 +1005,6 @@ export default function Attendance() {
     setHolidayDateKeys([]);
     setRegularHolidayDateKeys([]);
     setHolidayNamesByDate({});
-    setLatestAttendanceDirection(null);
     setLeaveBalanceStatus('unavailable');
     setScheduleWeekStatus('unavailable');
     setOvertimeRequests([]);
@@ -1159,7 +1198,6 @@ export default function Attendance() {
         setRequestEntries([]);
         setAttendanceLogs([]);
         setAttendanceByDate({});
-        setLatestAttendanceDirection(null);
         setOvertimeRequests([]);
         return;
       }
@@ -1179,14 +1217,12 @@ export default function Attendance() {
         ]);
         setAttendanceLogs(attendanceHistory?.logs ?? []);
         setAttendanceByDate(attendanceHistory?.history.sessionsByDate ?? {});
-        setLatestAttendanceDirection(attendanceHistory?.history.latestDirection ?? null);
         setOvertimeRequests(overtimeRows);
       } catch {
         if (cancelled) return;
         setRequestEntries([]);
         setAttendanceLogs([]);
         setAttendanceByDate({});
-        setLatestAttendanceDirection(null);
         setOvertimeRequests([]);
       }
     })();
@@ -1590,8 +1626,9 @@ export default function Attendance() {
         ).toFixed(2)
       );
       const totalHours = Number((regularHours + overtimeHours).toFixed(2));
+      const lastClosedSession = [...sessions].reverse().find((session) => Boolean(session.outAt));
       const timeIn = sessions[0] ? formatManilaTime(sessions[0].inAt) : '-';
-      const timeOut = sessions.length > 0 ? formatManilaTime(sessions[sessions.length - 1].outAt) : '-';
+      const timeOut = lastClosedSession?.outAt ? formatManilaTime(lastClosedSession.outAt) : '-';
 
       return {
         dateKey,
@@ -1646,7 +1683,9 @@ export default function Attendance() {
     );
   }, [requestEntries, todayKey]);
 
-  const isClockOutAction = latestAttendanceDirection === 'IN';
+  const todayAttendanceSessions = attendanceByDate[attendanceDayKey] ?? [];
+  const latestTodayAttendanceSession = todayAttendanceSessions[todayAttendanceSessions.length - 1];
+  const isClockOutAction = Boolean(latestTodayAttendanceSession?.in && !latestTodayAttendanceSession.out);
   const firstDay = new Date(year, monthIndex, 1);
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
   const sundayBasedStart = firstDay.getDay();
@@ -1884,11 +1923,11 @@ export default function Attendance() {
       if (updatedHistory) {
         setAttendanceLogs(updatedHistory.logs);
         setAttendanceByDate(updatedHistory.history.sessionsByDate);
-        setLatestAttendanceDirection(updatedHistory.history.latestDirection);
       } else {
         const manila = getManilaNow();
-        const dateKey = manila.dateKey;
+        const dateKey = resolveCurrentAttendanceDayKey();
         const timeLabel = `${String(manila.hour).padStart(2, '0')}:${String(manila.minute).padStart(2, '0')}`;
+        setAttendanceDayKey(dateKey);
         setAttendanceByDate((prev) => {
           const current = prev[dateKey] ?? [];
           const lastSession = current[current.length - 1];
@@ -1904,7 +1943,6 @@ export default function Attendance() {
               : [...current, { in: timeLabel }];
           return { ...prev, [dateKey]: nextSessions };
         });
-        setLatestAttendanceDirection((prev) => (prev === 'IN' ? 'OUT' : 'IN'));
       }
 
       setConfirmClockAction(null);
