@@ -2608,7 +2608,7 @@ export default function Attendance() {
                   <div className="attTimecardSheet__companyCopy">
                     <div className="attTimecardSheet__companyName">Marid Industries Corporation</div>
                     <div className="attTimecardSheet__companyMeta">Address</div>
-                    <div className="attTimecardSheet__companyMeta">marid@marid.com</div>
+                    <div className="attTimecardSheet__companyMeta">operations@marid.global</div>
                   </div>
                 </div>
                 <div className="attTimecardSheet__title">EMPLOYEE TIMECARD</div>

@@ -148,7 +148,7 @@ export default function Landing() {
               </div>
               <h3>Our Mission</h3>
               <p>
-                To ignite a culinary revolution with our self-heating packaging solutions.
+                To ignite a culinary revolution with our self-heating packaging solutions. For operations support, contact operations@marid.global.
               </p>
             </article>
 
@@ -159,7 +159,7 @@ export default function Landing() {
               <h3>Our Vision</h3>
               <p>
                 To be the trailblazer of the self-heating food packaging industry, setting a new
-                standard for quality and innovation across the globe.
+                standard for quality and innovation across the globe. Reach us at operations@marid.global.
               </p>
             </article>
 

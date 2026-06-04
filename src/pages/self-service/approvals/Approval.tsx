@@ -582,12 +582,12 @@ export default function Approval() {
   return (
     <div className="appr">
       <PageHeader
-        title="View Approvals"
-        description="Track leave, overtime, and payslip dispute decisions from one place."
+        title="Leave Request Filing"
+        description="Track submitted leave request statuses, decision notes, and supporting files from one place."
       />
 
       <div className="appr__toolbar">
-        <label className="apprSearch" aria-label="Search approvals">
+        <label className="apprSearch" aria-label="Search leave requests">
           <FiSearch />
           <input
             value={searchValue}
@@ -688,7 +688,7 @@ export default function Approval() {
             ))
           ) : (
             <div className="uEmptyState">
-              No matching approval requests.
+              No matching leave request records.
             </div>
           )}
         </div>
@@ -697,15 +697,15 @@ export default function Approval() {
       <LargePopup
         key={selectedApproval?.id ?? 'approval-details'}
         open={Boolean(selectedApproval)}
-        ariaLabel="Approval details"
+        ariaLabel="Leave request details"
         title={
           selectedApproval
             ? selectedApproval.requestType === 'Payslip Dispute'
               ? selectedApproval.requestType
               : `${selectedApproval.requestType} Request`
-            : 'Approval details'
+            : 'Leave request details'
         }
-        subtitle="Review the request timeline, current status, and recorded decision notes for this approval item."
+        subtitle="Review the request timeline, current status, and recorded decision notes for this leave request."
         size="md"
         onClose={() => setSelectedApprovalId(null)}
         footer={(

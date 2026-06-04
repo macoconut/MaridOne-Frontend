@@ -17,19 +17,19 @@ export default function AppFooter() {
 
         <div className="eFooter__col">
           <h4>Mission:</h4>
-          <p>To ignite a culinary revolution with our self-heating food packaging solutions.</p>
+          <p>To ignite a culinary revolution with our self-heating food packaging solutions. For operations support, contact operations@marid.global.</p>
         </div>
 
         <div className="eFooter__col">
           <h4>Vision:</h4>
           <p>
             To be the trailblazer of the self-heating food packaging industry, setting a new
-            standard for quality and innovation across the globe.
+            standard for quality and innovation across the globe. Reach us at operations@marid.global.
           </p>
 
           <div className="eFooter__contact">
             <span className="eFooter__contactLabel">Contact Us:</span>
-            <span className="eFooter__contactValue"> marid@marid.com</span>
+            <span className="eFooter__contactValue"> operations@marid.global</span>
           </div>
         </div>
       </div>

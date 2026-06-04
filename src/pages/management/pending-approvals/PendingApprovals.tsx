@@ -557,7 +557,7 @@ export default function ManagementPendingApprovals() {
         />
 
         <div className="hrAppr__toolbar">
-          <label className="uSearch" aria-label="Search approvals">
+          <label className="uSearch" aria-label="Search leave requests">
             <FiSearch />
             <input
               value={searchValue}
@@ -664,8 +664,8 @@ export default function ManagementPendingApprovals() {
 
       <LargePopup
         open={Boolean(selected)}
-        ariaLabel="Pending approval review"
-        title={selected ? `${selected.employee} - ${selected.type}` : 'Pending approval review'}
+        ariaLabel="Leave request review"
+        title={selected ? `${selected.employee} - ${selected.type}` : 'Leave request review'}
         subtitle={
           canReviewSelected
             ? 'Review the request details, then either forward the request to HR or deny it here.'
@@ -878,7 +878,7 @@ export default function ManagementPendingApprovals() {
             ? pendingDecision === 'REJECTED'
               ? `Deny ${selected.employee}'s ${selected.type.toLowerCase()} request now?`
               : `Forward ${selected.employee}'s ${selected.type.toLowerCase()} request to HR for the final decision?`
-            : 'Confirm this approval decision?'
+            : 'Confirm this request decision?'
         }
         confirmLabel={pendingDecision === 'REJECTED' ? 'Confirm Denial' : 'Forward to HR'}
         cancelLabel="Go Back"

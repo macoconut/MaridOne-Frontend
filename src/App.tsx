@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useEffect, useState, type ReactElement } from 'react';
 import {
   clearForcedLogoutMessage,
@@ -16,6 +16,10 @@ import {
   type SelfServicePage,
   type SelfServiceRole,
 } from './lib/utils/roleRoutes';
+import {
+  buildLoginRedirectPath,
+  getPostAuthRedirectPath,
+} from './lib/utils/authRedirect';
 
 import Landing from './pages/public/Landing';
 import VerifyEmail from './pages/public/VerifyEmail';
@@ -82,16 +86,17 @@ function RequireRole({
   role: UserRole;
   children: ReactElement;
 }) {
+  const location = useLocation();
   const token = getAuthToken();
   const currentRole = getUserRole();
   const requiresPasswordChange = getRequiresPasswordChange();
 
   if (!token) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={buildLoginRedirectPath(location)} replace state={{ from: location }} />;
   }
 
   if (!currentRole) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={buildLoginRedirectPath(location)} replace state={{ from: location }} />;
   }
 
   if (requiresPasswordChange) {
@@ -106,36 +111,39 @@ function RequireRole({
 }
 
 function LoginRoute() {
+  const location = useLocation();
   const token = getAuthToken();
   const role = getUserRole();
   const requiresPasswordChange = getRequiresPasswordChange();
 
   if (token && role) {
-    return <Navigate to={requiresPasswordChange ? '/change-password' : roleHome(role)} replace />;
+    return <Navigate to={getPostAuthRedirectPath(role, requiresPasswordChange, location, roleHome(role))} replace />;
   }
 
   return <EmployeeLogin />;
 }
 
 function LandingRoute() {
+  const location = useLocation();
   const token = getAuthToken();
   const role = getUserRole();
   const requiresPasswordChange = getRequiresPasswordChange();
 
   if (token && role) {
-    return <Navigate to={requiresPasswordChange ? '/change-password' : roleHome(role)} replace />;
+    return <Navigate to={getPostAuthRedirectPath(role, requiresPasswordChange, location, roleHome(role))} replace />;
   }
 
   return <Landing />;
 }
 
 function ForgotPasswordRoute() {
+  const location = useLocation();
   const token = getAuthToken();
   const role = getUserRole();
   const requiresPasswordChange = getRequiresPasswordChange();
 
   if (token && role) {
-    return <Navigate to={requiresPasswordChange ? '/change-password' : roleHome(role)} replace />;
+    return <Navigate to={getPostAuthRedirectPath(role, requiresPasswordChange, location, roleHome(role))} replace />;
   }
 
   return <ForgotPassword />;

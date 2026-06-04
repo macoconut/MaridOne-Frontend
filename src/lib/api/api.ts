@@ -10,6 +10,7 @@ import {
   setRequiresPasswordChange,
   setRefreshToken,
 } from '../utils/session';
+import { buildLoginRedirectPathForPath } from '../utils/authRedirect';
 import { setGlobalLoadingActive } from '@/context/loadingEvents';
 import type { ErrorResponseDto } from '../types/error';
 
@@ -101,7 +102,9 @@ export async function expireCurrentSession() {
 function completeLoginRedirect() {
   clearSession();
   if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-    window.location.replace('/login');
+    window.location.replace(
+      buildLoginRedirectPathForPath(`${window.location.pathname}${window.location.search}${window.location.hash}`)
+    );
   }
 }
 

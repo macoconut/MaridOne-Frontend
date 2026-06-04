@@ -64,7 +64,7 @@ const navSections: NavSection[] = [
     items: [
       { to: '/management/self-service/dashboard', label: 'User Dashboard', icon: FiGrid },
       { to: '/management/self-service/attendance', label: 'Attendance', icon: FiCalendar },
-      { to: '/management/self-service/approvals', label: 'View Approvals', icon: FiCheckSquare },
+      { to: '/management/self-service/approvals', label: 'Leave Request Filing', icon: FiCheckSquare },
       { to: '/management/self-service/payslip', label: 'View Payslip', icon: FiFileText },
       { to: '/management/self-service/training', label: 'Documents', icon: FiBookOpen },
     ],
@@ -77,7 +77,7 @@ const navSections: NavSection[] = [
       { to: '/management/attendance', label: 'Attendance Dashboard', icon: FiBarChart2 },
       { to: '/management/payroll-dashboard', label: 'Payroll Dashboard', icon: FiDollarSign },
       { to: '/management/pay-run-reporting', label: 'Pay Run Reporting', icon: FiClipboard },
-      { to: '/management/pending-approvals', label: 'Pending Approvals', icon: FiCheckSquare },
+      { to: '/management/pending-approvals', label: 'Manage Leave Requests', icon: FiCheckSquare },
     ],
   },
 ];

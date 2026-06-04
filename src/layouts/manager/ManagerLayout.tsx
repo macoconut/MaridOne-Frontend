@@ -36,7 +36,7 @@ const navSections: NavSection[] = [
     items: [
       { to: '/manager/self-service/dashboard', label: 'User Dashboard', icon: FiGrid },
       { to: '/manager/self-service/attendance', label: 'Attendance', icon: FiCalendar },
-      { to: '/manager/self-service/approvals', label: 'View Approvals', icon: FiCheckSquare },
+      { to: '/manager/self-service/approvals', label: 'Leave Request Filing', icon: FiCheckSquare },
       { to: '/manager/self-service/payslip', label: 'View Payslip', icon: FiFileText },
       { to: '/manager/self-service/training', label: 'Documents', icon: FiBookOpen },
     ],
@@ -49,7 +49,7 @@ const navSections: NavSection[] = [
       { to: '/manager/attendance-dashboard', label: 'Attendance Dashboard', icon: FiBarChart2 },
       { to: '/manager/attendance-reports', label: 'Attendance Reports', icon: FiClipboard },
       { to: '/manager/monthly-team-schedule', label: 'Manage Schedule', icon: FiCalendar },
-      { to: '/manager/pending-approvals', label: 'Pending Approvals', icon: FiCheckSquare },
+      { to: '/manager/pending-approvals', label: 'Manage Leave Requests', icon: FiCheckSquare },
     ],
   },
 ];

@@ -1,11 +1,12 @@
 import { useLoading } from '@/context/useLoading';
 import { useEffect, useRef, useState } from 'react';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useUiDialog } from '@/components/dialog/useUiDialog';
 import { getApiBaseUrl } from '@/lib/api/api';
 import { clearSession, setSession } from '@/lib/utils/session';
 import { getRoleHomePath } from '@/lib/utils/roleRoutes';
+import { getPostAuthRedirectPath } from '@/lib/utils/authRedirect';
 import './Login.css';
 
 type UserRole = 'employee' | 'hr' | 'manager' | 'management' | 'accounting';
@@ -177,6 +178,7 @@ export default function EmployeeLogin() {
   const { showLoading, hideLoading } = useLoading();
 
   const navigate = useNavigate();
+  const location = useLocation();
   const { showError } = useUiDialog();
   const twoFactorInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const emailOtpInputRefs = useRef<Array<HTMLInputElement | null>>([]);
@@ -321,7 +323,7 @@ export default function EmployeeLogin() {
       }
 
       setSession(role, identity, remember, token, refreshToken, requiresPasswordChange);
-      navigate(requiresPasswordChange ? '/change-password' : mapRoleToRoute(role), { replace: true });
+      navigate(getPostAuthRedirectPath(role, requiresPasswordChange, location, mapRoleToRoute(role)), { replace: true });
     } catch {
       showSignInError('Cannot reach backend. Make sure API is running.');
     } finally {
@@ -400,7 +402,7 @@ export default function EmployeeLogin() {
       );
       setTwoFactorChallenge(null);
       setTwoFactorCode('');
-      navigate(requiresPasswordChange ? '/change-password' : mapRoleToRoute(role), { replace: true });
+      navigate(getPostAuthRedirectPath(role, requiresPasswordChange, location, mapRoleToRoute(role)), { replace: true });
     } catch {
       showSignInError('Cannot reach backend. Make sure API is running.');
     } finally {

@@ -736,7 +736,7 @@ async function submitDispute() {
                 <div className="payCard__companyCopy">
                   <div className="payCard__companyName">Marid Industries Corporation</div>
                   <div className="payCard__companyMeta">Address</div>
-                  <div className="payCard__companyMeta">marid@marid.com</div>
+                  <div className="payCard__companyMeta">operations@marid.global</div>
                 </div>
               </div>
             </div>

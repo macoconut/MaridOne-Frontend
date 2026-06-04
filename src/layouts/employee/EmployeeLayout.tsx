@@ -176,7 +176,7 @@ const navSections: NavSection[] = [
     items: [
       { to: '/employee/dashboard', label: 'User Dashboard', icon: FiGrid },
       { to: '/employee/attendance', label: 'Attendance', icon: FiCalendar },
-      { to: '/employee/approvals', label: 'View Approvals', icon: FiCheckSquare },
+      { to: '/employee/approvals', label: 'Leave Request Filing', icon: FiCheckSquare },
       { to: '/employee/payslip', label: 'View Payslip', icon: FiFileText },
       { to: '/employee/training', label: 'Documents', icon: FiBookOpen },
     ],

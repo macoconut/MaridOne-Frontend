@@ -45,7 +45,7 @@ const ROLE_ROUTE_CONFIG: Record<UserRole, RoleRouteConfig> = {
 export const SELF_SERVICE_ROUTE_META: Record<SelfServicePage, SelfServiceRouteMeta> = {
   dashboard: { page: 'dashboard', path: 'dashboard', label: 'Dashboard' },
   attendance: { page: 'attendance', path: 'attendance', label: 'Attendance' },
-  approvals: { page: 'approvals', path: 'approvals', label: 'Approvals' },
+  approvals: { page: 'approvals', path: 'approvals', label: 'Leave Request Filing' },
   payslip: { page: 'payslip', path: 'payslip', label: 'Payslip' },
   training: { page: 'training', path: 'training', label: 'Documents' },
 };

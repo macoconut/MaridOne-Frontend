@@ -184,8 +184,8 @@ export default function HrApprovals() {
   const [leavePaidFilter, setLeavePaidFilter] = useState<LeavePaidFilter>('all');
   const [overtimeTypeFilter, setOvertimeTypeFilter] = useState<OvertimeTypeFilter>('all');
 
-  useErrorDialogEffect(loadError, 'Approval requests could not be loaded');
-  useErrorDialogEffect(submitError, 'Approval decision could not be completed');
+  useErrorDialogEffect(loadError, 'Leave requests could not be loaded');
+  useErrorDialogEffect(submitError, 'Leave request decision could not be completed');
   useErrorDialogEffect(attachmentError, 'Attachment could not be opened');
 
   const selected = useMemo(
@@ -669,12 +669,12 @@ async function handleOpenAttachment(connectedEntity: string, connectedId: number
     <div className="hrAppr">
       <div className="hrAppr__head">
         <PageHeader
-          title='Requests from Employees'
-          description='Review the manager recommendation, confirm the paid or unpaid treatment, and record the final HR decision.'
+          title='Manage Leave Requests'
+          description='Review manager recommendations, confirm paid or unpaid treatment, and record the final HR decision for employee leave requests.'
         />
 
         <div className="hrAppr__toolbar">
-          <label className="uSearch" aria-label="Search approvals">
+          <label className="uSearch" aria-label="Search leave requests">
             <FiSearch />
             <input
               value={searchValue}
@@ -814,8 +814,8 @@ async function handleOpenAttachment(connectedEntity: string, connectedId: number
 
       <LargePopup
         open={Boolean(selected)}
-        ariaLabel="Approval details"
-        title={selected ? `${selected.employee} - ${selected.type}` : 'Approval details'}
+        ariaLabel="Leave request details"
+        title={selected ? `${selected.employee} - ${selected.type}` : 'Leave request details'}
         subtitle={
           canReviewSelected
             ? 'Review the manager recommendation, confirm the paid or unpaid treatment when needed, and record the finalization note here.'
