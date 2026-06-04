@@ -50,6 +50,7 @@ const API_BASE_URL = resolveApiBaseUrl();
 let refreshPromise: Promise<boolean> | null = null;
 const inflightGetRequests = new Map<string, Promise<Response>>();
 let forcedLogoutTimer: number | null = null;
+let globalLoadingSuppressedUntil = 0;
 export const FORCED_LOGOUT_EVENT = 'maridone:forced-logout';
 const FORCED_LOGOUT_HEADER = 'X-Session-Ended-Reason';
 const PORTAL_ACCESS_REMOVED_REASON = 'portal-access-removed';
@@ -78,6 +79,14 @@ export class ApiError extends Error {
 
 export function getApiBaseUrl() {
   return API_BASE_URL;
+}
+
+export function suppressApiGlobalLoadingFor(durationMs: number) {
+  globalLoadingSuppressedUntil = Math.max(globalLoadingSuppressedUntil, Date.now() + durationMs);
+}
+
+function isApiGlobalLoadingSuppressed() {
+  return Date.now() < globalLoadingSuppressedUntil;
 }
 
 export async function expireCurrentSession() {
@@ -290,7 +299,7 @@ async function refreshAccessToken(): Promise<boolean> {
 //use for auth related stuff or when you need the raw response for some reason
 export async function apiFetchRaw(path: string, init: ApiFetchInit = {}, allowRetry = true): Promise<Response> {
   const { globalLoading = true, ...requestInit } = init;
-  const shouldTrackGlobalLoading = globalLoading && allowRetry;
+  const shouldTrackGlobalLoading = globalLoading && allowRetry && !isApiGlobalLoadingSuppressed();
   const token = getAuthToken();
   const method = String(requestInit.method ?? 'GET').toUpperCase();
   const headers = new Headers(requestInit.headers ?? {});

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { suppressApiGlobalLoadingFor } from '../lib/api/api';
 import { useRegisterPageRefresh } from '../lib/utils/usePageRefresh';
 
 type UseAutoRefreshingPageOptions = {
@@ -7,6 +8,8 @@ type UseAutoRefreshingPageOptions = {
   refreshOnFocus?: boolean;
   focusRefreshCooldownMs?: number;
 };
+
+const AUTO_REFRESH_GLOBAL_LOADING_SUPPRESSION_MS = 3000;
 
 function isEditableElement(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
@@ -48,19 +51,24 @@ export function useAutoRefreshingPage(
     handlerRef.current = handler;
   }, [handler]);
 
-  const refreshPage = useCallback(async () => {
+  const refreshPage = useCallback(async (quiet = false) => {
     if (isRefreshingRef.current) return;
 
     isRefreshingRef.current = true;
     try {
       lastRefreshAtRef.current = Date.now();
+      if (quiet) {
+        suppressApiGlobalLoadingFor(AUTO_REFRESH_GLOBAL_LOADING_SUPPRESSION_MS);
+      }
       await handlerRef.current();
     } finally {
       isRefreshingRef.current = false;
     }
   }, []);
 
-  useRegisterPageRefresh(refreshPage);
+  const manualRefreshPage = useCallback(() => refreshPage(false), [refreshPage]);
+
+  useRegisterPageRefresh(manualRefreshPage);
 
   useEffect(() => {
     if (!enabled || intervalMs <= 0 || typeof window === 'undefined') return;
@@ -68,7 +76,7 @@ export function useAutoRefreshingPage(
     const intervalId = window.setInterval(() => {
       if (document.visibilityState !== 'visible') return;
       if (shouldPauseAutoRefresh()) return;
-      void refreshPage();
+      void refreshPage(true);
     }, intervalMs);
 
     return () => window.clearInterval(intervalId);
@@ -85,12 +93,12 @@ export function useAutoRefreshingPage(
 
     const handleFocus = () => {
       if (!shouldRefreshOnForeground()) return;
-      void refreshPage();
+      void refreshPage(true);
     };
 
     const handleVisibilityChange = () => {
       if (!shouldRefreshOnForeground()) return;
-      void refreshPage();
+      void refreshPage(true);
     };
 
     window.addEventListener('focus', handleFocus);
@@ -102,5 +110,5 @@ export function useAutoRefreshingPage(
     };
   }, [enabled, refreshOnFocus, focusRefreshCooldownMs, refreshPage]);
 
-  return refreshPage;
+  return manualRefreshPage;
 }
