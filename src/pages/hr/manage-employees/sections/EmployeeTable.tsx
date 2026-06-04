@@ -23,7 +23,7 @@ export default function EmployeeTable({
         <div>EMP ID</div>
         <div>NAME</div>
         <div>Username</div>
-        <div className="hrEmpTable__headCell--status">Status</div>
+        <div className="hrEmpTable__headCell--status">Employment Status</div>
         <div>Designation</div>
         <div>Company Email</div>
         <div className="hrEmpTable__headCell--actions" />
@@ -54,7 +54,7 @@ export default function EmployeeTable({
                 </div>
                 <div>{row.username}</div>
                 <div className="hrEmpRow__statusCell">
-                  {isTerminated ? 'RELEASED' : formatEmploymentStatusLabel(row.status)}
+                  {formatEmploymentStatusLabel(row.status)}
                 </div>
                 <div className="hrEmpRow__positionCell">{row.designation}</div>
                 <div className="hrEmpRow__emailCell">{row.email}</div>

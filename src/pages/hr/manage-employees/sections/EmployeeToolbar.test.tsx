@@ -27,7 +27,7 @@ const baseProps = {
   searchValue: '',
   sortMenuOpen: false,
   statusFilter: 'all',
-  statusOptions: ['REGULAR'],
+  statusOptions: [{ label: 'Active', value: 'ACTIVE' }],
 };
 
 describe('EmployeeToolbar', () => {

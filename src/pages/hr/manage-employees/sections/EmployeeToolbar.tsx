@@ -3,6 +3,8 @@ import { FiDownload, FiFilter, FiMoreVertical, FiSearch, FiXCircle } from 'react
 import EmployeeSortMenu from '@/components/layout/EmployeeSortMenu';
 import type { EmployeeSortKey } from '@/lib/utils/employeeSort';
 
+import { formatEmploymentStatusLabel } from '../manageEmployeesShared';
+
 type EmployeeToolbarProps = {
   activeFilterCount: number;
   departmentFilter: string;
@@ -26,7 +28,7 @@ type EmployeeToolbarProps = {
   searchValue: string;
   sortMenuOpen: boolean;
   statusFilter: string;
-  statusOptions: string[];
+  statusOptions: ReadonlyArray<{ label: string; value: string }>;
   employeeSort: EmployeeSortKey;
 };
 
@@ -93,12 +95,12 @@ export default function EmployeeToolbar({
           {filterOpen ? (
             <div className="uFilter__panel">
               <label className="uFilter__field">
-                <span>Status</span>
+                <span>Employment Status</span>
                 <select value={statusFilter} onChange={(event) => onStatusFilterChange(event.target.value)}>
-                  <option value="all">All Statuses</option>
+                  <option value="all">All Employment Statuses</option>
                   {statusOptions.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
+                    <option key={option.value} value={option.value}>
+                      {option.label || formatEmploymentStatusLabel(option.value)}
                     </option>
                   ))}
                 </select>

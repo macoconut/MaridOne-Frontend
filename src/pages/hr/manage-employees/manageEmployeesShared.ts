@@ -7,7 +7,16 @@ import type {
   SeparationReason,
 } from './types';
 
-export const employmentStatusOptions = ['REGULAR', 'NEW_HIRE', 'PART_TIME', 'SUSPENDED', 'TERMINATED'] as const;
+export const employmentStatusOptions = [
+  { label: 'Active', value: 'REGULAR' },
+  { label: 'Suspended', value: 'SUSPENDED' },
+  { label: 'Terminated', value: 'TERMINATED' },
+] as const;
+export const employmentStatusFilterOptions = [
+  { label: 'Active', value: 'ACTIVE' },
+  { label: 'Suspended', value: 'SUSPENDED' },
+  { label: 'Terminated', value: 'TERMINATED' },
+] as const;
 export const accountStatusOptions = ['ACTIVE', 'INACTIVE'] as const;
 export const exemptionStatusOptions = ['EXEMPT', 'NON_EXEMPT'] as const;
 export const positionOptions = ['EMPLOYEE', 'MANAGER', 'HR', 'MANAGEMENT', 'ACCOUNTING', 'UNKNOWN'] as const;
@@ -140,8 +149,16 @@ export function normalizeSeparationReason(value?: string | null): FormState['sep
 export function formatEmploymentStatusLabel(value?: string | null) {
   const normalized = String(value ?? '').trim().toUpperCase();
   if (!normalized) return '-';
-  if (normalized === 'TERMINATED') return 'INACTIVE';
-  return normalized.replace(/_/g, ' ');
+  if (normalized === 'TERMINATED') return 'Terminated';
+  if (normalized === 'SUSPENDED') return 'Suspended';
+  return 'Active';
+}
+
+export function matchesEmploymentStatusFilter(status: string | null | undefined, filter: string) {
+  if (filter === 'all') return true;
+  const normalized = String(status ?? '').trim().toUpperCase();
+  if (filter === 'ACTIVE') return normalized !== 'TERMINATED' && normalized !== 'SUSPENDED';
+  return normalized === filter;
 }
 
 export function formatSeparationReasonLabel(value?: SeparationReason | string | null) {

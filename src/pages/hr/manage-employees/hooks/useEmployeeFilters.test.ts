@@ -36,7 +36,7 @@ describe('useEmployeeFilters', () => {
 
     act(() => {
       result.current.setSearchValue('alice');
-      result.current.setStatusFilter('REGULAR');
+      result.current.setStatusFilter('ACTIVE');
       result.current.setPositionFilter('EMPLOYEE');
       result.current.setDepartmentFilter('People Operations Department');
     });

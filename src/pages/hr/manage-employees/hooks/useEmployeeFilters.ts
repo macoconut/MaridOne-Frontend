@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { EmployeeSortKey } from '@/lib/utils/employeeSort';
-import { normalizeText } from '../manageEmployeesShared';
+import { employmentStatusFilterOptions, matchesEmploymentStatusFilter, normalizeText } from '../manageEmployeesShared';
 import type { EmployeeRow } from '../types';
 
 export function useEmployeeFilters(employeeRows: EmployeeRow[]) {
@@ -13,10 +13,7 @@ export function useEmployeeFilters(employeeRows: EmployeeRow[]) {
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [employeeSort, setEmployeeSort] = useState<EmployeeSortKey>('id');
 
-  const statusOptions = useMemo(
-    () => Array.from(new Set(employeeRows.map((row) => row.status).filter((value) => value && value !== '-'))).sort(),
-    [employeeRows]
-  );
+  const statusOptions = employmentStatusFilterOptions;
   const filterPositionOptions = useMemo(
     () => Array.from(new Set(employeeRows.map((row) => row.designation).filter((value) => value && value !== '-'))).sort(),
     [employeeRows]
@@ -95,7 +92,7 @@ export function useEmployeeFilters(employeeRows: EmployeeRow[]) {
 export function matchesEmployeeFilters(row: EmployeeRow, filters: Pick<ReturnType<typeof useEmployeeFilters>, 'departmentFilter' | 'positionFilter' | 'searchValue' | 'statusFilter'>) {
   const normalizedSearch = normalizeText(filters.searchValue);
   if (normalizedSearch && !row.searchIndex.includes(normalizedSearch)) return false;
-  if (filters.statusFilter !== 'all' && row.status !== filters.statusFilter) return false;
+  if (!matchesEmploymentStatusFilter(row.status, filters.statusFilter)) return false;
   if (filters.positionFilter !== 'all' && row.designation !== filters.positionFilter) return false;
   if (filters.departmentFilter !== 'all' && row.department !== filters.departmentFilter) return false;
   return true;

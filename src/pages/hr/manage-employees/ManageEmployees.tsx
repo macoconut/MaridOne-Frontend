@@ -18,7 +18,12 @@ import type { EmployeeDetails, EmployeeOption, LeaveBalanceRow } from '@/lib/typ
 import { getFriendlyErrorMessage } from '@/lib/utils/uiErrors';
 import { formatSss, formatPhilHealth, formatPagibig, formatTin, formatPhone, formatBankAccount } from '@/lib/utils/phIdFormatters';
 import { useEmployeeFilters } from './hooks/useEmployeeFilters';
-import { positionOptions as permissionAccessOptions } from './manageEmployeesShared';
+import {
+  employmentStatusOptions,
+  formatEmploymentStatusLabel,
+  matchesEmploymentStatusFilter,
+  positionOptions as permissionAccessOptions,
+} from './manageEmployeesShared';
 import EmployeeTable from './sections/EmployeeTable';
 import EmployeeToolbar from './sections/EmployeeToolbar';
 import './ManageEmployees.css';
@@ -194,7 +199,6 @@ type FormState = {
   separationNotes: string;
 };
 
-const employmentStatusOptions = ['REGULAR', 'NEW_HIRE', 'PART_TIME', 'SUSPENDED', 'TERMINATED'] as const;
 const accountStatusOptions = ['ACTIVE', 'INACTIVE'] as const;
 const exemptionStatusOptions = ['EXEMPT', 'NON_EXEMPT'] as const;
 const separationReasonOptions: Array<{ label: string; value: SeparationReason }> = [
@@ -321,13 +325,6 @@ function normalizeSeparationReason(value?: string | null): FormState['separation
   return separationReasonOptions.some((option) => option.value === normalized)
     ? (normalized as SeparationReason)
     : '';
-}
-
-function formatEmploymentStatusLabel(value?: string | null) {
-  const normalized = String(value ?? '').trim().toUpperCase();
-  if (!normalized) return '-';
-  if (normalized === 'TERMINATED') return 'INACTIVE';
-  return normalized.replace(/_/g, ' ');
 }
 
 function formatSeparationReasonLabel(value?: SeparationReason | string | null) {
@@ -663,7 +660,7 @@ export default function HrManageEmp() {
 
     const filtered = employeeRows.filter((row) => {
       if (normalizedSearch && !row.searchIndex.includes(normalizedSearch)) return false;
-      if (statusFilter !== 'all' && row.status !== statusFilter) return false;
+      if (!matchesEmploymentStatusFilter(row.status, statusFilter)) return false;
       if (positionFilter !== 'all' && row.designation !== positionFilter) return false;
       if (departmentFilter !== 'all' && row.department !== departmentFilter) return false;
       return true;
@@ -943,7 +940,7 @@ export default function HrManageEmp() {
     if (visibleEmployeeRows.length === 0) return;
 
     const rows = [
-      ['Employee ID', 'Name', 'Username', 'Status', 'Company Email', 'Personal Email', 'Phone', 'Designation', 'Department'],
+      ['Employee ID', 'Name', 'Username', 'Employment Status', 'Company Email', 'Personal Email', 'Phone', 'Designation', 'Department'],
       ...visibleEmployeeRows
         .map((row) => [row.id, row.name, row.username, row.status, row.email, row.personalEmail, row.phone, row.designation, row.department]),
     ];
@@ -2112,7 +2109,7 @@ export default function HrManageEmp() {
             <h3>Employment</h3>
             <div className="hrEmpDetails__items">
               <div className="hrEmpDetails__item">
-                <span>Status</span>
+                <span>Employment Status</span>
                 <strong>{formatEmploymentStatusLabel(details.employmentStatus)}</strong>
               </div>
               <div className="hrEmpDetails__item">
@@ -2604,7 +2601,7 @@ export default function HrManageEmp() {
                                 </div>
                               ) : null}
                               <div className="hrEmpDelete__summaryItem">
-                                <span>Status</span>
+                                <span>Employment Status</span>
                                 <strong>{formatEmploymentStatusLabel(selectedEmployee.status)}</strong>
                               </div>
                             </div>
@@ -2671,14 +2668,14 @@ export default function HrManageEmp() {
                           ) : null}
 
                           <div className="hrEmpField">
-                            <label>Status</label>
+                            <label>Employment Status</label>
                             <select
                               value={form.employmentStatus}
                               onChange={(event) => setField('employmentStatus', event.target.value)}
                             >
                               {employmentStatusOptions.map((option) => (
-                                <option key={option} value={option}>
-                                  {option}
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
                                 </option>
                               ))}
                             </select>
