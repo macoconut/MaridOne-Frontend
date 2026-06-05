@@ -118,7 +118,7 @@ function toStatusCode(status: string) {
 function statusLabel(status: string) {
   const normalized = status.toUpperCase();
   if (normalized === 'PENDING_MANAGER') return 'Pending Management Review';
-  if (normalized === 'PENDING_HR') return 'Pending HR Review';
+  if (normalized === 'PENDING_HR') return 'Forwarded to HR';
   if (normalized === 'PENDING') return 'Pending Management Review';
   if (normalized === 'APPROVED') return 'Approved';
   if (normalized === 'REJECTED') return 'Denied';

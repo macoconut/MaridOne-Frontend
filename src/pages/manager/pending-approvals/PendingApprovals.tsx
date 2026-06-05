@@ -126,7 +126,7 @@ function rosterMap(payload: unknown) {
 }
 
 const MANAGER_APPROVAL_WORKFLOW_HELP = [
-  'Managers review requests from assigned team members and can review their own submitted requests.',
+  'Managers review requests from assigned team members only.',
   'Approving here endorses the request and forwards it to HR for final paid or unpaid review.',
   'Denying here closes the request and notifies the employee without sending it to HR.',
 ];
