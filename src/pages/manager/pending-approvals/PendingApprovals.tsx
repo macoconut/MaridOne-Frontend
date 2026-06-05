@@ -29,7 +29,6 @@ import '../../hr/approvals/Approvals.css';
 type EmployeeRow = {
   id: number;
   name: string;
-  position?: string;
 };
 
 type RequestType = 'Leave' | 'Overtime';
@@ -65,7 +64,6 @@ type ManagerRequest = {
   overtimeId?: number;
   attachmentConnectedEntity?: string;
   attachmentConnectedId?: number;
-  isHrOwnedLeave?: boolean;
 };
 
 function employeeLabel(employeeById: Map<number, EmployeeRow>, employeeId?: number) {
@@ -118,7 +116,6 @@ function rosterMap(payload: unknown) {
       [row.firstName, row.middleName, row.lastName]
         .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
         .join(' ') || 'Employee unavailable',
-    position: String(row.position ?? '').trim().toUpperCase(),
   }));
 
   return new Map(
@@ -129,9 +126,8 @@ function rosterMap(payload: unknown) {
 }
 
 const MANAGER_APPROVAL_WORKFLOW_HELP = [
-  'Managers review only requests from their assigned team members.',
+  'Managers review requests from assigned team members and can review their own submitted requests.',
   'Approving here endorses the request and forwards it to HR for final paid or unpaid review.',
-  'If the requester is HR, endorsed leave routes to Management instead so HR does not process their own leave.',
   'Denying here closes the request and notifies the employee without sending it to HR.',
 ];
 
@@ -173,7 +169,7 @@ export default function ManagerPendingApprovals() {
     : false;
   const selectedStatusTone = selected ? approvalStatusTone(selected.status) : 'pending';
   const selectedRequestKind = splitRequestKind(selected?.requestKind);
-  const selectedForwardDestination = selected?.isHrOwnedLeave ? 'Management' : 'HR';
+  const selectedForwardDestination = 'HR';
 
   const isDirty = useMemo(() => {
     if (!selected || !canReviewSelected) return false;
@@ -250,7 +246,6 @@ export default function ManagerPendingApprovals() {
       const leaveRows = toArray<LeaveDto>(leaveRes).map((item, idx) => {
         const leaveTypeLabel = formatRequestTypeLabel(item.leaveType);
         const payLabel = item.paid === false ? 'Unpaid' : 'Paid';
-        const requester = employeeById.get(Number(item.empId));
         return {
           id: `leave-${item.requestId ?? idx}`,
           requestId: item.requestId,
@@ -279,7 +274,6 @@ export default function ManagerPendingApprovals() {
           endDateTime: item.endDateTime,
           attachmentConnectedEntity: Directories.LEAVE_REQUEST,
           attachmentConnectedId: item.requestId,
-          isHrOwnedLeave: requester?.position === 'HR',
         };
       });
 

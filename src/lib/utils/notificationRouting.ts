@@ -49,6 +49,15 @@ const MANAGER_APPROVAL_PREFIXES = [
   'new payroll dispute',
 ] as const;
 
+const MANAGEMENT_APPROVAL_PREFIXES = [
+  'new leave request',
+  'new overtime request',
+  'an employee cancelled a leave request',
+  'an employee cancelled an overtime request',
+  'leave request from',
+  'overtime request from',
+] as const;
+
 const NOTIFICATION_MESSAGE_DATE_PATTERN =
   /\b\d{4}-\d{2}-\d{2}(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:?\d{2})?)?\b/g;
 
@@ -156,6 +165,10 @@ function resolveDestination(role: NotificationRole, message: string) {
 
   if (role === 'manager' && startsWithAny(normalized, MANAGER_APPROVAL_PREFIXES)) {
     return '/manager/pending-approvals';
+  }
+
+  if (role === 'management' && startsWithAny(normalized, MANAGEMENT_APPROVAL_PREFIXES)) {
+    return '/management/pending-approvals';
   }
 
   if (role === 'management' && includesAny(normalized, ['pay run', 'payroll run'])) {

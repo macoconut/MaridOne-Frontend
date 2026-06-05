@@ -70,7 +70,7 @@ type ManagementRequest = {
   overtimeId?: number;
   attachmentConnectedEntity?: string;
   attachmentConnectedId?: number;
-  isAlternateFinalReview?: boolean;
+  canReview: boolean;
 };
 
 function employeeDirectoryId(row?: EmployeeDirectoryRow) {
@@ -118,7 +118,7 @@ function toStatusCode(status: string) {
 function statusLabel(status: string) {
   const normalized = status.toUpperCase();
   if (normalized === 'PENDING_MANAGER') return 'Pending Management Review';
-  if (normalized === 'PENDING_HR') return 'Pending Management Final Review';
+  if (normalized === 'PENDING_HR') return 'Pending HR Review';
   if (normalized === 'PENDING') return 'Pending Management Review';
   if (normalized === 'APPROVED') return 'Approved';
   if (normalized === 'REJECTED') return 'Denied';
@@ -143,9 +143,9 @@ function splitRequestKind(value?: string) {
 }
 
 const MANAGEMENT_APPROVAL_WORKFLOW_HELP = [
-  'Management reviews requests from employees without assigned managers.',
-  'HR-owned leave requests that were endorsed by a manager route here for final approval, so HR does not approve their own leave.',
-  'Other endorsed leave and overtime requests continue to HR for the final paid or unpaid review.',
+  'Management can view every leave and overtime request in the company.',
+  'Management reviews requests from employees without assigned managers, plus their own submitted requests.',
+  'Approved requests then move to HR, where HR chooses the final paid or unpaid treatment.',
 ];
 
 function resolveCurrentEmployeeId(payload: unknown) {
@@ -194,9 +194,8 @@ export default function ManagementPendingApprovals() {
     ? ['APPROVED', 'REJECTED', 'CANCELLED'].includes(normalizedSelectedStatus)
     : false;
   const canReviewSelected = selected
-    ? normalizedSelectedStatus === 'PENDING_MANAGER' || normalizedSelectedStatus === 'PENDING' || selected.isAlternateFinalReview === true
+    ? selected.canReview
     : false;
-  const isAlternateFinalReview = selected?.isAlternateFinalReview === true;
   const selectedStatusTone = selected ? approvalStatusTone(selected.status) : 'pending';
   const selectedRequestKind = splitRequestKind(selected?.requestKind);
 
@@ -274,7 +273,6 @@ export default function ManagementPendingApprovals() {
 
       const employeeById = new Map<number, EmployeeRow>();
       const unmanagedEmployeeIds = new Set<number>();
-      const hrEmployeeIds = new Set<number>();
 
       for (const row of toArray<EmployeeDirectoryRow>(employeesPayload)) {
         const employeeId = employeeDirectoryId(row);
@@ -287,9 +285,6 @@ export default function ManagementPendingApprovals() {
         if (row.managerId == null) {
           unmanagedEmployeeIds.add(employeeId);
         }
-        if (String(row.position ?? '').trim().toUpperCase() === 'HR') {
-          hrEmployeeIds.add(employeeId);
-        }
       }
 
       const currentEmployeeId = resolveCurrentEmployeeId(currentEmployeePayload);
@@ -299,15 +294,12 @@ export default function ManagementPendingApprovals() {
           if (typeof item.empId !== 'number') {
             return false;
           }
-          const status = String(item.requestStatus ?? '').toUpperCase();
-          const isUnmanagedRequest = unmanagedEmployeeIds.has(item.empId);
-          const isHrAlternateRequest = hrEmployeeIds.has(item.empId) && status === 'PENDING_HR';
-          if (!isUnmanagedRequest && !isHrAlternateRequest) {
-            return false;
-          }
-          return currentEmployeeId == null || item.empId !== currentEmployeeId;
+          return true;
         })
         .map((item, idx) => {
+          const status = String(item.requestStatus ?? 'PENDING_MANAGER').toUpperCase();
+          const isFirstLevelPending = status === 'PENDING_MANAGER' || status === 'PENDING';
+          const canReview = isFirstLevelPending && (unmanagedEmployeeIds.has(Number(item.empId)) || item.empId === currentEmployeeId);
           const leaveTypeLabel = formatRequestTypeLabel(item.leaveType);
           const payLabel = item.paid === false ? 'Unpaid' : 'Paid';
           return {
@@ -338,7 +330,7 @@ export default function ManagementPendingApprovals() {
             endDateTime: item.endDateTime,
             attachmentConnectedEntity: Directories.LEAVE_REQUEST,
             attachmentConnectedId: item.requestId,
-            isAlternateFinalReview: hrEmployeeIds.has(Number(item.empId)) && String(item.requestStatus ?? '').toUpperCase() === 'PENDING_HR',
+            canReview,
           };
         });
 
@@ -347,12 +339,12 @@ export default function ManagementPendingApprovals() {
           if (typeof item.employeeId !== 'number') {
             return false;
           }
-          if (!unmanagedEmployeeIds.has(item.employeeId)) {
-            return false;
-          }
-          return currentEmployeeId == null || item.employeeId !== currentEmployeeId;
+          return true;
         })
         .map((item, idx) => {
+          const status = String(item.requestStatus ?? 'PENDING_MANAGER').toUpperCase();
+          const isFirstLevelPending = status === 'PENDING_MANAGER' || status === 'PENDING';
+          const canReview = isFirstLevelPending && (unmanagedEmployeeIds.has(Number(item.employeeId)) || item.employeeId === currentEmployeeId);
           const payLabel = item.paid === false ? 'Unpaid' : 'Paid';
           const overtimeTypeLabel = formatRequestTypeLabel(item.overtimeType || 'Overtime');
           return {
@@ -379,6 +371,7 @@ export default function ManagementPendingApprovals() {
             sortStamp: item.requestAt ? Date.parse(item.requestAt) || 0 : 0,
             attachmentConnectedEntity: Directories.OVERTIME,
             attachmentConnectedId: item.overtimeId,
+            canReview,
           };
         });
 
@@ -463,7 +456,7 @@ export default function ManagementPendingApprovals() {
     setDecisionSubmitAttempted(false);
     setSubmitError('');
     setPendingDecision(
-      selected && String(selected.status).toUpperCase() === 'PENDING_HR' && selected.source === 'leave' ? 'APPROVED' : null
+      null
     );
     setConfirmDecisionOpen(false);
   }, [selected]);
@@ -476,7 +469,7 @@ export default function ManagementPendingApprovals() {
   async function submitDecision() {
     if (!selected) return;
     setDecisionSubmitAttempted(true);
-    const decision = isAlternateFinalReview ? 'APPROVED' : pendingDecision;
+    const decision = pendingDecision;
     if (!decision) {
       setSubmitError('Choose approve or deny before confirming the decision.');
       return;
@@ -521,7 +514,7 @@ export default function ManagementPendingApprovals() {
 
   function requestDecisionConfirmation() {
     setDecisionSubmitAttempted(true);
-    const decision = isAlternateFinalReview ? 'APPROVED' : pendingDecision;
+    const decision = pendingDecision;
     if (!decision) {
       setSubmitError('Choose approve or deny before confirming the decision.');
       return;
@@ -564,7 +557,7 @@ export default function ManagementPendingApprovals() {
     <div className="hrAppr">
       <div className="hrAppr__head">
         <PageHeader
-          title={selected ? 'Review Unmanaged Request' : 'Requests from Unmanaged Employees'}
+          title={selected ? 'Review Employee Request' : 'All Employee Requests'}
           titleMeta={
             <WorkflowHelpButton
               title="Approval Routing"
@@ -675,7 +668,7 @@ export default function ManagementPendingApprovals() {
           </>
         ) : (
           <div className="uEmptyState">
-            No matching unmanaged requests found. Try clearing the search or adjusting the filters.
+            No matching requests found. Try clearing the search or adjusting the filters.
           </div>
         )}
       </section>
@@ -686,9 +679,7 @@ export default function ManagementPendingApprovals() {
         title={selected ? `${selected.employee} - ${selected.type}` : 'Leave request review'}
         subtitle={
           canReviewSelected
-            ? isAlternateFinalReview
-              ? 'Review the HR-owned leave request details, then finalize it as the designated alternate approver.'
-              : 'Review the request details, then either forward the request to HR or deny it here.'
+            ? 'Review the request details, then either forward the request to HR or deny it here.'
             : 'Review the submitted details, supporting documents, and recorded decision history for this request.'
         }
         size="lg"
@@ -703,9 +694,7 @@ export default function ManagementPendingApprovals() {
               <button type="button" className="btn" onClick={requestDecisionConfirmation} disabled={isSaving || !pendingDecision}>
                 {isSaving
                   ? 'Saving...'
-                  : isAlternateFinalReview
-                    ? 'Confirm Approval'
-                    : pendingDecision === 'APPROVED'
+                  : pendingDecision === 'APPROVED'
                     ? 'Confirm Forward to HR'
                     : pendingDecision === 'REJECTED'
                       ? 'Confirm Denial'
@@ -844,7 +833,7 @@ export default function ManagementPendingApprovals() {
             {canReviewSelected && (
               <div className="apprModal__reviewPanels">
                 <div className="apprModal__panel">
-                  <p className="apprModal__panelTitle">{isAlternateFinalReview ? 'Management Final Review' : 'Management Review'}</p>
+                  <p className="apprModal__panelTitle">Management Review</p>
 
                   <div className="decisionPicker">
                     <div className="decisionPicker__actions">
@@ -854,18 +843,16 @@ export default function ManagementPendingApprovals() {
                         disabled={isSaving}
                         onClick={() => setPendingDecision('APPROVED')}
                       >
-                        {isAlternateFinalReview ? 'Approve' : 'Forward to HR'}
+                        Forward to HR
                       </button>
-                      {!isAlternateFinalReview && (
-                        <button
-                          type="button"
-                          className={`decisionPicker__button ${pendingDecision === 'REJECTED' ? 'is-selected' : ''}`}
-                          disabled={isSaving}
-                          onClick={() => setPendingDecision('REJECTED')}
-                        >
-                          Deny
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        className={`decisionPicker__button ${pendingDecision === 'REJECTED' ? 'is-selected' : ''}`}
+                        disabled={isSaving}
+                        onClick={() => setPendingDecision('REJECTED')}
+                      >
+                        Deny
+                      </button>
                     </div>
                   </div>
 
@@ -873,7 +860,7 @@ export default function ManagementPendingApprovals() {
                     <textarea
                       value={decisionReason}
                       onChange={(e) => setDecisionReason(e.target.value)}
-                      placeholder={isAlternateFinalReview ? 'Optional note for approving this request' : 'Optional note for approving or denying this request'}
+                      placeholder="Optional note for approving or denying this request"
                     />
                   </label>
 
@@ -895,17 +882,15 @@ export default function ManagementPendingApprovals() {
       />
       <ConfirmDialog
         open={confirmDecisionOpen}
-        title={pendingDecision === 'REJECTED' ? 'Confirm Denial' : isAlternateFinalReview ? 'Confirm Approval' : 'Confirm Forward to HR'}
+        title={pendingDecision === 'REJECTED' ? 'Confirm Denial' : 'Confirm Forward to HR'}
         message={
           selected
             ? pendingDecision === 'REJECTED'
               ? `Deny ${selected.employee}'s ${selected.type.toLowerCase()} request now?`
-              : isAlternateFinalReview
-                ? `Approve ${selected.employee}'s ${selected.type.toLowerCase()} request as the alternate final approver?`
               : `Forward ${selected.employee}'s ${selected.type.toLowerCase()} request to HR for the final decision?`
             : 'Confirm this request decision?'
         }
-        confirmLabel={pendingDecision === 'REJECTED' ? 'Confirm Denial' : isAlternateFinalReview ? 'Approve' : 'Forward to HR'}
+        confirmLabel={pendingDecision === 'REJECTED' ? 'Confirm Denial' : 'Forward to HR'}
         cancelLabel="Go Back"
         isBusy={isSaving}
         onConfirm={() => {

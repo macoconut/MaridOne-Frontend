@@ -49,7 +49,7 @@ const navSections: NavSection[] = [
       { to: '/manager/attendance-dashboard', label: 'Attendance Dashboard', icon: FiBarChart2 },
       { to: '/manager/attendance-reports', label: 'Attendance Reports', icon: FiClipboard },
       { to: '/manager/monthly-team-schedule', label: 'Manage Schedule', icon: FiCalendar },
-      { to: '/manager/pending-approvals', label: 'Manage Leave Requests', icon: FiCheckSquare },
+      { to: '/manager/pending-approvals', label: 'Manage Requests', icon: FiCheckSquare },
     ],
   },
 ];

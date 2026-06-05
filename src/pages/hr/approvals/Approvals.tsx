@@ -158,7 +158,7 @@ function buildAttachmentKey(entity: string, id: number) {
 const HR_APPROVAL_WORKFLOW_HELP = [
   'Managers review direct team requests first; Management reviews requests from employees without assigned managers.',
   'Endorsed leave and overtime requests arrive here for final HR paid or unpaid treatment.',
-  'Leave requests filed by HR personnel are finalized by Management instead, so HR never processes their own leave.',
+  'HR users can finalize their own endorsed requests here by choosing the paid or unpaid treatment.',
 ];
 
 
@@ -299,7 +299,6 @@ export default function HrApprovals() {
       }
 
       const employeeNameById = new Map<number, string>();
-      const employeePositionById = new Map<number, string>();
       if (employeesRes.status === 'fulfilled') {
         for (const row of toArray<EmployeeDirectoryRow>(employeesRes.value)) {
           const employeeId =
@@ -307,7 +306,6 @@ export default function HrApprovals() {
           if (employeeId === null) continue;
           const label = formatEmployeeLabel({ firstName: row.firstName, middleName: row.middleName, lastName: row.lastName, employeeId});
           if (label) employeeNameById.set(employeeId, label);
-          employeePositionById.set(employeeId, String(row.position ?? '').trim().toUpperCase());
         }
       }
 
@@ -346,11 +344,6 @@ export default function HrApprovals() {
       });
 
       const leaveRows = toArray<LeaveDto>(leaveRes.value)
-        .filter((item) => {
-          const isHrEmployee = employeePositionById.get(Number(item.empId)) === 'HR';
-          const status = String(item.requestStatus ?? '').toUpperCase();
-          return !(isHrEmployee && status === 'PENDING_HR');
-        })
         .map((item, idx) => {
           const leaveTypeLabel = formatRequestTypeLabel(item.leaveType);
           const payLabel = item.paid === false ? 'Unpaid' : 'Paid';
@@ -667,8 +660,8 @@ async function handleOpenAttachment(connectedEntity: string, connectedId: number
     <div className="hrAppr">
       <div className="hrAppr__head">
         <PageHeader
-          title='Manage Leave Requests'
-          description='Review manager recommendations, confirm paid or unpaid treatment, and record the final HR decision for employee leave requests.'
+          title='Manage Requests'
+          description='Review manager recommendations, confirm paid or unpaid treatment, and record the final HR decision for leave and overtime requests.'
           titleMeta={
             <WorkflowHelpButton
               title="Approval Routing"

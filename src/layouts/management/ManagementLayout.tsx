@@ -77,7 +77,7 @@ const navSections: NavSection[] = [
       { to: '/management/attendance', label: 'Attendance Dashboard', icon: FiBarChart2 },
       { to: '/management/payroll-dashboard', label: 'Payroll Dashboard', icon: FiDollarSign },
       { to: '/management/pay-run-reporting', label: 'Pay Run Reporting', icon: FiClipboard },
-      { to: '/management/pending-approvals', label: 'Manage Leave Requests', icon: FiCheckSquare },
+      { to: '/management/pending-approvals', label: 'Manage Requests', icon: FiCheckSquare },
     ],
   },
 ];

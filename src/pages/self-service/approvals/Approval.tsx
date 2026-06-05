@@ -5,6 +5,7 @@ import ApprovalStatusSummary from '@/components/approvals/ApprovalStatusSummary'
 import ConfirmDialog from '@/components/dialog/ConfirmDialog';
 import LargePopup from '@/components/dialog/LargePopup';
 import { useUiDialog } from '@/components/dialog/useUiDialog';
+import WorkflowHelpButton from '@/components/help/WorkflowHelpButton';
 import PageHeader from '@/components/layout/PageHeader';
 import { useAutoRefreshingPage } from '@/hooks/useAutoRefreshingPage';
 import { useEscapeDismiss } from '@/hooks/useEscapeDismiss';
@@ -201,6 +202,12 @@ function displayRequestDate(item: ApprovalItem) {
     ? formatDate(item.dateOfRequest, '-')
     : item.dateOfRequest;
 }
+
+const REQUEST_WORKFLOW_HELP = [
+  'Leave and overtime requests go to your assigned manager first when you have one.',
+  'If you do not have an assigned manager, Management handles the first review.',
+  'Approved requests move to HR, where HR makes the final paid or unpaid decision.',
+];
 
 export default function Approval() {
   const { showLoading, hideLoading } = useLoading();
@@ -582,8 +589,15 @@ export default function Approval() {
   return (
     <div className="appr">
       <PageHeader
-        title="Leave Request Filing"
-        description="Track submitted leave request statuses, decision notes, and supporting files from one place."
+        title="Request Filing"
+        description="Track submitted leave and overtime request statuses, decision notes, and supporting files from one place."
+        titleMeta={
+          <WorkflowHelpButton
+            title="Request Process"
+            items={REQUEST_WORKFLOW_HELP}
+            ariaLabel="Show request process help"
+          />
+        }
       />
 
       <div className="appr__toolbar">
